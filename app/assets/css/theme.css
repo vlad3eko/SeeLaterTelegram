@@ -1,0 +1,36 @@
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+    --color-header: #f3ecff;
+    --color-background: #faf7ff;
+    --color-panel: #f1eaff;
+
+    --color-accent: #1a0b2e;
+    --color-accent-foreground: #ffffff;
+
+    --color-primary: #7b3fe4;
+    --color-primary-foreground: #ffffff;
+    --color-focus: #5b21b6;
+    --color-info: #4c5c7a;
+
+    --color-button: #e9ddff;
+    --color-button-border: #c4a3ff;
+
+}
+
+.dark {
+    --color-header: #1A0B2E;
+    --color-background: #2c2b2e;
+    --color-panel: #190634;
+
+    --color-accent: #ffffff;
+    --color-accent-foreground: #1a0b2e;
+
+    --color-primary: #A362FF;
+    --color-primary-foreground: #9857D3;
+    --color-focus: #7127BA;
+    --color-info: #CCD6F6;
+
+    --color-button: #2C1250;
+    --color-button-border: #693B93;
+}

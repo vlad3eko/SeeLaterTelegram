@@ -1,0 +1,5 @@
+@layer text-sizes {
+    h2 {
+        @apply text-4xl
+    }
+}

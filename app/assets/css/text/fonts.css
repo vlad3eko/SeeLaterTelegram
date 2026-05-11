@@ -1,0 +1,21 @@
+
+.font-accent {
+    font-family: "Preahvihear", sans-serif;
+    font-weight: 400;
+    font-style: normal;
+}
+
+.font-foreground {
+    font-family: "Poppins", sans-serif;
+    font-weight: 400;
+    font-style: normal;
+    &.font-sb {
+        font-weight: 600;
+    }
+}
+
+.font-menu {
+    font-family: "Plus Jakarta Sans", sans-serif;
+    font-weight: 500;
+    font-style: normal;
+}

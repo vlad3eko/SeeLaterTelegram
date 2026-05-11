@@ -1,0 +1,26 @@
+* {
+    @apply transition duration-300
+}
+
+.animate-from-top { animation: from-top 1s none; }
+
+@keyframes from-top {
+    0% { transform: translateY(-50px); opacity: 0; }
+    100% { transform: translateY(0); opacity: 1; }
+}
+
+.animate-from-right { animation: from-right 1s none; }
+
+@keyframes from-right {
+    0% { transform: translateX(50px); opacity: 0; }
+    50% { transform: translateX(-10px); opacity: 0.7; }
+    100% { transform: translateX(0);  opacity: 1; }
+}
+
+.animate-from-left { animation: from-left 1s none; }
+
+@keyframes from-left {
+    100% { transform: translateX(0);  opacity: 1; }
+    50% { transform: translateX(10px); opacity: 0.7; }
+    0% { transform: translateX(-50px); opacity: 0; }
+}

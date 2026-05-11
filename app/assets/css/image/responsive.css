@@ -1,0 +1,23 @@
+@layer components {
+    .image-response {
+        @apply h-[150px] mx-auto;
+    }
+
+    @media (min-width: 640px) {
+        .image-response {
+            @apply h-[180px];
+        }
+    }
+
+    @media (min-width: 768px) {
+        .image-response {
+            @apply h-[220px];
+        }
+    }
+
+    @media (min-width: 1024px) {
+        .image-response {
+            @apply h-[250px];
+        }
+    }
+}
