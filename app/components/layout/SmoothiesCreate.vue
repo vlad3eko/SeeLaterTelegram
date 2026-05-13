@@ -32,19 +32,13 @@
 
 <script setup lang="ts">
 
-import type {ISmoothie} from "~~/types/smoothie";
+import type {MovieFormProps , MoviePayload} from "~/types/movie.types";
+import {useMovieStore} from "~/stores/movies";
 
-export type ISmoothiesMode = 'create' | 'update'
-
-export interface ISmoothieCreate {
-  mode: ISmoothiesMode
-  card?: Pick<ISmoothie, 'id' | 'title' | 'method' | 'rating'>
-}
-
-const props = defineProps<ISmoothieCreate>()
+const props = defineProps<MovieFormProps >()
 
 const supabase = useSupabaseClient()
-
+const useStoreMovie = useMovieStore()
 
 const errorMessage = ref<string>('')
 const successMessage = ref<string>('')
@@ -56,7 +50,7 @@ const form = reactive({
   rating: props.card?.rating || null
 })
 
-const payload = computed(() => ({
+const payload = computed<MoviePayload>(() => ({
   title: form.title,
   method: form.method,
   rating: form.rating,
@@ -82,20 +76,12 @@ const handleSubmit = async () => {
   let response
 
   if (props.mode === 'create') {
-    response = await supabase
-        .from('smoothies')
-        .insert(payload.value)
-        .select()
+    response = await useStoreMovie.createMovie(payload.value)
   } else if (props.mode === 'update' && props.card?.id) {
-    response = await supabase
-        .from('smoothies')
-        .update(payload.value)
-        .eq('id', props.card.id)
-        .select()
+    response = await useStoreMovie.updateMovie(payload.value, props.card.id)
   }
 
   if (!response) return
-
   const {data, error} = response
 
   if (error) {

@@ -1,36 +1,23 @@
 <template>
-  <div v-if="fetchData">
-    <SmoothiesCreate :card="fetchData" mode="update"/>
+  <loader v-if="useStoreMovies.loading"/>
+
+  <div v-if="useStoreMovies.movie">
+    <SmoothiesCreate :card="useStoreMovies.movie" mode="update"/>
   </div>
-  <p v-if="!fetchData" class="message text-center loading">загрузка данных..</p>
 </template>
 
 <script lang="ts" setup>
 
 
-import type {ISmoothie} from "~~/types/smoothie";
 import SmoothiesCreate from "~/components/layout/SmoothiesCreate.vue";
+import Loader from "~/components/composables/Loader.vue";
+import {useMovieStore} from "~/stores/movies";
 
 const id = Number(useRoute().params.id)
-const supabase = useSupabaseClient()
-const fetchData = ref<ISmoothie | null>(null)
-
-const fetch = async (id: number) => {
-  const {data, error} = await supabase
-      .from('smoothies')
-      .select()
-      .eq('id', id)
-      .single()
-
-  if (error) {
-    await navigateTo('/')
-  } else if (data) {
-      fetchData.value = data
-    }
-}
+const useStoreMovies = useMovieStore()
 
 onMounted(() => {
-  fetch(id)
+  useStoreMovies.getMovie(id)
 })
 </script>
 

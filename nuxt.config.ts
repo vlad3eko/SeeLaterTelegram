@@ -2,7 +2,7 @@ import tailwindcss from "@tailwindcss/vite";
 
 export default defineNuxtConfig({
     compatibilityDate: '2025-07-15',
-    modules: ['@nuxtjs/supabase', '@nuxt/image'],
+    modules: ['@nuxtjs/supabase', '@nuxt/image', '@pinia/nuxt'],
     devtools: {enabled: true},
     css: ['./app/assets/css/main.css'],
     supabase: {
