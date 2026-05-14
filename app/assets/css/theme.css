@@ -1,36 +1,44 @@
-@custom-variant dark (&:where(.dark, .dark *));
-
 @theme {
-    --color-header: #f3ecff;
-    --color-background: #faf7ff;
-    --color-panel: #f1eaff;
-
-    --color-accent: #1a0b2e;
-    --color-accent-foreground: #ffffff;
-
-    --color-primary: #7b3fe4;
-    --color-primary-foreground: #ffffff;
-    --color-focus: #5b21b6;
-    --color-info: #4c5c7a;
-
-    --color-button: #e9ddff;
-    --color-button-border: #c4a3ff;
-
+    --color-background: oklch(0.985 0.002 260);
+    --color-shell: oklch(0.965 0.003 260);
+    --color-panel: oklch(0.94 0.004 260);
+    --color-panel-soft: oklch(0.92 0.004 260);
+    --color-card: oklch(0.97 0.003 260);
+    --color-card-foreground: oklch(0.22 0.01 260);
+    --color-foreground: oklch(0.22 0.01 260);
+    --color-muted-foreground: oklch(0.46 0.01 260);
+    --color-primary: oklch(0.56 0.20 255);
+    --color-primary-foreground: oklch(0.99 0.002 260);
+    --color-accent: oklch(0.90 0.006 260);
+    --color-accent-foreground: oklch(0.22 0.01 260);
+    --color-price: oklch(0.60 0.14 145);
+    --color-price-old: oklch(0.55 0.01 260);
+    --color-price-sale: oklch(0.62 0.18 25);
+    --color-border: oklch(0.88 0.005 260);
+    --color-input: oklch(0.88 0.005 260);
+    --color-outline: oklch(0.56 0.20 255);
+    --color-error: oklch(0.586 0.215 28.242);
 }
 
 .dark {
-    --color-header: #1A0B2E;
-    --color-background: #2c2b2e;
-    --color-panel: #190634;
 
-    --color-accent: #ffffff;
-    --color-accent-foreground: #1a0b2e;
-
-    --color-primary: #A362FF;
-    --color-primary-foreground: #9857D3;
-    --color-focus: #7127BA;
-    --color-info: #CCD6F6;
-
-    --color-button: #2C1250;
-    --color-button-border: #693B93;
+    --color-background: oklch(0.20 0.004 260);
+    --color-shell: oklch(0.23 0.005 260);
+    --color-panel: oklch(0.26 0.006 260);
+    --color-panel-soft: oklch(0.29 0.006 260);
+    --color-card: oklch(0.31 0.006 260);
+    --color-card-foreground: oklch(0.92 0.004 260);
+    --color-foreground: oklch(0.92 0.004 260);
+    --color-muted-foreground: oklch(0.65 0.01 260);
+    --color-primary: oklch(0.62 0.20 255);
+    --color-primary-foreground: oklch(0.98 0.002 260);
+    --color-accent: oklch(0.28 0.006 260);
+    --color-accent-foreground: oklch(0.92 0.004 260);
+    --color-price: oklch(0.72 0.14 145);
+    --color-price-old: oklch(0.60 0.01 260);
+    --color-price-sale: oklch(0.70 0.18 25);
+    --color-border: oklch(0.32 0.006 260);
+    --color-input: oklch(0.32 0.006 260);
+    --color-outline: oklch(0.62 0.20 255);
+    --color-error: oklch(0.586 0.215 28.242);
 }

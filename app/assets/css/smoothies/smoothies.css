@@ -1,22 +1,12 @@
 
-:root {
-    --primary: #6d15df;
-    --secondary: #12bca2;
-}
+
 
 h1, h2, h3 {
     margin: 0;
 }
 
-body {
-    margin: 0;
-    color: #333;
-    font-family: 'Poppins', sans-serif;
-    background: #f2f2f2;
-}
-
 nav {
-    background: var(--primary);
+    background: var(--color-background);
     padding: 10px 20px;
     text-align: center;
 }
@@ -28,7 +18,7 @@ nav a {
 }
 
 nav h1 {
-    color: #fff;
+    color: var(--color-accent-foreground);
 }
 
 .page {
@@ -46,7 +36,6 @@ nav h1 {
 
 .smoothie-card {
     width: 100%;
-    background: #fff;
     box-sizing: border-box;
     border-radius: 6px;
 }
@@ -77,7 +66,7 @@ form input, form textarea {
     @apply text-sm font-bold;
 
     &.error {
-        @apply text-red-500 text-right;
+        @apply text-error text-right;
     }
 
     &.loading {

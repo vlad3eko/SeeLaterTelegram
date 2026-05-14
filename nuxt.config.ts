@@ -5,6 +5,9 @@ export default defineNuxtConfig({
     modules: ['@nuxtjs/supabase', '@nuxt/image', '@pinia/nuxt'],
     devtools: {enabled: true},
     css: ['./app/assets/css/main.css'],
+    runtimeConfig: {
+        tmdbApiKey: process.env.TMDB_API_KEY
+    },
     supabase: {
         url: process.env.SUPABASE_URL,
         key: process.env.SUPABASE_PUBLISHABLE_KEY,

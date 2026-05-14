@@ -33,7 +33,7 @@
 <script setup lang="ts">
 
 import type {MovieFormProps , MoviePayload} from "~/types/movie.types";
-import {useMovieStore} from "~/stores/movies";
+import {useMovieStore} from "~/stores/movies.store";
 
 const props = defineProps<MovieFormProps >()
 

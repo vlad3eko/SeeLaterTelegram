@@ -4,7 +4,7 @@ export interface Movie {
 
     title: string
     description: string
-    poster_url: string
+    poster_path: string
     rating: number | null
     release_date?: string
 
@@ -22,13 +22,13 @@ export type MovieStatus =
 export type MoviePayload =
     Pick<
         Movie,
-        'title' | 'method' | 'rating'>
+        'title' | 'rating'>
 
 export type MovieMode =
     'create' | 'update'
 
 export type MovieEditableData =
-    Pick<Movie, 'id' | 'title' | 'method' | 'rating'>
+    Pick<Movie, 'id' | 'title' | 'rating'>
 
 export interface MovieFormProps {
     mode:
@@ -40,12 +40,18 @@ export interface MovieFormProps {
 export type MovieSortField =
     'created_at' | 'title' | 'rating'
 
+export type MoviePropsMode = 'default' | 'tmdb'
+
+
 export interface MovieCardProps {
     movie: Movie
+    mode?: Extract<MoviePropsMode, 'default'>
 }
 
 export interface MovieCardsProps {
     movies: Movie[]
+    loading?: boolean
+    mode?: Extract<MoviePropsMode, 'default'>
 }
 
 

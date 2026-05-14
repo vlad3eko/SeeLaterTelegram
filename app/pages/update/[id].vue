@@ -11,7 +11,7 @@
 
 import SmoothiesCreate from "~/components/layout/SmoothiesCreate.vue";
 import Loader from "~/components/composables/Loader.vue";
-import {useMovieStore} from "~/stores/movies";
+import {useMovieStore} from "~/stores/movies.store";
 
 const id = Number(useRoute().params.id)
 const useStoreMovies = useMovieStore()

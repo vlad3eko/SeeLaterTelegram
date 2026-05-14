@@ -17,6 +17,7 @@
     "@tailwindcss/vite": "^4.2.4",
     "nuxt": "^4.4.4",
     "pinia": "^3.0.4",
+    "slugify": "^1.6.9",
     "tailwindcss": "^4.2.4",
     "vue": "^3.5.33",
     "vue-router": "^5.0.6"
