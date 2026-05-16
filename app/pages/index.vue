@@ -1,9 +1,19 @@
 <template>
-    <CatalogList
-        :movies="data?.results || []"
-        :loading="movieStore.loading"
-        mode="tmdb"
-    />
+  <div class="w-max flex mx-auto my-12 relative">
+    <input
+        type="text"
+        id="title"
+        @keydown.enter="searchMovies"
+        v-model="searchFilm" class="h-11 border mx-auto w-200 rounded-xl p-3"/>
+    <div class="h-full">
+      <UiButton @click="searchMovies" class="absolute top-0.5 right-0 w-max py-2 px-12">Поиск</UiButton>
+    </div>
+  </div>
+  <CatalogList
+      :movies="movies"
+      :loading="pending"
+      mode="tmdb"
+  />
 </template>
 
 <script lang="ts" setup>
@@ -11,21 +21,22 @@ import CatalogList from "~/components/widgets/app/catalog/CatalogList.vue";
 import type {TmdbResponse} from "~/types/tmdb.types";
 import {useMovieStore} from "~/stores/movies.store";
 
-const movieStore = useMovieStore()
-const data = ref<TmdbResponse | null>(null)
+const searchFilm = ref<string>('Ножи')
 
-onMounted(async () => {
+const {data, pending, refresh} = await useAsyncData<TmdbResponse>('movies-search',
+    () => $fetch('/api/tmdb/search', {
+      query: {
+        q: searchFilm.value
+      }
+    }))
 
-  movieStore.loading = true
-
-  data.value = await $fetch('/api/tmdb/search', {
-    query: {
-      q: 'Последний'
-    }
-  })
-
-  movieStore.loading = false
+const movies = computed(() => {
+  return data.value?.results || []
 })
+
+const searchMovies = async () => {
+  await refresh()
+}
 
 </script>
 
