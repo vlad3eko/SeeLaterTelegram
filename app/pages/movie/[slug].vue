@@ -1,7 +1,6 @@
 <template>
 
-  <div class="relative min-h-[600px] overflow-hidden">
-
+  <div class="relative min-h-screen overflow-hidden">
 
     <!-- BACKGROUND -->
     <NuxtImg
@@ -16,7 +15,7 @@
                from-accent
                via-accent/50
                to-accent/20
-               bg-white/30 backdrop-blur-md"
+               backdrop-blur-md"
     />
 
     <!-- EXTRA BLUR -->
@@ -24,114 +23,146 @@
         class="absolute inset-0 backdrop-blur-[2px]"
     />
 
-
     <!-- CONTENT -->
     <div class="relative z-10 container mx-auto px-8 py-20">
 
       <Loader v-if="loader"/>
 
-      <Transition name="fade" mode="in-out">
+      <Transition name="fade" mode="out-in">
 
-        <div v-if="!loader">
+        <div v-if="!loader && data">
 
-          <div class="grid grid-cols-[300px_1fr] gap-10">
+          <div class="grid grid-cols-[300px_1fr] gap-10 items-start">
 
             <!-- POSTER -->
-            <NuxtImg
-                :src="image"
-                class="w-[300px] rounded-2xl shadow-2xl"
-            />
-
-            <!-- INFO -->
-
-            <div v-if="!loader" class="">
-
-              <h1 class="text-5xl font-bold">
-                {{ data?.title }}
-              </h1>
-
-              <p class="text-info mt-3">
-                {{ FormatDate(data?.release_date) }}
-              </p>
-
-              <div class="mt-8">
-                {{ data?.overview }}
+            <div>
+              <NuxtImg
+                  :src="image"
+                  class="w-[300px] rounded-2xl shadow-2xl mb-3"
+              />
+              <!-- DESCRIPTION -->
+              <div class="text-center max-w-4xl leading-8 text-lg">
+                {{ data.overview }}
               </div>
+            </div>
 
-              <div class="flex gap-10 my-12 items-center select-none">
+            <!-- RIGHT COLUMN -->
+            <div class="flex flex-col gap-8">
 
-                <span class="material-symbols-outlined cursor-pointer">
+              <!-- TITLE -->
+              <div class="flex items-start justify-between gap-10">
+
+                <div>
+                  <h1 class="text-5xl font-bold">
+                    {{ data.title }}
+                  </h1>
+
+                  <p class="text-info mt-3">
+                    {{ FormatDate(data.release_date) }}
+                  </p>
+                </div>
+
+                <!-- ACTIONS -->
+                <div class="flex gap-10 select-none">
+
+                  <span class="material-symbols-outlined cursor-pointer">
                     heart_plus
-                </span>
+                  </span>
 
-                <span @click="handleAddMovie()" class="material-symbols-outlined cursor-pointer">
-                      playlist_add
-                </span>
+                  <span
+                      @click="handleAddMovie"
+                      class="material-symbols-outlined cursor-pointer"
+                  >
+                    playlist_add
+                  </span>
 
-                <NuxtLink v-if="trailer" :to="`https://www.youtube.com/watch?v=`+trailer?.key" target="_blank"
-                          class="flex items-center gap-3 cursor-pointer">
-              <span class="material-symbols-outlined">
-                  video_frame_copy
-              </span>
-                  <span class="hover:underline">
-              Смотреть трейлер
-              </span>
-                </NuxtLink>
+                  <NuxtLink
+                      v-if="trailer"
+                      :to="`https://www.youtube.com/watch?v=${trailer.key}`"
+                      target="_blank"
+                      class="flex items-center gap-3 cursor-pointer"
+                  >
+                    <span class="material-symbols-outlined">
+                      video_frame_copy
+                    </span>
+
+                    <span class="hover:underline">
+                      Смотреть трейлер
+                    </span>
+                  </NuxtLink>
+
+                </div>
               </div>
+
+              <!-- PLAYER -->
+              <iframe
+                  v-if="trailer"
+                  class="w-full h-[500px] rounded-2xl shadow-2xl"
+                  :src="`https://www.youtube.com/embed/${trailer.key}`"
+              />
+
 
             </div>
 
           </div>
 
         </div>
+
       </Transition>
+
     </div>
+
   </div>
 </template>
 
 <script lang="ts" setup>
+
 import type {TmdbMovieDetails} from "~/types/tmdb.types";
 import {useMovieStore} from "~/stores/movies.store";
 import {mapTmdbMovie} from "~/utils/mapTmdbMovie";
 import Loader from "~/components/composables/Loader.vue";
-import {FormatDate, FormatRating} from "~/utils/formatMoviesData";
+import {FormatDate} from "~/utils/formatMoviesData";
 
 const id = useRoute().params.slug
 
-defineProps()
 const movieStore = useMovieStore()
-
-const image = computed(() => {
-
-  const path = data.value?.poster_path || data.value?.backdrop_path
-
-  return path
-      ? `https://image.tmdb.org/t/p/w600_and_h900_face${path}`
-      : '/assets/errorImageMovie/errorImage.jpg'
-})
 
 const data = ref<TmdbMovieDetails | null>(null)
 const loader = ref<boolean>(true)
 
-const handleAddMovie = () => {
+const image = computed(() => {
 
-  const movie = data.value
-  if (!movie) return
+  const path =
+      data.value?.poster_path ||
+      data.value?.backdrop_path
 
-  movieStore.createMovie(mapTmdbMovie(movie))
-}
-
-const trailer = computed(() => {
-  const priorityRu = data.value?.trailers.find(
-      trailer => trailer.name === "20th Anniversary Trailer")
-
-  const youtubeRu = data.value?.trailers.find(
-      trailer => trailer.site === 'YouTube')
-
-  return priorityRu || youtubeRu
+  return path
+      ? `https://image.tmdb.org/t/p/original${path}`
+      : '/assets/errorImageMovie/errorImage.jpg'
 })
 
+const trailer = computed(() => {
+
+  const priority = data.value?.trailers.find(
+      trailer =>
+          trailer.site === 'YouTube' &&
+          trailer.type === 'Trailer'
+  )
+
+  return priority || null
+})
+
+const handleAddMovie = () => {
+
+  if (!data.value) return
+
+  movieStore.createMovie(
+      mapTmdbMovie(data.value)
+  )
+}
+
 onMounted(async () => {
+
   loader.value = true
 
   data.value = await $fetch('/api/tmdb/movie', {
@@ -145,6 +176,3 @@ onMounted(async () => {
 
 </script>
 
-<style scoped>
-
-</style>
