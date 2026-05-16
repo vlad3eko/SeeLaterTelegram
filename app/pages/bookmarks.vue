@@ -4,17 +4,17 @@
 
   <Transition name="fade" mode="out-in">
     <section v-if="!movieStore.loading">
-      <div v-if="movieStore.movies.length === 0" class="text-error/80">
-        Сохранённых фильмов пока нет..
 
-        <NuxtLink to="/" class="text-primary cursor-pointer underline">Выбрать фильмы</NuxtLink>
-      </div>
-      <div v-if="movieStore.movies.length !== 0" class="my-10 flex gap-3 w-max">
+      <div class="my-10 flex gap-3 w-max">
         <UiButton @click="movieStore.getMovies('created_at')">Date</UiButton>
         <UiButton @click="movieStore.getMovies('title')">Title</UiButton>
         <UiButton @click="movieStore.getMovies('rating')">Rating</UiButton>
       </div>
       <CatalogList :movies="movieStore.movies || []"/>
+      <div v-if="movieStore.movies.length === 0" class="text-error/80">
+        Сохранённых фильмов пока нет..
+
+      </div> <!--TODO при первом рендере моргает ошибка что фильмо нет.-->
     </section>
   </Transition>
 </template>

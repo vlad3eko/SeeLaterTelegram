@@ -13,7 +13,6 @@ import {useMovieStore} from "~/stores/movies.store";
 
 const movieStore = useMovieStore()
 const data = ref<TmdbResponse | null>(null)
-const trailer = ref(null)
 
 onMounted(async () => {
 
