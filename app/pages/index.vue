@@ -18,7 +18,6 @@
 
 <script lang="ts" setup>
 import type {TmdbResponse} from "~/types/tmdb.types";
-import {useMovieStore} from "~/stores/movies.store";
 import CatalogList from "~/components/widgets/web/catalog/CatalogList.vue";
 
 const searchFilm = ref<string>('Ножи')

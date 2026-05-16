@@ -1,34 +1,47 @@
 <template>
-  <loader v-if="movieStore.loading"/>
-
-
-  <Transition name="fade" mode="out-in">
-    <section v-if="!movieStore.loading">
-
+  <section>
+    <Transition name="fade" mode="out-in">
       <div class="my-10 flex gap-3 w-max">
-        <UiButton @click="movieStore.getMovies('created_at')">Date</UiButton>
-        <UiButton @click="movieStore.getMovies('title')">Title</UiButton>
-        <UiButton @click="movieStore.getMovies('rating')">Rating</UiButton>
+        <UiButton @click="sortBy = 'created_at'">Date</UiButton>
+        <UiButton @click="sortBy = 'title'">Title</UiButton>
+        <UiButton @click="sortBy = 'rating'">Rating</UiButton>
       </div>
-      <CatalogList :movies="movieStore.movies || []"/>
-      <div v-if="movieStore.movies.length === 0" class="text-error/80">
-        Сохранённых фильмов пока нет..
+    </Transition>
 
-      </div> <!--TODO при первом рендере моргает ошибка что фильмо нет.-->
-    </section>
-  </Transition>
+    <loader v-if="pending"/>
+
+    <Transition name="fade" mode="out-in">
+      <section v-if="!pending">
+
+
+        <CatalogList :movies="data?.data || []"/>
+        <div v-if="!pending && data?.data?.length === 0" class="text-error/80">
+          Сохранённых фильмов пока нет..
+          <NuxtLink to="/" class="text-primary hover:underline cursor-pointer">Выбрать фильм</NuxtLink>
+        </div>
+      </section>
+    </Transition>
+  </section>
 </template>
 
 <script lang="ts" setup>
 
 import CatalogList from "~/components/widgets/web/catalog/CatalogList.vue";
 import Loader from "~/components/composables/Loader.vue";
+import type {MovieSortField} from "~/types/movie.types";
 
-const movieStore = useMovieStore()
+const sortBy = ref<MovieSortField>('created_at')
 
-onMounted(() => {
-  movieStore.getMovies()
-})
+const {data, pending} = await useAsyncData(`movies-bookmarks-${sortBy.value}`,
+    () => $fetch('/api/movies',
+        {
+          query: {
+            sortBy: sortBy.value
+          }
+        }),
+    {
+      watch: [sortBy]
+    })
 
 </script>
 
