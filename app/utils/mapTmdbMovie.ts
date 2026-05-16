@@ -18,6 +18,6 @@ export const mapTmdbMovie = (
         rating: movie.vote_average,
         release_date: movie.release_date,
         status: 'planned',
-        tmdb_id: movie.id
+        tmdb_id: movie.id,
     }
 }

@@ -1,11 +1,13 @@
 <template>
-  <Loader v-if="props.loading"/> <!--TODO loader не выключается при фече tmdb-->
+  <Loader v-if="props.loading"/>
 
-  <section v-else class="smoothie-grid">
-    <div v-for="movie in props.movies" :key="movie.id" class="smoothie-card">
+  <Transition name="fade" mode="out-in">
+  <section v-if="!props.loading" class="smoothie-grid">
+    <div v-for="movie in filteredMovies" :key="movie.id" class="smoothie-card">
       <CatalogCard :movie="movie" :mode="props.mode"/>
     </div>
   </section>
+  </Transition>
 </template>
 
 <script lang="ts" setup>
@@ -17,6 +19,14 @@ import type {TmdbMoviesProps} from "~/types/tmdb.types";
 
 const props = defineProps<MovieCardsProps | TmdbMoviesProps>()
 const movieStore = useMovieStore()
+
+const filteredMovies = computed(() => {
+  const res = props.movies.filter(
+      movie => (movie.release_date && movie.poster_path)
+  )
+  console.log('res', res)
+  return res
+})
 
 </script>
 

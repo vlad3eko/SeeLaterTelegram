@@ -1,10 +1,12 @@
 <template>
+
   <div class="relative min-h-[600px] overflow-hidden">
+
 
     <!-- BACKGROUND -->
     <NuxtImg
         :src="image"
-        class="w-full h-full object-cover absolute inset-0"
+        class="w-full h-full object-cover absolute inset-0 select-none"
     />
 
     <!-- DARK GRADIENT -->
@@ -22,59 +24,67 @@
         class="absolute inset-0 backdrop-blur-[2px]"
     />
 
+
     <!-- CONTENT -->
     <div class="relative z-10 container mx-auto px-8 py-20">
 
-      <div class="grid grid-cols-[300px_1fr] gap-10">
+      <Loader v-if="loader"/>
 
-        <!-- POSTER -->
-        <NuxtImg
-            :src="image"
-            class="w-[300px] rounded-2xl shadow-2xl"
-        />
+      <Transition name="fade" mode="in-out">
 
-        <!-- INFO -->
-        <div class="">
+        <div v-if="!loader">
 
-          <h1 class="text-5xl font-bold">
-            {{ data?.title }}
-          </h1>
+          <div class="grid grid-cols-[300px_1fr] gap-10">
 
-          <p class="text-info mt-3">
-            {{ data?.release_date }}
-          </p>
+            <!-- POSTER -->
+            <NuxtImg
+                :src="image"
+                class="w-[300px] rounded-2xl shadow-2xl"
+            />
 
-          <div class="mt-8">
-            {{ data?.overview }}
-          </div>
+            <!-- INFO -->
 
-          <div class="flex gap-10 my-12 items-center">
+            <div v-if="!loader" class="">
 
-            <span class="material-symbols-outlined cursor-pointer">
-              heart_plus
-            </span>
+              <h1 class="text-5xl font-bold">
+                {{ data?.title }}
+              </h1>
 
-            <span @click="handleAddMovie()"
-                  class="material-symbols-outlined cursor-pointer">
-                playlist_add
-            </span>
+              <p class="text-info mt-3">
+                {{ FormatDate(data?.release_date) }}
+              </p>
 
+              <div class="mt-8">
+                {{ data?.overview }}
+              </div>
 
-            <NuxtLink v-if="trailer" :to="`https://www.youtube.com/watch?v=`+trailer?.key" target="_blank"
-                      class="flex items-center gap-3 cursor-pointer">
+              <div class="flex gap-10 my-12 items-center select-none">
+
+                <span class="material-symbols-outlined cursor-pointer">
+                    heart_plus
+                </span>
+
+                <span @click="handleAddMovie()" class="material-symbols-outlined cursor-pointer">
+                      playlist_add
+                </span>
+
+                <NuxtLink v-if="trailer" :to="`https://www.youtube.com/watch?v=`+trailer?.key" target="_blank"
+                          class="flex items-center gap-3 cursor-pointer">
               <span class="material-symbols-outlined">
                   video_frame_copy
               </span>
-              <span class="hover:underline">
+                  <span class="hover:underline">
               Смотреть трейлер
               </span>
-            </NuxtLink>
+                </NuxtLink>
+              </div>
+
+            </div>
+
           </div>
 
         </div>
-
-      </div>
-
+      </Transition>
     </div>
   </div>
 </template>
@@ -83,6 +93,8 @@
 import type {TmdbMovieDetails} from "~/types/tmdb.types";
 import {useMovieStore} from "~/stores/movies.store";
 import {mapTmdbMovie} from "~/utils/mapTmdbMovie";
+import Loader from "~/components/composables/Loader.vue";
+import {FormatDate, FormatRating} from "~/utils/formatMoviesData";
 
 const id = useRoute().params.slug
 
@@ -104,9 +116,9 @@ const loader = ref<boolean>(true)
 const handleAddMovie = () => {
 
   const movie = data.value
-  if (!movie)  return
+  if (!movie) return
 
-   movieStore.createMovie(mapTmdbMovie(movie))
+  movieStore.createMovie(mapTmdbMovie(movie))
 }
 
 const trailer = computed(() => {

@@ -5,7 +5,7 @@ export interface Movie {
     title: string
     description: string
     poster_path: string
-    rating: number | string | null
+    rating: number
     release_date?: string
 
     status: MovieStatus
@@ -17,8 +17,6 @@ export type MovieStatus =
     | 'planned'
     | 'watching'
     | 'watched'
-
-export type PostersMovie = 'poster_path' | 'backdrop_path'
 
 export type MoviePayload =
     Pick<

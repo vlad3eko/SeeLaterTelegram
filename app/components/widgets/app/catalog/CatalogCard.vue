@@ -1,7 +1,7 @@
 <template>
   <NuxtLink
-      v-if="movie"
-      :to="`/movie/${createSlug(movie.id, movie.title)}`"
+      v-if="movie "
+      :to="formatLink"
       class="hover:opacity-90 relative overflow-hidden">
 
     <div class="relative h-[262px]">
@@ -45,7 +45,7 @@
 
 
 import {FormatRating, FormatDate} from "~/utils/formatMoviesData";
-import type {MovieCardProps, MovieStatus} from "~/types/movie.types";
+import type {MovieCardProps} from "~/types/movie.types";
 import type {TmdbMovieProps} from "~/types/tmdb.types";
 import {createSlug} from "~/utils/createSlug";
 
@@ -70,11 +70,8 @@ const computedImagesSrc = computed(() => {
   }
 
   return `https://image.tmdb.org/t/p/w600_and_h900_face/${
-      props.movie.poster_path ||
-      props.movie?.backdrop_path}` || errorImage
+      props.movie.poster_path}` || errorImage
 })
-
-// TODO сделать в Movie объект path с poster_path и backdrop_path
 
 const statusClass = computed<string>(() => {
 
@@ -119,7 +116,10 @@ const formatRating = computed(() => {
     return FormatRating(rating)
   }
 })
-// TODO исправить эту залупу rating
+
+const formatLink = computed<string>(() => {
+  return `/movie/${createSlug(props.movie.id, props.movie.title)}`
+})
 </script>
 
 <style scoped>

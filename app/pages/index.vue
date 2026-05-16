@@ -1,30 +1,31 @@
 <template>
-  <CatalogList
-      :movies="data?.results || []"
-      :loading="loading"
-      mode="tmdb"
-  />
+    <CatalogList
+        :movies="data?.results || []"
+        :loading="movieStore.loading"
+        mode="tmdb"
+    />
 </template>
 
 <script lang="ts" setup>
 import CatalogList from "~/components/widgets/app/catalog/CatalogList.vue";
 import type {TmdbResponse} from "~/types/tmdb.types";
+import {useMovieStore} from "~/stores/movies.store";
 
-const loading = ref(true)
+const movieStore = useMovieStore()
 const data = ref<TmdbResponse | null>(null)
 const trailer = ref(null)
 
 onMounted(async () => {
 
-  loading.value = true
+  movieStore.loading = true
 
   data.value = await $fetch('/api/tmdb/search', {
     query: {
-      q: 'Побег'
+      q: 'Последний'
     }
   })
 
-  loading.value = false
+  movieStore.loading = false
 })
 
 </script>
