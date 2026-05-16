@@ -13,7 +13,7 @@
 <script lang="ts" setup>
 
 import type {MovieCardsProps} from "~/types/movie.types";
-import CatalogCard from "~/components/widgets/app/catalog/CatalogCard.vue";
+import CatalogCard from "~/components/widgets/web/catalog/CatalogCard.vue";
 import Loader from "~/components/composables/Loader.vue";
 import type {TmdbMoviesProps} from "~/types/tmdb.types";
 

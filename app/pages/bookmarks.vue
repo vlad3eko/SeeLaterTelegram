@@ -21,7 +21,7 @@
 
 <script lang="ts" setup>
 
-import CatalogList from "~/components/widgets/app/catalog/CatalogList.vue";
+import CatalogList from "~/components/widgets/web/catalog/CatalogList.vue";
 import Loader from "~/components/composables/Loader.vue";
 
 const movieStore = useMovieStore()
