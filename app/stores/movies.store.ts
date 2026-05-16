@@ -37,7 +37,7 @@ export const useMovieStore = defineStore('movies', () => {
         }
     }
 
-    const createMovie = async (payload: MoviePayload) => {
+    const createMovie = async (payload: Partial<Movie>) => {
         const {data, error} = await supabase
              .from('movies')
              .insert(payload)

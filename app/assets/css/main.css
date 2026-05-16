@@ -6,3 +6,7 @@
 @import "../css/image/responsive.css";
 @import "../css/animate/animate.css";
 @import "../css/smoothies/smoothies.css";
+
+section {
+    @apply container mx-auto my-10
+}

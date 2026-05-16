@@ -1,7 +1,7 @@
 <template>
   <NuxtLink
       v-if="movie"
-      :to="`/update/${movie.id}`"
+      :to="`/movie/${createSlug(movie.id, movie.title)}`"
       class="hover:opacity-90 relative overflow-hidden">
 
     <div class="relative h-[262px]">
@@ -10,7 +10,7 @@
           class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent"
       />
       <div v-if="statusClass"
-           class="absolute top-3 left-3 px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-md z-10"
+           class="absolute top-3 left-3 px-3 py-1 rounded-full text-xs font-semibold text-accent-foreground backdrop-blur-md z-10"
            :class="statusClass"
       >
         {{ movie.status }}
@@ -24,7 +24,7 @@
 
     </div>
     <div
-        class="absolute bottom-0 left-1/2 -translate-x-1/2 text-center p-5 flex flex-col gap-4 text-accent  w-full">
+        class="absolute bottom-0 left-1/2 -translate-x-1/2 text-center p-5 flex flex-col gap-4  w-full">
       <div class="text-sm">
         <span class="font-bold">
           {{ movie.title }}
@@ -47,6 +47,7 @@
 import {FormatRating, FormatDate} from "~/utils/formatMoviesData";
 import type {MovieCardProps, MovieStatus} from "~/types/movie.types";
 import type {TmdbMovieProps} from "~/types/tmdb.types";
+import {createSlug} from "~/utils/createSlug";
 
 const props = withDefaults(defineProps<MovieCardProps | TmdbMovieProps>(), {
   mode: 'default'
@@ -68,8 +69,12 @@ const computedImagesSrc = computed(() => {
         : errorImage
   }
 
-  return props.movie.poster_path || errorImage
+  return `https://image.tmdb.org/t/p/w600_and_h900_face/${
+      props.movie.poster_path ||
+      props.movie?.backdrop_path}` || errorImage
 })
+
+// TODO сделать в Movie объект path с poster_path и backdrop_path
 
 const statusClass = computed<string>(() => {
 
@@ -114,7 +119,7 @@ const formatRating = computed(() => {
     return FormatRating(rating)
   }
 })
-
+// TODO исправить эту залупу rating
 </script>
 
 <style scoped>

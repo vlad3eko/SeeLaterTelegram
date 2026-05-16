@@ -12,6 +12,7 @@ import type {TmdbResponse} from "~/types/tmdb.types";
 
 const loading = ref(true)
 const data = ref<TmdbResponse | null>(null)
+const trailer = ref(null)
 
 onMounted(async () => {
 
@@ -19,7 +20,7 @@ onMounted(async () => {
 
   data.value = await $fetch('/api/tmdb/search', {
     query: {
-      q: 'Боец'
+      q: 'Побег'
     }
   })
 

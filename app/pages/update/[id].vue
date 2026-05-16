@@ -1,8 +1,8 @@
 <template>
-  <loader v-if="useStoreMovies.loading"/>
+  <loader v-if="movieStore.loading"/>
 
-  <div v-if="useStoreMovies.movie">
-    <SmoothiesCreate :card="useStoreMovies.movie" mode="update"/>
+  <div v-if="movieStore.movie">
+    <SmoothiesCreate :card="movieStore.movie" mode="update"/>
   </div>
 </template>
 
@@ -14,10 +14,10 @@ import Loader from "~/components/composables/Loader.vue";
 import {useMovieStore} from "~/stores/movies.store";
 
 const id = Number(useRoute().params.id)
-const useStoreMovies = useMovieStore()
+const movieStore = useMovieStore()
 
 onMounted(() => {
-  useStoreMovies.getMovie(id)
+  movieStore.getMovie(id)
 })
 </script>
 

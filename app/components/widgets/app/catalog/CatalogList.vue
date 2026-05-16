@@ -1,19 +1,11 @@
 <template>
   <Loader v-if="props.loading"/> <!--TODO loader не выключается при фече tmdb-->
 
-  <div v-else class="container mx-auto my-10">
-    <div class="my-10 flex gap-3 w-max">
-      <UiButton @click="movieStore.getMovies('created_at')">Date</UiButton>
-      <UiButton @click="movieStore.getMovies('title')">Title</UiButton>
-      <UiButton @click="movieStore.getMovies('rating')">Rating</UiButton>
+  <section v-else class="smoothie-grid">
+    <div v-for="movie in props.movies" :key="movie.id" class="smoothie-card">
+      <CatalogCard :movie="movie" :mode="props.mode"/>
     </div>
-
-    <div class="smoothie-grid">
-      <div v-for="movie in props.movies" :key="movie.id" class="smoothie-card">
-        <CatalogCard :movie="movie" :mode="props.mode"/>
-      </div>
-    </div>
-  </div>
+  </section>
 </template>
 
 <script lang="ts" setup>
