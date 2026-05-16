@@ -21,11 +21,9 @@ const props = defineProps<MovieCardsProps | TmdbMoviesProps>()
 const movieStore = useMovieStore()
 
 const filteredMovies = computed(() => {
-  const res = props.movies.filter(
+  return props.movies.filter(
       movie => (movie.release_date && movie.poster_path)
   )
-  console.log('res', res)
-  return res
 })
 
 </script>

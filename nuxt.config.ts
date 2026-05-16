@@ -4,7 +4,7 @@ export default defineNuxtConfig({
     compatibilityDate: '2025-07-15',
     modules: ['@nuxtjs/supabase', '@nuxt/image', '@nuxtjs/color-mode', '@pinia/nuxt'],
     devtools: {enabled: true},
-    css: ['./web/assets/css/main.css'],
+    css: ['./app/assets/css/main.css'],
     runtimeConfig: {
         tmdbApiKey: process.env.TMDB_API_KEY
     },
