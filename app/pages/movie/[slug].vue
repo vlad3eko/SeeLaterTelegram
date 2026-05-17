@@ -46,16 +46,16 @@
                   :src="image"
                   class="w-full rounded-2xl shadow-2xl"/>
               <div
-                  class="absolute inset-0 bg-gradient-to-t from-black/50 via-black/30 to-transparent"
+                  class="absolute inset-0 bg-gradient-to-t rounded-2xl from-black/50 via-black/30 to-transparent"
               />
               <!-- INFO -->
 
-                <p class="text-info text-sm absolute bottom-3 left-3">
+                <p class="text-info text-white/80 text-sm absolute bottom-6 left-6">
                   {{ FormatDate(data.release_date) }}
                 </p>
 
                 <!-- ACTIONS -->
-                <div class="flex items-center gap-3 select-none absolute bottom-3 right-3">
+                <div class="flex items-center text-white/80 gap-6 select-none absolute bottom-6 right-6">
 
                 <span class="material-symbols-outlined cursor-pointer hover:scale-130 transition">
                   heart_plus
@@ -63,16 +63,11 @@
 
                   <span
                       @click="handleAddMovie"
-                      class="material-symbols-outlined cursor-pointer hover:scale-130 transition"
-                  >
+                      class="material-symbols-outlined cursor-pointer hover:scale-130 transition">
                   playlist_add
                 </span>
-
                 </div>
-
             </div>
-
-
           </div>
 
           <!-- RIGHT COLUMN -->

@@ -5,53 +5,12 @@ export const useMovieStore = defineStore('movies', () => {
     const supabase = useSupabaseClient()
 
     const movies = ref<Movie[]>([])
-    const movie = ref<Movie | null>(null)
-    const loading = ref<boolean>(true)
-
-    const getMovies = async (sortBy: MovieSortField = 'created_at') => {
-        const {data, error} = await supabase
-            .from('movies')
-            .select()
-            .order(sortBy, {ascending: false})
-
-        if (error) {
-            console.log('Ошибка getMovies: ', error.message)
-            return
-        }
-        movies.value = data
-        loading.value = false
-    }
-
-    const getMovie = async (id: number) => {
-        const {data, error} = await supabase
-            .from('movies')
-            .select()
-            .eq('id', id)
-            .single()
-
-        if (error) {
-            await navigateTo('/')
-        } else if (data) {
-            movie.value = data
-            loading.value = false
-        }
-    }
 
     const createMovie = async (payload: Partial<Movie>) => {
         const {data, error} = await supabase
              .from('movies')
              .insert(payload)
              .select();
-
-        return {data, error}
-    }
-
-    const updateMovie = async (payload: MoviePayload, id: number) => {
-        const {data, error} = await supabase
-            .from('movies')
-            .update(payload)
-            .eq('id', id)
-            .select()
 
         return {data, error}
     }
@@ -70,13 +29,8 @@ export const useMovieStore = defineStore('movies', () => {
     }
 
     return {
-        movie,
         movies,
-        loading,
-        getMovies,
-        getMovie,
         createMovie,
-        updateMovie,
         deleteMovie,
     }
 })

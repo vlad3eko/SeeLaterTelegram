@@ -5,9 +5,6 @@
         <NuxtLink to="/" class="text-xl uppercase font-bold text-primary hover:text-focus">Главная</NuxtLink>
       </li>
       <li>
-        <NuxtLink to="/create" class="text-xl uppercase font-bold text-primary hover:text-focus">Добавить</NuxtLink>
-      </li>
-      <li>
         <NuxtLink to="/bookmarks" class="text-xl uppercase font-bold text-primary hover:text-focus">Сохранённые</NuxtLink>
       </li>
       <ThemeSelect/>
