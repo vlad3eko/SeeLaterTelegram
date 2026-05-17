@@ -24,7 +24,7 @@
 
     </div>
     <div
-        class="absolute bottom-0 left-1/2 -translate-x-1/2 text-center p-5 flex flex-col gap-4  w-full">
+        class="absolute bottom-0 text-white left-1/2 -translate-x-1/2 text-center p-5 flex flex-col gap-4  w-full">
       <div class="text-sm">
         <span class="font-bold">
           {{ movie.title }}
