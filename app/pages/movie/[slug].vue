@@ -5,102 +5,97 @@
     <!-- BACKGROUND -->
     <NuxtImg
         :src="image"
-        class="w-full h-full object-cover absolute inset-0 select-none"
+        class="absolute inset-0 w-full h-full object-cover select-none"
     />
 
-    <!-- DARK GRADIENT -->
+    <!-- OVERLAY -->
     <div
         class="absolute inset-0
-               bg-gradient-to-r
+               bg-gradient-to-b
+               md:bg-gradient-to-r
                from-accent
-               via-accent/50
-               to-accent/20
+               via-accent/70
+               to-accent/30
                backdrop-blur-md"
     />
 
-    <!-- EXTRA BLUR -->
-    <div
-        class="absolute inset-0 backdrop-blur-[2px]"
-    />
-
     <!-- CONTENT -->
-    <div class="relative z-10 container mx-auto px-8 py-20">
+    <div class="relative z-10 container mx-auto px-4 md:px-8 py-10 md:py-20">
 
       <Loader v-if="loader"/>
 
       <Transition name="fade" mode="out-in">
 
-        <div v-if="!loader && data">
+        <div
+            v-if="!loader && data"
+            class="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-8 lg:gap-10"
+        >
+          <iframe
+              v-if="trailer"
+              class="w-full h-[450px] aspect-video rounded-2xl shadow-2xl block lg:hidden"
+              :src="`https://www.youtube.com/embed/${trailer.key}`"
+              allowfullscreen
+          />
+          <!-- LEFT COLUMN -->
+          <div class="w-full max-w-[300px] mx-auto lg:mx-0">
 
-          <div class="grid grid-cols-[300px_1fr] gap-10 items-start">
 
             <!-- POSTER -->
-            <div>
-              <NuxtImg
-                  :src="image"
-                  class="w-[300px] rounded-2xl shadow-2xl mb-3"
-              />
-              <!-- DESCRIPTION -->
-              <div class="text-center max-w-4xl leading-8 text-lg">
-                {{ data.overview }}
+            <NuxtImg
+                :src="image"
+                class="w-full rounded-2xl shadow-2xl"
+            />
+
+            <!-- INFO -->
+            <div class="flex items-center justify-between mt-4 px-2">
+
+              <p class="text-info text-sm">
+                {{ FormatDate(data.release_date) }}
+              </p>
+
+              <!-- ACTIONS -->
+              <div class="flex items-center gap-3 select-none">
+
+                <span class="material-symbols-outlined cursor-pointer hover:scale-110 transition">
+                  heart_plus
+                </span>
+
+                <span
+                    @click="handleAddMovie"
+                    class="material-symbols-outlined cursor-pointer hover:scale-110 transition"
+                >
+                  playlist_add
+                </span>
+
               </div>
+
             </div>
 
-            <!-- RIGHT COLUMN -->
-            <div class="flex flex-col gap-8">
+          </div>
 
-              <!-- TITLE -->
-              <div class="flex items-start justify-between gap-10">
+          <!-- RIGHT COLUMN -->
+          <div class="flex flex-col gap-6">
 
-                <div>
-                  <h1 class="text-5xl font-bold">
-                    {{ data.title }}
-                  </h1>
+            <!-- TRAILER -->
+            <iframe
+                v-if="trailer"
+                class="w-full h-[450px] aspect-video rounded-2xl shadow-2xl hidden lg:block"
+                :src="`https://www.youtube.com/embed/${trailer.key}`"
+                allowfullscreen
+            />
 
-                  <p class="text-info mt-3">
-                    {{ FormatDate(data.release_date) }}
-                  </p>
-                </div>
+            <!-- TEXT -->
+            <div>
 
-                <!-- ACTIONS -->
-                <div class="flex gap-10 select-none">
+              <h1 class="text-3xl md:text-5xl font-bold leading-tight">
+                {{ data.title }}
+              </h1>
 
-                  <span class="material-symbols-outlined cursor-pointer">
-                    heart_plus
-                  </span>
+              <div class="border-b border-accent-foreground/20 my-4"/>
 
-                  <span
-                      @click="handleAddMovie"
-                      class="material-symbols-outlined cursor-pointer"
-                  >
-                    playlist_add
-                  </span>
-
-                  <NuxtLink
-                      v-if="trailer"
-                      :to="`https://www.youtube.com/watch?v=${trailer.key}`"
-                      target="_blank"
-                      class="flex items-center gap-3 cursor-pointer"
-                  >
-                    <span class="material-symbols-outlined">
-                      video_frame_copy
-                    </span>
-
-                    <span class="hover:underline">
-                      Смотреть трейлер
-                    </span>
-                  </NuxtLink>
-
-                </div>
-              </div>
-
-              <!-- PLAYER -->
-              <iframe
-                  v-if="trailer"
-                  class="w-full h-[500px] rounded-2xl shadow-2xl"
-                  :src="`https://www.youtube.com/embed/${trailer.key}`"
-              />
-
+              <p class="leading-7 md:leading-8 text-base md:text-lg text-accent-foreground/90">
+                {{ data.overview }}
+              </p>
 
             </div>
 
@@ -113,6 +108,7 @@
     </div>
 
   </div>
+
 </template>
 
 <script lang="ts" setup>
