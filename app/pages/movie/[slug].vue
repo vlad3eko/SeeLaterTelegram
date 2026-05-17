@@ -22,12 +22,12 @@
     <!-- CONTENT -->
     <div class="relative z-10 container mx-auto px-4 md:px-8 py-10 md:py-20">
 
-      <Loader v-if="loader"/>
+      <Loader v-if="pending"/>
 
       <Transition name="fade" mode="out-in">
 
         <div
-            v-if="!loader && data"
+            v-if="!pending && data"
             class="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-8 lg:gap-10"
         >
           <iframe
@@ -37,39 +37,41 @@
               allowfullscreen
           />
           <!-- LEFT COLUMN -->
-          <div class="w-full max-w-[300px] mx-auto lg:mx-0">
+          <div class="w-full mx-auto lg:mx-0 ">
 
 
             <!-- POSTER -->
-            <NuxtImg
-                :src="image"
-                class="w-full rounded-2xl shadow-2xl"
-            />
+            <div class="relative">
+              <NuxtImg
+                  :src="image"
+                  class="w-full rounded-2xl shadow-2xl"/>
+              <div
+                  class="absolute inset-0 bg-gradient-to-t from-black/50 via-black/30 to-transparent"
+              />
+              <!-- INFO -->
 
-            <!-- INFO -->
-            <div class="flex items-center justify-between mt-4 px-2">
+                <p class="text-info text-sm absolute bottom-3 left-3">
+                  {{ FormatDate(data.release_date) }}
+                </p>
 
-              <p class="text-info text-sm">
-                {{ FormatDate(data.release_date) }}
-              </p>
+                <!-- ACTIONS -->
+                <div class="flex items-center gap-3 select-none absolute bottom-3 right-3">
 
-              <!-- ACTIONS -->
-              <div class="flex items-center gap-3 select-none">
-
-                <span class="material-symbols-outlined cursor-pointer hover:scale-110 transition">
+                <span class="material-symbols-outlined cursor-pointer hover:scale-130 transition">
                   heart_plus
                 </span>
 
-                <span
-                    @click="handleAddMovie"
-                    class="material-symbols-outlined cursor-pointer hover:scale-110 transition"
-                >
+                  <span
+                      @click="handleAddMovie"
+                      class="material-symbols-outlined cursor-pointer hover:scale-130 transition"
+                  >
                   playlist_add
                 </span>
 
-              </div>
+                </div>
 
             </div>
+
 
           </div>
 
@@ -123,7 +125,6 @@ const id = useRoute().params.slug
 
 const movieStore = useMovieStore()
 
-const data = ref<TmdbMovieDetails | null>(null)
 const loader = ref<boolean>(true)
 
 const image = computed(() => {
@@ -157,18 +158,11 @@ const handleAddMovie = () => {
   )
 }
 
-onMounted(async () => {
-
-  loader.value = true
-
-  data.value = await $fetch('/api/tmdb/movie', {
-    query: {
-      id
-    }
-  })
-
-  loader.value = false
-})
-
+const {data, pending} = await useAsyncData<TmdbMovieDetails>(`movie-${id}`,
+    () => $fetch('/api/tmdb/movie', {
+      query: {
+        id
+      }
+    }))
 </script>
 

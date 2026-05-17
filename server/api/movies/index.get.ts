@@ -4,7 +4,6 @@ export default defineEventHandler(async (event) => {
 
     const query = getQuery(event)
 
-
     const sortBy =
         typeof query.sortBy === 'string'
             ? query.sortBy
