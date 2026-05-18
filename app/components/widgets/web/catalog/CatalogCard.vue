@@ -7,18 +7,15 @@
     <div class="relative h-[262px]">
       <NuxtImg :src="computedImagesSrc" class="h-full object-cover"/>
       <div
-          class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent"
-      />
+          class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent"/>
       <div v-if="statusClass"
-           class="absolute top-3 left-3 px-3 py-1 rounded-full text-xs font-semibold text-accent-foreground backdrop-blur-md z-10"
-           :class="statusClass"
-      >
+           class="absolute top-3 left-3 px-3 py-1 rounded-full text-xs font-semibold text-white backdrop-blur-md z-10"
+           :class="statusClass">
         {{ movie.status }}
       </div>
       <div
           v-if="rating"
-          class="rating z-10"
-      >
+          class="rating z-10">
         ⭐ {{ formatRating }}
       </div>
 
@@ -29,11 +26,8 @@
         <span class="font-bold">
           {{ movie.title }}
         </span>
-
-        <p
-            v-if="movie.release_date"
-            class=" text-info mt-1 "
-        >
+        <p v-if="movie.release_date"
+            class=" text-info mt-1">
           {{ formatDate }}
         </p>
       </div>

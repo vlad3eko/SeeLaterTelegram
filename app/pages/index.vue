@@ -20,7 +20,7 @@
 import type {TmdbResponse} from "~/types/tmdb.types";
 import CatalogList from "~/components/widgets/web/catalog/CatalogList.vue";
 
-const searchFilm = ref<string>('Ножи')
+const searchFilm = ref<string>('Гладиатор')
 
 const {data, pending, refresh} = await useAsyncData<TmdbResponse>('movies-search',
     () => $fetch('/api/tmdb/search', {

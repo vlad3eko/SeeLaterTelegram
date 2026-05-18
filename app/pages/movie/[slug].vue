@@ -1,111 +1,67 @@
 <template>
-
-  <div class="relative min-h-screen overflow-hidden">
-
-    <!-- BACKGROUND -->
+  <div class="relative min-h-[50%] overflow-hidden">
     <NuxtImg
         :src="image"
-        class="absolute inset-0 w-full h-full object-cover select-none"
-    />
-
-    <!-- OVERLAY -->
-    <div
-        class="absolute inset-0
+        class="absolute inset-0 w-full h-full object-cover select-none"/>
+    <div class="absolute inset-0
                bg-gradient-to-b
                md:bg-gradient-to-r
                from-accent
                via-accent/70
                to-accent/30
-               backdrop-blur-md"
-    />
-
-    <!-- CONTENT -->
+               backdrop-blur-md"/>
     <div class="relative z-10 container mx-auto px-4 md:px-8 py-10 md:py-20">
-
       <Loader v-if="pending"/>
-
+      <iframe
+          v-if="trailer"
+          class="w-full h-[450px] aspect-video mb-10 rounded-2xl shadow-2xl hidden lg:block"
+          :src="`https://www.youtube.com/embed/${trailer.key}`"/>
       <Transition name="fade" mode="out-in">
 
-        <div
-            v-if="!pending && data"
-            class="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-8 lg:gap-10"
-        >
+
+        <div v-if="!pending && data"
+             class="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-8 lg:gap-10">
           <iframe
               v-if="trailer"
               class="w-full h-[450px] aspect-video rounded-2xl shadow-2xl block lg:hidden"
-              :src="`https://www.youtube.com/embed/${trailer.key}`"
-              allowfullscreen
-          />
-          <!-- LEFT COLUMN -->
-          <div class="w-full mx-auto lg:mx-0 ">
-
-
-            <!-- POSTER -->
+              :src="`https://www.youtube.com/embed/${trailer.key}`" allowfullscreen/>
+          <div class="w-full mx-auto lg:mx-0">
             <div class="relative">
               <NuxtImg
                   :src="image"
                   class="w-full rounded-2xl shadow-2xl"/>
-              <div
-                  class="absolute inset-0 bg-gradient-to-t rounded-2xl from-black/50 via-black/30 to-transparent"
-              />
-              <!-- INFO -->
-
-                <p class="text-info text-white/80 text-sm absolute bottom-6 left-6">
-                  {{ FormatDate(data.release_date) }}
-                </p>
-
-                <!-- ACTIONS -->
-                <div class="flex items-center text-white/80 gap-6 select-none absolute bottom-6 right-6">
-
+              <div class="absolute inset-0 bg-gradient-to-t rounded-2xl from-black/50 via-black/30 to-transparent"/>
+              <p class="text-info text-white/80 text-sm absolute bottom-6 left-6">
+                {{ FormatDate(data.release_date) }}
+              </p>
+              <div class="flex items-center text-white/80 gap-6 select-none absolute bottom-6 right-6">
                 <span class="material-symbols-outlined cursor-pointer hover:scale-130 transition">
                   heart_plus
                 </span>
-
-                  <span
-                      @click="handleAddMovie"
-                      class="material-symbols-outlined cursor-pointer hover:scale-130 transition">
+                <span
+                    @click="handleAddMovie"
+                    class="material-symbols-outlined cursor-pointer hover:scale-130 transition">
                   playlist_add
                 </span>
-                </div>
+              </div>
             </div>
           </div>
-
-          <!-- RIGHT COLUMN -->
           <div class="flex flex-col gap-6">
 
-            <!-- TRAILER -->
-            <iframe
-                v-if="trailer"
-                class="w-full h-[450px] aspect-video rounded-2xl shadow-2xl hidden lg:block"
-                :src="`https://www.youtube.com/embed/${trailer.key}`"
-                allowfullscreen
-            />
-
-            <!-- TEXT -->
             <div>
-
               <h1 class="text-3xl md:text-5xl font-bold leading-tight">
                 {{ data.title }}
               </h1>
-
               <div class="border-b border-accent-foreground/20 my-4"/>
-
               <p class="leading-7 md:leading-8 text-base md:text-lg text-accent-foreground/90">
                 {{ data.overview }}
               </p>
-
             </div>
-
           </div>
-
         </div>
-
       </Transition>
-
     </div>
-
   </div>
-
 </template>
 
 <script lang="ts" setup>
@@ -119,8 +75,6 @@ import {FormatDate} from "~/utils/formatMoviesData";
 const id = useRoute().params.slug
 
 const movieStore = useMovieStore()
-
-const loader = ref<boolean>(true)
 
 const image = computed(() => {
 
