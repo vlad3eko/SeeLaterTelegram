@@ -20,6 +20,8 @@ const emit = defineEmits<{
   search: []
 }>()
 
+const x = ref('')
+
 </script>
 
 <style scoped>
