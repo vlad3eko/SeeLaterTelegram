@@ -1,5 +1,14 @@
 <template>
-  <Search v-model="searchInput" @search="searchMovies"/>
+  <div class="w-max flex mx-auto my-12 relative">
+    <input
+        type="text"
+        id="title"
+        @keydown.enter="searchMovies"
+        v-model="searchFilm" class="h-11 border mx-auto w-200 rounded-xl p-3"/>
+    <div class="h-full">
+      <UiButton @click="searchMovies" class="absolute top-0.5 right-0 w-max py-2 px-12">Поиск</UiButton>
+    </div>
+  </div>
   <CatalogList
       :movies="movies"
       :loading="pending"
@@ -8,16 +17,25 @@
 </template>
 
 <script lang="ts" setup>
+import type {TmdbResponse} from "~/types/tmdb.types";
 import CatalogList from "~/components/widgets/web/catalog/CatalogList.vue";
-import {useTmdbSearch} from "~/components/composables/useTmdbSearch";
-import Search from "~/components/layout/Search.vue";
 
-const {
-  movies,
-  pending,
-  searchInput,
-  searchMovies
-} = useTmdbSearch()
+const searchFilm = ref<string>('Гладиатор')
+
+const {data, pending, refresh} = await useAsyncData<TmdbResponse>('movies-search',
+    () => $fetch('/api/tmdb/search', {
+      query: {
+        q: searchFilm.value
+      }
+    }))
+
+const movies = computed(() => {
+  return data.value?.results || []
+})
+
+const searchMovies = async () => {
+  await refresh()
+}
 
 </script>
 

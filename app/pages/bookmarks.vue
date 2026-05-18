@@ -1,5 +1,6 @@
 <template>
   <section>
+    <SearchPanel/>
     <Transition name="fade" mode="out-in">
       <div class="my-10 flex gap-3 w-max">
         <UiButton @click="sortBy = 'created_at'">Date</UiButton>
@@ -29,6 +30,7 @@
 import CatalogList from "~/components/widgets/web/catalog/CatalogList.vue";
 import Loader from "~/components/composables/Loader.vue";
 import type {MovieSortField} from "~/types/movie.types";
+import SearchPanel from "~/components/layout/SearchPanel.vue";
 
 const sortBy = ref<MovieSortField>('created_at')
 
