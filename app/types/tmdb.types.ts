@@ -18,6 +18,13 @@ export interface TmdbTrailer {
 
 export interface TmdbMovieDetails extends TmdbMovie {
     trailers: TmdbTrailer[]
+
+    tagline?: string
+    runtime?: number
+
+    genres?: TmdbGenre[]
+
+    origin_country?: string[]
 }
 
 export interface TmdbMovie {
@@ -29,6 +36,11 @@ export interface TmdbMovie {
     release_date: string
     vote_average: number
     vote_count: number
+}
+
+export interface TmdbGenre {
+    id: number
+    name: string
 }
 
 export interface TmdbMovieProps {
