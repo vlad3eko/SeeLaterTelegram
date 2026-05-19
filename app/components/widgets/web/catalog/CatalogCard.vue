@@ -16,7 +16,7 @@
       <div
           v-if="rating"
           class="rating z-10">
-        ⭐ {{ formatRating }}
+         {{ formatRating }}
       </div>
 
     </div>

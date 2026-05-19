@@ -1,5 +1,5 @@
 <template>
-  <button class="bg-primary hover:bg-focus text-accent-foreground rounded-xl mx-auto w-full py-2 px-3 cursor-pointer">
+  <button class="bg-primary hover:bg-focus text-accent rounded-xl w-full py-2 px-3 cursor-pointer">
     <slot/>
   </button>
 </template>
