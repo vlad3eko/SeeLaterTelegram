@@ -5,7 +5,7 @@
       class="hover:opacity-90 relative overflow-hidden">
 
     <div class="relative h-[262px]">
-      <NuxtImg :src="computedImagesSrc" class="h-full object-cover"/>
+      <NuxtImg :src="computedImagesSrc" class="h-full object-cover w-full"/>
       <div
           class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent"/>
       <div v-if="statusClass"
