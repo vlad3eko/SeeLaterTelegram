@@ -26,18 +26,9 @@
             <MovieDescription/>
             <MovieMeta/>
 
-            <UiHorizontalScroller title="Актёрский состав">
-              <PersonCard
-                  v-for="cast in castConverter"
-                  :id="cast.id"
-                  :person="cast"/>
-            </UiHorizontalScroller>
-            <UiHorizontalScroller title="Режиссёр">
-              <PersonCard
-                  v-for="cast in crewConverter"
-                  :id="cast.id"
-                  :person="cast"/>
-            </UiHorizontalScroller>
+            <UiHorizontalScroller title="Актёрский состав" :items="castConverter || []" :component="PersonCard"/>
+            <UiHorizontalScroller title="Режиссёр" :items="crewConverter" :component="PersonCard"/>
+
           </div>
         </div>
       </Transition>
