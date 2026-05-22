@@ -1,0 +1,18 @@
+.material-symbols-outlined { z-index: 999; }
+
+.material-symbols-outlined.md-12 { font-size: 12px; }
+.material-symbols-outlined.md-16 { font-size: 16px; }
+.material-symbols-outlined.md-18 { font-size: 18px; }
+.material-symbols-outlined.md-20 { font-size: 20px; }
+.material-symbols-outlined.md-24 { font-size: 24px; }
+.material-symbols-outlined.md-28 { font-size: 28px; }
+.material-symbols-outlined.md-36 { font-size: 36px; }
+.material-symbols-outlined.md-48 { font-size: 48px; }
+
+/* Rules for using icons as black on a light background. */
+.material-symbols-outlined.color { color: var(--color-neutral-200) }
+.material-symbols-outlined.md-dark.md-inactive { color: rgba(0, 0, 0, 0.26); }
+
+/* Rules for using icons as white on a dark background. */
+.material-symbols-outlined { color: rgba(255, 255, 255, 1); }
+.material-symbols-outlined.md-inactive { color: rgba(255, 255, 255, 0.3); }

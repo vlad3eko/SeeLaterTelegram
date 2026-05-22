@@ -1,4 +1,5 @@
 import type {MoviePropsMode} from "~/types/movie.types";
+import type {TmdbCredits, TmdbCrew} from "~/types/tmdb.person.types";
 
 export interface TmdbResponse {
     page: number
@@ -25,6 +26,9 @@ export interface TmdbMovieDetails extends TmdbMovie {
     genres?: TmdbGenre[]
 
     origin_country?: string[]
+
+    cast?: TmdbCredits[]
+    crew?: TmdbCrew[]
 }
 
 export interface TmdbMovie {
