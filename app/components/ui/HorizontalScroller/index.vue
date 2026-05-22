@@ -5,16 +5,20 @@
   </h1>
 
   <div class="border-b border-accent-foreground/20"/>
+    <div class="relative px-9">
   <ClientOnly>
-    <swiper-container ref="swiperRef" :init="false"
-                      class="overflow-hidden relative">
-      <swiper-slide v-for="item in items"
-                    :id="item.id"
-                    class="w-max md:h-max md:w-40 h-50">
-        <component :is="component" :item="item"/>
-      </swiper-slide>
-    </swiper-container>
+    <span class="material-symbols-outlined absolute top-1/2 -translate-y-1/2 left-0 select-none" @click="swiper.prev()">arrow_back_ios</span>
+      <swiper-container ref="swiperRef" :init="false"
+                        class="overflow-hidden relative ">
+        <swiper-slide v-for="item in items"
+                      :id="item.id"
+                      class="w-max md:h-max md:w-40 h-50">
+          <component :is="component" :item="item"/>
+        </swiper-slide>
+      </swiper-container>
+        <span class="material-symbols-outlined absolute top-1/2 -translate-y-1/2 right-0 select-none" @click="swiper.next()">arrow_forward_ios</span>
   </ClientOnly>
+    </div>
 
   <!-- TODO разобрать что это и как использовать -->
   <!--{{ credits.cast[0].known_for_department }}-->
