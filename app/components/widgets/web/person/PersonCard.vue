@@ -1,36 +1,40 @@
 <template>
-  <!--TODO добавить ссылку-->
-  <NuxtLink class="h-50 md:h-max md:w-40 flex relative cursor-pointer shrink-0">
-    <NuxtImg :src="`https://image.tmdb.org/t/p/w300/`+person.profile_path"
-             class="h-full w-full rounded-md select-none"/>
-    <span class="material-symbols-outlined absolute top-1 right-1 md-16 color select-none">
-       info
-    </span>
-    <div class="absolute inset-0 rounded-md
+  <!-- CARD -->
+  <NuxtLink
+      class="relative block w-40 h-60 shrink-0 overflow-hidden rounded-xl cursor-pointer group">
+    <NuxtImg
+        :src="`https://image.tmdb.org/t/p/w300${item.profile_path}`"
+        class="absolute inset-0 w-full h-full object-cover z-10
+    transition duration-500 group-hover:scale-105"/>
+    <div
+        class="absolute inset-0 z-20
                bg-gradient-to-t
-               from-black/60
-               via-white/1
-               to-white/5"/>
-    <p class="text-center text-white w-full px-1
-              absolute bottom-5 left-1/2 -translate-x-1/2">
-      {{ person.name }}
+               from-black/80
+               via-black/20
+               to-transparent"/>
+    <span
+        class="material-symbols-outlined
+               absolute top-2 right-2 z-30
+               transition select-none md-16">
+        info
+    </span>
+    <p
+        class="absolute bottom-3 left-1/2 -translate-x-1/2
+               z-30 w-full px-2
+               text-center text-sm text-white font-medium
+               line-clamp-2">
+      {{ item.name }}
     </p>
+
   </NuxtLink>
 </template>
 
 <script lang="ts" setup>
-
-
-import type {TmdbPerson} from "~/types/tmdb.person.types";
+import type { TmdbPerson } from "~/types/tmdb.person.types";
 
 interface Props {
-  person: TmdbPerson
+  item: TmdbPerson
 }
 
 defineProps<Props>()
-
 </script>
-
-<style scoped>
-
-</style>
