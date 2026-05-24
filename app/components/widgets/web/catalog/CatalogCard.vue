@@ -112,8 +112,11 @@ const formatRating = computed(() => {
 
 const formatLink = computed<string>((): string => {
 
-  return `/movie/${createSlug(props.movie.id, (props.movie.title || props.movie.character))}`
+  return `/movie/${createSlug(props.movie.id, (props.movie.title || props.movie.name))}`
+  // TODO проверить ссылку createSlug ((http://localhost:3000/person/27972-dzhosh-hatcherson)) фильм Сценарист undefined
 })
+
+console.log('props', props)
 </script>
 
 <style scoped>
