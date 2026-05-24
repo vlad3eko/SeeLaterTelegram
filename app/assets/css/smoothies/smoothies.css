@@ -29,15 +29,14 @@ nav h1 {
 
 /* smoothie grid */
 .smoothie-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr;
-    gap: 40px;
+     @apply flex flex-wrap gap-12 relative w-full
 }
 
-.smoothie-card {
+.card {
     width: 100%;
     box-sizing: border-box;
     border-radius: 6px;
+    @apply max-w-[160px]
 }
 
 .smoothie-card .rating {

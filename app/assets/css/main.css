@@ -9,5 +9,5 @@
 @import "../css/smoothies/smoothies.css";
 
 section {
-    @apply container mx-auto my-10
+    @apply container mx-auto my-10 min-h-[50vh]
 }

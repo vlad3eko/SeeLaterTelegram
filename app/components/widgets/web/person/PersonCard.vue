@@ -1,10 +1,10 @@
 <template>
   <!-- CARD -->
-  <NuxtLink
-      class="relative block w-40 h-60 shrink-0 overflow-hidden rounded-xl cursor-pointer group">
+  <NuxtLink :to="formatLink"
+            class="relative block w-full h-60 shrink-0 overflow-hidden rounded-xl cursor-pointer group">
 
     <NuxtImg
-        :src="`https://image.tmdb.org/t/p/w300${item.profile_path}`"
+        :src="imageCheck(props.item)"
         class="absolute inset-0 w-full h-full object-cover
     transition duration-500 group-hover:scale-105"/>
     <div
@@ -30,11 +30,17 @@
 </template>
 
 <script lang="ts" setup>
-import type { TmdbPerson } from "~/types/tmdb.person.types";
+import type {TmdbPerson} from "~/types/tmdb.person.types";
+import {createSlug} from "~/utils/createSlug";
 
 interface Props {
   item: TmdbPerson
 }
 
-defineProps<Props>()
+
+const props = defineProps<Props>()
+
+const formatLink = computed<string>(() => {
+  return `/person/${createSlug(props.item.id, props.item.name)}`
+})
 </script>

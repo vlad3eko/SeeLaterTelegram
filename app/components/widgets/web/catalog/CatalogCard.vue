@@ -2,7 +2,7 @@
   <NuxtLink
       v-if="movie "
       :to="formatLink"
-      class="hover:opacity-90 relative overflow-hidden">
+      class="hover:opacity-90 relative overflow-hidden smoothie-card">
 
     <div class="relative h-[262px]">
       <NuxtImg :src="computedImagesSrc" class="h-full object-cover w-full"/>
@@ -36,7 +36,6 @@
 </template>
 
 <script lang="ts" setup>
-
 
 import {FormatRating, FormatDate} from "~/utils/formatMoviesData";
 import type {MovieCardProps} from "~/types/movie.types";
@@ -111,8 +110,9 @@ const formatRating = computed(() => {
   }
 })
 
-const formatLink = computed<string>(() => {
-  return `/movie/${createSlug(props.movie.id, props.movie.title)}`
+const formatLink = computed<string>((): string => {
+
+  return `/movie/${createSlug(props.movie.id, (props.movie.title || props.movie.character))}`
 })
 </script>
 

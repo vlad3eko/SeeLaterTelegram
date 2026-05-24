@@ -9,7 +9,9 @@ export default defineEventHandler(async (event) => {
         Authorization: `Bearer ${config.tmdbApiKey}`
     }
 
-    const res = await fetch(`https://api.themoviedb.org/3/search/movie?query=${query.q}&language=ru-RU`, {
+    const res = await fetch(`https://api.themoviedb.org/3/person/${query.id}
+                                   ?append_to_response=combined_credits,images,external_ids
+                                   &language=ru-RU`, {
         headers
     })
 
