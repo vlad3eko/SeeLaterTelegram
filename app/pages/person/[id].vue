@@ -10,7 +10,7 @@
         <div class="bg-shell rounded-3xl overflow-hidden shadow-2xl">
 
           <NuxtImg
-              :src="imageCheck(data, 'profile_path')"
+              :src="imageCheck(data)"
               class="w-full object-cover"
           />
 
@@ -55,74 +55,76 @@
       </div>
 
       <!-- CONTENT -->
-      <div class="flex flex-wrap gap-6 overflow-hidden">
+      <Transition v-if="!pending && data" name="fade" mode="out-in">
+        <div class="flex flex-wrap gap-6 overflow-hidden">
 
-        <div class="bg-shell rounded-3xl p-8 md:col-span-2 w-full">
+          <div class="bg-shell rounded-3xl p-8 md:col-span-2 w-full">
 
-          <h2 class="text-4xl font-bold mb-6">
-            Биография
-          </h2>
+            <h2 class="text-4xl font-bold mb-6">
+              Биография
+            </h2>
 
-          <p v-if="data?.biography" class="leading-8  whitespace-pre-line">
-            {{ data?.biography }}
-          </p>
+            <p v-if="data?.biography" class="leading-8  whitespace-pre-line">
+              {{ data?.biography }}
+            </p>
 
-          <p v-else class="leading-8  whitespace-pre-line">
-            Биография временно отсутствует..
-          </p>
+            <p v-else class="leading-8  whitespace-pre-line">
+              Биография временно отсутствует..
+            </p>
+
+          </div>
+
+          <div class="bg-shell rounded-3xl p-3 w-full">
+            <UiHorizontalScroller title="🏆Главные награды🏆" :items="data.combined_credits.cast">
+              <template #default="{item}">
+                <CatalogCard :movie="item" :mode="'tmdb'"/>
+              </template>
+            </UiHorizontalScroller>
+          </div>
+
+          <div class="bg-shell rounded-3xl  w-full">
+            <UiHorizontalScroller title="🎬Главные проекты🎬" :items="bestMoviesCast">
+              <template #default="{item}">
+                <CatalogCard :movie="item" :mode="'tmdb'"/>
+              </template>
+            </UiHorizontalScroller>
+            <span v-if="bestMoviesCast.length === 0" class="text-error flex justify-center items-center pb-6">Список фильмов отсутствует...</span>
+          </div>
+
+          <div class="bg-shell rounded-3xl p-3 w-full">
+            <UiHorizontalScroller title="Директор" :items="isDirector">
+              <template #default="{item}">
+                <CatalogCard :movie="item" :mode="'tmdb'"/>
+              </template>
+            </UiHorizontalScroller>
+          </div>
+
+          <div class="bg-shell rounded-3xl p-3 w-full">
+            <UiHorizontalScroller title="Сценарист" :items="isProducer">
+              <template #default="{item}">
+                <CatalogCard :movie="item" :mode="'tmdb'"/>
+              </template>
+            </UiHorizontalScroller>
+          </div>
+
+          <div class="bg-shell rounded-3xl p-3 w-full">
+            <UiHorizontalScroller title="Режиссёр" :items="isWriter">
+              <template #default="{item}">
+                <CatalogCard :movie="item" :mode="'tmdb'"/>
+              </template>
+            </UiHorizontalScroller>
+          </div>
+
+          <div class="bg-shell rounded-3xl p-3 w-full">
+            <UiHorizontalScroller title="Фото" :items="data?.images?.profiles">
+              <template #default="{item}">
+                <PersonCard :item="item"/>
+              </template>
+            </UiHorizontalScroller>
+          </div>
 
         </div>
-
-        <div class="bg-shell rounded-3xl p-3 w-full">
-          <UiHorizontalScroller title="🏆Главные награды🏆" :items="data.combined_credits.cast">
-            <template #default="{item}">
-              <CatalogCard :movie="item" :mode="'tmdb'"/>
-            </template>
-          </UiHorizontalScroller>
-        </div>
-
-        <div class="bg-shell rounded-3xl  w-full">
-          <UiHorizontalScroller title="🎬Главные проекты🎬" :items="bestMoviesCast">
-            <template #default="{item}">
-              <CatalogCard :movie="item" :mode="'tmdb'"/>
-            </template>
-          </UiHorizontalScroller>
-          <span v-if="bestMoviesCast.length === 0" class="text-error flex justify-center items-center pb-6">Список фильмов отсутствует...</span>
-        </div>
-
-        <div class="bg-shell rounded-3xl p-3 w-full">
-          <UiHorizontalScroller title="Директор" :items="isDirector">
-            <template #default="{item}">
-              <CatalogCard :movie="item" :mode="'tmdb'"/>
-            </template>
-          </UiHorizontalScroller>
-        </div>
-
-        <div class="bg-shell rounded-3xl p-3 w-full">
-          <UiHorizontalScroller title="Сценарист" :items="isProducer">
-            <template #default="{item}">
-              <CatalogCard :movie="item" :mode="'tmdb'"/>
-            </template>
-          </UiHorizontalScroller>
-        </div>
-
-        <div class="bg-shell rounded-3xl p-3 w-full">
-          <UiHorizontalScroller title="Режиссёр" :items="isWriter">
-            <template #default="{item}">
-              <CatalogCard :movie="item" :mode="'tmdb'"/>
-            </template>
-          </UiHorizontalScroller>
-        </div>
-
-        <div class="bg-shell rounded-3xl p-3 w-full">
-          <UiHorizontalScroller title="Фото" :items="data?.images?.profiles">
-            <template #default="{item}">
-              <PersonCard :item="item"/>
-            </template>
-          </UiHorizontalScroller>
-        </div>
-
-      </div>
+      </Transition>
 
     </div>
   </div>
