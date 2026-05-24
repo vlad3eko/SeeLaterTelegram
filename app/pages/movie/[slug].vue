@@ -1,8 +1,6 @@
 <template>
   <!--TODO маленькая страница при загрузке -->
-  <div class="relative min-h-screen">
-
-    <NuxtImg :src="image"
+    <NuxtImg :src="imageCheck(data)"
              class="absolute inset-0 w-full h-full object-cover select-none"/>
 
     <div class="absolute inset-0
@@ -18,7 +16,7 @@
       <Transition v-if="!pending && data" name="fade" mode="out-in">
         <div class="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-8 lg:gap-10">
 
-          <MovieHero/>
+          <MovieHero variant="movie"/>
 
           <div class="flex flex-col gap-6 overflow-hidden">
 
@@ -26,14 +24,45 @@
             <MovieDescription/>
             <MovieMeta/>
 
-            <UiHorizontalScroller title="Актёрский состав" :items="castConverter || []" :component="PersonCard"/>
-            <UiHorizontalScroller title="Режиссёр" :items="crewConverter" :component="PersonCard"/>
-
+            <div>
+              <UiHorizontalScroller title="Актёрский состав" :items="castConverter || []">
+                <template #default="{item}">
+                  <PersonCard :item="item"/>
+                </template>
+              </UiHorizontalScroller>
+            </div>
+            <div>
+              <UiHorizontalScroller title="Директор" :items="isDirector">
+                <template #default="{item}">
+                  <PersonCard :item="item"/>
+                </template>
+              </UiHorizontalScroller>
+            </div>
+            <div>
+              <UiHorizontalScroller title="Режиссёр" :items="isProducer">
+                <template #default="{item}">
+                  <PersonCard :item="item"/>
+                </template>
+              </UiHorizontalScroller>
+            </div>
+            <div>
+              <UiHorizontalScroller title="Ассистент Режиссёра" :items="isExecutiveProducer">
+                <template #default="{item}">
+                  <PersonCard :item="item"/>
+                </template>
+              </UiHorizontalScroller>
+            </div>
+            <div>
+              <UiHorizontalScroller title="Сценарист" :items="isWriter">
+                <template #default="{item}">
+                  <PersonCard :item="item"/>
+                </template>
+              </UiHorizontalScroller>
+            </div>
           </div>
         </div>
       </Transition>
     </div>
-  </div>
 </template>
 <script lang="ts" setup>
 
@@ -46,11 +75,13 @@ import {useMovieDetails} from "~/components/composables/movie/useMovieDetails";
 import PersonCard from "~/components/widgets/web/person/PersonCard.vue";
 
 const {
-  image,
   pending,
   data,
   castConverter,
-  crewConverter,
+  isDirector,
+  isProducer,
+  isExecutiveProducer,
+  isWriter,
 } = useMovieDetails()
 
 </script>

@@ -1,18 +1,18 @@
 <template>
 
-  <h1 class="text-2xl md:text-4xl font-bold">
+  <h1 class="text-2xl md:text-4xl p-3 font-bold">
     {{ title }}
   </h1>
 
-  <div class="border-b border-accent-foreground/20"/>
+  <div class="border-b mb-6 border-accent-foreground/20"/>
     <div class="relative">
   <ClientOnly>
       <swiper-container ref="swiperRef" :init="false"
                         class="overflow-hidden relative ">
         <swiper-slide v-for="item in items"
                       :id="item.id"
-                      class="w-max md:h-max md:w-40 h-50">
-          <component :is="component" :item="item"/>
+                      class="w-max md:h-max md:w-53 h-50">
+          <slot :item="item"/>
         </swiper-slide>
       </swiper-container>
   </ClientOnly>
@@ -30,11 +30,10 @@ interface BaseItem {
   id: string
 }
 
-// MARKER поставил заглушку any[] ругается родительский [slug]
+// TODO поставил заглушку any[] ругается родительский [slug]
 interface HorizontalScrollItem {
-  title: string
+  title?: string
   items?: BaseItem[] | any[]
-  component: Component
 }
 
 defineProps<HorizontalScrollItem>()

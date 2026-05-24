@@ -1,4 +1,9 @@
 import type {TmdbMovieDetails} from "~/types/tmdb.types";
+import type {TmdbPersonMovieCrew} from "~/types/tmdb.person.types";
+import {filterRoleDirector} from "~/utils/person/role/filterRoleDirector";
+import {filterRoleProducer} from "~/utils/person/role/filterRoleProducer";
+import {filterRoleWriter} from "~/utils/person/role/filterRoleWriter";
+import {filterExecutiveProducer} from "~/utils/person/role/filterExecutiveProducer";
 
 export const useMovieDetails = () => {
 
@@ -33,17 +38,6 @@ export const useMovieDetails = () => {
         )
     })
 
-    const image = computed(() => {
-
-        const path =
-            data.value?.poster_path ||
-            data.value?.backdrop_path
-
-        return path
-            ? `https://image.tmdb.org/t/p/original${path}`
-            : '/assets/errorImageMovie/errorImage.jpg'
-    })
-
     const handleAddMovie = () => {
 
 
@@ -54,11 +48,20 @@ export const useMovieDetails = () => {
         )
     }
 
-    const crewConverter = computed(() => {
+    const isDirector = computed(() => {
+        return credits?.value?.crew?.filter(person => person.job === "Director")
+    })
 
-        return credits.value?.crew?.filter(
-            crew => crew.profile_path ? crew.job === "Director" : false
-        )
+    const isProducer = computed(() => {
+        return credits?.value?.crew?.filter(person => person.job === "Producer")
+    })
+
+    const isExecutiveProducer = computed(() => {
+        return credits?.value?.crew?.filter(person => person.job === "Executive Producer")
+    })
+
+    const isWriter = computed(() => {
+        return credits?.value?.crew?.filter(person => person.job === "Writer")
     })
 
     const castConverter = computed(() => {
@@ -71,10 +74,12 @@ export const useMovieDetails = () => {
 
     return {
         handleAddMovie,
-        crewConverter,
+        isDirector,
+        isProducer,
+        isExecutiveProducer,
+        isWriter,
         castConverter,
         trailer,
-        image,
         data,
         pending,
         creditsPending,
