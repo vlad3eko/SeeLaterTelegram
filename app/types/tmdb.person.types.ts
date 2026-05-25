@@ -48,6 +48,9 @@ export interface TmdbBaseMovie {
     video: boolean
     vote_average: number
     vote_count: number
+    status: string
+    rating: number
+    name: string
 }
 
 export interface TmdbPersonMovieCast extends TmdbBaseMovie {

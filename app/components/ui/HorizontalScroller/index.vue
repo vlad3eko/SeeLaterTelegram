@@ -4,11 +4,11 @@
     {{ title }}
   </h1>
 
-  <div class="border-b mb-6 border-accent-foreground/20"/>
-    <div class="relative">
+  <div class="border-b my-1 border-accent-foreground/20"/>
+    <div class="relative p-3">
   <ClientOnly>
       <swiper-container ref="swiperRef" :init="false"
-                        class="overflow-hidden relative ">
+                        class="overflow-hidden relative">
         <swiper-slide v-for="item in items"
                       :id="item.id"
                       class="w-max md:h-max md:w-53 h-50">

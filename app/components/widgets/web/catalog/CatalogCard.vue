@@ -1,11 +1,11 @@
 <template>
   <NuxtLink
-      v-if="movie "
+      v-if="movie"
       :to="formatLink"
-      class="hover:opacity-90 relative overflow-hidden smoothie-card">
+      class="hover:opacity-90 relative overflow-hidden smoothie-card rounded-xl block">
 
     <div class="relative h-[262px]">
-      <NuxtImg :src="computedImagesSrc" class="h-full object-cover w-full"/>
+      <NuxtImg :src="computedImagesSrc" class="h-full object-cover w-full "/>
       <div
           class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent"/>
       <div v-if="statusClass"
@@ -38,13 +38,10 @@
 <script lang="ts" setup>
 
 import {FormatRating, FormatDate} from "~/utils/formatMoviesData";
-import type {MovieCardProps} from "~/types/movie.types";
 import type {TmdbMovieProps} from "~/types/tmdb.types";
 import {createSlug} from "~/utils/createSlug";
 
-const props = withDefaults(defineProps<MovieCardProps | TmdbMovieProps>(), {
-  mode: 'default'
-})
+const props = defineProps<TmdbMovieProps>()
 
 const computedImagesSrc = computed(() => {
 
@@ -109,14 +106,12 @@ const formatRating = computed(() => {
     return FormatRating(rating)
   }
 })
-
 const formatLink = computed<string>((): string => {
 
-  return `/movie/${createSlug(props.movie.id, (props.movie.title || props.movie.name))}`
+  return `/${props.movie.media_type}/${createSlug(props.movie.id, (props.movie.title || props.movie.name))}`
   // TODO проверить ссылку createSlug ((http://localhost:3000/person/27972-dzhosh-hatcherson)) фильм Сценарист undefined
 })
 
-console.log('props', props)
 </script>
 
 <style scoped>

@@ -25,6 +25,20 @@ export const useTmdbPerson = () => {
         }),
     )
 
+    const awardMovies = computed(() => {
+        const biography = data?.value?.biography || ''
+
+        const matches = [
+            ...biography.matchAll(/\[(.*?)\]/g)
+        ]
+
+        const movieTitle = matches.map(match => match[1])
+
+        return ((data?.value?.combined_credits.cast || []) as TmdbPersonMovieCast[])
+            .filter(movie => movieTitle.includes(movie.title))
+            .sort(sortByRating)
+    })
+
     const bestMoviesCast = computed(() => {
         return ((data?.value?.combined_credits.cast || []) as TmdbPersonMovieCast[])
             .filter(filterTheMovie)
@@ -50,6 +64,7 @@ export const useTmdbPerson = () => {
         data,
         pending,
         refresh,
+        awardMovies,
         bestMoviesCast,
         isDirector,
         isProducer,
