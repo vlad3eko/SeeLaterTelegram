@@ -1,9 +1,4 @@
 import type {TmdbMovieDetails} from "~/types/tmdb.types";
-import type {TmdbPersonMovieCrew} from "~/types/tmdb.person.types";
-import {filterRoleDirector} from "~/utils/person/role/filterRoleDirector";
-import {filterRoleProducer} from "~/utils/person/role/filterRoleProducer";
-import {filterRoleWriter} from "~/utils/person/role/filterRoleWriter";
-import {filterExecutiveProducer} from "~/utils/person/role/filterExecutiveProducer";
 
 export const useMovieDetails = () => {
 
@@ -11,6 +6,8 @@ export const useMovieDetails = () => {
 
     const route = useRoute()
     const slug = route.params.slug
+    const media = route.params.media
+    console.log('route', route)
 
     const idMovie = computed(() => {
         return String(slug).split('-')[0]
@@ -19,14 +16,16 @@ export const useMovieDetails = () => {
     const {data, pending} = useAsyncData<TmdbMovieDetails>(`movie-${idMovie.value}`,
         () => $fetch('/api/tmdb/movie', {
             query: {
-                id: idMovie.value
+                id: idMovie.value,
+                media
             }
         }))
 
     const {data: credits, pending: creditsPending} = useAsyncData<TmdbMovieDetails>(`movie-credits-${idMovie.value}`,
         () => $fetch('/api/tmdb/credits', {
             query: {
-                id: idMovie.value
+                id: idMovie.value,
+                media
             }
         }))
 
@@ -46,6 +45,8 @@ export const useMovieDetails = () => {
         movieStore.createMovie(
             mapTmdbMovie(data.value)
         )
+
+        console.log('useMovieDetails data', data)
     }
 
     const isDirector = computed(() => {

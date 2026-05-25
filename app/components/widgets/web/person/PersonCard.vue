@@ -1,5 +1,4 @@
 <template>
-  <!-- CARD -->
   <NuxtLink :to="formatLink"
             class="relative block w-full h-60 shrink-0 overflow-hidden rounded-xl cursor-pointer group">
 
@@ -27,6 +26,7 @@
       {{ item.name }}
     </p>
   </NuxtLink>
+
 </template>
 
 <script lang="ts" setup>

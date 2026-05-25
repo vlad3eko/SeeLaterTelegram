@@ -1,5 +1,4 @@
 <template>
-  <!--TODO маленькая страница при загрузке -->
     <NuxtImg :src="imageCheck(data)"
              class="absolute inset-0 w-full h-full object-cover select-none"/>
 
@@ -24,41 +23,42 @@
             <MovieDescription/>
             <MovieMeta/>
 
-            <div>
+            <div v-if="castConverter?.length > 0">
               <UiHorizontalScroller title="Актёрский состав" :items="castConverter || []">
                 <template #default="{item}">
                   <PersonCard :item="item"/>
                 </template>
               </UiHorizontalScroller>
             </div>
-            <div>
+            <div v-if="isDirector?.length > 0">
               <UiHorizontalScroller title="Директор" :items="isDirector">
                 <template #default="{item}">
                   <PersonCard :item="item"/>
                 </template>
               </UiHorizontalScroller>
             </div>
-            <div>
-              <UiHorizontalScroller title="Режиссёр" :items="isProducer">
+            <div v-if="isProducer?.length > 0">
+              <UiHorizontalScroller title="Продюсер" :items="isProducer">
                 <template #default="{item}">
                   <PersonCard :item="item"/>
                 </template>
               </UiHorizontalScroller>
             </div>
-            <div>
-              <UiHorizontalScroller title="Ассистент Режиссёра" :items="isExecutiveProducer">
-                <template #default="{item}">
-                  <PersonCard :item="item"/>
-                </template>
-              </UiHorizontalScroller>
-            </div>
-            <div>
+            <div v-if="isWriter?.length > 0">
               <UiHorizontalScroller title="Сценарист" :items="isWriter">
                 <template #default="{item}">
                   <PersonCard :item="item"/>
                 </template>
               </UiHorizontalScroller>
             </div>
+            <div v-if="isExecutiveProducer?.length > 0">
+              <UiHorizontalScroller title="Ассистент Продюсера" :items="isExecutiveProducer">
+                <template #default="{item}">
+                  <PersonCard :item="item"/>
+                </template>
+              </UiHorizontalScroller>
+            </div>
+
           </div>
         </div>
       </Transition>
