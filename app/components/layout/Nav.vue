@@ -14,7 +14,7 @@
 
 <script lang="ts" setup>
 
-import ThemeSelect from "~/components/composables/ThemeSelect.vue";
+import ThemeSelect from "~/composables/ThemeSelect.vue";
 </script>
 
 <style scoped>

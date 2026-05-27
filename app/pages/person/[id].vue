@@ -74,54 +74,7 @@
 
           </div>
 
-          <div v-if="awardMovies.length > 0" class="bg-shell rounded-3xl p-3 w-full">
-            <UiHorizontalScroller title="🏆Главные награды🏆" :items="awardMovies">
-              <template #default="{ item }">
-                <CatalogCard :movie="item"/>
-              </template>
-            </UiHorizontalScroller>
-          </div>
-
-          <div class="bg-shell rounded-3xl  w-full">
-            <UiHorizontalScroller title="🎬Главные проекты🎬" :items="bestMoviesCast">
-              <template #default="{item}">
-                <CatalogCard :movie="item" :mode="'tmdb'"/>
-              </template>
-            </UiHorizontalScroller>
-            <span v-if="bestMoviesCast.length === 0" class="text-error flex justify-center items-center pb-6">Список фильмов отсутствует...</span>
-          </div>
-
-          <div v-if="isDirector.length > 0" class="bg-shell rounded-3xl p-3 w-full">
-            <UiHorizontalScroller title="Директор" :items="isDirector">
-              <template #default="{item}">
-                <CatalogCard :movie="item" :mode="'tmdb'"/>
-              </template>
-            </UiHorizontalScroller>
-          </div>
-
-          <div v-if="isProducer.length > 0" class="bg-shell rounded-3xl p-3 w-full">
-            <UiHorizontalScroller title="Продюсер" :items="isProducer">
-              <template #default="{item}">
-                <CatalogCard :movie="item" :mode="'tmdb'"/>
-              </template>
-            </UiHorizontalScroller>
-          </div>
-
-          <div v-if="isWriter.length > 0" class="bg-shell rounded-3xl p-3 w-full">
-            <UiHorizontalScroller title="Сценарист" :items="isWriter">
-              <template #default="{item}">
-                <CatalogCard :movie="item" :mode="'tmdb'"/>
-              </template>
-            </UiHorizontalScroller>
-          </div>
-
-          <div class="bg-shell rounded-3xl p-3 w-full">
-            <UiHorizontalScroller title="Фото" :items="data?.images?.profiles">
-              <template #default="{item}">
-                <PersonCard :item="item"/>
-              </template>
-            </UiHorizontalScroller>
-          </div>
+          <PersonGetMovieByRoleSection/>
 
         </div>
       </Transition>
@@ -131,24 +84,19 @@
 </template>
 
 <script lang="ts" setup>
-import {useTmdbPerson} from "~/components/composables/useTmdbPerson";
-import Loader from "~/components/composables/Loader.vue";
+import {useTmdbPerson} from "~/composables/person/useTmdbPerson";
+import Loader from "~/composables/Loader.vue";
 import {imageCheck} from "~/utils/imageCheck";
 import {dateConvert} from "~/utils/convert/dateConvert";
 import {convertTranslateKnowForDepartment} from "~/utils/convert/translateKnowForDepartment";
 import CatalogCard from "~/components/widgets/web/catalog/CatalogCard.vue";
 import PersonCard from "~/components/widgets/web/person/PersonCard.vue";
+import PersonGetMovieByRoleSection from "~/components/widgets/web/person/PersonGetMovieByRoleSection.vue";
 
 const {
   data,
   pending,
-  awardMovies,
-  bestMoviesCast,
-  isDirector,
-  isProducer,
-  isWriter,
 } = useTmdbPerson()
-
 
 </script>
 

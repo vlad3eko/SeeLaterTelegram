@@ -1,8 +1,8 @@
 <template>
-
-  <h1 class="text-2xl md:text-4xl p-3 font-bold">
+  <p class="text-2xl md:text-4xl p-3 font-bold flex items-start">
     {{ title }}
-  </h1>
+    <span v-if="items?.length" class="text-xl">({{items.length}})</span>
+  </p>
 
   <div class="border-b my-1 border-accent-foreground/20"/>
     <div class="relative p-3">
@@ -33,7 +33,7 @@ interface BaseItem {
 // TODO поставил заглушку any[] ругается родительский [slug]
 interface HorizontalScrollItem {
   title?: string
-  items?: BaseItem[] | any[]
+  items?: any[]
 }
 
 defineProps<HorizontalScrollItem>()

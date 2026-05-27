@@ -38,7 +38,7 @@ import {useMovieStore} from "~/stores/movies.store";
 const props = defineProps<MovieFormProps >()
 
 const supabase = useSupabaseClient()
-const useStoreMovie = useMovieStore()
+const movieStore = useMovieStore()
 
 const errorMessage = ref<string>('')
 const successMessage = ref<string>('')
@@ -76,9 +76,9 @@ const handleSubmit = async () => {
   let response
 
   if (props.mode === 'create') {
-    response = await useStoreMovie.createMovie(payload.value)
+    response = await movieStore.createMovie(payload.value)
   } else if (props.mode === 'update' && props.card?.id) {
-    response = await useStoreMovie.updateMovie(payload.value, props.card.id)
+    response = await movieStore.updateMovie(payload.value, props.card.id)
   }
 
   if (!response) return
