@@ -1,14 +1,12 @@
 import type {
     TmdbPerson,
-    TmdbBaseMovie,
     TmdbPersonMovieCast,
     TmdbPersonMovieCrew
 } from "~/types/tmdb.person.types";
-import {filterRoleDirector} from "~/utils/person/role/filterRoleDirector";
-import {filterRoleProducer} from "~/utils/person/role/filterRoleProducer";
-import {filterRoleWriter} from "~/utils/person/role/filterRoleWriter";
 import {sortByRating} from "~/utils/movie/sortByRating";
 import {filterTheMovie} from "~/utils/movie/filterTheMovie";
+import {getSectionMovieByRole} from "~/utils/movie/getSectionMovieByJob";
+import {photoPersonSection} from "~/utils/person/photo/photoPersonSection";
 
 export const useTmdbPerson = () => {
     const route = useRoute()
@@ -24,6 +22,12 @@ export const useTmdbPerson = () => {
             }
         }),
     )
+
+    const crewData = computed(() =>
+        ((data?.value?.combined_credits.crew) as TmdbPersonMovieCrew[]))
+
+    const images = computed(() =>
+        ((data.value?.images.profiles || []) as TmdbPerson[]))
 
     const awardMovies = computed(() => {
         const biography = data?.value?.biography || ''
@@ -45,19 +49,12 @@ export const useTmdbPerson = () => {
             .sort(sortByRating)
     })
 
-    const isDirector = computed(() => {
-        return ((data?.value?.combined_credits.crew || []) as TmdbPersonMovieCrew[])
-            .filter(filterRoleDirector)
+    const convertCrewSection = computed(() => {
+        return getSectionMovieByRole(crewData.value)
     })
 
-    const isProducer = computed(() => {
-        return ((data?.value?.combined_credits.crew || []) as TmdbPersonMovieCrew[])
-            .filter(filterRoleProducer)
-    })
-
-    const isWriter = computed(() => {
-        return ((data?.value?.combined_credits.crew || []) as TmdbPersonMovieCrew[])
-            .filter(filterRoleWriter)
+    const convertPersonSection = computed(() => {
+        return photoPersonSection(images.value)
     })
 
     return {
@@ -66,8 +63,7 @@ export const useTmdbPerson = () => {
         refresh,
         awardMovies,
         bestMoviesCast,
-        isDirector,
-        isProducer,
-        isWriter,
+        convertCrewSection,
+        convertPersonSection,
     }
 }

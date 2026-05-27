@@ -1,4 +1,4 @@
-import type {Movie, MoviePayload, MovieSortField} from "~/types/movie.types";
+import type {Movie} from "~/types/movie.types";
 
 export const useMovieStore = defineStore('movies', () => {
 

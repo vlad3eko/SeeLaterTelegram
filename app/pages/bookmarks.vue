@@ -28,7 +28,7 @@
 <script lang="ts" setup>
 
 import CatalogList from "~/components/widgets/web/catalog/CatalogList.vue";
-import Loader from "~/components/composables/Loader.vue";
+import Loader from "~/composables/Loader.vue";
 import type {MovieSortField} from "~/types/movie.types";
 import SearchPanel from "~/components/layout/SearchPanel.vue";
 

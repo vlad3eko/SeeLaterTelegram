@@ -1,4 +1,7 @@
 import type {TmdbMovieDetails} from "~/types/tmdb.types";
+import type {TmdbPersonMovieCrew} from "~/types/tmdb.person.types";
+import {useMovieStore} from "~/stores/movies.store";
+import {mapRoleByMovie} from "~/utils/person/role/mapRoleByMovie";
 
 export const useMovieDetails = () => {
 
@@ -7,7 +10,6 @@ export const useMovieDetails = () => {
     const route = useRoute()
     const slug = route.params.slug
     const media = route.params.media
-    console.log('route', route)
 
     const idMovie = computed(() => {
         return String(slug).split('-')[0]
@@ -29,6 +31,10 @@ export const useMovieDetails = () => {
             }
         }))
 
+    const crewData = computed(() => {
+        return (credits?.value?.crew || []) as TmdbPersonMovieCrew[]
+    })
+
     const trailer = computed(() => {
         return data.value?.trailers?.find(
             trailer =>
@@ -45,45 +51,24 @@ export const useMovieDetails = () => {
         movieStore.createMovie(
             mapTmdbMovie(data.value)
         )
-
-        console.log('useMovieDetails data', data)
     }
 
-    const isDirector = computed(() => {
-        return credits?.value?.crew?.filter(person => person.job === "Director")
-    })
-
-    const isProducer = computed(() => {
-        return credits?.value?.crew?.filter(person => person.job === "Producer")
-    })
-
-    const isExecutiveProducer = computed(() => {
-        return credits?.value?.crew?.filter(person => person.job === "Executive Producer")
-    })
-
-    const isWriter = computed(() => {
-        return credits?.value?.crew?.filter(person => person.job === "Writer")
-    })
-
     const castConverter = computed(() => {
-
-        return credits.value?.cast?.filter(
-            actor => actor.profile_path ? actor.order <= 50 : false
-        )
+        return credits.value?.cast?.filter(actor => actor.profile_path ? actor.order <= 50 : false)
     })
 
+    const convertCrewSection = computed(() => {
+        return mapRoleByMovie(crewData.value)
+    })
 
     return {
-        handleAddMovie,
-        isDirector,
-        isProducer,
-        isExecutiveProducer,
-        isWriter,
-        castConverter,
         trailer,
         data,
         pending,
         creditsPending,
         credits,
+        handleAddMovie,
+        castConverter,
+        convertCrewSection,
     }
 }

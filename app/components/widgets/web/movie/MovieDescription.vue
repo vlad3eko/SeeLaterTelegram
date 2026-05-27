@@ -15,7 +15,7 @@
 
 <script lang="ts" setup>
 
-import {useMovieDetails} from "~/components/composables/movie/useMovieDetails";
+import {useMovieDetails} from "~/composables/movie/useMovieDetails";
 
 const {
   data,

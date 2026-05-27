@@ -63,7 +63,7 @@
 
 <script lang="ts" setup>
 
-import {useMovieDetails} from "~/components/composables/movie/useMovieDetails";
+import {useMovieDetails} from "~/composables/movie/useMovieDetails";
 import {dateConvert} from "~/utils/convert/dateConvert";
 import {runtimeConvert} from "~/utils/convert/runtimeConvert";
 import {imageCheck} from "~/utils/imageCheck";

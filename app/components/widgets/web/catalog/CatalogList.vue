@@ -14,7 +14,7 @@
 
 import type {MovieCardsProps} from "~/types/movie.types";
 import CatalogCard from "~/components/widgets/web/catalog/CatalogCard.vue";
-import Loader from "~/components/composables/Loader.vue";
+import Loader from "~/composables/Loader.vue";
 import type {TmdbMoviesProps} from "~/types/tmdb.types";
 
 const props = defineProps<TmdbMoviesProps>()

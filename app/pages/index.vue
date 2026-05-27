@@ -10,7 +10,7 @@
 <script lang="ts" setup>
 import SearchPanel from "~/components/layout/SearchPanel.vue";
 import CatalogList from "~/components/widgets/web/catalog/CatalogList.vue";
-import {useTmdbSearch} from "~/components/composables/useTmdbSearch";
+import {useTmdbSearch} from "~/composables/useTmdbSearch";
 
 
 const {

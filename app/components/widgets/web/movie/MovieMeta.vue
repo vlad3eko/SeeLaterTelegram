@@ -29,7 +29,7 @@
 
 import {runtimeConvert} from "~/utils/convert/runtimeConvert";
 import {dateConvert} from "~/utils/convert/dateConvert";
-import {useMovieDetails} from "~/components/composables/movie/useMovieDetails";
+import {useMovieDetails} from "~/composables/movie/useMovieDetails";
 
 const {
   data,
