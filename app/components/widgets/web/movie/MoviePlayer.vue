@@ -1,5 +1,5 @@
 <template>
-  <div class="overflow-hidden rounded-2xl bg-shell shadow-2xl">
+  <div v-if="trailer" class="overflow-hidden rounded-2xl bg-shell shadow-2xl">
     <iframe v-if="trailer"
             class="w-full aspect-video md:h-[450px]"
             :src="`https://www.youtube.com/embed/${trailer?.key}`"

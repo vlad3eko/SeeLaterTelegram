@@ -10,7 +10,7 @@
                to-accent/30
                backdrop-blur-md"/>
 
-  <div class="relative z-10 container mx-auto px-4 md:px-8 py-10 md:py-20">
+  <div class="relative z-10 px-4 md:px-8 py-10 md:py-20">
     <Loader v-if="pending"/>
     <Transition v-if="!pending && data" name="fade" mode="out-in">
       <div class="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-8 lg:gap-10">
@@ -19,9 +19,13 @@
 
         <div class="flex flex-col gap-6 overflow-hidden">
 
-          <MoviePlayer/>
-          <MovieDescription/>
-          <MovieMeta/>
+          <div class="flex flex-wrap lg:justify-start justify-center gap-3">
+            <MoviePlayer/>
+            <div>
+              <MovieDescription/>
+              <MovieMeta/>
+            </div>
+          </div>
           <MovieGetRoleByMovieSection/>
 
         </div>

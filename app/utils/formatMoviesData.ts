@@ -2,7 +2,7 @@ export const FormatRating = (rating?: number, fractionDigits: number = 1) => {
 
     if (!rating) return
 
-    return String(rating).length > fractionDigits ? '💎 ' + rating.toFixed(fractionDigits) : rating
+    return String(rating).length > fractionDigits ? + rating.toFixed(fractionDigits) : rating
 }
 
 export const FormatDate = (date: string | number | undefined) => {

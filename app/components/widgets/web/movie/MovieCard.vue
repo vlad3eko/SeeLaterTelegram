@@ -1,6 +1,7 @@
 <template>
 <!--TODO добавить ссылку-->
-  <NuxtLink class="h-50 md:h-max md:w-40 flex relative cursor-pointer shrink-0">
+<!--TODO ошибка -->
+  <NuxtLink class="flex relative cursor-pointer shrink-0">
     <NuxtImg :src="`https://image.tmdb.org/t/p/w300/`+item.profile_path"
              class="h-full w-full rounded-md"/>
     <span class="material-symbols-outlined absolute top-1 right-1 z-10 md-16 color">

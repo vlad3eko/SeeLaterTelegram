@@ -1,11 +1,11 @@
 <template>
   <Loader v-if="pending"/>
-  <div v-if="!pending && data" class="container mx-auto px-4 py-16">
+  <div v-if="!pending && data" class=" px-4 py-16 mx-10">
 
     <div class="grid xl:grid-cols-[300px_1fr] gap-10">
 
       <!-- SIDEBAR -->
-      <div class="sticky top-5 h-max">
+      <div class="xl:sticky top-5 h-max">
 
         <div class="bg-shell rounded-3xl overflow-hidden shadow-2xl">
 
@@ -41,9 +41,9 @@
                 Место рождения: {{ data?.place_of_birth }}
               </div>
 
-              <div v-if="data?.homepage" class="bg-panel rounded-xl p-4">
+              <div v-if="convertPersonLinkWebsite" class="bg-panel rounded-xl p-4">
                 Личная страница:
-                <NuxtLink :to="data?.homepage" target="_blank">{{ data?.homepage }}</NuxtLink>
+                <NuxtLink :to="convertPersonLinkWebsite" target="_blank">{{ convertPersonLinkWebsite }}</NuxtLink>
               </div>
 
             </div>
@@ -89,13 +89,12 @@ import Loader from "~/composables/Loader.vue";
 import {imageCheck} from "~/utils/imageCheck";
 import {dateConvert} from "~/utils/convert/dateConvert";
 import {convertTranslateKnowForDepartment} from "~/utils/convert/translateKnowForDepartment";
-import CatalogCard from "~/components/widgets/web/catalog/CatalogCard.vue";
-import PersonCard from "~/components/widgets/web/person/PersonCard.vue";
 import PersonGetMovieByRoleSection from "~/components/widgets/web/person/PersonGetMovieByRoleSection.vue";
 
 const {
   data,
   pending,
+  convertPersonLinkWebsite,
 } = useTmdbPerson()
 
 </script>

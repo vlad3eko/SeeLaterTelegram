@@ -1,7 +1,7 @@
 <template>
-  <section>
+  <section class="min-w-133">
     <SearchPanel/>
-    <Transition name="fade" mode="out-in">
+    <Transition name="fade" mode="in-out">
       <div class="my-10 flex gap-3 w-max">
         <UiButton @click="sortBy = 'created_at'">Date</UiButton>
         <UiButton @click="sortBy = 'title'">Title</UiButton>
@@ -9,13 +9,11 @@
       </div>
     </Transition>
 
-    <loader v-if="pending"/>
-
     <Transition name="fade" mode="out-in">
       <section v-if="!pending">
 
 
-        <CatalogList :movies="data?.data || []"/>
+          <CatalogList :movies="data?.data || []"/>
         <div v-if="!pending && data?.data?.length === 0" class="text-error/80">
           Сохранённых фильмов пока нет..
           <NuxtLink to="/" class="text-primary hover:underline cursor-pointer">Выбрать фильм</NuxtLink>
