@@ -16,7 +16,7 @@
       <div
           v-if="rating"
           class="rating z-10">
-         {{ formatRating }}
+        💎 {{ formatRating }}
       </div>
 
     </div>
@@ -86,10 +86,7 @@ const statusClass = computed<string>(() => {
 })
 
 const rating = computed(() => {
-
-  return props.mode === 'tmdb'
-      ? props.movie.vote_average
-      : props.movie.rating
+  return props.movie.vote_average ? props.movie.vote_average : props.movie.rating
 })
 
 const formatDate = computed(() => {
@@ -97,13 +94,9 @@ const formatDate = computed(() => {
 })
 
 const formatRating = computed(() => {
-  const rating =
-      props.mode === 'tmdb'
-          ? props.movie.vote_average
-          : props.movie.rating
 
-  if (rating) {
-    return FormatRating(rating)
+  if (rating.value) {
+    return FormatRating(rating.value)
   }
 })
 const formatLink = computed<string>((): string => {

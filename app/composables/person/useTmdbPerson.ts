@@ -57,6 +57,10 @@ export const useTmdbPerson = () => {
         return photoPersonSection(images.value)
     })
 
+    const convertPersonLinkWebsite = computed(() => {
+        return data.value?.homepage
+    })
+
     return {
         data,
         pending,
@@ -65,5 +69,6 @@ export const useTmdbPerson = () => {
         bestMoviesCast,
         convertCrewSection,
         convertPersonSection,
+        convertPersonLinkWebsite,
     }
 }

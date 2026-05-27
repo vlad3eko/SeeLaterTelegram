@@ -9,10 +9,10 @@
   <ClientOnly>
       <swiper-container ref="swiperRef" :init="false"
                         class="overflow-hidden relative">
-        <swiper-slide v-for="item in items"
+        <swiper-slide v-for="(item, index) in items"
                       :id="item.id"
-                      class="w-max md:h-max md:w-53 h-50">
-          <slot :item="item"/>
+                      class="w-50 md:h-full h-60 md:w-53">
+          <slot :item="item" :index="index"/>
         </swiper-slide>
       </swiper-container>
   </ClientOnly>
