@@ -1,13 +1,13 @@
 {
-  "name": "SeeLaterTelegram",
+  "name": "see-later-telegram",
   "type": "module",
   "private": true,
   "scripts": {
-    "build": "npm build",
-    "dev": "npm dev",
-    "generate": "npm generate",
-    "preview": "npm preview",
-    "postinstall": "npm prepare"
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare"
   },
   "dependencies": {
     "@nuxt/image": "^2.0.0",
