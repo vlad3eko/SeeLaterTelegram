@@ -11,7 +11,7 @@
                         class="overflow-hidden relative">
         <swiper-slide v-for="(item, index) in items"
                       :id="item.id"
-                      class="w-50 md:h-full h-60 md:w-53">
+                      class="w-50 md:h-full  md:w-53">
           <slot :item="item" :index="index"/>
         </swiper-slide>
       </swiper-container>

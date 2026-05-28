@@ -36,11 +36,14 @@ export const useMovieDetails = () => {
     })
 
     const trailer = computed(() => {
+
+        console.log('1' , data.value?.trailers)
+
         return data.value?.trailers?.find(
-            trailer =>
-                trailer.site === 'YouTube' &&
+            trailer => trailer.site === 'YouTube' &&
                 trailer.type === 'Trailer'
         )
+
     })
 
     const handleAddMovie = () => {

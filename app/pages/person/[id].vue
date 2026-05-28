@@ -2,10 +2,10 @@
   <Loader v-if="pending"/>
   <div v-if="!pending && data" class=" px-4 py-16 mx-10">
 
-    <div class="grid xl:grid-cols-[300px_1fr] gap-10">
+    <div class="grid md:grid-cols-[300px_1fr] gap-10">
 
       <!-- SIDEBAR -->
-      <div class="xl:sticky top-5 h-max">
+      <div class="md:sticky top-5 h-max">
 
         <div class="bg-shell rounded-3xl overflow-hidden shadow-2xl">
 
