@@ -4,16 +4,18 @@ export const useTmdbSearch = () => {
 
     const searchInput = ref<string>()
 
-    const {data, pending, refresh} = useAsyncData<TmdbResponse>('movies-search',
+    const {data, pending, refresh} = useAsyncData<TmdbResponse>('media-search',
         () => $fetch('/api/tmdb/search', {
             query: {
-                q: searchInput.value
+                q: searchInput.value,
             }
         }),
         {
             immediate: false
         }
     )
+
+    console.log('data', data)
 
     const movies = computed(() => {
         return data.value?.results || []

@@ -1,5 +1,5 @@
 <template>
-  <div class="w-full mx-auto lg:mx-0 max-md:w-100 max-lg:w-150">
+  <div class="w-full mx-auto lg:mx-0 max-md:w-100 max-lg:w-100">
     <div class="sticky top-5">
 
       <!-- POSTER -->
@@ -8,7 +8,6 @@
             :src="imageCheck(data)"
             class="w-full object-cover select-none"/>
 
-        <!-- TOP INFO -->
         <div class="absolute top-0 inset-x-0 flex items-center justify-between p-3 z-10">
           <p class="text-xl font-bold bg-panel/90 backdrop-blur px-4 py-2 rounded-xl">
             🍿 {{ data?.vote_count }}
@@ -18,7 +17,6 @@
           </p>
         </div>
 
-        <!-- IMAGE GRADIENT -->
         <div
             class="absolute inset-0 rounded-md
                bg-gradient-to-t
@@ -26,7 +24,6 @@
                via-white/1
                to-white/5"/>
 
-        <!-- ACTIONS -->
         <div class="absolute bottom-3 left-3 flex gap-3 w-full">
           <span class="text-white/70">{{ runtimeConvert(data?.runtime) }}</span>
         </div>

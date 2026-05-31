@@ -7,11 +7,11 @@
       <!-- SIDEBAR -->
       <div class="md:sticky top-5 h-max">
 
-        <div class="bg-shell rounded-3xl overflow-hidden shadow-2xl">
+        <div class="bg-shell rounded-3xl overflow-hidden shadow-2xl mx-auto max-w-[300px] ">
 
           <NuxtImg
               :src="imageCheck(data)"
-              class="w-full object-cover"
+              class="w-full object-cover max-md:max-h-[300px]"
           />
 
           <div class="p-6 flex flex-col gap-5">
@@ -58,20 +58,15 @@
       <Transition v-if="!pending && data" name="fade" mode="out-in">
         <div class="flex flex-wrap gap-6 overflow-hidden">
 
-          <div class="bg-shell rounded-3xl p-8 md:col-span-2 w-full">
+          <div v-if="data?.biography" class="bg-shell rounded-3xl p-8 md:col-span-2 w-full">
 
             <h2 class="text-4xl font-bold mb-6">
               Биография
             </h2>
 
-            <p v-if="data?.biography" class="leading-8  whitespace-pre-line">
+            <p class="leading-8  whitespace-pre-line">
               {{ data?.biography }}
             </p>
-
-            <p v-else class="leading-8  whitespace-pre-line text-error">
-              Биография временно отсутствует..
-            </p>
-
           </div>
 
           <PersonGetMovieByRoleSection/>
