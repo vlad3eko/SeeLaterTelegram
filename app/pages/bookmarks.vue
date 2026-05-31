@@ -43,6 +43,8 @@ const {data, pending} = await useAsyncData(`movies-bookmarks-${sortBy.value}`,
       watch: [sortBy]
     })
 
+console.log('data', data.value?.data)
+
 </script>
 
 <style scoped>

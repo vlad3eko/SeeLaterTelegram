@@ -8,7 +8,7 @@
       <NuxtImg :src="computedImagesSrc" class="h-full object-cover w-full "/>
       <div
           class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent"/>
-      <div v-if="statusClass"
+      <div v-if="movie.vote_count"
            class="absolute top-3 left-3 px-3 py-1 rounded-full text-xs font-semibold text-white backdrop-blur-md z-10"
            :class="statusClass">
         {{ movie.vote_count }}

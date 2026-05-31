@@ -1,35 +1,26 @@
 <template>
 
-  <div v-if="awardMovies.length > 0" class="w-full">
-    <UiHorizontalScroller title="🏆Главные награды🏆" :items="awardMovies">
-      <template #default="{ item }">
+  <div v-if="awardMovies.length" class="w-full">
+    <UiHorizontalScroller title="🏆Главные награды🏆" :items="awardMovies" v-slot="{item}">
         <CatalogCard :movie="item"/>
-      </template>
     </UiHorizontalScroller>
   </div>
 
-  <CastNCrewPanel>
-    <UiHorizontalScroller title="🎬Главные проекты🎬" :items="bestMoviesCast">
-      <template #default="{item}">
-        <CatalogCard :movie="item" :mode="'tmdb'"/>
-      </template>
+  <CastNCrewPanel v-if="bestMoviesCast.length">
+    <UiHorizontalScroller title="🎬Главные проекты🎬" :items="bestMoviesCast" v-slot="{item}">
+        <CatalogCard :movie="item"/>
     </UiHorizontalScroller>
-    <span v-if="bestMoviesCast.length === 0" class="text-error flex justify-center items-center pb-6">Список фильмов отсутствует...</span>
   </CastNCrewPanel>
 
   <CastNCrewPanel v-for="section in convertCrewSection" :key="section.id">
-    <UiHorizontalScroller :title="section.title" :items="section.items">
-      <template #default="{item}">
-        <CatalogCard :movie="item" :mode="'tmdb'"/>
-      </template>
+    <UiHorizontalScroller :title="section.title" :items="section.items" v-slot="{item}">
+        <CatalogCard :movie="item"/>
     </UiHorizontalScroller>
   </CastNCrewPanel>
 
-  <CastNCrewPanel>
-    <UiHorizontalScroller title="Фото" :items="convertPersonSection">
-      <template #default="{item, index}">
-        <NuxtImg @click="openGallery(index)" :src="`https://image.tmdb.org/t/p/w600_and_h900_face${item.file_path}`" class="cursor-pointer"/>
-      </template>
+  <CastNCrewPanel v-if="convertPersonSection.length">
+    <UiHorizontalScroller title="Фото" :items="convertPersonSection" v-slot="{item, index}">
+        <NuxtImg @click="openGallery(index)" :src="`https://image.tmdb.org/t/p/w600_and_h900_face${item.file_path}`" class="cursor-pointer rounded-xl"/>
     </UiHorizontalScroller>
     <VueEasyLightbox
         :visible="visible"

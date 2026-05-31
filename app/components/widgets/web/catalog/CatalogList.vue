@@ -19,20 +19,19 @@ import type {TmdbMoviesProps} from "~/types/tmdb.types";
 const props = defineProps<TmdbMoviesProps>()
 
 const filteredMovies = computed(() => {
-  console.log('props', props)
   return props.movies.filter(movie => {
         const description =
             'overview' in movie
                 ? movie.overview
                 : movie.description
-    const releaseDate =
-        'release_date' in movie
-            ? movie.release_date
-            : movie.first_air_date
-    const voteCount =
-        movie.vote_count >= 10
-
-        return releaseDate && movie.poster_path && description && voteCount
+        const releaseDate =
+            'release_date' in movie
+                ? movie.release_date
+                : movie.first_air_date
+        const voteCount =
+            movie.vote_count >= 10
+        /*TODO передалть БД добавить условия voteCount*/
+        return releaseDate && movie.poster_path && description
       }
   )
 })
