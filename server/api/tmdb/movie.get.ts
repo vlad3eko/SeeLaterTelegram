@@ -3,7 +3,6 @@ export default defineEventHandler(async (event) => {
 
     const query = getQuery(event)
 
-
     const config = useRuntimeConfig()
 
     const headers = {
@@ -13,15 +12,15 @@ export default defineEventHandler(async (event) => {
 
     const [movieRes, trailerRu, trailerEn] = await Promise.all([
 
-        fetch(`https://api.themoviedb.org/3/movie/${query.id}?external_source=imdb_id&language=ru-RU`, {
+        fetch(`https://api.themoviedb.org/3/${query.media}/${query.id}?external_source=imdb_id&language=ru-RU`, {
             method: 'GET',
             headers
         }),
-        fetch(`https://api.themoviedb.org/3/movie/${query.id}/videos?language=ru-RU`, {
+        fetch(`https://api.themoviedb.org/3/${query.media}/${query.id}/videos?language=ru-RU`, {
             method: 'GET',
             headers
         }),
-        fetch(`https://api.themoviedb.org/3/movie/${query.id}/videos?language=en-EN`, {
+        fetch(`https://api.themoviedb.org/3/${query.media}/${query.id}/videos?language=en-EN`, {
             method: 'GET',
             headers
         })

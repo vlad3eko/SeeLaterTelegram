@@ -12,7 +12,6 @@
 
 <script lang="ts" setup>
 
-import type {MovieCardsProps} from "~/types/movie.types";
 import CatalogCard from "~/components/widgets/web/catalog/CatalogCard.vue";
 import Loader from "~/composables/Loader.vue";
 import type {TmdbMoviesProps} from "~/types/tmdb.types";
@@ -20,13 +19,20 @@ import type {TmdbMoviesProps} from "~/types/tmdb.types";
 const props = defineProps<TmdbMoviesProps>()
 
 const filteredMovies = computed(() => {
+  console.log('props', props)
   return props.movies.filter(movie => {
         const description =
             'overview' in movie
                 ? movie.overview
                 : movie.description
+    const releaseDate =
+        'release_date' in movie
+            ? movie.release_date
+            : movie.first_air_date
+    const voteCount =
+        movie.vote_count >= 10
 
-        return movie.release_date && movie.poster_path && description
+        return releaseDate && movie.poster_path && description && voteCount
       }
   )
 })

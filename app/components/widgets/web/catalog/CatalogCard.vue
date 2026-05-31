@@ -11,7 +11,7 @@
       <div v-if="statusClass"
            class="absolute top-3 left-3 px-3 py-1 rounded-full text-xs font-semibold text-white backdrop-blur-md z-10"
            :class="statusClass">
-        {{ movie.status }}
+        {{ movie.vote_count }}
       </div>
       <div
           v-if="rating"
@@ -24,7 +24,7 @@
         class="absolute bottom-0 text-white left-1/2 -translate-x-1/2 text-center p-5 flex flex-col gap-4  w-full">
       <div class="text-sm">
         <span class="font-bold">
-          {{ movie.title }}
+          {{ formatTitle }}
         </span>
         <p v-if="movie.release_date"
             class=" text-info mt-1">
@@ -87,6 +87,10 @@ const statusClass = computed<string>(() => {
 
 const rating = computed(() => {
   return props.movie.vote_average ? props.movie.vote_average : props.movie.rating
+})
+
+const formatTitle = computed(() => {
+  return props.movie.title || props.movie.name
 })
 
 const formatDate = computed(() => {

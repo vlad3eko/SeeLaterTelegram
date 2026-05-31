@@ -19,7 +19,7 @@
 
         <div class="flex flex-col gap-6 overflow-hidden">
 
-          <div class="flex flex-wrap lg:justify-start justify-center gap-3">
+          <div class="grid grid-cols-2 gap-9 max-2xl:grid-cols-1">
             <MoviePlayer/>
             <div>
               <MovieDescription/>

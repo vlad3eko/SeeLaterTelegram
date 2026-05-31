@@ -11,22 +11,22 @@ export const useMovieDetails = () => {
     const slug = route.params.slug
     const media = route.params.media
 
-    const idMovie = computed(() => {
+    const idMedia = computed(() => {
         return String(slug).split('-')[0]
     })
 
-    const {data, pending} = useAsyncData<TmdbMovieDetails>(`movie-${idMovie.value}`,
+    const {data, pending} = useAsyncData<TmdbMovieDetails>(`${media}-${idMedia.value}`,
         () => $fetch('/api/tmdb/movie', {
             query: {
-                id: idMovie.value,
+                id: idMedia.value,
                 media
             }
         }))
 
-    const {data: credits, pending: creditsPending} = useAsyncData<TmdbMovieDetails>(`movie-credits-${idMovie.value}`,
+    const {data: credits, pending: creditsPending} = useAsyncData<TmdbMovieDetails>(`${media}-credits-${idMedia.value}`,
         () => $fetch('/api/tmdb/credits', {
             query: {
-                id: idMovie.value,
+                id: idMedia.value,
                 media
             }
         }))
@@ -37,17 +37,13 @@ export const useMovieDetails = () => {
 
     const trailer = computed(() => {
 
-        console.log('1' , data.value?.trailers)
-
         return data.value?.trailers?.find(
             trailer => trailer.site === 'YouTube' &&
                 trailer.type === 'Trailer'
         )
-
     })
 
     const handleAddMovie = () => {
-
 
         if (!data.value) return
 

@@ -4,7 +4,7 @@
       {{ data?.title }}
     </h1>
     <div class="border-b my-4 border-accent-foreground/20"/>
-    <div class="max-w-4xl
+    <div class="max-w-full text-wrap
                 leading-7 md:leading-8
                 text-base md:text-lg
                 text-accent-foreground/90">
