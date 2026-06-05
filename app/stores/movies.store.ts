@@ -15,22 +15,8 @@ export const useMovieStore = defineStore('movies', () => {
         return {data, error}
     }
 
-    const deleteMovie = async (id: number) => {
-        const {error} = await supabase
-            .from('movies')
-            .delete()
-            .eq('id', id)
-
-        if (error) console.log('Ошибка deleteMovie', error)
-
-        movies.value = movies.value.filter(
-            smoothie => smoothie.id !== id
-        )
-    }
-
     return {
         movies,
         createMovie,
-        deleteMovie,
     }
 })
