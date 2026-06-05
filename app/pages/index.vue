@@ -12,7 +12,6 @@ import SearchPanel from "~/components/layout/SearchPanel.vue";
 import CatalogList from "~/components/widgets/web/catalog/CatalogList.vue";
 import {useTmdbSearch} from "~/composables/useTmdbSearch";
 
-
 const {
   movies,
   pending,

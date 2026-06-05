@@ -6,7 +6,8 @@ export default defineNuxtConfig({
     devtools: {enabled: true},
     css: ['./app/assets/css/main.css'],
     runtimeConfig: {
-        tmdbApiKey: process.env.TMDB_API_KEY
+        tmdbApiKey: process.env.TMDB_API_KEY,
+        telegramKey: process.env.TELEGRAM_TOKEN
     },
     supabase: {
         url: process.env.SUPABASE_URL,

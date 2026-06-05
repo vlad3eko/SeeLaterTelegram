@@ -3,6 +3,7 @@
     <NuxtPage/>
   </NuxtLayout>
 </template>
+
 <style>
 
 body {
