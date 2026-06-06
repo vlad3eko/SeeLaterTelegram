@@ -1,7 +1,7 @@
 <template>
   <li v-if="!isAuth">
     <UiButton @click="loginWithTelegram" class="flex gap-1">
-      Войти через Telegram
+      Telegram
       <span v-if="pendingAuth">
          <Loader/>
       </span>
@@ -11,7 +11,7 @@
   <li>
     <div v-if="isAuth">
       <UiButton @click="logoutTelegramAuth" class="flex gap-1">
-        {{ user.username }}
+        {{ user?.username }}
         <NuxtImg src="icons/telegram.svg" class="w-6"/>
       </UiButton>
     </div>
@@ -23,8 +23,13 @@
 import Loader from "~/composables/Loader.vue";
 import {useAuth} from "~/composables/auth/useAuth";
 
-const {user, isAuth, loginWithTelegram, logoutTelegramAuth, pendingAuth} = useAuth()
-
+  const {
+    user,
+    isAuth,
+    loginWithTelegram,
+    logoutTelegramAuth,
+    pendingAuth
+  } = useAuth()
 </script>
 
 <style scoped>

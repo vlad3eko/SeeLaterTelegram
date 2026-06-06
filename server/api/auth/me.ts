@@ -7,10 +7,10 @@ export default defineEventHandler(async (event) => {
         'session_token'
     )
 
+
     if (!sessionToken) {
         return null
     }
-
     const supabase = await serverSupabaseClient(event)
 
     const { data: session } = await supabase
@@ -19,15 +19,19 @@ export default defineEventHandler(async (event) => {
         .eq('session_token', sessionToken)
         .single()
 
+
     if (!session) {
         return null
     }
-
     const { data: user } = await supabase
         .from('users')
         .select()
         .eq('id', session.user_id)
         .single()
 
+
+    if(!user) {
+        return null
+    }
     return user
 })
