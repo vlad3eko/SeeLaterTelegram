@@ -2,7 +2,8 @@ import type {TelegramResponse, TelegramUser} from "~/types/auth/telegram/telegra
 
 export const useAuth = () => {
 
-    const {data: user, refresh, pending} =
+    // must return a value (it should not be undefined) or the request may be duplicated on the client side. -- user
+    const {data: user, pending, refresh} =
         useAsyncData(
             'auth-user',
             () => $fetch('/api/auth/me')
@@ -59,8 +60,18 @@ export const useAuth = () => {
         )
     }
 
+    const logoutTelegramAuth = async () => {
+
+            await $fetch('/api/auth/telegram-logout', {
+                method: 'POST',
+            })
+
+            await refresh()
+    }
+
     return {
         loginWithTelegram,
+        logoutTelegramAuth,
         user,
         isAuth,
         refresh,
