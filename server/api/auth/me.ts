@@ -7,7 +7,6 @@ export default defineEventHandler(async (event) => {
         'session_token'
     )
 
-
     if (!sessionToken) {
         return null
     }

@@ -1,7 +1,7 @@
 <template>
   <SearchPanel v-model="searchInput" @search="searchMovies"/>
   <CatalogList
-      :movies="movies"
+      :media="movies"
       :loading="pending"
       mode="tmdb"
   />
@@ -18,6 +18,7 @@ const {
   searchInput,
   searchMovies
 } = useTmdbSearch()
+
 
 </script>
 

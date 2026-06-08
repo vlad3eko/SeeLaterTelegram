@@ -31,6 +31,8 @@ export interface TmdbPerson {
 }
 
 export interface TmdbBaseMovie {
+    first_air_date?: number;
+    description?: string;
     adult: boolean
     backdrop_path: string | null
     credit_id: string

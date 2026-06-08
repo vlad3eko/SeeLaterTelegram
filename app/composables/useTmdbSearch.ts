@@ -15,6 +15,7 @@ export const useTmdbSearch = () => {
         }
     )
 
+
     const movies = computed(() => {
         return data.value?.results || []
     })

@@ -12,9 +12,16 @@ export default defineEventHandler(async (event) => {
     const supabase = await serverSupabaseClient(event)
 
     const {data, error} = await supabase
-        .from('movies')
+        .from('favorites')
         .select()
-        .order(sortBy, {ascending: false})
+        .order(sortBy,
+            {
+                ascending: false
+            }
+        )
 
-    return {data, error}
+    return {
+        data,
+        error
+    }
 })

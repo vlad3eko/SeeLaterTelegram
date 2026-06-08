@@ -1,6 +1,6 @@
 <template>
   <NuxtLink
-      v-if="movie"
+      v-if="media"
       :to="formatLink"
       class="hover:opacity-90 relative overflow-hidden smoothie-card rounded-xl block">
 
@@ -8,10 +8,10 @@
       <NuxtImg :src="computedImagesSrc" class="h-full object-cover w-full "/>
       <div
           class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent"/>
-      <div v-if="movie.vote_count"
+      <div v-if="media.vote_count"
            class="absolute top-3 left-3 px-3 py-1 rounded-full text-xs font-semibold text-white backdrop-blur-md z-10"
            :class="statusClass">
-        {{ movie.vote_count }}
+        {{ media.vote_count }}
       </div>
       <div
           v-if="rating"
@@ -26,7 +26,7 @@
         <span class="font-bold">
           {{ formatTitle }}
         </span>
-        <p v-if="movie.release_date"
+        <p v-if="media.release_date"
             class=" text-info mt-1">
           {{ formatDate }}
         </p>
@@ -50,17 +50,17 @@ const computedImagesSrc = computed(() => {
 
   if (props.mode === 'tmdb') {
 
-    return props.movie.poster_path ||
-    props.movie.backdrop_path
+    return props.media.poster_path ||
+    props.media.backdrop_path
         ? `https://image.tmdb.org/t/p/w600_and_h900_face/${
-            props.movie.poster_path ||
-            props.movie.backdrop_path
+            props.media.poster_path ||
+            props.media.backdrop_path
         }`
         : errorImage
   }
 
   return `https://image.tmdb.org/t/p/w600_and_h900_face/${
-      props.movie.poster_path}` || errorImage
+      props.media.poster_path}` || errorImage
 })
 
 const statusClass = computed<string>(() => {
@@ -69,7 +69,7 @@ const statusClass = computed<string>(() => {
     return ''
   }
 
-  switch (props.movie.status) {
+  switch (props.media.status) {
 
     case 'planned':
       return 'bg-button text-accent border border-button-border'
@@ -86,15 +86,15 @@ const statusClass = computed<string>(() => {
 })
 
 const rating = computed(() => {
-  return props.movie.vote_average ? props.movie.vote_average : props.movie.rating
+  return props.media.vote_average ? props.media.vote_average : props.media.rating
 })
 
 const formatTitle = computed(() => {
-  return props.movie.title || props.movie.name
+  return props.media.title || props.media.name
 })
 
 const formatDate = computed(() => {
-  return FormatDate(props.movie.release_date)
+  return FormatDate(props.media.release_date)
 })
 
 const formatRating = computed(() => {
@@ -105,8 +105,7 @@ const formatRating = computed(() => {
 })
 const formatLink = computed<string>((): string => {
 
-  return `/${props.movie.media_type}/${createSlug(props.movie.id, (props.movie.title || props.movie.name))}`
-  // TODO проверить ссылку createSlug ((http://localhost:3000/person/27972-dzhosh-hatcherson)) фильм Сценарист undefined
+  return `/${props.media.media_type}/${createSlug(props.media.id, (props.media.title || props.media.name))}`
 })
 
 </script>
