@@ -49,12 +49,6 @@ const {
   convertPersonSection,
 } = useTmdbPerson()
 
-console.log('convertCrewSection', convertCrewSection.value)
-console.log('awardMovies', awardMovies.value)
-console.log('bestMoviesCast', bestMoviesCast.value)
-console.log('convertPersonSection', convertPersonSection.value)
-
-
 const visible = ref(false)
 const currentIndex = ref(0)
 
