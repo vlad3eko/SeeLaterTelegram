@@ -11,9 +11,9 @@ export default defineEventHandler(async (event) => {
 
     const res = await fetch(`https://api.themoviedb.org/3/person/${query.id}
                                    ?append_to_response=combined_credits,images,external_ids
-                                   &language=ru-RU`, {
-        headers
-    })
+                                   &language=ru-RU`,
+        { headers  }
+    )
 
-    return await res.json()
+    return  await res.json()
 })

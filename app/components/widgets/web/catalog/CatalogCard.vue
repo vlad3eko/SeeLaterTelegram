@@ -27,7 +27,7 @@
           {{ formatTitle }}
         </span>
         <p v-if="media.release_date"
-            class=" text-info mt-1">
+           class=" text-info mt-1">
           {{ formatDate }}
         </p>
       </div>
@@ -104,9 +104,10 @@ const formatRating = computed(() => {
   }
 })
 const formatLink = computed<string>((): string => {
-
   return `/${props.media.media_type}/${createSlug(props.media.id, (props.media.title || props.media.name))}`
 })
+
+console.log('props Card', props)
 
 </script>
 

@@ -2,19 +2,19 @@
 
   <div v-if="awardMovies.length" class="w-full">
     <UiHorizontalScroller title="🏆Главные награды🏆" :items="awardMovies" v-slot="{item}">
-        <CatalogCard :movie="item"/>
+        <CatalogCard :media="item" />
     </UiHorizontalScroller>
   </div>
 
   <CastNCrewPanel v-if="bestMoviesCast.length">
     <UiHorizontalScroller title="🎬Главные проекты🎬" :items="bestMoviesCast" v-slot="{item}">
-        <CatalogCard :movie="item"/>
+        <CatalogCard :media="item"/>
     </UiHorizontalScroller>
   </CastNCrewPanel>
 
   <CastNCrewPanel v-for="section in convertCrewSection" :key="section.id">
     <UiHorizontalScroller :title="section.title" :items="section.items" v-slot="{item}">
-        <CatalogCard :movie="item"/>
+        <CatalogCard :media="item"/>
     </UiHorizontalScroller>
   </CastNCrewPanel>
 
@@ -48,6 +48,12 @@ const {
   bestMoviesCast,
   convertPersonSection,
 } = useTmdbPerson()
+
+console.log('convertCrewSection', convertCrewSection.value)
+console.log('awardMovies', awardMovies.value)
+console.log('bestMoviesCast', bestMoviesCast.value)
+console.log('convertPersonSection', convertPersonSection.value)
+
 
 const visible = ref(false)
 const currentIndex = ref(0)
