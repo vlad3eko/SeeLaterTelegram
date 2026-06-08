@@ -46,6 +46,7 @@ export const useMovieDetails = () => {
     const handleAddMovie = () => {
 
         if (!data.value) return
+        console.log('1', data.value)
 
         movieStore.createMovie(
             mapTmdbMovie(data.value)

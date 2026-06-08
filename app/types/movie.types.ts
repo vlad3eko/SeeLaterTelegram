@@ -11,6 +11,7 @@ export interface Movie {
     status: MovieStatus
 
     tmdb_id?: number
+    media_type?: string
 }
 
 export type MovieStatus =

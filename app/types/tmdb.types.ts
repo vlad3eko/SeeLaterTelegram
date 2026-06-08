@@ -37,12 +37,12 @@ export interface TmdbGenre {
 }
 
 export interface TmdbMovieProps {
-    movie: TmdbBaseMovie
+    media: TmdbBaseMovie
     mode?: Extract<MoviePropsMode, 'tmdb'>
 }
 
 export interface TmdbMoviesProps {
-    movies: TmdbBaseMovie[]
+    media: TmdbBaseMovie[]
     loading?: boolean
     mode?: Extract<MoviePropsMode, 'tmdb'>
 }

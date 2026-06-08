@@ -3,8 +3,8 @@
 
   <Transition name="fade" mode="out-in">
     <section v-if="!props.loading" class="smoothie-grid">
-      <div v-for="movie in filteredMovies" :key="movie.id" class="smoothie-card">
-        <CatalogCard :movie="movie"/>
+      <div v-for="media in filteredMovies" :key="media.id" class="smoothie-card">
+        <CatalogCard :media="media"/>
       </div>
     </section>
   </Transition>
@@ -17,21 +17,21 @@ import Loader from "~/composables/Loader.vue";
 import type {TmdbMoviesProps} from "~/types/tmdb.types";
 
 const props = defineProps<TmdbMoviesProps>()
-
 const filteredMovies = computed(() => {
-  return props.movies.filter(movie => {
+
+  return props.media.filter(media => {
         const description =
-            'overview' in movie
-                ? movie.overview
-                : movie.description
+            'overview' in media
+                ? media.overview
+                : media.description
         const releaseDate =
-            'release_date' in movie
-                ? movie.release_date
-                : movie.first_air_date
+            'release_date' in media
+                ? media.release_date
+                : media.first_air_date
         const voteCount =
-            movie.vote_count >= 10
+            media.vote_count >= 10
         /*TODO передалть БД добавить условия voteCount*/
-        return releaseDate && movie.poster_path && description
+        return releaseDate && media.poster_path && description
       }
   )
 })
