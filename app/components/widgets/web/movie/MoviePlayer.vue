@@ -15,7 +15,7 @@
                 </span>
       <UiButton @click="handleAddMovie"
                 class="rounded-none">
-        Сохранить
+        <span>Сохранить</span>
       </UiButton>
       <span class="py-6 max-lg:py-3 text-center cursor-pointer hover:bg-panel transition">
                   Бросил

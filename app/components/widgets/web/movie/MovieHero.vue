@@ -31,18 +31,18 @@
 
         <div class="absolute bottom-3 right-3 flex gap-3">
 
-                <span @click="handleAddMovie"
-                      class="material-symbols-outlined
-                 cursor-pointer hover:scale-125
-                 transition text-primary">
-                 favorite
-               </span>
+           <span @click="handleAddMovie"
+                 class="material-symbols-outlined
+            cursor-pointer hover:scale-125
+            transition text-primary">
+            favorite
+          </span>
           <span @click="handleAddMovie"
                 class="material-symbols-outlined
-                 cursor-pointer hover:scale-125
-                 transition text-white">
-                  playlist_add
-                </span>
+             cursor-pointer hover:scale-125
+             transition text-white">
+              playlist_add
+          </span>
         </div>
       </div>
       <div class="flex justify-center">
@@ -65,11 +65,11 @@ import {dateConvert} from "~/utils/convert/dateConvert";
 import {runtimeConvert} from "~/utils/convert/runtimeConvert";
 import {imageCheck} from "~/utils/imageCheck";
 
-
 const {
   data,
   handleAddMovie,
 } = useMovieDetails()
+
 
 </script>
 

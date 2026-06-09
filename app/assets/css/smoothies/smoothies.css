@@ -29,7 +29,7 @@ nav h1 {
 
 /* smoothie grid */
 .smoothie-grid {
-     @apply flex flex-wrap gap-12 relative w-full
+     @apply flex flex-wrap gap-3 relative w-full max-md:justify-center mx-auto
 }
 
 .card {
