@@ -33,7 +33,7 @@ const filteredMovies = computed(() => {
         const voteCount =
             media.vote_count >= 10
         /*TODO передалть БД добавить условия voteCount*/
-        return releaseDate && media.poster_path && description && voteCount
+        return releaseDate && media.poster_path && description
       }
   )
 })
