@@ -21,7 +21,6 @@ const props = defineProps<TmdbMoviesProps>()
 const filteredMovies = computed(() => {
 
   return props.media.filter(media => {
-    console.log('media', media.overview)
         const description =
             'overview' in media
                 ? media.overview
@@ -37,8 +36,6 @@ const filteredMovies = computed(() => {
       }
   )
 })
-
-console.log('filteredMovies', filteredMovies)
 
 </script>
 

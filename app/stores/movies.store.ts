@@ -5,7 +5,6 @@ import {useAuth} from "~/composables/auth/useAuth";
 export const useMovieStore = defineStore('movies', () => {
 
     const supabase = useSupabaseClient()
-    const media = useRoute().params.media
     const {user} = useAuth()
 
     const movies = ref<MediaTypesSupabase[]>([])
@@ -18,7 +17,7 @@ export const useMovieStore = defineStore('movies', () => {
                     user_id: user.value.id,
                     title: payload.title,
                     tmdb_id: payload.tmdb_id,
-                    media_type: media,
+                    media_type: payload.media_type,
                 })
                 .select()
 

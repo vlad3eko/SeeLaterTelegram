@@ -28,11 +28,13 @@ export default defineEventHandler(async (event) => {
 
 
     const movie = await movieRes.json()
+    const media_type = query.media
     const trailerRus = await trailerRu.json()
     const trailerEng = await trailerEn.json()
 
     return {
         ...movie,
+        media_type,
         trailers: [...trailerRus.results,...trailerEng.results]
     }
 
