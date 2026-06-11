@@ -1,17 +1,17 @@
 <template>
-  <li v-if="!isAuth">
-    <UiButton @click="loginWithTelegram" class="flex gap-1">
+  <li v-if="!user.isAuth">
+    <UiButton @click="isAuth.login" class="flex gap-1">
       Telegram
-      <span v-if="pendingAuth">
+      <span v-if="isAuth.pendingAuth">
          <Loader/>
       </span>
       <NuxtImg src="icons/telegram.svg" class="w-6"/>
     </UiButton>
   </li>
   <li>
-    <div v-if="isAuth">
-      <UiButton @click="logoutTelegramAuth" class="flex gap-1">
-        {{ user?.username }}
+    <div v-if="user.isAuth">
+      <UiButton @click="isAuth.logout" class="flex gap-1">
+        {{ user.data?.username }}
         <NuxtImg src="icons/telegram.svg" class="w-6"/>
       </UiButton>
     </div>
@@ -21,15 +21,11 @@
 <script lang="ts" setup>
 
 import Loader from "~/composables/Loader.vue";
-import {useAuth} from "~/composables/auth/useAuth";
+import {useUserStore} from "~/stores/user.store";
+import {useAuthStore} from "~/stores/auth.store";
 
-  const {
-    user,
-    isAuth,
-    loginWithTelegram,
-    logoutTelegramAuth,
-    pendingAuth
-  } = useAuth()
+const user = useUserStore()
+const isAuth = useAuthStore()
 </script>
 
 <style scoped>

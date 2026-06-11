@@ -17,8 +17,6 @@
 <script lang="ts" setup>
 
 import ThemeSelect from "~/composables/ThemeSelect.vue";
-import {useAuth} from "~/composables/auth/useAuth";
-import Loader from "~/composables/Loader.vue";
 import Auth from "~/components/layout/Auth.vue";
 
 </script>
