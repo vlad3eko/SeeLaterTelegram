@@ -1,20 +1,21 @@
-import type {Movie} from "~/types/movie.types";
 import type {MediaTypesSupabase} from "~/types/bookmarks/media.types";
-import {useAuth} from "~/composables/auth/useAuth";
+import {useUserStore} from "~/stores/user.store";
 
 export const useMovieStore = defineStore('movies', () => {
 
     const supabase = useSupabaseClient()
-    const {user} = useAuth()
+    const user = useUserStore()
 
     const movies = ref<MediaTypesSupabase[]>([])
 
     const createMovie = async (payload: Partial<MediaTypesSupabase>) => {
 
+        if (!user.data) return
+
             const {data, error} = await supabase
                 .from('favorites')
                 .insert({
-                    user_id: user.value.id,
+                    user_id: user.data.id,
                     title: payload.title,
                     tmdb_id: payload.tmdb_id,
                     media_type: payload.media_type,

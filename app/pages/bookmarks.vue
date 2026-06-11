@@ -24,11 +24,10 @@
 <script lang="ts" setup>
 
 import type {MovieSortField} from "~/types/movie.types";
-import SearchPanel from "~/components/layout/SearchPanel.vue";
-import {useAuth} from "~/composables/auth/useAuth";
 import type {TmdbMovieDetails} from "~/types/tmdb.types";
 import CatalogList from "~/components/widgets/web/catalog/CatalogList.vue";
 import Loader from "~/composables/Loader.vue";
+import {useUserStore} from "~/stores/user.store";
 
 const sortBy = ref<MovieSortField>('created_at')
 
@@ -44,12 +43,14 @@ const {data: medias} = await useAsyncData(`movies-bookmarks-${sortBy.value}`,
       watch: [sortBy]
     })
 
-const {user} = useAuth()
+const user = useUserStore()
+
+
 
 const favorites = computed(() =>
     medias?.value?.data?.filter(
         item =>
-            item.user_id === user.value?.id
+            item.user_id === user.data?.id
     ) ?? []
 )
 
@@ -69,6 +70,8 @@ const {data, pending} = useAsyncData<TmdbMovieDetails[]>(
 const bookmarksMedia = computed(() => {
   return data.value
 })
+
+console.log('bookmarksMedia', bookmarksMedia)
 
 </script>
 

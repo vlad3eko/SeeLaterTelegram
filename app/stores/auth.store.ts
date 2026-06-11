@@ -1,21 +1,12 @@
-import type {TelegramResponse, TelegramUser} from "~/types/auth/telegram/telegram.types";
+import {useUserStore} from "~/stores/user.store";
+import type {TelegramResponse} from "~/types/auth/telegram/telegram.types";
 
-export const useAuth = () => {
+export const useAuthStore = defineStore('isAuth', () => {
 
-    // must return a value (it should not be undefined) or the request may be duplicated on the client side. -- user
-    const {data, pending, refresh} = useAsyncData('auth-user',
-        () => $fetch('/api/auth/me'))
-
-    const user = computed(() => {
-        return data.value
-    })
+    const user = useUserStore()
     const pendingAuth = ref<boolean>(false)
 
-    const isAuth = computed(
-        () => !!user.value
-    )
-
-    const loginWithTelegram = async () => {
+    const login = async () => {
 
         const token = crypto.randomUUID()
 
@@ -43,7 +34,6 @@ export const useAuth = () => {
 
                 if (data.data.confirmed) {
 
-
                     pendingAuth.value = false
 
                     await $fetch('/api/auth/telegram-login', {
@@ -52,7 +42,7 @@ export const useAuth = () => {
                             telegram_id: data.user.telegram_id
                         }
                     })
-                    await refresh()
+                    await user.refresh()
 
                     clearInterval(startInterval)
                 }
@@ -60,21 +50,23 @@ export const useAuth = () => {
         )
     }
 
-    const logoutTelegramAuth = async () => {
+    const logout = async () => {
 
-        await $fetch('/api/auth/telegram-logout', {
-            method: 'POST',
-        })
-
-        await refresh()
+        try {
+            await $fetch('/api/auth/telegram-logout', {
+                method: 'POST',
+            })
+        } catch (err) {
+            throw new Error('logout Failed.')
+        } finally {
+            user.clear()
+        }
     }
 
     return {
-        loginWithTelegram,
-        logoutTelegramAuth,
-        user,
-        isAuth,
-        refresh,
         pendingAuth,
+        login,
+        logout,
     }
-}
+
+})
