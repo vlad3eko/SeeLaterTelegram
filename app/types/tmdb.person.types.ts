@@ -1,3 +1,5 @@
+import type {TmdbBaseMedia} from "~/types/movie.types";
+
 export interface TmdbCredits extends TmdbPerson{
     cast_id: number
     character: string
@@ -30,37 +32,12 @@ export interface TmdbPerson {
     }
 }
 
-export interface TmdbBaseMovie {
-    first_air_date?: number;
-    description?: string;
-    adult: boolean
-    backdrop_path: string | null
-    credit_id: string
-    genre_ids: number[]
-    id: number
-    media_type: string
-    original_language: string
-    original_title: string
-    overview: string
-    popularity: number
-    poster_path: string | null
-    release_date: string
-    softcore: boolean
-    title: string
-    video: boolean
-    vote_average: number
-    vote_count: number
-    status: string
-    rating: number
-    name: string
-}
-
-export interface TmdbPersonMovieCast extends TmdbBaseMovie {
+export interface TmdbPersonMovieCast extends TmdbBaseMedia {
     character: string
     order: number
 }
 
-export interface TmdbPersonMovieCrew extends TmdbBaseMovie {
+export interface TmdbPersonMovieCrew extends TmdbBaseMedia {
     department: string
     job: string
 }
