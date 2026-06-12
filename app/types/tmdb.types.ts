@@ -1,9 +1,9 @@
-import type {MoviePropsMode} from "~/types/movie.types";
-import type {TmdbBaseMovie, TmdbCredits, TmdbPersonMovieCrew} from "~/types/tmdb.person.types";
+import type {MoviePropsMode, TmdbBaseMedia, TmdbMedia, TmdbMovie, TmdbTv} from "~/types/movie.types";
+import type {TmdbCredits, TmdbPersonMovieCrew} from "~/types/tmdb.person.types";
 
 export interface TmdbResponse {
     page: number
-    results: TmdbBaseMovie[]
+    results: TmdbMedia[]
     trailer: TmdbTrailer[]
     total_pages: number
     total_results: number
@@ -17,19 +17,23 @@ export interface TmdbTrailer {
     type: string
 }
 
-export interface TmdbMovieDetails extends TmdbBaseMovie {
+export type TmdbMovieDetails =
+    | (TmdbMovie & {
     trailers: TmdbTrailer[]
-
     tagline?: string
     runtime?: number
-
     genres?: TmdbGenre[]
-
-    origin_country?: string[]
-
     cast?: TmdbCredits[]
     crew?: TmdbPersonMovieCrew[]
-}
+})
+    | (TmdbTv & {
+    trailers: TmdbTrailer[]
+    tagline?: string
+    runtime?: number
+    genres?: TmdbGenre[]
+    cast?: TmdbCredits[]
+    crew?: TmdbPersonMovieCrew[]
+})
 
 export interface TmdbGenre {
     id: number
@@ -37,12 +41,12 @@ export interface TmdbGenre {
 }
 
 export interface TmdbMovieProps {
-    media: TmdbBaseMovie
+    media: TmdbBaseMedia
     mode?: Extract<MoviePropsMode, 'tmdb'>
 }
 
 export interface TmdbMoviesProps {
-    media: TmdbBaseMovie[]
+    media: TmdbBaseMedia[]
     loading?: boolean
     mode?: Extract<MoviePropsMode, 'tmdb'>
 }

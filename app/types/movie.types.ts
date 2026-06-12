@@ -8,33 +8,8 @@ export interface Movie {
     rating: number
     release_date?: string
 
-    status: MovieStatus
-
     tmdb_id?: number
     media_type?: string
-}
-
-export type MovieStatus =
-    | 'planned'
-    | 'watching'
-    | 'watched'
-
-export type MoviePayload =
-    Pick<
-        Movie,
-        'title' | 'rating'>
-
-export type MovieMode =
-    'create' | 'update'
-
-export type MovieEditableData =
-    Pick<Movie, 'id' | 'title' | 'rating'>
-
-export interface MovieFormProps {
-    mode:
-        MovieMode
-    card?:
-        MovieEditableData
 }
 
 export type MovieSortField =
@@ -42,19 +17,41 @@ export type MovieSortField =
 
 export type MoviePropsMode = 'default' | 'tmdb'
 
-
-export interface MovieCardProps {
-    movie: Movie
-    mode?: Extract<MoviePropsMode, 'default'>
+export interface TmdbBaseMedia {
+    adult: boolean
+    backdrop_path: string | null
+    genre_ids: number[]
+    id: number
+    media_type: 'movie' | 'tv'
+    original_language: string
+    overview: string
+    popularity: number
+    poster_path: string | null
+    softcore: boolean
+    vote_average: number
+    vote_count: number
 }
 
-export interface MovieCardsProps {
-    movies: Movie[]
-    loading?: boolean
-    mode?: Extract<MoviePropsMode, 'default'>
+export interface TmdbMovie extends TmdbBaseMedia {
+    media_type: 'movie'
+    title: string
+    original_title: string
+    release_date: string
+    video: boolean
 }
 
 
+export interface TmdbTv extends TmdbBaseMedia {
+    media_type: 'tv'
+    name: string
+    original_name: string
+    first_air_date: string
+    origin_country: string[]
+}
+
+export type TmdbMedia =
+    | TmdbMovie
+    | TmdbTv
 
 
 
