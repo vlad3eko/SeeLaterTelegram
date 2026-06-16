@@ -22,7 +22,7 @@
       <span class="text-accent-foreground">{{ mediaReleaseConvert(data) }}</span>
     </p>
     <p class=" text-muted-foreground font-bold letter">
-      Дата выхода:
+      Тип:
       <UiButton variant="secondary">{{ mediaTypeConvert(data) }}</UiButton>
     </p>
   </div>
