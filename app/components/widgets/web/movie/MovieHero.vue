@@ -48,7 +48,7 @@
       <div class="flex justify-center">
         <p class="text-accent-foreground w-max bg-shell px-5 py-1 pb-1 rounded-b-2xl text-center ">
           <span>Дата выхода: </span>
-          {{ dateConvert(data?.release_date) }}</p>
+          {{ mediaReleaseConvert(data) }}</p>
       </div>
       <!-- TAGLINE -->
       <p class="text-center text-muted-foreground mt-4 px-2  italic">
@@ -64,12 +64,12 @@ import {useMovieDetails} from "~/composables/movie/useMovieDetails";
 import {dateConvert} from "~/utils/convert/dateConvert";
 import {runtimeConvert} from "~/utils/convert/runtimeConvert";
 import {imageCheck} from "~/utils/imageCheck";
+import {mediaReleaseConvert} from "~/utils/convert/mediaConvert";
 
 const {
   data,
   handleAddMovie,
 } = useMovieDetails()
-
 
 </script>
 
