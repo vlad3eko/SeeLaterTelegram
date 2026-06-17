@@ -42,3 +42,11 @@ export const mediaDurationConvert = (data: TmdbMovieDetails | undefined) => {
         }
     }
 }
+
+export const mediaTitleConvert = (data: TmdbMovieDetails | undefined) => {
+    const typeCheck = data?.media_type === 'movie'
+
+    if (data) {
+        return typeCheck ? data.title : data.name
+    }
+}

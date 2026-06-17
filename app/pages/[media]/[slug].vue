@@ -27,8 +27,8 @@
             </div>
           </div>
           <MovieGetRoleByMovieSection/>
-
         </div>
+
       </div>
     </Transition>
   </div>
@@ -38,10 +38,10 @@
 import Loader from "~/composables/Loader.vue";
 import MovieHero from "~/components/widgets/web/movie/MovieHero.vue";
 import MoviePlayer from "~/components/widgets/web/movie/MoviePlayer.vue";
-import MovieDescription from "~/components/widgets/web/movie/MovieDescription.vue";
 import MovieMeta from "~/components/widgets/web/movie/MovieMeta.vue";
 import {useMovieDetails} from "~/composables/movie/useMovieDetails";
 import MovieGetRoleByMovieSection from "~/components/widgets/web/movie/MovieGetRoleByMovieSection.vue";
+import MovieDescription from "~/components/widgets/web/movie/MovieDescription.vue";
 
 const {
   pending,
