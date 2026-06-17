@@ -1,12 +1,12 @@
 <template>
   <div v-if="trailer" class="overflow-hidden rounded-2xl bg-shell shadow-2xl ">
-    <div class="relative">
+    <div class="relative md:h-[450px]">
       <Loader v-if="!trailerL" class="absolute left-1/2 top-1/2 w-10 -translate-x-1/2 -translate-y-1/2"/>
-      <iframe class="w-full aspect-video md:h-[450px]"
+      <iframe class="w-full h-full aspect-video"
               :src="selectTrailer"
               allowfullscreen/>
     </div>
-    <LazyUiHorizontalScroller :items="data?.trailers" v-slot="{item}" title="Больше видео">
+    <LazyUiHorizontalScroller :items="trailers" v-slot="{item}" title="Больше видео">
       <TrailerCard :item="item" @select="trailerL($event)"/>
     </LazyUiHorizontalScroller>
   </div>
@@ -29,6 +29,22 @@ const trailerL = (key: string) => {
 
   return selectTrailer.value = `https://www.youtube.com/embed/${basic}?autoplay=1`
 }
+
+const trailers = computed(() => {
+
+  return data?.value?.trailers.filter(
+      item => {
+        const name = item.name.toLowerCase()
+
+        if (
+            name.includes('трейлер') ||
+            name.includes('trailer')
+        ) {
+          return item.key
+        }
+      }
+  )
+})
 
 </script>
 

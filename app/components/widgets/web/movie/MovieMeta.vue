@@ -37,7 +37,6 @@ const {
   data,
 } = useMovieDetails()
 
-console.log('data', data.value)
 </script>
 
 <style scoped>

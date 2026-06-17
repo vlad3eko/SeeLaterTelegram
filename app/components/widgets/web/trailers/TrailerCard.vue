@@ -13,8 +13,10 @@
 
 <script lang="ts" setup>
 
+import type {TmdbTrailer} from "~/types/tmdb.types";
+
 interface Props {
-  item: any
+  item: TmdbTrailer
 }
 
 const props = defineProps<Props>()
@@ -23,8 +25,8 @@ const emit = defineEmits<{
   select: [string]
 }>()
 
-const handleSelect = (id: string) => {
-  emit('select', id)
+const handleSelect = (key: string) => {
+  emit('select', key)
 }
 
 </script>
