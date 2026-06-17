@@ -6,7 +6,7 @@
               :src="selectTrailer"
               allowfullscreen/>
     </div>
-    <LazyUiHorizontalScroller :items="trailers" v-slot="{item}" title="Больше видео">
+    <LazyUiHorizontalScroller :items="trailers" v-slot="{item}" :show-title="false">
       <TrailerCard :item="item" @select="trailerL($event)"/>
     </LazyUiHorizontalScroller>
   </div>
