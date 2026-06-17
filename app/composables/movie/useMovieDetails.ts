@@ -37,9 +37,10 @@ export const useMovieDetails = () => {
 
     const trailer = computed(() => {
 
-        return data.value?.trailers?.find(
-            trailer => trailer.site === 'YouTube' &&
-                trailer.type === 'Trailer'
+       return data.value?.trailers?.find(
+            trailer =>
+                trailer.site === 'YouTube'
+                && trailer.type === 'Trailer'
         )
     })
 
