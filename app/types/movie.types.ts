@@ -15,6 +15,9 @@ export interface Movie {
 export type MovieSortField =
     'created_at' | 'title' | 'rating'
 
+export type MediaStatus =
+    'planned' | 'watching' | 'watched'
+
 export type MoviePropsMode = 'default' | 'tmdb'
 
 export interface TmdbBaseMedia {
@@ -30,6 +33,12 @@ export interface TmdbBaseMedia {
     softcore: boolean
     vote_average: number
     vote_count: number
+    production_countries: {
+        iso_3166_1: string
+        name: string
+    }[]
+    origin_country: string[]
+    status: MediaStatus
 }
 
 export interface TmdbMovie extends TmdbBaseMedia {
@@ -40,13 +49,14 @@ export interface TmdbMovie extends TmdbBaseMedia {
     video: boolean
 }
 
-
 export interface TmdbTv extends TmdbBaseMedia {
     media_type: 'tv'
     name: string
     original_name: string
     first_air_date: string
-    origin_country: string[]
+    last_air_date: string
+    number_of_episodes: number
+    number_of_seasons: number
 }
 
 export type TmdbMedia =

@@ -3,7 +3,6 @@
   <CatalogList
       :media="filteredMovies"
       :loading="pending"
-      mode="tmdb"
   />
 </template>
 

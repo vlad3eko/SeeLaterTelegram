@@ -31,7 +31,6 @@ import {useUserStore} from "~/stores/user.store";
 
 const sortBy = ref<MovieSortField>('created_at')
 
-
 const {data: medias} = await useAsyncData(`movies-bookmarks-${sortBy.value}`,
     () => $fetch('/api/:media',
         {
@@ -44,8 +43,6 @@ const {data: medias} = await useAsyncData(`movies-bookmarks-${sortBy.value}`,
     })
 
 const user = useUserStore()
-
-
 
 const favorites = computed(() =>
     medias?.value?.data?.filter(
@@ -70,8 +67,6 @@ const {data, pending} = useAsyncData<TmdbMovieDetails[]>(
 const bookmarksMedia = computed(() => {
   return data.value
 })
-
-console.log('bookmarksMedia', bookmarksMedia)
 
 </script>
 
