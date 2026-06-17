@@ -1,7 +1,7 @@
 <template>
   <p class="text-2xl md:text-4xl p-3 font-bold flex items-start">
     {{ title }}
-    <span v-if="items?.length" class="text-xl">({{items.length}})</span>
+    <span v-if="props.items?.length && props.showTitle" class="text-xl">({{props.items.length}})</span>
   </p>
 
   <div class="border-b my-1 border-accent-foreground/20"/>
@@ -9,7 +9,7 @@
   <ClientOnly>
       <swiper-container ref="swiperRef" :init="false"
                         class="overflow-hidden relative">
-        <swiper-slide v-for="(item, index) in items"
+        <swiper-slide v-for="(item, index) in props.items"
                       :id="item.id"
                       class="w-50 md:h-full md:w-53">
           <slot :item="item" :index="index"/>
@@ -34,9 +34,12 @@ interface BaseItem {
 interface HorizontalScrollItem {
   title?: string
   items?: any[]
+  showTitle?: boolean
 }
 
-defineProps<HorizontalScrollItem>()
+const props = withDefaults(defineProps<HorizontalScrollItem>(), {
+  showTitle: true
+})
 
 const swiperRef = ref<null>(null)
 
