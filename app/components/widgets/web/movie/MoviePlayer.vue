@@ -6,9 +6,15 @@
               :src="selectTrailer"
               allowfullscreen/>
     </div>
-    <LazyUiHorizontalScroller :items="trailers" v-slot="{item}" :show-title="false">
+
+    <LazyUiHorizontalScroller v-if="trailers?.length" :items="trailers" v-slot="{item}" title="Трейлеры">
       <TrailerCard :item="item" @select="trailerL($event)"/>
     </LazyUiHorizontalScroller>
+
+    <LazyUiHorizontalScroller v-if="mediaAbout?.length" :items="mediaAbout" v-slot="{item}" title="За кадром">
+      <TrailerCard :item="item" @select="trailerL($event)"/>
+    </LazyUiHorizontalScroller>
+
   </div>
 </template>
 
@@ -22,12 +28,12 @@ const {
   trailer,
 } = useMovieDetails()
 
-const selectTrailer = ref(`https://www.youtube.com/embed/${trailer.value?.key}?autoplay=1`)
+const selectTrailer = ref(`https://www.youtube.com/embed/${trailer.value?.key}?autoplay=1&rel=0&modestbranding=1`)
 
 const trailerL = (key: string) => {
   const basic = key || trailer.value?.key
 
-  return selectTrailer.value = `https://www.youtube.com/embed/${basic}?autoplay=1`
+  return selectTrailer.value = `https://www.youtube.com/embed/${basic}?autoplay=1&rel=0&modestbranding=1`
 }
 
 const trailers = computed(() => {
@@ -39,6 +45,22 @@ const trailers = computed(() => {
         if (
             name.includes('трейлер') ||
             name.includes('trailer')
+        ) {
+          return item.key
+        }
+      }
+  )
+})
+
+const mediaAbout = computed(() => {
+
+  return data?.value?.trailers.filter(
+      item => {
+        const name = item.name.toLowerCase()
+
+        if (
+            !name.includes('трейлер') &&
+            !name.includes('trailer')
         ) {
           return item.key
         }
