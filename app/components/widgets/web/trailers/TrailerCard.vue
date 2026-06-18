@@ -1,10 +1,14 @@
 <template>
-  <div class="relative"
+  <div
        @click.prevent="handleSelect(props.item.key)">
-    <iframe v-if="props.item.key"
-            class="w-full aspect-video md:h-[150px]"
-            :src="`https://www.youtube.com/embed/${props.item.key}`"
-            allowfullscreen/>
+    <div class="relative">
+      <img
+          :src="`https://img.youtube.com/vi/${props.item.key}/mqdefault.jpg`"
+          class="w-full aspect-video object-cover"
+          alt=""
+      >
+      <span class="absolute top-0 right-0 bg-card px-3 py-1 uppercase">{{props.item.iso_639_1}}</span>
+    </div>
     <span class="absolute top-0 right-0 h-full opacity-0 w-full cursor-pointer">
     {{ props.item.name }}
     </span>
@@ -24,6 +28,8 @@ const props = defineProps<Props>()
 const emit = defineEmits<{
   select: [string]
 }>()
+
+console.log('props', props.item.key)
 
 const handleSelect = (key: string) => {
   emit('select', key)
