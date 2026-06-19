@@ -6,7 +6,7 @@ export interface TelegramCreateData {
 }
 
 export interface TelegramUser {
-    created_at: string
+    created_at?: string
     first_name: string
     id: number
     telegram_id: number
@@ -16,4 +16,8 @@ export interface TelegramUser {
 export interface TelegramResponse {
     data: TelegramCreateData
     user: TelegramUser
+}
+
+export interface TelegramBotUser {
+    from: TelegramUser
 }
