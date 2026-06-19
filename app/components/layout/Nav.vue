@@ -17,7 +17,7 @@
 <script lang="ts" setup>
 
 import ThemeSelect from "~/composables/ThemeSelect.vue";
-import Auth from "~/components/layout/Auth.vue";
+import Auth from "~/components/widgets/telegram/Auth.vue";
 
 </script>
 
