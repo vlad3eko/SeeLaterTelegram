@@ -1,8 +1,8 @@
 import {failedLoginToken} from "#server/bot/handlers/commands/start/failedLoginToken";
 import {processTelegramAuth} from "#server/bot/services/auth/processTelegramAuth";
-import {authRequests} from "#server/bot/consts/exportConsts";
 
-export const start = async (ctx: any) => {
+export const start = async (ctx: any, authRequests: Map<string, number>) => {
+
     const loginToken = ctx.payload
 
     if (!loginToken) {
@@ -11,5 +11,5 @@ export const start = async (ctx: any) => {
 
     authRequests.set(ctx.from.id, loginToken)
 
-    await processTelegramAuth(ctx)
+    await processTelegramAuth(ctx, authRequests)
 }

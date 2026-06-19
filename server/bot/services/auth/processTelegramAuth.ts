@@ -4,7 +4,7 @@ import {failedChannelSubscriber} from "#server/bot/handlers/auth/fail/failedChan
 import {sendSubscriptionSuccessMessage} from "#server/bot/handlers/auth/success/sendSubscriptionSuccessMessage";
 import {checkChannelSubscriber} from "#server/bot/handlers/auth/check/checkChannelSubscriber";
 
-export const processTelegramAuth = async (ctx: any) => {
+export const processTelegramAuth = async (ctx: any, authRequests: Map<string, number>) => {
 
     try {
 
@@ -15,7 +15,7 @@ export const processTelegramAuth = async (ctx: any) => {
         }
 
         await saveTelegramUser(ctx)
-        await confirmUserRequest(ctx)
+        await confirmUserRequest(ctx, authRequests)
         await sendSubscriptionSuccessMessage(ctx)
 
     } catch (error) {
