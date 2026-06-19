@@ -2,24 +2,22 @@ import {Telegraf} from 'telegraf'
 import {start} from "#server/bot/commands/start";
 import {processTelegramAuth} from "#server/bot/services/auth/processTelegramAuth";
 
-export default defineNitroPlugin( () => {
+export default defineNitroPlugin(() => {
 
     const config = useRuntimeConfig()
 
     const bot = new Telegraf(config.telegramKey)
 
-    bot.start(start)
+    const authRequests = new Map()
 
-    bot.action('check_sub', processTelegramAuth)
-    bot.command('add', async (ctx) => {
-
-        await ctx.reply(
-            `Чтобы добавить фильм, напишите только название. 
-            \nПример: 
-            \nВластелины вселенной`
-        )
-
+    bot.start(async (ctx) => {
+        await start(ctx, authRequests)
     })
+
+    bot.action('check_sub',
+        async (ctx) =>
+            await processTelegramAuth(ctx, authRequests)
+    )
 
     bot.launch()
 

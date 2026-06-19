@@ -1,6 +1,4 @@
-import {authRequests} from "#server/bot/consts/exportConsts";
-
-export const confirmUserRequest = async (ctx: any) => {
+export const confirmUserRequest = async (ctx: any, authRequests: Map<string, number>) => {
 
     const loginToken = authRequests.get(ctx.from.id)
 
