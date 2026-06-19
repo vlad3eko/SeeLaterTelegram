@@ -1,4 +1,4 @@
-import type {TmdbMovieDetails} from "~/types/tmdb.types";
+import type {TmdbMovieDetails, TmdbTrailer} from "~/types/tmdb.types";
 import type {TmdbPersonMovieCrew} from "~/types/tmdb.person.types";
 import {useMovieStore} from "~/stores/movies.store";
 import {mapRoleByMovie} from "~/utils/person/role/mapRoleByMovie";
@@ -37,7 +37,7 @@ export const useMovieDetails = () => {
 
     const trailer = computed(() => {
 
-       return data.value?.trailers?.find(
+        return data.value?.trailers?.find(
             trailer =>
                 trailer.site === 'YouTube'
                 && trailer.type === 'Trailer'

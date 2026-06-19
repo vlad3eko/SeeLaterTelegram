@@ -7,11 +7,13 @@
               allowfullscreen/>
     </div>
 
-    <LazyUiHorizontalScroller v-if="trailers?.length" :items="trailers" v-slot="{item}" title="Трейлеры">
+    <LazyUiHorizontalScroller v-if="groupedTrailers.trailersSort?.length" :items="groupedTrailers.trailersSort"
+                              v-slot="{item}" title="Трейлеры">
       <TrailerCard :item="item" @select="trailerL($event)"/>
     </LazyUiHorizontalScroller>
 
-    <LazyUiHorizontalScroller v-if="mediaAbout?.length" :items="mediaAbout" v-slot="{item}" title="За кадром">
+    <LazyUiHorizontalScroller v-if="groupedTrailers.mediaAbout?.length" :items="groupedTrailers.mediaAbout"
+                              v-slot="{item}" title="За кадром">
       <TrailerCard :item="item" @select="trailerL($event)"/>
     </LazyUiHorizontalScroller>
 
@@ -22,23 +24,19 @@
 import {useMovieDetails} from "~/composables/movie/useMovieDetails";
 import TrailerCard from "~/components/widgets/web/trailers/TrailerCard.vue";
 import Loader from "~/composables/Loader.vue";
+import type {TmdbTrailer} from "~/types/tmdb.types";
 
 const {
   data,
   trailer,
 } = useMovieDetails()
 
-const selectTrailer = ref(`https://www.youtube.com/embed/${trailer.value?.key}?autoplay=1&rel=0&modestbranding=1`)
+const groupedTrailers = computed(() => {
 
-const trailerL = (key: string) => {
-  const basic = key || trailer.value?.key
+  const trailersSort: TmdbTrailer[] = []
+  const mediaAbout: TmdbTrailer[] = []
 
-  return selectTrailer.value = `https://www.youtube.com/embed/${basic}?autoplay=1&rel=0&modestbranding=1`
-}
-
-const trailers = computed(() => {
-
-  return data?.value?.trailers.filter(
+  data.value?.trailers.filter(
       item => {
         const name = item.name.toLowerCase()
 
@@ -46,27 +44,44 @@ const trailers = computed(() => {
             name.includes('трейлер') ||
             name.includes('trailer')
         ) {
-          return item.key
+          trailersSort.push(item)
+        } else {
+          mediaAbout.push(item)
         }
       }
   )
-})
 
-const mediaAbout = computed(() => {
-
-  return data?.value?.trailers.filter(
-      item => {
-        const name = item.name.toLowerCase()
-
-        if (
-            !name.includes('трейлер') &&
-            !name.includes('trailer')
-        ) {
-          return item.key
-        }
-      }
+  trailersSort.sort(
+      (a, b) =>
+          new Date(b.published_at).getTime() -
+          new Date(a.published_at).getTime()
   )
+
+  return {
+    trailersSort,
+    mediaAbout
+  }
 })
+
+const selectedKey = ref('')
+
+const defaultTrailerKey = computed(
+    () =>
+        groupedTrailers.value.trailersSort[0]?.key ||
+        trailer.value?.key ||
+        ''
+)
+
+const selectTrailer = computed(
+    () =>
+        `https://www.youtube.com/embed/${
+            selectedKey.value || defaultTrailerKey.value
+        }?autoplay=1&rel=0&modestbranding=1`
+)
+
+const trailerL = (key: string) => {
+  selectedKey.value = key
+}
 
 </script>
 
