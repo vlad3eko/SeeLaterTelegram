@@ -12,11 +12,14 @@ export const processTelegramAuth = async (ctx: any, authRequests: Map<string, nu
 
         if (!isChannelSubscriber) {
             await failedChannelSubscriber(ctx)
+            return false
         }
 
         await saveTelegramUser(ctx)
         await confirmUserRequest(ctx, authRequests)
         await sendSubscriptionSuccessMessage(ctx)
+
+        return true
 
     } catch (error) {
 
@@ -25,5 +28,11 @@ export const processTelegramAuth = async (ctx: any, authRequests: Map<string, nu
         await ctx.reply(
             `❌ Ошибка проверки подписки ${error}`
         )
+
+        await ctx.reply(
+            `Подождите или повторите запрос позже`
+        )
+
+        return false
     }
 }

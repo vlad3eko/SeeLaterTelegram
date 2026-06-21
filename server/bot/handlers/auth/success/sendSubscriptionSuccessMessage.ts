@@ -6,7 +6,7 @@ export const sendSubscriptionSuccessMessage = async (ctx: any) => {
         Markup.inlineKeyboard([
             Markup.button.url(
                 'Перейти на сайт',
-                'https://google.com'
+                'https://see-later-telegram.vercel.app/'
             )
         ])
     )

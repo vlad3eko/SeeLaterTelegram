@@ -1,7 +1,14 @@
 import {addMediaState} from "#server/bot/consts/addMedia/addMediaState";
 import {addMovie} from "#server/bot/actions/addMedia";
+import {processTelegramAuth} from "#server/bot/services/auth/processTelegramAuth";
 
-export const processMovieSearch = async (ctx: any, bot: any) => {
+export const processMovieSearch = async (ctx: any, bot: any, authRequests: any) => {
+
+    const isAuthorized  = await processTelegramAuth(ctx, authRequests)
+
+    if (!isAuthorized) {
+        return
+    }
 
     addMediaState.set(
         ctx.from.id,
@@ -15,10 +22,4 @@ export const processMovieSearch = async (ctx: any, bot: any) => {
     await ctx.reply(
         'Введите название:',
     )
-
-    bot.on(
-        'text',
-        addMovie
-    )
-
 }
