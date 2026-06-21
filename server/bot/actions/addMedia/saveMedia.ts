@@ -1,9 +1,23 @@
+import me from "#server/api/auth/me";
+
 export const saveMedia = async (ctx: any) => {
 
     const userId = Number(ctx.match[1])
-    const mediaTitle = ctx.match[2]
     const mediaId = Number(ctx.match[3])
     const mediaType = ctx.match[4]
+
+    const media = await $fetch(
+        '/api/bot/getMediaBot',
+        {
+            query: {
+                id: mediaId,
+                media: mediaType
+            }
+        }
+    )
+
+    const mediaTitle = media.title || media.name
+
 
     await ctx.reply(
         `userId: ${userId}`

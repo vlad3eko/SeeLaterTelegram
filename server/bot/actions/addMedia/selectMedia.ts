@@ -42,7 +42,7 @@ export const selectMedia = async (ctx: any) => {
                     [
                         {
                             text: '💾 Сохранить',
-                            callback_data: `save_${ctx.from.id}_${mediaTitle}_${media.id}_${mediaType}`
+                            callback_data: `save_${ctx.from.id}_${media.id}_${mediaType}`
                         }
                     ]
                 ]
