@@ -5,10 +5,18 @@ export const saveMedia = async (ctx: any) => {
     const mediaId = Number(ctx.match[3])
     const mediaType = ctx.match[4]
 
-    console.log('userId', userId)
-    console.log('mediaTitle', mediaTitle)
-    console.log('mediaId', mediaId)
-    console.log('mediaType', mediaType)
+    await ctx.reply(
+        `userId: ${userId}`
+    )
+    await ctx.reply(
+        `mediaTitle: ${mediaTitle}`
+    )
+    await ctx.reply(
+        `mediaId: ${mediaId}`
+    )
+    await ctx.reply(
+        `mediaType: ${mediaType}`
+    )
 
     const {success, error} = await $fetch('/api/bot/saveMediaBot', {
         method: 'POST',
@@ -20,7 +28,13 @@ export const saveMedia = async (ctx: any) => {
         }
     })
 
-    console.log('success', success)
+    await ctx.reply(
+        `success: ${success}`
+    )
+
+    await ctx.reply(
+        `error: ${error}`
+    )
 
     if (!success) {
         if (error?.message.includes('duplicate key value')) {
