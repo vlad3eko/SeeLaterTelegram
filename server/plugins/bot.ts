@@ -31,7 +31,7 @@ export default defineNitroPlugin(async () => {
 
     bot.action(/^media_(\d+)_(movie|tv)$/, selectMedia)
 
-    bot.action(/^save_(\d+)_(movie|tv)$/, saveMedia)
+    bot.action(/^save_(\d+)_(.+)_(\d+)_(movie|tv)$/, saveMedia)
 
     // 💡 ВАЖНО: webhook ставим ТОЛЬКО один раз
     await bot.telegram.setWebhook(
