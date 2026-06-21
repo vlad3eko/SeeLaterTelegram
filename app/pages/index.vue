@@ -1,7 +1,7 @@
 <template>
   <SearchPanel v-model="searchInput" @search="searchMovies"/>
   <CatalogList
-      :media="x"
+      :media="filterMedia"
       :loading="pending"
   />
 </template>
@@ -19,7 +19,7 @@ const {
 } = useTmdbSearch()
 
 
-const x = computed(() => {
+const filterMedia = computed(() => {
 
   const today = new Date().getTime()
 
