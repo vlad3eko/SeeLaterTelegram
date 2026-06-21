@@ -19,9 +19,6 @@ export default defineNitroPlugin(async () => {
 
     bot.start(async (ctx) => {
         await start(ctx, authRequests)
-        await ctx.reply(
-            'Telegram bot initialized'
-        )
     })
 
     bot.action('check_sub', async (ctx) =>
