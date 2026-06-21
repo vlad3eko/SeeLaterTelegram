@@ -7,7 +7,7 @@ import { saveMedia } from "#server/bot/actions/addMedia/saveMedia"
 
 const globalForBot = globalThis as any
 
-export default defineNitroPlugin(() => {
+export default defineNitroPlugin(async () => {
 
     if (globalForBot.telegramBot) return
 
@@ -19,6 +19,9 @@ export default defineNitroPlugin(() => {
 
     bot.start(async (ctx) => {
         await start(ctx, authRequests)
+        await ctx.reply(
+            'Telegram bot initialized'
+        )
     })
 
     bot.action('check_sub', async (ctx) =>
@@ -39,6 +42,7 @@ export default defineNitroPlugin(() => {
     )
 
     globalForBot.telegramBot = bot
+
 
     console.log('Telegram bot initialized')
 })
