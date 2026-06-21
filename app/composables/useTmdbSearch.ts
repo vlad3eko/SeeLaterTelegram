@@ -17,7 +17,15 @@ export const useTmdbSearch = () => {
 
 
     const movies = computed(() => {
-        return data.value?.results || []
+        return (data.value?.results || []).filter(media => {
+                const description = media.overview
+                const releaseDate =
+                    'release_date' in media
+                        ? media.release_date
+                        : media.first_air_date
+                return (releaseDate && media.poster_path && description)
+            }
+        )
     })
 
     const searchMovies = async () => {

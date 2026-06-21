@@ -40,6 +40,7 @@
 import {FormatRating, FormatDate} from "~/utils/formatMoviesData";
 import type {TmdbMovieProps} from "~/types/tmdb.types";
 import {createSlug} from "~/utils/createSlug";
+import {dateIsoConvert} from "~/utils/convert/dateIsoConvert";
 
 const props = defineProps<TmdbMovieProps>()
 

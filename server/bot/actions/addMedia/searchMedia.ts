@@ -5,7 +5,6 @@ import {selectMedia} from "#server/bot/actions/addMedia/selectMedia";
 
 export const searchMedia = async (ctx: any, medias: any) => {
 
-
     if (!medias.results.length) {
         await ctx.reply(
             'Фильм не найден.',
@@ -34,7 +33,7 @@ export const searchMedia = async (ctx: any, medias: any) => {
                 inline_keyboard: result.map(
                     (media: any) => [
                         {
-                            text: `${media.title || media.name} ${FormatDate(media.release_date || media.first_air_date)}`,
+                            text: `${media.title || media.name} (${FormatDate(media.release_date || media.first_air_date)})`,
                             callback_data: `media_${media.id}_${media.media_type}`
                         },
                     ]
