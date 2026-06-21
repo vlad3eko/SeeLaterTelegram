@@ -10,17 +10,19 @@ export default defineEventHandler(async (event) => {
         Authorization: `Bearer ${config.tmdbApiKey}`
     }
 
+    const media = query.media || 'multi'
+
     const [movieRes, trailerRu, trailerEn] = await Promise.all([
 
-        fetch(`https://api.themoviedb.org/3/${query.media}/${query.id}?external_source=imdb_id&language=ru-RU`, {
+        fetch(`https://api.themoviedb.org/3/${media}/${query.id}?external_source=imdb_id&language=ru-RU`, {
             method: 'GET',
             headers
         }),
-        fetch(`https://api.themoviedb.org/3/${query.media}/${query.id}/videos?language=ru-RU`, {
+        fetch(`https://api.themoviedb.org/3/${media}/${query.id}/videos?language=ru-RU`, {
             method: 'GET',
             headers
         }),
-        fetch(`https://api.themoviedb.org/3/${query.media}/${query.id}/videos?language=en-EN`, {
+        fetch(`https://api.themoviedb.org/3/${media}/${query.id}/videos?language=en-EN`, {
             method: 'GET',
             headers
         })
