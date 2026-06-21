@@ -46,11 +46,9 @@ export default defineNitroPlugin(async () => {
 
     bot.action(/^save_(\d+)_(\d+)_(movie|tv)$/, saveMedia)
 
-    // 💡 ВАЖНО: webhook ставим ТОЛЬКО один раз
     await bot.telegram.setWebhook(
         'https://see-later-telegram.vercel.app/api/bot/webhook'
     )
-
 
     globalForBot.telegramBot = bot
 

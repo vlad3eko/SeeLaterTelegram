@@ -5,7 +5,7 @@ export const failedLoginToken = async (ctx: any) => {
         Markup.inlineKeyboard([
             Markup.button.url(
                 'Перейти на сайт',
-                'https://t.me/Zerno_Kopeica'
+                'https://see-later-telegram.vercel.app/bookmarks'
             ),
             Markup.button.callback(
                 'Добавить фильм',
