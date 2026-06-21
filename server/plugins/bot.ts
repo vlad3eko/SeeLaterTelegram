@@ -38,7 +38,6 @@ export default defineNitroPlugin(async () => {
         'https://see-later-telegram.vercel.app/api/bot/webhook'
     )
 
-
     globalForBot.telegramBot = bot
 
     console.log('Telegram bot initialized')

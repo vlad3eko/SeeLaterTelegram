@@ -5,9 +5,6 @@ import {selectMedia} from "#server/bot/actions/addMedia/selectMedia";
 
 export const searchMedia = async (ctx: any, medias: any) => {
 
-    ctx.reply(
-        'start searchMedia'
-    )
 
     if (!medias.results.length) {
         await ctx.reply(
@@ -45,9 +42,4 @@ export const searchMedia = async (ctx: any, medias: any) => {
             }
         },
     )
-
-    ctx.reply(
-        'end searchMedia'
-    )
-
 }
