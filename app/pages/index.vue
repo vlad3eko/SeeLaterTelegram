@@ -18,7 +18,6 @@ const {
   searchMovies
 } = useTmdbSearch()
 
-
 const filterMedia = computed(() => {
 
   const today = new Date().getTime()
