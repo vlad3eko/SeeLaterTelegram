@@ -8,6 +8,7 @@ export const useAuthStore = defineStore('isAuth', () => {
 
     const login = async () => {
 
+
         const token = crypto.randomUUID()
 
         const supabase = useSupabaseClient()
