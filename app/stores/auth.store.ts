@@ -8,8 +8,9 @@ export const useAuthStore = defineStore('isAuth', () => {
 
     const login = async () => {
 
-
         const token = crypto.randomUUID()
+
+        window.location.href = `https://t.me/bezkino_bot?start=${token}`
 
         const supabase = useSupabaseClient()
 
@@ -21,8 +22,6 @@ export const useAuthStore = defineStore('isAuth', () => {
             .select()
 
         pendingAuth.value = true
-
-        window.open(`https://t.me/bezkino_bot?start=${token}`)
 
         const startInterval = setInterval(async () => {
 

@@ -1,7 +1,7 @@
 import { Telegraf } from 'telegraf'
 import { start } from "#server/bot/commands/start"
 import { processTelegramAuth } from "#server/bot/services/auth/processTelegramAuth"
-import { processMovieSearch } from "#server/bot/services/addMedia/processMovieSearch"
+import { processMediaSearch } from "#server/bot/services/addMedia/processMediaSearch"
 import { selectMedia } from "#server/bot/actions/addMedia/selectMedia"
 import { saveMedia } from "#server/bot/actions/addMedia/saveMedia"
 import {addMovie} from "#server/bot/actions/addMedia";
@@ -28,7 +28,7 @@ export default defineNitroPlugin(async () => {
     )
 
     bot.action('add_media', async (ctx) =>
-        await processMovieSearch(ctx, bot, authRequests)
+        await processMediaSearch(ctx, bot, authRequests)
     )
 
     bot.on('text', async (ctx) => {
