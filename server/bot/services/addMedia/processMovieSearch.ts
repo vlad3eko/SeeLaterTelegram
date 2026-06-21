@@ -3,6 +3,10 @@ import {addMovie} from "#server/bot/actions/addMedia";
 
 export const processMovieSearch = async (ctx: any, bot: any) => {
 
+    ctx.reply(
+        `start processMovieSearch`
+    )
+
     addMediaState.set(
         ctx.from.id,
         {
@@ -19,5 +23,9 @@ export const processMovieSearch = async (ctx: any, bot: any) => {
     bot.on(
         'text',
         addMovie
+    )
+
+    ctx.reply(
+        `end processMovieSearch`
     )
 }

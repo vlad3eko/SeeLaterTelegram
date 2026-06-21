@@ -3,6 +3,10 @@ import {searchMedia} from "#server/bot/actions/addMedia/searchMedia";
 
 export const addMovie = async (ctx: any) => {
 
+    ctx.reply(
+        'start addMovie'
+    )
+
     const state = addMediaState.get(
         ctx.from.id
     )
@@ -23,4 +27,8 @@ export const addMovie = async (ctx: any) => {
     )
 
     await searchMedia(ctx, medias)
+
+    ctx.reply(
+        'end addMovie'
+    )
 }
