@@ -9,10 +9,10 @@
   <ClientOnly>
       <swiper-container ref="swiperRef" :init="false"
                         class="overflow-hidden relative">
-        <swiper-slide v-for="(item, index) in props.items"
+        <swiper-slide v-for="(item, bot) in props.items"
                       :id="item.id"
                       class="w-50 md:h-full md:w-53">
-          <slot :item="item" :index="index"/>
+          <slot :item="item" :bot="bot"/>
         </swiper-slide>
       </swiper-container>
   </ClientOnly>

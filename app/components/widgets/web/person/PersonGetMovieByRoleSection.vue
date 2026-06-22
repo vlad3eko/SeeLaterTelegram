@@ -19,13 +19,13 @@
   </CastNCrewPanel>
 
   <CastNCrewPanel v-if="convertPersonSection.length">
-    <UiHorizontalScroller title="Фото" :items="convertPersonSection" v-slot="{item, index}">
-        <NuxtImg @click="openGallery(index)" :src="`https://image.tmdb.org/t/p/w600_and_h900_face${item.file_path}`" class="cursor-pointer rounded-xl"/>
+    <UiHorizontalScroller title="Фото" :items="convertPersonSection" v-slot="{item, bot}">
+        <NuxtImg @click="openGallery(bot)" :src="`https://image.tmdb.org/t/p/w600_and_h900_face${item.file_path}`" class="cursor-pointer rounded-xl"/>
     </UiHorizontalScroller>
     <VueEasyLightbox
         :visible="visible"
         :imgs="images"
-        :index="currentIndex"
+        :bot="currentIndex"
         @hide="visible = false"
         :move-disabled="true"
         :zoom-disabled="true"
@@ -58,8 +58,8 @@ const images = computed(() => {
   )
 })
 
-const openGallery = (index: number) => {
-  currentIndex.value = index
+const openGallery = (bot: number) => {
+  currentIndex.value = bot
   visible.value = true
 }
 

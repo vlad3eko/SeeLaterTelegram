@@ -7,31 +7,31 @@ import {addMovie} from "#server/bot/actions/addMedia";
 import {selectMedia} from "#server/bot/actions/addMedia/selectMedia";
 import {saveMedia} from "#server/bot/actions/addMedia/saveMedia";
 
-let index: Telegraf | null = null
+let bot: Telegraf | null = null
 
 export const getBot = () => {
 
-    if (index) return index
+    if (bot) return bot
 
     const config = useRuntimeConfig()
 
-    index = new Telegraf(config.telegramKey)
+    bot = new Telegraf(config.telegramKey)
 
     const authRequests = new Map()
 
-    index.start(async (ctx) => {
+    bot.start(async (ctx) => {
         await start(ctx, authRequests)
     })
 
-    index.action('check_sub', async (ctx) =>
+    bot.action('check_sub', async (ctx) =>
         await processTelegramAuth(ctx, authRequests)
     )
 
-    index.action('add_media', async (ctx) =>
-        await processMediaSearch(ctx, index, authRequests)
+    bot.action('add_media', async (ctx) =>
+        await processMediaSearch(ctx, bot, authRequests)
     )
 
-    index.on('text', async (ctx) => {
+    bot.on('text', async (ctx) => {
 
         const state = addMediaState.get(ctx.from.id)
 
@@ -42,10 +42,10 @@ export const getBot = () => {
         await addMovie(ctx)
     })
 
-    index.action(/^media_(\d+)_(movie|tv)$/, selectMedia)
+    bot.action(/^media_(\d+)_(movie|tv)$/, selectMedia)
 
-    index.action(/^save_(\d+)_(\d+)_(movie|tv)$/, saveMedia)
+    bot.action(/^save_(\d+)_(\d+)_(movie|tv)$/, saveMedia)
 
 
-    return index
+    return bot
 }
