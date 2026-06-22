@@ -26,6 +26,8 @@ export const useMovieStore = defineStore('movies', () => {
                 })
                 .select()
 
+        movies.value.push(data)
+
             return {data, error}
     }
 
