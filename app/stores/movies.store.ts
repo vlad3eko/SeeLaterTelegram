@@ -12,17 +12,24 @@ export const useMovieStore = defineStore('movies', () => {
 
         if (!user.data) return
 
-            const {data, error} = await supabase
-                .from('favorites')
-                .insert({
-                    user_id: user.data.id,
-                    title: payload.title,
-                    tmdb_id: payload.tmdb_id,
-                    media_type: payload.media_type,
-                })
-                .select()
+        const {data, error} = await supabase
+            .from('favorites')
+            .insert({
+                user_id: user.data.id,
+                tmdb_id: payload.tmdb_id,
+                title: payload.title || payload.name,
+                media_type: payload.media_type,
+                poster_path: payload.poster_path || payload.backdrop_path,
+                vote_average: payload.vote_average,
+                vote_count: payload.vote_count,
+                release_date: payload.release_date || payload.first_air_date
+            })
+            .select()
 
-            return {data, error}
+        //TODO вернуться, movie store push supabase +
+        movies.value.push(data)
+
+        return {data, error}
     }
 
     return {

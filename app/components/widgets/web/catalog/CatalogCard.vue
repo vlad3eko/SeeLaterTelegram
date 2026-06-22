@@ -105,8 +105,10 @@ const formatRating = computed(() => {
   }
 })
 const formatLink = computed<string>((): string => {
-  return `/${props.media.media_type}/${createSlug(props.media.id, (props.media.title || props.media.name))}`
+  return `/${props.media.media_type}/${createSlug((props.media.tmdb_id || props.media.id), (props.media.title || props.media.name))}`
 })
+
+console.log('foL', formatLink)
 
 </script>
 

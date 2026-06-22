@@ -4,16 +4,22 @@ export interface Movie {
 
     title: string
     description: string
-    poster_path: string
+    poster_path: string | null
     rating: number
-    release_date?: string
+    vote_average?: number | null
+    vote_count?: number | null
+    release_date?: string | null
 
     tmdb_id?: number
     media_type?: string
 }
 
 export type MovieSortField =
-    'created_at' | 'title' | 'rating'
+    'user_id'
+    | 'created_at'
+    | 'media_type'
+    | 'vote_count'
+    | 'release_date'
 
 export type MediaStatus =
     'planned' | 'watching' | 'watched'
