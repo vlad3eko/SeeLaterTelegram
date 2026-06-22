@@ -1,4 +1,4 @@
-import {getBot} from "#server/plugins/bot";
+import {getBot} from "#server/bot/index";
 
 export default defineEventHandler(async (event) => {
 
