@@ -74,5 +74,9 @@ export const getBot = () => {
         }
     })
 
+    await bot.telegram.setWebhook(
+        'https://see-later-telegram.vercel.app/api/bot/webhook'
+    )
+
     return bot
 }
