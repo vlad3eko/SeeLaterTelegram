@@ -46,6 +46,5 @@ export const getBot = () => {
 
     bot.action(/^save_(\d+)_(\d+)_(movie|tv)$/, saveMedia)
 
-
     return bot
 }
