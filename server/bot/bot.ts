@@ -66,7 +66,7 @@ export const getBot = () => {
         }
     })
 
-    bot.action(/^media_(\d+)_(movie|tv)$/, async (ctx) => {
+    bot.action(/^save_(\d+)_(\d+)_(movie|tv)$/, async (ctx) => {
         try {
             await saveMedia(ctx)
         } catch (e) {
