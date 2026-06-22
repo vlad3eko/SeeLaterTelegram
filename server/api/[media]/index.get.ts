@@ -4,10 +4,8 @@ export default defineEventHandler(async (event) => {
 
     const query = getQuery(event)
 
-    const sortBy =
-        typeof query.sortBy === 'string'
-            ? query.sortBy
-            : 'created_at'
+    const sortBy = query.sortBy
+
 
     const supabase = await serverSupabaseClient(event)
 

@@ -38,15 +38,12 @@ const filterMedia = computed(() => {
   const topRanked = [...enriched]
       .sort((a, b) => b._vote - a._vote)
       .slice(0, 3)
-  console.log('topRanked', topRanked)
 
   const topIds = new Set(topRanked.map(i => i.id))
-  console.log('topIds', topIds)
 
   const unreleased = enriched
       .filter(media => media._isUnreleased && !topIds.has(media.id))
       .sort((a,b) => b._vote - a._vote)
-  console.log('unreleased', unreleased)
 
   const others = enriched
       .filter(media => !media._isUnreleased && !topIds.has(media.id))

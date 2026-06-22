@@ -1,18 +1,18 @@
 import type {Movie} from "~/types/movie.types";
 import type {TmdbMovieDetails} from "~/types/tmdb.types";
+import type {MediaTypesSupabase} from "~/types/bookmarks/media.types";
 
 export const mapTmdbMovie = (
     media: TmdbMovieDetails
-): Partial<Movie> => {
+): Partial<MediaTypesSupabase> => {
 
     return {
-        title:
-            media.media_type === 'movie'
-                ? media.title
-                : media.name,
-
         tmdb_id: media.id,
-
-        media_type: media.media_type
+        title:  media.title || media.name,
+        media_type: media.media_type,
+        poster_path: media.poster_path || media.backdrop_path,
+        vote_average: media.vote_average,
+        vote_count: media.vote_count,
+        release_date: media.release_date || media.first_air_date,
     }
 }
