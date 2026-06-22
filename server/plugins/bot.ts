@@ -9,7 +9,7 @@ import {saveMedia} from "#server/bot/actions/addMedia/saveMedia";
 
 let bot: Telegraf | null = null
 
-export const getBot = () => {
+export const getBot = async () => {
 
     if (bot) return bot
 
