@@ -1,6 +1,6 @@
 <template>
   <section class="min-w-133">
-    <Transition name="fade" mode="in-out" v-if="!pending">
+    <Transition name="fade" mode="out-in" v-if="!pending && favorites?.length">
       <div class="my-10 flex gap-3 w-max">
         <UiButton @click="sortBy = 'user_id'">Все</UiButton>
         <UiButton @click="sortBy = 'created_at'">Последние добавленные</UiButton>
@@ -11,9 +11,14 @@
     <loader v-if="pending"/>
     <Transition name="fade" mode="out-in">
       <section v-if="!pending">
-        <div v-if="!pending && favorites?.length === 0" class="text-error/80">
+        <div v-if="!pending && favorites?.length === 0 && isAuth" class="text-error/80">
           Сохранённых фильмов пока нет..
           <NuxtLink to="/" class="text-primary hover:underline cursor-pointer">Выбрать фильм</NuxtLink>
+        </div>
+
+        <div v-if="!pending && favorites?.length === 0 && !isAuth" class="text-error/80">
+          Сохранённых фильмов пока нет..
+          <NuxtLink @click="login" class="text-primary hover:underline cursor-pointer">Войти</NuxtLink>
         </div>
 
         <CatalogList :media="favorites || []"/>
@@ -27,6 +32,7 @@
 import CatalogList from "~/components/widgets/web/catalog/CatalogList.vue";
 import Loader from "~/composables/Loader.vue";
 import {useUserStore} from "~/stores/user.store";
+import {useAuthStore} from "~/stores/auth.store";
 
 const sortBy = ref('user_id')
 
@@ -41,12 +47,18 @@ const {data: medias, pending} = await useAsyncData(`movies-bookmarks-${sortBy.va
       watch: [sortBy]
     })
 
-const user = useUserStore()
+const {
+  data,
+  isAuth,
+} = useUserStore()
+
+// TODO доделать функцию авторизации
+const {login} = useAuthStore()
 
 const favorites = computed(() =>
     medias?.value?.data?.filter(
         item =>
-            item.user_id === user.data?.id
+            item.user_id === data?.id
     ) ?? []
 )
 
