@@ -11,7 +11,6 @@ export default defineEventHandler(async (event) => {
         console.error('Webhook error:', e)
         return {ok: false}
     }
-
     return {ok: true}
 
 })
