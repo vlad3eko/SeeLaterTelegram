@@ -1,4 +1,4 @@
-import { Telegraf } from 'telegraf'
+import {Telegraf} from 'telegraf'
 import {start} from "#server/bot/commands/start";
 import {processTelegramAuth} from "#server/bot/services/auth/processTelegramAuth";
 import {processMediaSearch} from "#server/bot/services/addMedia/processMediaSearch";
@@ -20,31 +20,59 @@ export const getBot = () => {
     const authRequests = new Map()
 
     bot.start(async (ctx) => {
-        await start(ctx, authRequests)
+        try {
+            await start(ctx, authRequests)
+        } catch (e) {
+            console.error('ACTION ERROR start:', e)
+        }
     })
 
-    bot.action('check_sub', async (ctx) =>
-        await processTelegramAuth(ctx, authRequests)
+    bot.action('check_sub', async (ctx) => {
+            try {
+                await processTelegramAuth(ctx, authRequests)
+            } catch (e) {
+                console.error('ACTION ERROR processTelegramAuth:', e)
+            }
+        }
     )
 
-    bot.action('add_media', async (ctx) =>
-        await processMediaSearch(ctx, bot, authRequests)
+    bot.action('add_media', async (ctx) => {
+            try {
+                await processMediaSearch(ctx, bot, authRequests)
+            } catch (e) {
+                console.error('ACTION ERROR processMediaSearch:', e)
+            }
+        }
     )
 
     bot.on('text', async (ctx) => {
 
-        const state = addMediaState.get(ctx.from.id)
+        try {
+            const state = addMediaState.get(ctx.from?.id)
+            if (!state?.waitingMovie) return
 
-        if (!state?.waitingMovie) {
-            return
+            await addMovie(ctx)
+
+        } catch (e) {
+            console.error('TEXT ERROR on:', e)
         }
-
-        await addMovie(ctx)
     })
 
-    bot.action(/^media_(\d+)_(movie|tv)$/, selectMedia)
+    bot.action(/^media_(\d+)_(movie|tv)$/, async (ctx) => {
+        try {
+            await selectMedia(ctx)
+        } catch (e) {
+            console.error('TEXT ERROR selectMedia:', e)
+        }
+    })
 
-    bot.action(/^save_(\d+)_(\d+)_(movie|tv)$/, saveMedia)
+    bot.action(/^media_(\d+)_(movie|tv)$/, async (ctx) => {
+        try {
+            await saveMedia(ctx)
+        } catch (e) {
+            console.error('TEXT ERROR saveMedia:', e)
+        }
+    })
 
     return bot
 }
