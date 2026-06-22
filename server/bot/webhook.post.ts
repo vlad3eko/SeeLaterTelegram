@@ -1,6 +1,4 @@
-import {Telegraf} from 'telegraf'
 import {getBot} from "#server/plugins/bot";
-
 
 export default defineEventHandler(async (event) => {
 
