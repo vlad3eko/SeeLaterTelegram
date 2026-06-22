@@ -24,12 +24,8 @@ const filterMedia = computed(() => {
 
   const enriched = movies.value.map(item => {
 
-    const releaseDate = new Date(
-        item.release_date || item.first_air_date || 0
-    ).getTime()
-
+    const releaseDate = new Date(item.release_date || item.first_air_date || 0).getTime()
     const vote = item.vote_count || 0
-
     const isUnreleased = releaseDate > today
 
     return {
@@ -39,27 +35,30 @@ const filterMedia = computed(() => {
       _isUnreleased: isUnreleased
     }
   })
-
-  const topRated = [...enriched]
+  const topRanked = [...enriched]
       .sort((a, b) => b._vote - a._vote)
       .slice(0, 3)
+  console.log('topRanked', topRanked)
 
-  const topIds = new Set(topRated.map(i => i.id))
+  const topIds = new Set(topRanked.map(i => i.id))
+  console.log('topIds', topIds)
 
   const unreleased = enriched
-      .filter(i => i._isUnreleased && !topIds.has(i.id))
-      .sort((a, b) => b._date - a._date)
+      .filter(media => media._isUnreleased && !topIds.has(media.id))
+      .sort((a,b) => b._vote - a._vote)
+  console.log('unreleased', unreleased)
 
   const others = enriched
-      .filter(i => !i._isUnreleased && !topIds.has(i.id))
-      .sort((a, b) => b._vote - a._vote)
+      .filter(media => !media._isUnreleased && !topIds.has(media.id))
+      .sort((a,b) => b._vote - a._vote)
 
   return [
-    ...unreleased,
-    ...topRated,
-    ...others
+      ...unreleased,
+      ...topRanked,
+      ...others
   ]
 })
+
 
 </script>
 

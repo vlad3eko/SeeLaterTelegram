@@ -10,7 +10,10 @@ export const useAuthStore = defineStore('isAuth', () => {
 
         const token = crypto.randomUUID()
 
-        window.location.href = `https://t.me/bezkino_bot?start=${token}`
+        window.open(
+            `https://t.me/bezkino_bot?start=${token}`,
+            '_blank'
+        )
 
         const supabase = useSupabaseClient()
 
