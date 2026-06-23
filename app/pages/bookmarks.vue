@@ -15,12 +15,6 @@
           Сохранённых фильмов пока нет..
           <NuxtLink to="/" class="text-primary hover:underline cursor-pointer">Выбрать фильм</NuxtLink>
         </div>
-
-        <div v-if="!pending && favorites?.length === 0 && !isAuth" class="text-error/80">
-          Сохранённых фильмов пока нет..
-          <NuxtLink @click="login" class="text-primary hover:underline cursor-pointer">Войти</NuxtLink>
-        </div>
-
         <CatalogList :media="favorites || []"/>
       </section>
     </Transition>
@@ -53,7 +47,7 @@ const {
 } = useUserStore()
 
 // TODO доделать функцию авторизации
-const {login} = useAuthStore()
+useAuthStore()
 
 const favorites = computed(() =>
     medias?.value?.data?.filter(
