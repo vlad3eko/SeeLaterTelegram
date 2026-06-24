@@ -9,6 +9,9 @@ export default defineNuxtConfig({
         tmdbApiKey: process.env.TMDB_API_KEY,
         telegramKey: process.env.TELEGRAM_TOKEN
     },
+    nitro: {
+        preset: 'vercel'
+    },
     supabase: {
         url: process.env.SUPABASE_URL,
         key: process.env.SUPABASE_PUBLISHABLE_KEY,
