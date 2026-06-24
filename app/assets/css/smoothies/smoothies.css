@@ -27,9 +27,13 @@ nav h1 {
     padding: 20px;
 }
 
-/* smoothie grid */
-.smoothie-grid {
+/* media grid */
+.media-grid {
      @apply flex flex-wrap gap-3 relative w-full max-md:justify-center mx-auto
+}
+
+.media-card {
+    @apply w-65
 }
 
 .card {
@@ -39,7 +43,7 @@ nav h1 {
     @apply max-w-[160px]
 }
 
-.smoothie-card .rating {
+.media-card .rating {
     @apply absolute top-3 bg-accent/80 text-accent-foreground px-3 py-1 rounded-full text-sm font-bold
 }
 

@@ -4,16 +4,17 @@
       :to="formatLink"
       class="relative rounded-xl">
 
-    <div class="relative h-[262px]">
+    <div class="relative h-[262px] flex flex-col">
 
-      <NuxtImg :src="computedImagesSrc" class="h-full object-cover w-full "/>
+      <NuxtImg :src="computedImagesSrc" class="h-full object-cover w-full"/>
       <div
-          class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent"/>
+          class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent pointer-events-none"/>
 
+      <!--  Info    -->
       <div
           @mouseenter="loadInfo"
           @mouseleave="showInfo = false"
-          class="absolute top-0 w-full flex justify-center">
+          class="flex justify-center absolute inset-x-0 top-0">
         <span
             class="material-symbols-outlined absolute
             md-16 pb-1 px-3  rounded-b-xl
@@ -24,7 +25,7 @@
         <div v-if="showInfo && movieInfo"
              @mouseenter="loadInfo"
              @mouseleave="showInfo = false"
-             class=" absolute left-full top-0 z-50 w-72 rounded-xl bg-panel p-4 shadow-lg">
+             class="absolute left-full top-0 z-50 w-72 rounded-xl bg-panel p-4 shadow-lg will-change-transform">
           <p class="font-bold">{{ movieInfo.title }}</p>
 
           <p class="mt-2 text-sm line-clamp-5">
@@ -40,7 +41,8 @@
           </p>
         </div>
       </div>
-      <div class="">
+
+      <div>
         <div v-if="media.vote_count"
              class="ml-1 absolute top-3 left-0 bg-accent/80 text-accent-foreground px-3 py-1 rounded-full text-sm font-bold"
              :class="statusClass">
@@ -53,9 +55,8 @@
         </div>
       </div>
     </div>
-    <div
-        class="absolute bottom-0 text-white left-1/2 -translate-x-1/2 text-center p-5 flex flex-col gap-4  w-full">
-      <div class="text-sm">
+    <div class="mt-auto text-accent-foreground text-center gap-4">
+      <div class="text-sm flex flex-col">
         <span class="font-bold">
           {{ formatTitle }}
         </span>
@@ -138,7 +139,7 @@ const computedImagesSrc = computed(() => {
   if (props.mode === 'tmdb') {
 
     return props.media.poster_path
-        || props.media.backdrop_path
+    || props.media.backdrop_path
         ? `https://image.tmdb.org/t/p/w600_and_h900_face/${
             props.media.poster_path ||
             props.media.backdrop_path
@@ -177,10 +178,8 @@ const rating = computed(() => {
 })
 
 const formatTitle = computed(() => {
-  return title
+  return title.value
 })
-
-console.log('props', props.media)
 
 const formatDate = computed(() => {
 

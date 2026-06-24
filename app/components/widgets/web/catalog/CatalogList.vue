@@ -2,8 +2,8 @@
   <Loader v-if="props.loading"/>
 
   <Transition name="fade" mode="out-in">
-    <section v-if="!props.loading" class="smoothie-grid">
-      <div v-for="media in props.media" :key="media.id" class="smoothie-card">
+    <section v-if="!props.loading" class="media-grid">
+      <div v-for="media in props.media" :key="media.id" class="media-card">
         <CatalogCard :media="media"/>
       </div>
     </section>

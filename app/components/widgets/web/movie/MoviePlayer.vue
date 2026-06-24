@@ -76,7 +76,7 @@ const selectTrailer = computed(
     () =>
         `https://www.youtube.com/embed/${
             selectedKey.value || defaultTrailerKey.value
-        }&rel=0&modestbranding=1`
+        }?rel=0&modestbranding=1`
 )
 
 const trailerL = (key: string) => {
