@@ -1,16 +1,13 @@
-import { serverSupabaseClient } from '#supabase/server'
+import {bot} from "#server/bot/bot";
 
 export default defineEventHandler(async (event) => {
+    const body = await readBody(event)
 
-    const bot = (globalThis as any).telegramBot
-
-    if (!bot) {
-        return { ok: false, error: 'Bot not initialized' }
+    try {
+        await bot.handleUpdate(body)
+        return { ok: true }
+    } catch (err: any) {
+        console.error('Telegram webhook error:', err)
+        return { ok: false }
     }
-
-    const update = await readBody(event)
-
-    await bot.handleUpdate(update)
-
-    return { ok: true }
 })
