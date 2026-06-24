@@ -4,7 +4,7 @@ import {processTelegramAuth} from "#server/bot/services/auth/processTelegramAuth
 
 export const processMediaSearch = async (ctx: any, bot: any, authRequests: any) => {
 
-    const isAuthorized  = await processTelegramAuth(ctx, authRequests)
+    const isAuthorized  = await processTelegramAuth(ctx, authRequests, false)
 
     if (!isAuthorized) {
         return
