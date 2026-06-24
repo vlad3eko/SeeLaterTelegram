@@ -29,13 +29,13 @@ export type MoviePropsMode = 'default' | 'tmdb'
 export interface TmdbBaseMedia {
     adult: boolean
     backdrop_path: string | null
+    poster_path: string | null
     genre_ids: number[]
     id: number
-    media_type: 'movie' | 'tv'
+    tmdb_id: number
     original_language: string
     overview: string
     popularity: number
-    poster_path: string | null
     softcore: boolean
     vote_average: number
     vote_count: number

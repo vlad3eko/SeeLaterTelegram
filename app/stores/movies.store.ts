@@ -26,9 +26,6 @@ export const useMovieStore = defineStore('movies', () => {
             })
             .select()
 
-        //TODO вернуться, movie store push supabase +
-        movies.value.push(data)
-
         return {data, error}
     }
 

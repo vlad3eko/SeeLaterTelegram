@@ -15,6 +15,10 @@
           Сохранённых фильмов пока нет..
           <NuxtLink to="/" class="text-primary hover:underline cursor-pointer">Выбрать фильм</NuxtLink>
         </div>
+        <div v-if="!pending && !isAuth" class="text-error/80">
+          Чтобы продолжить необходимо
+          <button @click="authStore.login" class="text-primary hover:underline cursor-pointer">Войти</button>
+        </div>
         <CatalogList :media="favorites || []"/>
       </section>
     </Transition>
@@ -30,29 +34,33 @@ import {useAuthStore} from "~/stores/auth.store";
 
 const sortBy = ref('user_id')
 
-const {data: medias, pending} = await useAsyncData(`movies-bookmarks-${sortBy.value}`,
-    () => $fetch('/api/:media',
-        {
-          query: {
-            sortBy: sortBy.value,
-          }
-        }),
-    {
-      watch: [sortBy]
-    })
+const authStore = useAuthStore()
+const userStore = useUserStore()
+const {data, isAuth} = storeToRefs(userStore)
 
-const {
-  data,
-  isAuth,
-} = useUserStore()
+const {data: medias, pending} = await useAsyncData(
+    'movies-bookmarks',
+    () => $fetch('/api/:media', {
+        query: {
+          userId: data?.value?.id,
+          sortBy: sortBy.value,
+        }
+      }),
+    {
+      watch: [
+        sortBy,
+        () => data?.value?.id
+      ]
+    }
+)
 
 // TODO доделать функцию авторизации
-useAuthStore()
 
 const favorites = computed(() =>
+
     medias?.value?.data?.filter(
         item =>
-            item.user_id === data?.id
+            item.user_id === data?.value?.id
     ) ?? []
 )
 

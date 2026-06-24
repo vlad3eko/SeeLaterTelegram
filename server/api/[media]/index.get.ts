@@ -4,14 +4,22 @@ export default defineEventHandler(async (event) => {
 
     const query = getQuery(event)
 
-    const sortBy = query.sortBy
+    const sortBy =
+        typeof query.sortBy === 'string'
+            ? query.sortBy
+            : 'created_at'
 
+    const userId =
+        typeof query.userId === 'number' || 'string'
+            ? query.userId
+            : null
 
     const supabase = await serverSupabaseClient(event)
 
     const {data, error} = await supabase
         .from('favorites')
         .select()
+        .eq('user_id', userId)
         .order(sortBy,
             {
                 ascending: false

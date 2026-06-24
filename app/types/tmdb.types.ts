@@ -46,7 +46,7 @@ export interface TmdbGenre {
 }
 
 export interface TmdbMovieProps {
-    media: TmdbBaseMedia
+    media: TmdbMovieDetails
     mode?: Extract<MoviePropsMode, 'tmdb'>
 }
 

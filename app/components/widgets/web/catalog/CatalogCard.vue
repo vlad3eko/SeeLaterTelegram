@@ -59,7 +59,7 @@
         <span class="font-bold">
           {{ formatTitle }}
         </span>
-        <p v-if="media.release_date"
+        <p v-if="date"
            class=" text-info mt-1">
           {{ formatDate }}
         </p>
@@ -73,8 +73,6 @@
 import {FormatRating, FormatDate} from "~/utils/formatMoviesData";
 import type {TmdbMovieDetails, TmdbMovieProps} from "~/types/tmdb.types";
 import {createSlug} from "~/utils/createSlug";
-import {dateIsoConvert} from "~/utils/convert/dateIsoConvert";
-import {useMovieDetails} from "~/composables/movie/useMovieDetails";
 
 const props = defineProps<TmdbMovieProps>()
 
@@ -85,7 +83,20 @@ const movieInfo = ref<{
   genres: string
 } | null>(null)
 
+
 const showInfo = ref<boolean>(false)
+
+const title = computed(() => {
+  return 'title' in props.media
+      ? props.media.title
+      : props.media.name
+})
+
+const date = computed(() => {
+  return 'release_date' in props.media
+      ? props.media.release_date
+      : props.media.first_air_date
+})
 
 const loadInfo = async () => {
 
@@ -104,10 +115,16 @@ const loadInfo = async () => {
   if (!data.genres) return
 
   movieInfo.value = {
-    title: props.media.title || props.media.name,
+    title: title.value,
     overview: props.media.overview,
-    type: props.media.media_type === 'tv' ? 'Сериал' : 'Фильм',
-    genres: data.genres.map(i => i.name).join(', ')
+    type:
+        props.media.media_type === 'tv'
+            ? 'Сериал'
+            : 'Фильм',
+    genres:
+        data.genres
+            .map(i => i.name)
+            .join(', ')
   }
 }
 // TODO подстроить компонент под supabase bookmarks
@@ -120,8 +137,8 @@ const computedImagesSrc = computed(() => {
 
   if (props.mode === 'tmdb') {
 
-    return props.media.poster_path ||
-    props.media.backdrop_path
+    return props.media.poster_path
+        || props.media.backdrop_path
         ? `https://image.tmdb.org/t/p/w600_and_h900_face/${
             props.media.poster_path ||
             props.media.backdrop_path
@@ -156,25 +173,32 @@ const statusClass = computed<string>(() => {
 })
 
 const rating = computed(() => {
-  return props.media.vote_average ? props.media.vote_average : props.media.rating
+  return props.media.vote_average ? props.media.vote_average : props.media.vote_count
 })
 
 const formatTitle = computed(() => {
-  return props.media.title || props.media.name
+  return title
 })
 
+console.log('props', props.media)
+
 const formatDate = computed(() => {
-  return FormatDate(props.media.release_date)
+
+  return FormatDate(date.value)
 })
 
 const formatRating = computed(() => {
-
-  if (rating.value) {
-    return FormatRating(rating.value)
-  }
+  return rating.value ? FormatRating(rating.value) : ''
 })
-const formatLink = computed<string>((): string => {
-  return `/${props.media.media_type}/${createSlug((props.media.tmdb_id || props.media.id), (props.media.title || props.media.name))}`
+
+const formatLink = computed(() => {
+
+  const type = props.media.media_type
+  const id = props.media.tmdb_id || props.media.id
+
+  const slug = createSlug(id, title.value)
+
+  return `/${type}/${slug}`
 })
 
 </script>
