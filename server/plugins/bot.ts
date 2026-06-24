@@ -1,57 +1,42 @@
 import { Telegraf } from 'telegraf'
-import { start } from "#server/bot/commands/start"
-import { processTelegramAuth } from "#server/bot/services/auth/processTelegramAuth"
-import { processMediaSearch } from "#server/bot/services/addMedia/processMediaSearch"
-import { selectMedia } from "#server/bot/actions/addMedia/selectMedia"
-import { saveMedia } from "#server/bot/actions/addMedia/saveMedia"
-import {addMovie} from "#server/bot/actions/addMedia";
-import {addMediaState} from "#server/bot/consts/addMedia/addMediaState";
 
+import { start } from '#server/bot/commands/start'
+import { processTelegramAuth } from '#server/bot/services/auth/processTelegramAuth'
+import { processMediaSearch } from '#server/bot/services/addMedia/processMediaSearch'
+import { selectMedia } from '#server/bot/actions/addMedia/selectMedia'
+import { saveMedia } from '#server/bot/actions/addMedia/saveMedia'
+import { addMovie } from '#server/bot/actions/addMedia'
+import { addMediaState } from '#server/bot/consts/addMedia/addMediaState'
 
-const globalForBot = globalThis as any
+const config = useRuntimeConfig()
 
-export default defineNitroPlugin(async () => {
+export const bot = new Telegraf(config.telegramKey)
 
-    if (globalForBot.telegramBot) return
+const authRequests = new Map()
 
-    const config = useRuntimeConfig()
+// --- commands ---
+bot.start(async (ctx) => {
+    await start(ctx, authRequests)
+})
 
-    const bot = new Telegraf(config.telegramKey)
+// --- actions ---
+bot.action('check_sub', async (ctx) => {
+    await processTelegramAuth(ctx, authRequests)
+})
 
-    const authRequests = new Map()
+bot.action('add_media', async (ctx) => {
+    await processMediaSearch(ctx, bot, authRequests)
+})
 
-    bot.start(async (ctx) => {
-        await start(ctx, authRequests)
-    })
+bot.action(/^media_(\d+)_(movie|tv)$/, selectMedia)
 
-    bot.action('check_sub', async (ctx) =>
-        await processTelegramAuth(ctx, authRequests)
-    )
+bot.action(/^save_(\d+)_(\d+)_(movie|tv)$/, saveMedia)
 
-    bot.action('add_media', async (ctx) =>
-        await processMediaSearch(ctx, bot, authRequests)
-    )
+// --- text handler ---
+bot.on('text', async (ctx) => {
+    const state = addMediaState.get(ctx.from.id)
 
-    bot.on('text', async (ctx) => {
+    if (!state?.waitingMovie) return
 
-        const state = addMediaState.get(ctx.from.id)
-
-        if (!state?.waitingMovie) {
-            return
-        }
-
-        await addMovie(ctx)
-    })
-
-    bot.action(/^media_(\d+)_(movie|tv)$/, selectMedia)
-
-    bot.action(/^save_(\d+)_(\d+)_(movie|tv)$/, saveMedia)
-
-    await bot.telegram.setWebhook(
-        'https://see-later-telegram.vercel.app/api/bot/webhook'
-    )
-
-    globalForBot.telegramBot = bot
-
-    console.log('Telegram bot initialized')
+    await addMovie(ctx)
 })
