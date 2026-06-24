@@ -8,10 +8,7 @@ import { saveMedia } from '#server/bot/actions/addMedia/saveMedia'
 import { addMovie } from '#server/bot/actions/addMedia'
 import { addMediaState } from '#server/bot/consts/addMedia/addMediaState'
 
-const config = useRuntimeConfig()
-
-export const bot = new Telegraf(config.telegramKey)
-
+export const bot = new Telegraf(process.env.TELEGRAM_TOKEN!)
 const authRequests = new Map()
 
 // --- commands ---

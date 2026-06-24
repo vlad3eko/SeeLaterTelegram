@@ -1,4 +1,4 @@
-import {bot} from "#server/plugins/bot";
+import {bot} from "#server/bot/bot";
 
 export default defineEventHandler(async (event) => {
     const body = await readBody(event)
