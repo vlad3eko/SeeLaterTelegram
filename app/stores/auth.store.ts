@@ -49,7 +49,7 @@ export const useAuthStore = defineStore('isAuth', () => {
 
                     clearInterval(startInterval)
                 }
-            }, 5000
+            }, 1000
         )
     }
 
