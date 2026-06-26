@@ -10,7 +10,7 @@
                to-accent/30
                backdrop-blur-md"/>
 
-  <div class="relative z-10 px-4 md:px-8 py-10 md:py-20">
+  <div class="relative z-10 px-4 md:px-8 py-10 md:py-20 min-h-screen">
     <Loader v-if="pending"/>
     <Transition v-if="!pending && data" name="fade" mode="out-in">
       <div class="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-8 lg:gap-10">

@@ -1,6 +1,6 @@
 <template>
   <Nav/>
-  <div class="relative min-h-screen">
+  <div class="relative">
     <slot/>
   </div>
 </template>

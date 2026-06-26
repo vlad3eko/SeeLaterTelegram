@@ -6,11 +6,16 @@ export interface MediaTypesSupabase {
     vote_count: number
 
     title: string
-    name: string | undefined
+    name?: string | undefined
 
     poster_path: string
-    backdrop_path: string | undefined
+    backdrop_path?: string | undefined
 
     release_date: number | string
-    first_air_date: string | undefined
+    first_air_date?: string | undefined
+}
+
+export interface MediaListSupabase {
+    media: MediaTypesSupabase[]
+    showInfo: boolean
 }

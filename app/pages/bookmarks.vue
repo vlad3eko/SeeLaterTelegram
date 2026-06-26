@@ -2,7 +2,6 @@
   <section class="min-w-133">
     <Transition name="fade" mode="out-in" v-if="!pending && favorites?.length">
       <div class="my-10 flex gap-3 w-max">
-        <UiButton @click="sortBy = 'user_id'">Все</UiButton>
         <UiButton @click="sortBy = 'created_at'">Последние добавленные</UiButton>
         <UiButton @click="sortBy = 'vote_count'">Лучшие оценки</UiButton>
         <UiButton @click="sortBy = 'release_date'">Фильмы которые ещё не вышли</UiButton>
@@ -32,7 +31,7 @@ import Loader from "~/composables/Loader.vue";
 import {useUserStore} from "~/stores/user.store";
 import {useAuthStore} from "~/stores/auth.store";
 
-const sortBy = ref('user_id')
+const sortBy = ref('created_at')
 
 const authStore = useAuthStore()
 const userStore = useUserStore()
