@@ -3,6 +3,7 @@
   <CatalogList
       :media="filterMedia"
       :loading="pending"
+      :show-info="true"
   />
 </template>
 
@@ -17,6 +18,7 @@ const {
   searchInput,
   searchMovies
 } = useTmdbSearch()
+
 
 const filterMedia = computed(() => {
 

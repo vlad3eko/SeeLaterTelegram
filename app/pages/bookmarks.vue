@@ -10,15 +10,15 @@
     <loader v-if="pending"/>
     <Transition name="fade" mode="out-in">
       <section v-if="!pending">
-        <div v-if="!pending && favorites?.length === 0 && isAuth" class="text-error/80">
+        <div v-if="favorites?.length === 0 && isAuth" class="text-error/80">
           Сохранённых фильмов пока нет..
           <NuxtLink to="/" class="text-primary hover:underline cursor-pointer">Выбрать фильм</NuxtLink>
         </div>
-        <div v-if="!pending && !isAuth" class="text-error/80">
+        <div v-if="!isAuth" class="text-error/80">
           Чтобы продолжить необходимо
           <button @click="authStore.login" class="text-primary hover:underline cursor-pointer">Войти</button>
         </div>
-        <CatalogList :media="favorites || []"/>
+        <CatalogList :media="favorites || []" :show-info="false"/>
       </section>
     </Transition>
   </section>

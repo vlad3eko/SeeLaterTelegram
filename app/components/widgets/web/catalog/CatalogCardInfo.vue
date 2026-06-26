@@ -47,7 +47,6 @@ const showInfo = ref<boolean>(false)
 const props = defineProps<TmdbMovieProps>()
 
 const loadInfo = async () => {
-  console.log('props', props)
 
   showInfo.value = true
 

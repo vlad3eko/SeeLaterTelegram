@@ -1,6 +1,6 @@
 <template>
   <NuxtLink
-      v-if="media"
+      v-if="props.media"
       :to="formatLink"
       class="relative rounded-xl">
 
@@ -10,7 +10,7 @@
 
 
       <!--  Info    -->
-      <CatalogCardInfo :media="props.media"/>
+      <CatalogCardInfo :media="props.media" :show-info="props.showInfo"/>
       <!--  Info    -->
 
       <div>
@@ -45,7 +45,7 @@
 <script lang="ts" setup>
 
 import {FormatRating, FormatDate} from "~/utils/formatMoviesData";
-import type {TmdbMovieDetails, TmdbMovieProps} from "~/types/tmdb.types";
+import type {TmdbMovieProps} from "~/types/tmdb.types";
 import {createSlug} from "~/utils/createSlug";
 import CatalogCardInfo from "~/components/widgets/web/catalog/CatalogCardInfo.vue";
 

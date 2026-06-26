@@ -52,7 +52,8 @@ export interface TmdbMovieProps {
 }
 
 export interface TmdbMoviesProps {
-    media: TmdbBaseMedia[]
+    media: TmdbMovieDetails[]
     loading?: boolean
     mode?: Extract<MoviePropsMode, 'tmdb'>
+    showInfo?: boolean
 }

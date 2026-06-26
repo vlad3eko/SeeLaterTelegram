@@ -15,7 +15,6 @@ export interface Movie {
 }
 
 export type MovieSortField =
-    'user_id'
     | 'created_at'
     | 'media_type'
     | 'vote_count'
