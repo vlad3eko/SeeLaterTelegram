@@ -33,7 +33,7 @@ export const saveMedia = async (ctx: any) => {
     console.log('media', media)
     console.log('dateConvert(media.release_date)', dateConvert(media.release_date))
     console.log('dateIsoConvert(media.first_air_date)', dateIsoConvert(media.first_air_date))
-    console.log('releaseDate' ,releaseDate)
+    console.log('releaseDate', releaseDate)
 
     const {success, error} = await $fetch('/api/bot/saveMediaBot', {
         method: 'POST',
