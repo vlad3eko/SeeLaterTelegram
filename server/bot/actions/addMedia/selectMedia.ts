@@ -21,6 +21,9 @@ export const selectMedia = async (ctx: any) => {
     const mediaPoster = media.poster_path || media.backdrop_path
     const mediaTitle = media.title || media.name
     const mediaOverview = media.overview
+    const voteAverage = media.vote_average
+    const voteCount = media.vote_count
+    const voteReleaseDate = media.release_date
     const releaseYear = FormatDate(media.release_date || media.first_air_date)
     const releaseDate = dateConvert(media.release_date) || dateIsoConvert(media.first_air_date)
 
@@ -40,7 +43,7 @@ export const selectMedia = async (ctx: any) => {
                     [
                         {
                             text: '💾 Сохранить',
-                            callback_data: `save_${ctx.from.id}_${media.id}_${mediaType}`
+                            callback_data: `save_${ctx.from.id}_${media.id}_${mediaType}_${mediaPoster}_${voteAverage}_${voteCount}_${voteReleaseDate}`
                         }
                     ]
                 ]

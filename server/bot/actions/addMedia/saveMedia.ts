@@ -8,6 +8,10 @@ export const saveMedia = async (ctx: any) => {
     const userId = Number(ctx.match[1])
     const mediaId = Number(ctx.match[2])
     const mediaType = ctx.match[3]
+    const mediaPoster = ctx.match[4]
+    const voteAverage = ctx.match[5]
+    const voteCount = ctx.match[6]
+    const voteReleaseDate = ctx.match[7]
 
     const media = await $fetch(
         '/api/bot/getMediaBot',
@@ -27,7 +31,11 @@ export const saveMedia = async (ctx: any) => {
             userId,
             mediaTitle,
             mediaId,
-            mediaType
+            mediaType,
+            mediaPoster,
+            voteAverage,
+            voteCount,
+            voteReleaseDate,
         }
     })
 

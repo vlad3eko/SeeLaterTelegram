@@ -20,6 +20,10 @@ export default defineEventHandler(async (event) => {
             title: body.mediaTitle,
             tmdb_id: body.mediaId,
             media_type: body.mediaType,
+            poster_path: body.mediaPoster,
+            vote_average: body.voteAverage,
+            vote_count: body.voteCount,
+            release_date: body.voteReleaseDate,
         })
 
     return {
