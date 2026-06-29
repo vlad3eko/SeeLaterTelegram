@@ -23,18 +23,10 @@ export const selectMedia = async (ctx: any) => {
     const mediaOverview = media.overview
     const voteAverage = media.vote_average
     const voteCount = media.vote_count
-    const voteReleaseDate = media.release_date
     const releaseYear = FormatDate(media.release_date || media.first_air_date)
     const releaseDate = dateConvert(media.release_date) || dateIsoConvert(media.first_air_date)
 
-    await ctx.reply(`mediaPoster ${mediaPoster}`,)
-    await ctx.reply(`mediaTitle ${mediaTitle}`,)
-    await ctx.reply(`mediaOverview ${mediaOverview}`,)
-    await ctx.reply(`voteAverage ${voteAverage}`,)
-    await ctx.reply(`voteCount ${voteCount}`,)
-    await ctx.reply(`voteReleaseDate ${voteReleaseDate}`,)
-    await ctx.reply(`releaseYear ${releaseYear}`,)
-    await ctx.reply(`releaseDate ${releaseDate}`,)
+    console.log('media',media)
 
     await ctx.replyWithPhoto(
         `https://image.tmdb.org/t/p/w500${mediaPoster}`,
@@ -52,7 +44,7 @@ export const selectMedia = async (ctx: any) => {
                     [
                         {
                             text: '💾 Сохранить',
-                            callback_data: `save_${ctx.from.id}_${media.id}_${mediaType}_${mediaPoster}_${voteAverage}_${voteCount}_${voteReleaseDate}`
+                            callback_data: `save_${ctx.from.id}_${media.id}_${mediaType}_${mediaPoster}_${voteAverage}_${voteCount}_${releaseDate}`
                         }
                     ]
                 ]

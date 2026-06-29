@@ -23,7 +23,7 @@ export default defineEventHandler(async (event) => {
             poster_path: body.mediaPoster,
             vote_average: body.voteAverage,
             vote_count: body.voteCount,
-            release_date: body.voteReleaseDate,
+            release_date: body.releaseDate,
         })
 
     return {

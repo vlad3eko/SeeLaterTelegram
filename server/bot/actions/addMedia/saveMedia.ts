@@ -11,7 +11,18 @@ export const saveMedia = async (ctx: any) => {
     const mediaPoster = ctx.match[4]
     const voteAverage = ctx.match[5]
     const voteCount = ctx.match[6]
-    const voteReleaseDate = ctx.match[7]
+    const releaseDate = ctx.match[7]
+
+
+    await ctx.reply(ctx)
+    console.log('ctx', ctx)
+    await ctx.reply(userId)
+    await ctx.reply(mediaId)
+    await ctx.reply(mediaType)
+    await ctx.reply(mediaPoster)
+    await ctx.reply(voteAverage)
+    await ctx.reply(voteCount)
+    await ctx.reply(releaseDate)
 
     const media = await $fetch(
         '/api/bot/getMediaBot',
@@ -35,7 +46,7 @@ export const saveMedia = async (ctx: any) => {
             mediaPoster,
             voteAverage,
             voteCount,
-            voteReleaseDate,
+            releaseDate,
         }
     })
 
