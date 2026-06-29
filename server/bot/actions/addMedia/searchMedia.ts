@@ -26,10 +26,6 @@ export const searchMedia = async (ctx: any, medias: any) => {
         result
     )
 
-    if (result) {
-        await ctx.answerCbQuery()
-    }
-
     await ctx.reply(
         'Выберите фильм из списка:',
         {
