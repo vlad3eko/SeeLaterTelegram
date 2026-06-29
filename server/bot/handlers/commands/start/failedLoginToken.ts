@@ -10,7 +10,11 @@ export const failedLoginToken = async (ctx: any) => {
             Markup.button.callback(
                 'Сохранить фильм',
                 'add_media'
-            )
+            ),
+            Markup.button.callback(
+                'Сохранённые',
+                'add_media'
+            ),
         ])
     )
     return
