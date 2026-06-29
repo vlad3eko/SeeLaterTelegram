@@ -59,7 +59,7 @@ export const saveMedia = async (ctx: any) => {
         '✅ Фильм сохранён',
         Markup.inlineKeyboard([
             Markup.button.callback(
-                'Добавить ещё',
+                'Сохранить ещё',
                 'add_media'
             )
         ])
