@@ -4,6 +4,8 @@ import {dateIsoConvert} from "~/utils/convert/dateIsoConvert";
 
 export const selectMedia = async (ctx: any) => {
 
+    await ctx.answerCbQuery()
+
     const mediaId = Number(ctx.match[1])
     const mediaType = String(ctx.match[2])
 
@@ -24,6 +26,15 @@ export const selectMedia = async (ctx: any) => {
     const voteReleaseDate = media.release_date
     const releaseYear = FormatDate(media.release_date || media.first_air_date)
     const releaseDate = dateConvert(media.release_date) || dateIsoConvert(media.first_air_date)
+
+    await ctx.reply('mediaPoster', mediaPoster)
+    await ctx.reply('mediaTitle', mediaTitle)
+    await ctx.reply('mediaOverview', mediaOverview)
+    await ctx.reply('voteAverage', voteAverage)
+    await ctx.reply('voteCount', voteCount)
+    await ctx.reply('voteReleaseDate', voteReleaseDate)
+    await ctx.reply('releaseYear', releaseYear)
+    await ctx.reply('releaseDate', releaseDate)
 
     await ctx.replyWithPhoto(
         `https://image.tmdb.org/t/p/w500${mediaPoster}`,
