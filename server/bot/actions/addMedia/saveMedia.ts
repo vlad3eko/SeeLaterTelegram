@@ -12,8 +12,6 @@ export const saveMedia = async (ctx: any) => {
     const mediaId = Number(ctx.match[2])
     const mediaType = ctx.match[3]
 
-    console.log('ctx', ctx.match)
-
     const media = await $fetch(
         '/api/bot/getMediaBot',
         {
