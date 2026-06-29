@@ -1,4 +1,5 @@
 import me from "#server/api/auth/me";
+import {Markup} from "telegraf";
 
 export const saveMedia = async (ctx: any) => {
 
@@ -39,12 +40,18 @@ export const saveMedia = async (ctx: any) => {
         return
         } else {
             await ctx.reply(
-                `Неизвестная ошибка: ${error.message}`
+                `Неизвестная ошибка: ${error?.message}`
             )
         }
     }
 
     await ctx.reply(
-        '✅ Фильм сохранён'
+        '✅ Фильм сохранён',
+        Markup.inlineKeyboard([
+            Markup.button.callback(
+                'Нажмите чтобы повторить',
+                'add_media'
+            )
+        ])
     )
 }
