@@ -23,8 +23,14 @@ export const selectMedia = async (ctx: any) => {
     const mediaOverview = media.overview
     const voteAverage = media.vote_average || 0
     const voteCount = media.vote_count || 0
-    const releaseYear = (FormatDate(media.release_date || media.first_air_date) || 'официальной даты пока нет')
-    const releaseDate = dateConvert(media.release_date) || (dateIsoConvert(media.first_air_date) || 'официальной даты пока нет')
+    const releaseYear = FormatDate(media.release_date || media.first_air_date) || 'официальной даты пока нет'
+    const releaseDate = dateConvert(media.release_date) || dateIsoConvert(media.first_air_date) || 'официальной даты пока нет'
+
+    const callbackData =
+        `save_${ctx.from.id}_${media.id}_${mediaType}_${mediaPoster}_${voteAverage}_${voteCount}_${releaseDate}`
+
+    console.log(callbackData)
+    console.log(callbackData.length)
 
     await ctx.replyWithPhoto(
         `https://image.tmdb.org/t/p/w500${mediaPoster}`,
