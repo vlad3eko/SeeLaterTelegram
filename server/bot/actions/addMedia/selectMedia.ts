@@ -27,6 +27,13 @@ export const selectMedia = async (ctx: any) => {
     const releaseDate = dateConvert(media.release_date) || dateIsoConvert(media.first_air_date)
 
     console.log('media',media)
+    console.log('mediaPoster', mediaPoster)
+    console.log('mediaTitle', mediaTitle)
+    console.log('mediaOverview', mediaOverview)
+    console.log('voteAverage', voteAverage)
+    console.log('voteCount', voteCount)
+    console.log('releaseYear', releaseYear)
+    console.log('releaseDate', releaseDate)
 
     await ctx.replyWithPhoto(
         `https://image.tmdb.org/t/p/w500${mediaPoster}`,
