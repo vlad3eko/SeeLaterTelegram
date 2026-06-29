@@ -27,7 +27,7 @@ bot.action('add_media', async (ctx) => {
 
 bot.action(/^media_(\d+)_(movie|tv)$/, selectMedia)
 
-bot.action(/^save_(\d+)_(\d+)_(movie|tv)$/, saveMedia)
+bot.action(/^save_(\d+)_(\d+)_(movie|tv)_(.+?)_([\d.]+)_(\d+)_(.+)$/, saveMedia)
 
 bot.action(/^back_(\d+)$/, async (ctx) => {
     await ctx.answerCbQuery()
