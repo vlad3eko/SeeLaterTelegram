@@ -18,9 +18,6 @@ export const processMediaSearch = async (ctx: any, bot: any, authRequests: any) 
     )
 
     await ctx.answerCbQuery()
-    await ctx.deleteMessage()
+    await ctx.editMessageText('Введите название:')
 
-    await ctx.reply(
-        'Введите название:',
-    )
 }
