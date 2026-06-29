@@ -30,6 +30,12 @@ export const selectMedia = async (ctx: any) => {
                 inline_keyboard: [
                     [
                         {
+                            text: '💾 Назад',
+                            callback_data: `save_${ctx.from.id}_${media.id}_${mediaType}`
+                        }
+                    ],
+                    [
+                        {
                             text: '💾 Сохранить',
                             callback_data: `save_${ctx.from.id}_${media.id}_${mediaType}`
                         }
