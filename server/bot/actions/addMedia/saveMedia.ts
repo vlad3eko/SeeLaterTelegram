@@ -13,8 +13,7 @@ export const saveMedia = async (ctx: any) => {
     const voteCount = ctx.match[6]
     const releaseDate = ctx.match[7]
 
-
-    console.log('ctx', ctx)
+    console.log('ctx', ctx.match)
 
     const media = await $fetch(
         '/api/bot/getMediaBot',

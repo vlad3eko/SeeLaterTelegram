@@ -21,19 +21,10 @@ export const selectMedia = async (ctx: any) => {
     const mediaPoster = media.poster_path || media.backdrop_path
     const mediaTitle = media.title || media.name
     const mediaOverview = media.overview
-    const voteAverage = media.vote_average
-    const voteCount = media.vote_count
-    const releaseYear = FormatDate(media.release_date || media.first_air_date)
-    const releaseDate = dateConvert(media.release_date) || dateIsoConvert(media.first_air_date)
-
-    console.log('media',media)
-    console.log('mediaPoster', mediaPoster)
-    console.log('mediaTitle', mediaTitle)
-    console.log('mediaOverview', mediaOverview)
-    console.log('voteAverage', voteAverage)
-    console.log('voteCount', voteCount)
-    console.log('releaseYear', releaseYear)
-    console.log('releaseDate', releaseDate)
+    const voteAverage = media.vote_average || 0
+    const voteCount = media.vote_count || 0
+    const releaseYear = (FormatDate(media.release_date || media.first_air_date) || 'официальной даты пока нет')
+    const releaseDate = dateConvert(media.release_date) || (dateIsoConvert(media.first_air_date) || 'официальной даты пока нет')
 
     await ctx.replyWithPhoto(
         `https://image.tmdb.org/t/p/w500${mediaPoster}`,
