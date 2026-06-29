@@ -1,5 +1,8 @@
 import me from "#server/api/auth/me";
 import {Markup} from "telegraf";
+import {FormatDate} from "~/utils/formatMoviesData";
+import {dateConvert} from "~/utils/convert/dateConvert";
+import {dateIsoConvert} from "~/utils/convert/dateIsoConvert";
 
 export const saveMedia = async (ctx: any) => {
 
@@ -8,10 +11,6 @@ export const saveMedia = async (ctx: any) => {
     const userId = Number(ctx.match[1])
     const mediaId = Number(ctx.match[2])
     const mediaType = ctx.match[3]
-    const mediaPoster = ctx.match[4]
-    const voteAverage = ctx.match[5]
-    const voteCount = ctx.match[6]
-    const releaseDate = ctx.match[7]
 
     console.log('ctx', ctx.match)
 
@@ -26,6 +25,10 @@ export const saveMedia = async (ctx: any) => {
     )
 
     const mediaTitle = media.title || media.name
+    const voteAverage = media.vote_average || 0
+    const voteCount = media.vote_count || 0
+    const mediaPoster = media.poster_path || media.backdrop_path
+    const releaseDate = (dateConvert(media.release_date) || dateIsoConvert(media.first_air_date)) || null
 
     const {success, error} = await $fetch('/api/bot/saveMediaBot', {
         method: 'POST',

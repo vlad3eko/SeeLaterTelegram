@@ -21,16 +21,11 @@ export const selectMedia = async (ctx: any) => {
     const mediaPoster = media.poster_path || media.backdrop_path
     const mediaTitle = media.title || media.name
     const mediaOverview = media.overview
-    const voteAverage = media.vote_average || 0
-    const voteCount = media.vote_count || 0
     const releaseYear = FormatDate(media.release_date || media.first_air_date) || 'официальной даты пока нет'
-    const releaseDate = dateConvert(media.release_date) || dateIsoConvert(media.first_air_date) || 'официальной даты пока нет'
+    const releaseDate = dateConvert(media.release_date) || (dateIsoConvert(media.first_air_date) || 'официальной даты пока нет')
 
     const callbackData =
-        `save_${ctx.from.id}_${media.id}_${mediaType}_${mediaPoster}_${voteAverage}_${voteCount}_${releaseDate}`
-
-    console.log(callbackData)
-    console.log(callbackData.length)
+        `${ctx.from.id}_${media.id}_${mediaType}`
 
     await ctx.replyWithPhoto(
         `https://image.tmdb.org/t/p/w500${mediaPoster}`,
@@ -48,7 +43,7 @@ export const selectMedia = async (ctx: any) => {
                     [
                         {
                             text: '💾 Сохранить',
-                            callback_data: `save_${ctx.from.id}_${media.id}_${mediaType}_${mediaPoster}_${voteAverage}_${voteCount}_${releaseDate}`
+                            callback_data: `save_${callbackData}`
                         }
                     ]
                 ]
