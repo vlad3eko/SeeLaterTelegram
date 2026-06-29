@@ -24,7 +24,7 @@ export const saveMedia = async (ctx: any) => {
     const voteAverage = media.vote_average || 0
     const voteCount = media.vote_count || 0
     const mediaPoster = media.poster_path || media.backdrop_path
-    const releaseDate = dateConvert(media.release_date) || dateIsoConvert(media.first_air_date)
+    const releaseDate = media.release_date || media.first_air_date
 
     console.log('media', media)
     console.log('dateConvert(media.release_date)', dateConvert(media.release_date))
