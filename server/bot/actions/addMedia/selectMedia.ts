@@ -27,14 +27,14 @@ export const selectMedia = async (ctx: any) => {
     const releaseYear = FormatDate(media.release_date || media.first_air_date)
     const releaseDate = dateConvert(media.release_date) || dateIsoConvert(media.first_air_date)
 
-    await ctx.reply('mediaPoster', mediaPoster)
-    await ctx.reply('mediaTitle', mediaTitle)
-    await ctx.reply('mediaOverview', mediaOverview)
-    await ctx.reply('voteAverage', voteAverage)
-    await ctx.reply('voteCount', voteCount)
-    await ctx.reply('voteReleaseDate', voteReleaseDate)
-    await ctx.reply('releaseYear', releaseYear)
-    await ctx.reply('releaseDate', releaseDate)
+    await ctx.reply(`mediaPoster ${mediaPoster}`,)
+    await ctx.reply(`mediaTitle ${mediaTitle}`,)
+    await ctx.reply(`mediaOverview ${mediaOverview}`,)
+    await ctx.reply(`voteAverage ${voteAverage}`,)
+    await ctx.reply(`voteCount ${voteCount}`,)
+    await ctx.reply(`voteReleaseDate ${voteReleaseDate}`,)
+    await ctx.reply(`releaseYear ${releaseYear}`,)
+    await ctx.reply(`releaseDate ${releaseDate}`,)
 
     await ctx.replyWithPhoto(
         `https://image.tmdb.org/t/p/w500${mediaPoster}`,
