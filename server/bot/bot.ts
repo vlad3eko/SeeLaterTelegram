@@ -33,7 +33,6 @@ bot.action(/^save_(\d+)_(\d+)_(movie|tv)$/, saveMedia)
 bot.on('text', async (ctx) => {
     const state = addMediaState.get(ctx.from.id)
 
-    if (!state?.waitingMovie) return
 
     await addMovie(ctx)
 })
