@@ -1,6 +1,4 @@
-import me from "#server/api/auth/me";
 import {Markup} from "telegraf";
-import {FormatDate} from "~/utils/formatMoviesData";
 import {dateConvert} from "~/utils/convert/dateConvert";
 import {dateIsoConvert} from "~/utils/convert/dateIsoConvert";
 

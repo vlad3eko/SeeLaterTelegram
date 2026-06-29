@@ -1,7 +1,6 @@
 import {searchMediaResults} from "#server/bot/consts/addMedia/saveMediaSearch";
-import {Markup, Telegraf} from "telegraf";
+import {Markup} from "telegraf";
 import {FormatDate} from "~/utils/formatMoviesData";
-import {selectMedia} from "#server/bot/actions/addMedia/selectMedia";
 
 export const searchMedia = async (ctx: any, medias: any) => {
 
