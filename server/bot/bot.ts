@@ -29,6 +29,11 @@ bot.action(/^media_(\d+)_(movie|tv)$/, selectMedia)
 
 bot.action(/^save_(\d+)_(\d+)_(movie|tv)$/, saveMedia)
 
+bot.action(/^back_(\d+)$/, async (ctx) => {
+    await ctx.answerCbQuery()
+    await ctx.deleteMessage()
+})
+
 // --- text handler ---
 bot.on('text', async (ctx) => {
     const state = addMediaState.get(ctx.from.id)
