@@ -11,13 +11,11 @@ export const failedLoginToken = async (ctx: any) => {
                 'Сохранить фильм',
                 'add_media'
             ),
-        ]),
-        Markup.inlineKeyboard([
             Markup.button.callback(
                 'Сохранённые',
                 'add_media'
             )
-        ])
+        ]),
     )
     return
 }
