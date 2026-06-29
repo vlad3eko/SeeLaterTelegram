@@ -33,7 +33,7 @@ export const selectMedia = async (ctx: any) => {
                 inline_keyboard: [
                     [
                         {
-                            text: '🔙 Назад',
+                            text: '⬅️ Назад',
                             callback_data: `back_${ctx.from.id}`
                         }
                     ],
