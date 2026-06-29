@@ -26,11 +26,6 @@ export const saveMedia = async (ctx: any) => {
     const mediaPoster = media.poster_path || media.backdrop_path
     const releaseDate = media.release_date || media.first_air_date
 
-    console.log('media', media)
-    console.log('dateConvert(media.release_date)', dateConvert(media.release_date))
-    console.log('dateIsoConvert(media.first_air_date)', dateIsoConvert(media.first_air_date))
-    console.log('releaseDate', releaseDate)
-
     const {success, error} = await $fetch('/api/bot/saveMediaBot', {
         method: 'POST',
         body: {
@@ -54,7 +49,7 @@ export const saveMedia = async (ctx: any) => {
             return
         } else {
             await ctx.reply(
-                `❌ Неизвестная ошибка: ${error?.message}`
+                `❌ Неизвестная ошибка: ${error?.message} \n\nПопробуйте позже, или свяжитесь со мной`
             )
             return
         }
