@@ -4,8 +4,6 @@ import {dateIsoConvert} from "~/utils/convert/dateIsoConvert";
 
 export const selectMedia = async (ctx: any) => {
 
-    await ctx.answerCbQuery()
-
     const mediaId = Number(ctx.match[1])
     const mediaType = String(ctx.match[2])
 
