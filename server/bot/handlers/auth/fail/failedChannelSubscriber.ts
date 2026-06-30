@@ -6,7 +6,7 @@ export const failedChannelSubscriber = async (ctx: any) => {
         Markup.inlineKeyboard([
             Markup.button.url(
                 'Подписаться',
-                'https://t.me/Zerno_Kopeica'
+                'https://t.me/bezkino_bot'
             ),
             Markup.button.callback(
                 'Проверить подписку',
