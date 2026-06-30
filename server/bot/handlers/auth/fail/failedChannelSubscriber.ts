@@ -16,10 +16,5 @@ export const failedChannelSubscriber = async (ctx: any, authRequests: Map<string
         ])
     )
 
-    const checkSubInterval = setInterval(async () => {
-        const isMember = await processTelegramAuth(ctx, authRequests)
-
-        if (isMember) clearInterval(checkSubInterval)
-
-    }, 500)
+    await processTelegramAuth(ctx, authRequests)
 }
