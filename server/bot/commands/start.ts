@@ -11,6 +11,8 @@ export const start = async (ctx: any, authRequests: Map<string, number>) => {
         const isChannelSubscriber = await checkChannelSubscriber(ctx)
 
         if (!isChannelSubscriber) {
+
+            await ctx.answerCbQuery()
             await failedChannelSubscriber(ctx, authRequests)
             return
         }
