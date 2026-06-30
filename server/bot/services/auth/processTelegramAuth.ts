@@ -23,8 +23,10 @@ export const processTelegramAuth = async (ctx: any, authRequests: Map<string, nu
 
         return true
 
-    } catch (error) {
+    } catch (error: any) {
         console.error(error)
+
+        if (error.message.includes('member')) return
 
         await ctx.reply(
             `Подождите или повторите запрос позже`
