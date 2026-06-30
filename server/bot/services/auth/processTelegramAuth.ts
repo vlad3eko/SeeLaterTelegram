@@ -10,10 +10,8 @@ export const processTelegramAuth = async (ctx: any, authRequests: Map<string, nu
 
         const isChannelSubscriber = await checkChannelSubscriber(ctx)
 
-        console.log('isChannelSubscriber', isChannelSubscriber)
-
         if (!isChannelSubscriber) {
-            await failedChannelSubscriber(ctx)
+            await failedChannelSubscriber(ctx, authRequests)
             return false
         }
 
@@ -26,9 +24,6 @@ export const processTelegramAuth = async (ctx: any, authRequests: Map<string, nu
         return true
 
     } catch (error) {
-
-
-
         console.error(error)
 
         await ctx.reply(

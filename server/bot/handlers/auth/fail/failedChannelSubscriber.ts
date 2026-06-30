@@ -1,6 +1,7 @@
 import {Markup} from "telegraf";
+import {processTelegramAuth} from "#server/bot/services/auth/processTelegramAuth";
 
-export const failedChannelSubscriber = async (ctx: any) => {
+export const failedChannelSubscriber = async (ctx: any, authRequests: Map<string, number>) => {
     await ctx.reply(
         '❌ Подпишитесь на канал',
         Markup.inlineKeyboard([
@@ -14,4 +15,11 @@ export const failedChannelSubscriber = async (ctx: any) => {
             )
         ])
     )
+
+    const checkSubInterval = setInterval(async () => {
+        const isMember = await processTelegramAuth(ctx, authRequests)
+
+        if (isMember) clearInterval(checkSubInterval)
+
+    }, 500)
 }
