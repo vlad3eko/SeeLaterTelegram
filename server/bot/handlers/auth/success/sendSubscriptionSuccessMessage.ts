@@ -2,7 +2,6 @@ import {failedLoginToken} from "#server/bot/handlers/commands/start/failedLoginT
 
 export const sendSubscriptionSuccessMessage = async (ctx: any, authRequests: Map<string, number>) => {
 
-    await ctx.answerCbQuery()
     await ctx.deleteMessage()
 
     await ctx.reply(
