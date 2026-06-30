@@ -12,7 +12,7 @@ export const start = async (ctx: any, authRequests: Map<string, number>) => {
 
         if (!isChannelSubscriber) {
 
-            await ctx.answerCbQuery()
+            await ctx.deleteMessage()
             await failedChannelSubscriber(ctx, authRequests)
             return
         }
