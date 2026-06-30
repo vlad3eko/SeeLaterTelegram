@@ -4,9 +4,12 @@ export const checkChannelSubscriber = async (ctx: any) => {
         ctx.from.id
     )
 
-    return [
+    const isMember = [
         'member',
         'administrator',
         'creator'
     ].includes(channelMember.status)
+
+    if (!isMember) return false
+    return isMember
 }
