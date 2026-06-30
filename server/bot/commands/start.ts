@@ -1,4 +1,3 @@
-import {failedLoginToken} from "#server/bot/handlers/commands/start/failedLoginToken";
 import {processTelegramAuth} from "#server/bot/services/auth/processTelegramAuth";
 import {checkChannelSubscriber} from "#server/bot/handlers/auth/check/checkChannelSubscriber";
 import {failedChannelSubscriber} from "#server/bot/handlers/auth/fail/failedChannelSubscriber";
@@ -21,6 +20,4 @@ export const start = async (ctx: any, authRequests: Map<string, number>) => {
     authRequests.set(ctx.from.id, loginToken)
 
     await processTelegramAuth(ctx, authRequests)
-    await failedLoginToken(ctx)
-
 }

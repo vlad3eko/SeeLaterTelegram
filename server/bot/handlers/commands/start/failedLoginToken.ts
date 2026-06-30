@@ -17,5 +17,4 @@ export const failedLoginToken = async (ctx: any) => {
             )
         ]),
     )
-    return
 }

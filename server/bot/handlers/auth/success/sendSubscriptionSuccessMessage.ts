@@ -1,4 +1,4 @@
-import {processMediaSearch} from "#server/bot/services/addMedia/processMediaSearch";
+import {failedLoginToken} from "#server/bot/handlers/commands/start/failedLoginToken";
 
 export const sendSubscriptionSuccessMessage = async (ctx: any, authRequests: Map<string, number>) => {
 
@@ -8,6 +8,5 @@ export const sendSubscriptionSuccessMessage = async (ctx: any, authRequests: Map
     await ctx.reply(
         '✅ Подписка подтверждена \n Спасибо за поддержку проекта!',
     )
-
-    await processMediaSearch(ctx, authRequests)
+    await failedLoginToken(ctx)
 }
