@@ -15,6 +15,4 @@ export const failedChannelSubscriber = async (ctx: any, authRequests: Map<string
             )
         ])
     )
-
-    await processTelegramAuth(ctx, authRequests)
 }
