@@ -22,7 +22,7 @@ export const processTelegramAuth = async (ctx: any, authRequests: Map<string, nu
 
         console.error(error)
 
-        if (error.includes('400')) {
+        if (error.message.includes('400')) {
             await failedChannelSubscriber(ctx)
             return
         }
