@@ -22,7 +22,7 @@ bot.action('check_sub', async (ctx) => {
 })
 
 bot.action('add_media', async (ctx) => {
-    await processMediaSearch(ctx, bot, authRequests)
+    await processMediaSearch(ctx, authRequests)
 })
 
 bot.action(/^media_(\d+)_(movie|tv)$/, selectMedia)

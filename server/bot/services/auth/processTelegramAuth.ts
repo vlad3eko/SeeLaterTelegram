@@ -20,7 +20,7 @@ export const processTelegramAuth = async (ctx: any, authRequests: Map<string, nu
         await saveTelegramUser(ctx)
         await confirmUserRequest(ctx, authRequests)
         if (sendSuccessMessage) {
-            await sendSubscriptionSuccessMessage(ctx)
+            await sendSubscriptionSuccessMessage(ctx, authRequests)
         }
 
         return true
