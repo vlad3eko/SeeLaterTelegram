@@ -12,7 +12,7 @@ export const processTelegramAuth = async (ctx: any, authRequests: Map<string, nu
 
         if (!isChannelSubscriber) {
             await failedChannelSubscriber(ctx)
-            return false
+            return
         }
 
         await saveTelegramUser(ctx)
