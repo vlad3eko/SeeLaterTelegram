@@ -1,6 +1,6 @@
 export const checkChannelSubscriber = async (ctx: any) => {
     const channelMember = await ctx.telegram.getChatMember(
-        '@bezkino_bot',
+        '@kinomanovnet',
         ctx.from.id
     )
 
