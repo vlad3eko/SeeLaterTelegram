@@ -8,7 +8,7 @@ export const failedLoginToken = async (ctx: any) => {
                 'https://see-later-telegram.vercel.app/bookmarks'
             ),
             Markup.button.callback(
-                'Сохранить фильм',
+                'Поиск',
                 'add_media'
             ),
             Markup.button.callback(
