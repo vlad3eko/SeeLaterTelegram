@@ -8,6 +8,10 @@ export const processTelegramAuth = async (ctx: any, authRequests: Map<string, nu
 
     try {
 
+        const isChannelSubscriber = await checkChannelSubscriber(ctx)
+
+        if (!isChannelSubscriber) return false
+
         await saveTelegramUser(ctx)
         await confirmUserRequest(ctx, authRequests)
         if (sendSuccessMessage) {
@@ -18,14 +22,9 @@ export const processTelegramAuth = async (ctx: any, authRequests: Map<string, nu
 
     } catch (error) {
 
-        const isChannelSubscriber = await checkChannelSubscriber(ctx)
+        await failedChannelSubscriber(ctx)
 
         console.error(error)
-
-        if (!isChannelSubscriber) {
-            await failedChannelSubscriber(ctx)
-            return
-        }
 
         await ctx.reply(
             `Подождите или повторите запрос позже`
