@@ -32,9 +32,13 @@ export const selectMedia = async (ctx: any) => {
         }
     }
 
+    const genresContent = media.genres
+        .map(i => i.name)
+        .join(', ')
+
     const captionContent =
                 `<code>${mediaTitle}</code> (${releaseYear}) 
-                <blockquote expandable>${mediaOverview}</blockquote> \nПремьера ${mediaTypeConvert(mediaType)} ожидается: ${releaseDate}`
+                <blockquote expandable>${mediaOverview}</blockquote> \n${genresContent} \nПремьера ${mediaTypeConvert(mediaType)}: ${releaseDate}`
 
     const callbackData =
         `${ctx.from.id}_${media.id}_${mediaType}`
