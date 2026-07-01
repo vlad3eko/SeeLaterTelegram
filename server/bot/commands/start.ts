@@ -9,5 +9,5 @@ export const start = async (ctx: any, authRequests: Map<string, number>) => {
     if (loginToken)
         authRequests.set(ctx.from.id, loginToken)
 
-    await processTelegramAuth(ctx, authRequests, false)
+    await processTelegramAuth(ctx, authRequests, true)
 }
