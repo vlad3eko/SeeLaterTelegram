@@ -33,9 +33,8 @@ export const selectMedia = async (ctx: any) => {
     }
 
     const captionContent =
-                `<pre>${mediaTitle}</pre> (${releaseYear}) 
-                <blockquote expandable>${mediaOverview}</blockquote>
-                Премьера ${mediaTypeConvert(mediaType)} ожидается: ${releaseDate}`
+                `<code>${mediaTitle}</code> (${releaseYear}) 
+                <blockquote expandable>${mediaOverview}</blockquote> \nПремьера ${mediaTypeConvert(mediaType)} ожидается: ${releaseDate}`
 
     const callbackData =
         `${ctx.from.id}_${media.id}_${mediaType}`
