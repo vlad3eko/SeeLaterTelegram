@@ -22,4 +22,5 @@ export const failedChannelSubscriber = async (ctx: any, authRequests: Map<string
 
     if (count > 1) await ctx.deleteMessage()
 
+
 }
