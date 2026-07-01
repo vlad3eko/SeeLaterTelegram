@@ -27,19 +27,23 @@ export const selectMedia = async (ctx: any) => {
     const releaseYear = FormatDate(media.release_date || media.first_air_date) || releaseDateUndefined
 
     const releaseDate = () => {
-        const mediaDate = dateConvert(media.release_date) || (dateIsoConvert(media.first_air_date))
+        const mediaDate = dateConvert(media.release_date) || dateIsoConvert(media.first_air_date);
 
-        if (!mediaDate) return releaseDateUndefined
+        if (!mediaDate) return releaseDateUndefined; // Предполагаем, что переменная объявлена выше
 
-        const mediaTimeNum = mediaDate
-        const todayTimestamp  = new Date().getTime()
-        const date = new Date(todayTimestamp).toLocaleDateString('ru-RU')
+        // 1. Превращаем строку "ДД.ММ.ГГГГ" в массив [ДД, ММ, ГГГГ]
+        const [day, month, year] = mediaDate.split('.');
 
-        console.log('mediaDate', mediaDate)
-        console.log('today', date)
-        console.log('Number(date) < mediaTimeNum', date < mediaTimeNum)
+        // 2. Создаем объект даты фильма и получаем его таймстамп (число)
+        const mediaTimestamp = new Date(`${year}-${month}-${day}`).getTime();
 
-        return date < mediaTimeNum ? `✅${mediaDate}` : `❌${mediaDate}`
+        // 3. Получаем текущий таймстамп (число)
+        const todayTimestamp = new Date().getTime();
+
+        // Тепер сравнение идет между ЧИСЛАМИ (миллисекундами), что на 100% точно
+        const isFuture = todayTimestamp < mediaTimestamp;
+
+        return isFuture ? `✅${mediaDate}` : `❌${mediaDate}`;
     }
 
     console.log('releaseDate', releaseDate())
