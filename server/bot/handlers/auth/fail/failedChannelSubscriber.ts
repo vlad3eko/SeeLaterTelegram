@@ -2,10 +2,6 @@ import {Markup} from "telegraf";
 
 export const failedChannelSubscriber = async (ctx: any, authRequests: Map<string, number>) => {
 
-    let count = 0
-
-    ++count
-
     await ctx.reply(
         '❌ Подпишитесь на канал',
         Markup.inlineKeyboard([
@@ -20,7 +16,5 @@ export const failedChannelSubscriber = async (ctx: any, authRequests: Map<string
         ])
     )
 
-    if (count > 1) await ctx.deleteMessage()
-
-
+        await ctx.deleteMessage()
 }
