@@ -6,16 +6,8 @@ export const start = async (ctx: any, authRequests: Map<string, number>) => {
 
     const loginToken = ctx.payload
 
-    if (!loginToken) {
-        const isChannelSubscriber = await checkChannelSubscriber(ctx)
+    if (loginToken)
+        authRequests.set(ctx.from.id, loginToken)
 
-        if (!isChannelSubscriber) {
-            await failedChannelSubscriber(ctx, authRequests)
-            return
-        }
-    }
-
-    authRequests.set(ctx.from.id, loginToken)
-
-    await processTelegramAuth(ctx, authRequests)
+    await processTelegramAuth(ctx, authRequests, false)
 }
