@@ -31,15 +31,15 @@ export const selectMedia = async (ctx: any) => {
 
         if (!mediaDate) return releaseDateUndefined
 
-        const mediaTimeNum = Number(mediaDate)
+        const mediaTimeNum = mediaDate
         const todayTimestamp  = new Date().getTime()
         const date = new Date(todayTimestamp).toLocaleDateString('ru-RU')
 
         console.log('mediaDate', mediaDate)
         console.log('today', date)
-        console.log('Number(date) < mediaTimeNum', Number(date) < mediaTimeNum)
+        console.log('Number(date) < mediaTimeNum', date < mediaTimeNum)
 
-        return Number(date) < mediaTimeNum ? `✅${mediaDate}` : `❌${mediaDate}`
+        return date < mediaTimeNum ? `✅${mediaDate}` : `❌${mediaDate}`
     }
 
     console.log('releaseDate', releaseDate())
