@@ -22,6 +22,7 @@ export const selectMedia = async (ctx: any) => {
     const mediaTitle = media.title || media.name
     const mediaOverview = media.overview
     const releaseYear = FormatDate(media.release_date || media.first_air_date) || 'официальной даты пока нет'
+
     const releaseDate = () => {
         const mediaDate = dateConvert(media.release_date) || (dateIsoConvert(media.first_air_date) || 'официальной даты пока нет')
         const today = new Date().getTime()
@@ -43,7 +44,7 @@ export const selectMedia = async (ctx: any) => {
 
     const captionContent =
         `<code>${mediaTitle}</code> (${releaseYear}) 
-                <blockquote expandable>${mediaOverview}</blockquote> \n<b>Жанр:</b> <i>#${genresContent}</i> \n<b>Премьера ${mediaTypeConvert(mediaType)}</b>: <i>${releaseDate} </i>`
+                <blockquote expandable>${mediaOverview}</blockquote> \n<b>Жанр:</b> <i>#${genresContent}</i> \n<b>Премьера ${mediaTypeConvert(mediaType)}</b>: <i>${releaseDate()} </i>`
 
     const callbackData =
         `${ctx.from.id}_${media.id}_${mediaType}`
