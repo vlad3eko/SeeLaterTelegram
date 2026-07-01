@@ -5,7 +5,7 @@ import {sendSubscriptionSuccessMessage} from "#server/bot/handlers/auth/success/
 import {checkChannelSubscriber} from "#server/bot/handlers/auth/check/checkChannelSubscriber";
 import {failedLoginToken} from "#server/bot/handlers/commands/start/failedLoginToken";
 
-export const processTelegramAuth = async (ctx: any, authRequests: Map<string, number>, sendSuccessMessage: boolean = true) => {
+export const processTelegramAuth = async (ctx: any, authRequests: Map<string, number>, sendSuccessMessage: boolean = false) => {
 
     try {
 
