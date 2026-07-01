@@ -4,6 +4,13 @@ export const checkChannelSubscriber = async (ctx: any) => {
         ctx.from.id
     )
 
+    const member = [
+        'member',
+        'administrator',
+        'creator'
+    ].includes(channelMember.status)
+    console.log('member', member)
+
     return [
         'member',
         'administrator',
