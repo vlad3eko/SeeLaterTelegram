@@ -23,6 +23,15 @@ export const selectMedia = async (ctx: any) => {
     const mediaOverview = media.overview
     const releaseYear = FormatDate(media.release_date || media.first_air_date) || 'официальной даты пока нет'
     const releaseDate = dateConvert(media.release_date) || (dateIsoConvert(media.first_air_date) || 'официальной даты пока нет')
+    const mediaTypeConvert = (type: string) => {
+        if (type === 'movie') {
+            return 'фильма'
+        } else {
+            return 'сериала'
+        }
+    }
+
+    const cation = `<blockquote expandable>${mediaOverview}</blockquote> `
 
     const callbackData =
         `${ctx.from.id}_${media.id}_${mediaType}`
@@ -31,7 +40,9 @@ export const selectMedia = async (ctx: any) => {
         `https://image.tmdb.org/t/p/w500${mediaPoster}`,
         {
             caption:
-                `${mediaTitle} ${releaseYear} \n\n${mediaOverview} \n\nДата выхода: ${releaseDate}`,
+                `<pre>${mediaTitle}</pre> (${releaseYear}) 
+                \n\n ${cation}
+                \n\nПремьера ${mediaTypeConvert(mediaType)} ожидается: ${releaseDate}`,
             reply_markup: {
                 inline_keyboard: [
                     [
