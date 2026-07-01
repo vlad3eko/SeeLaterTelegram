@@ -33,7 +33,7 @@ export const selectMedia = async (ctx: any) => {
         const todayTimeConvert = Number(dateConvert(String(today)))
 
         console.log('mediaDate', mediaDate)
-        console.log('today', today)
+        console.log('today', todayTimeConvert)
 
         const formattedDate  = new Date(mediaTimeNum)
         console.log('fD', formattedDate)
