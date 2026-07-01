@@ -15,6 +15,7 @@ export const processTelegramAuth = async (ctx: any, authRequests: Map<string, nu
             await failedChannelSubscriber(ctx, authRequests)
             return false
         }
+        console.log('isCS', isChannelSubscriber)
 
         await saveTelegramUser(ctx)
         await confirmUserRequest(ctx, authRequests)
@@ -22,7 +23,6 @@ export const processTelegramAuth = async (ctx: any, authRequests: Map<string, nu
             await sendSubscriptionSuccessMessage(ctx, authRequests)
         } else {
             await failedLoginToken(ctx)
-            await ctx.deleteMessage()
             await ctx.deleteMessage()
         }
 
