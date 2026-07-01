@@ -18,25 +18,26 @@ export const selectMedia = async (ctx: any) => {
             }
         }
     )
+
+    const releaseDateUndefined = '❌официальной даты пока нет'
+
     const mediaPoster = media.poster_path || media.backdrop_path
     const mediaTitle = media.title || media.name
     const mediaOverview = media.overview
-    const releaseYear = FormatDate(media.release_date || media.first_air_date) || 'официальной даты пока нет'
+    const releaseYear = FormatDate(media.release_date || media.first_air_date) || releaseDateUndefined
 
     const releaseDate = () => {
         const mediaDate = dateConvert(media.release_date) || (dateIsoConvert(media.first_air_date))
 
-        if (!mediaDate) return 'официальной даты пока нет'
+        if (!mediaDate) return releaseDateUndefined
 
         const mediaTimeNum = Number(mediaDate)
         const todayTimestamp  = new Date().getTime()
-        const date = new Date(todayTimestamp).toLocaleDateString('ru-RU');
+        const date = new Date(todayTimestamp).toLocaleDateString('ru-RU')
 
         console.log('mediaDate', mediaDate)
         console.log('today', date)
-
-        const formattedDate  = new Date(mediaTimeNum).toLocaleDateString('ru-RU')
-        console.log('fD', formattedDate)
+        console.log('Number(date) < mediaTimeNum', Number(date) < mediaTimeNum)
 
         return Number(date) < mediaTimeNum ? `✅${mediaDate}` : `❌${mediaDate}`
     }
