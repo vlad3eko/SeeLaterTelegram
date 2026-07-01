@@ -23,6 +23,7 @@ export const selectMedia = async (ctx: any) => {
     const mediaOverview = media.overview
     const releaseYear = FormatDate(media.release_date || media.first_air_date) || 'официальной даты пока нет'
     const releaseDate = dateConvert(media.release_date) || (dateIsoConvert(media.first_air_date) || 'официальной даты пока нет')
+
     const mediaTypeConvert = (type: string) => {
         if (type === 'movie') {
             return 'фильма'
@@ -31,8 +32,10 @@ export const selectMedia = async (ctx: any) => {
         }
     }
 
-    const captionTag = `<blockquote expandable>${mediaOverview}</blockquote>`
-    const titleTag =  `<pre>${mediaTitle}</pre>`
+    const captionContent =
+                `<pre>${mediaTitle}</pre> (${releaseYear}) 
+                <blockquote expandable>${mediaOverview}</blockquote>
+                Премьера ${mediaTypeConvert(mediaType)} ожидается: ${releaseDate}`
 
     const callbackData =
         `${ctx.from.id}_${media.id}_${mediaType}`
@@ -40,10 +43,7 @@ export const selectMedia = async (ctx: any) => {
     await ctx.replyWithPhoto(
         `https://image.tmdb.org/t/p/w500${mediaPoster}`,
         {
-            caption:
-                `${titleTag} (${releaseYear}) 
-                \n\n ${captionTag}
-                \n\nПремьера ${mediaTypeConvert(mediaType)} ожидается: ${releaseDate}`,
+            caption: captionContent,
             reply_markup: {
                 inline_keyboard: [
                     [
@@ -59,7 +59,8 @@ export const selectMedia = async (ctx: any) => {
                         }
                     ]
                 ]
-            }
+            },
+            parse_mode: 'HTML'
         }
     )
 }
