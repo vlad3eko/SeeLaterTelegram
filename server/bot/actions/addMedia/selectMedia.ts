@@ -25,11 +25,19 @@ export const selectMedia = async (ctx: any) => {
 
     const releaseDate = () => {
         const mediaDate = dateConvert(media.release_date) || (dateIsoConvert(media.first_air_date))
+
+        if (!mediaDate) return 'официальной даты пока нет'
+
+        const mediaTimeNum = Number(mediaDate)
         const today = new Date().getTime()
+
         console.log('mediaDate', mediaDate)
         console.log('today', today)
 
-        return today < Number(mediaDate) ? `✅${mediaDate}` : `❌${mediaDate} `||` официальной даты пока нет`
+        const formattedDate  = new Date(mediaTimeNum).toLocaleDateString('ru-RU')
+        console.log('fD', formattedDate)
+
+        return today < mediaTimeNum ? `✅${mediaDate}` : `❌${mediaDate}`
     }
 
     const mediaTypeConvert = (type: string) => {
