@@ -31,7 +31,8 @@ export const selectMedia = async (ctx: any) => {
         }
     }
 
-    const cation = `<blockquote expandable>${mediaOverview}</blockquote> `
+    const captionTag = `<blockquote expandable>${mediaOverview}</blockquote>`
+    const titleTag =  `<pre>${mediaTitle}</pre>`
 
     const callbackData =
         `${ctx.from.id}_${media.id}_${mediaType}`
@@ -40,8 +41,8 @@ export const selectMedia = async (ctx: any) => {
         `https://image.tmdb.org/t/p/w500${mediaPoster}`,
         {
             caption:
-                `<pre>${mediaTitle}</pre> (${releaseYear}) 
-                \n\n ${cation}
+                `${titleTag} (${releaseYear}) 
+                \n\n ${captionTag}
                 \n\nПремьера ${mediaTypeConvert(mediaType)} ожидается: ${releaseDate}`,
             reply_markup: {
                 inline_keyboard: [
