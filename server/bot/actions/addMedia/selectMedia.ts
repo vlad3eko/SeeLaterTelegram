@@ -34,7 +34,7 @@ export const selectMedia = async (ctx: any) => {
 
     const genresContent = media.genres
         .map(i => i.name)
-        .join(', ')
+        .join(', #')
 
     const captionContent =
                 `<code>${mediaTitle}</code> (${releaseYear}) 
