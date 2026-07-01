@@ -30,14 +30,15 @@ export const selectMedia = async (ctx: any) => {
 
         const mediaTimeNum = Number(mediaDate)
         const today = new Date().getTime()
+        const todayTimeConvert = Number(dateConvert(String(today)))
 
         console.log('mediaDate', mediaDate)
         console.log('today', today)
 
-        const formattedDate  = new Date(mediaTimeNum).toLocaleDateString('ru-RU')
+        const formattedDate  = new Date(mediaTimeNum)
         console.log('fD', formattedDate)
 
-        return today < mediaTimeNum ? `✅${mediaDate}` : `❌${mediaDate}`
+        return todayTimeConvert < mediaTimeNum ? `✅${mediaDate}` : `❌${mediaDate}`
     }
 
     console.log('releaseDate', releaseDate())
