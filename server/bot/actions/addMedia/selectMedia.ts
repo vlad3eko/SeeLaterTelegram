@@ -43,7 +43,7 @@ export const selectMedia = async (ctx: any) => {
         // Тепер сравнение идет между ЧИСЛАМИ (миллисекундами), что на 100% точно
         const isFuture = todayTimestamp > mediaTimestamp;
 
-        return isFuture ? `✅${mediaDate}` : `❌${mediaDate}`;
+        return isFuture ? `✅ ${mediaDate}` : `❌ ${mediaDate}`;
     }
 
     console.log('releaseDate', releaseDate())
