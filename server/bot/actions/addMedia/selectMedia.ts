@@ -40,6 +40,8 @@ export const selectMedia = async (ctx: any) => {
         return today < mediaTimeNum ? `✅${mediaDate}` : `❌${mediaDate}`
     }
 
+    console.log('releaseDate', releaseDate())
+
     const mediaTypeConvert = (type: string) => {
         if (type === 'movie') {
             return 'фильма'
