@@ -17,6 +17,8 @@ export const processTelegramAuth = async (ctx: any, authRequests: Map<string, nu
             return false
         }
 
+        await ctx.deleteMessage()
+
         await saveTelegramUser(ctx)
         await confirmUserRequest(ctx, authRequests)
         if (sendSuccessMessage) {
