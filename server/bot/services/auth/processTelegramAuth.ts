@@ -13,7 +13,6 @@ export const processTelegramAuth = async (ctx: any, authRequests: Map<string, nu
 
         if (!isChannelSubscriber) {
             await failedChannelSubscriber(ctx, authRequests)
-            await ctx.deleteMessage()
             return false
         }
 
