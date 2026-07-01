@@ -24,10 +24,12 @@ export const selectMedia = async (ctx: any) => {
     const releaseYear = FormatDate(media.release_date || media.first_air_date) || 'официальной даты пока нет'
 
     const releaseDate = () => {
-        const mediaDate = dateConvert(media.release_date) || (dateIsoConvert(media.first_air_date) || 'официальной даты пока нет')
+        const mediaDate = dateConvert(media.release_date) || (dateIsoConvert(media.first_air_date))
         const today = new Date().getTime()
+        console.log('mediaDate', mediaDate)
+        console.log('today', today)
 
-        return today < Number(mediaDate) ? `✅${mediaDate}` : `❌${mediaDate}`
+        return today < Number(mediaDate) ? `✅${mediaDate}` : `❌${mediaDate} `||` официальной даты пока нет`
     }
 
     const mediaTypeConvert = (type: string) => {
