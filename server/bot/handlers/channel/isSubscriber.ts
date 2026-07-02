@@ -5,6 +5,7 @@ export const isSubscriber = async (ctx: any) => {
     const isChannelSubscriber = await checkChannelSubscriber(ctx)
 
     if (!isChannelSubscriber) {
+        await ctx.deleteMessage()
         await failedChannelSubscriber(ctx)
         return false
     }
