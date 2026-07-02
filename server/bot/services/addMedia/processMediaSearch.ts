@@ -5,7 +5,6 @@ import {Markup} from "telegraf";
 
 export const processMediaSearch = async (ctx: any) => {
 
-    await ctx.answerCbQuery()
 
     addMediaState.set(
         ctx.from.id,
@@ -13,8 +12,6 @@ export const processMediaSearch = async (ctx: any) => {
             waitingMovie: true
         }
     )
-
-    await ctx.answerCbQuery()
 
     await ctx.reply(
         'Введите название:',
@@ -26,5 +23,6 @@ export const processMediaSearch = async (ctx: any) => {
         ])
     )
 
+    await ctx.answerCbQuery()
     await ctx.deleteMessage()
 }
