@@ -4,6 +4,7 @@ import {failedChannelSubscriber} from "#server/bot/handlers/auth/fail/failedChan
 import {sendSubscriptionSuccessMessage} from "#server/bot/handlers/auth/success/sendSubscriptionSuccessMessage";
 import {checkChannelSubscriber} from "#server/bot/handlers/auth/check/checkChannelSubscriber";
 import {menuBot} from "#server/bot/handlers/commands/start/menuBot";
+import {processMediaSearch} from "#server/bot/services/addMedia/processMediaSearch";
 
 export const processTelegramAuth = async (ctx: any, authRequests: Map<string, number>, sendSuccessMessage: boolean = false) => {
 
@@ -21,7 +22,7 @@ export const processTelegramAuth = async (ctx: any, authRequests: Map<string, nu
         if (sendSuccessMessage) {
             await sendSubscriptionSuccessMessage(ctx, authRequests)
         } else {
-            await menuBot(ctx)
+            await processMediaSearch(ctx)
         }
 
         return true

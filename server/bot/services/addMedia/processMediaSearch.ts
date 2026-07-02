@@ -20,7 +20,7 @@ export const processMediaSearch = async (ctx: any) => {
         'Введите название:',
         Markup.inlineKeyboard([
             Markup.button.callback(
-                'Меню',
+                'меню',
                 'menu_bot'
             )
         ])

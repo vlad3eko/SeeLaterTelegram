@@ -17,9 +17,9 @@ bot.start(async (ctx) => {
     await start(ctx, authRequests)
 })
 
+// --- actions ---
 bot.action('menu_bot', menuBot)
 
-// --- actions ---
 bot.action('check_sub', async (ctx) => {
     await processTelegramAuth(ctx, authRequests)
 })
