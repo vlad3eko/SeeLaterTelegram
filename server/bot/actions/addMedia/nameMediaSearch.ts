@@ -23,6 +23,5 @@ export const nameMediaSearch = async (ctx: any) => {
     )
 
     await searchMedia(ctx, medias)
-    await ctx.deleteMessage(ctx.message.message_id - 2)
-
+    await ctx.deleteMessage(ctx.message.message_id - 1)
 }
