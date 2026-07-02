@@ -46,5 +46,5 @@ bot.on('text', async (ctx) => {
 
     await addMovie(ctx)
     await ctx.deleteMessage()
-
+    await ctx.deleteMessage()
 })
