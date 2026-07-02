@@ -9,14 +9,6 @@ export const saveMedia = async (ctx: any, authRequests: Map<string, number>) => 
         return false
     }
 
-    const currentId = ctx.message.message_id;
-
-    await ctx.telegram.deleteMessages(ctx.chat.id, [
-        currentId - 1,  // сообщение выше
-        currentId - 2   // сообщение еще выше
-    ]);
-
-
     const userId = Number(ctx.match[1])
     const mediaId = Number(ctx.match[2])
     const mediaType = ctx.match[3]
@@ -75,4 +67,11 @@ export const saveMedia = async (ctx: any, authRequests: Map<string, number>) => 
             )
         ])
     )
+
+    const currentId = ctx.message.message_id;
+
+    await ctx.telegram.deleteMessages(ctx.chat.id, [
+        currentId - 1,  // сообщение выше
+        currentId - 2   // сообщение еще выше
+    ]);
 }
