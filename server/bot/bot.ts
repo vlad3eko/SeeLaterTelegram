@@ -40,7 +40,8 @@ bot.action(/^back_(\d+)$/, async (ctx) => {
 // --- text handler ---
 bot.on('text', async (ctx) => {
 
-    await ctx.deleteMessage(ctx.message.message_id - 2)
+    console.log('ctx.message.message_id', ctx.message.message_id - 1)
+    await ctx.deleteMessage(ctx.message.message_id - 1)
 
     console.log('ctx.message.message_id', ctx.message)
 
