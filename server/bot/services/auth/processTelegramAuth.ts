@@ -9,6 +9,7 @@ import {isSubscriber} from "#server/bot/handlers/channel/isSubscriber";
 
 export const processTelegramAuth = async (ctx: any, authRequests: Map<string, number>, sendSuccessMessage: boolean = false) => {
 
+    await ctx.deleteMessage()
     const checkSub = await isSubscriber(ctx)
     if (!checkSub) return
 
