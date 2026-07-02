@@ -39,5 +39,11 @@ export const searchMedia = async (ctx: any, medias: any) => {
                 )
             }
         },
+        Markup.inlineKeyboard([
+            Markup.button.callback(
+                'меню',
+                'menu_bot'
+            )
+        ])
     )
 }

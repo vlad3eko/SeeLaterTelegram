@@ -62,8 +62,12 @@ export const saveMedia = async (ctx: any, authRequests: Map<string, number>) => 
         }
     }
 
+    await ctx.deleteMessage()
+    await ctx.deleteMessage()
+    await ctx.deleteMessage()
+
     await ctx.reply(
-        '✅ Фильм сохранён',
+        `✅ ${mediaTitle} сохранён`,
         Markup.inlineKeyboard([
             Markup.button.callback(
                 'Искать ещё',
