@@ -1,4 +1,5 @@
-import { serverSupabaseClient } from '#supabase/server'
+import {serverSupabaseClient} from '#supabase/server'
+import {createFavorite} from "#server/bot/services/favorites";
 
 export default defineEventHandler(async (event) => {
 
@@ -13,18 +14,16 @@ export default defineEventHandler(async (event) => {
         .eq('telegram_id', body.userId)
         .single()
 
-    const { error } = await supabase
-        .from('favorites')
-        .insert({
-            user_id: user.id,
-            title: body.mediaTitle,
-            tmdb_id: body.mediaId,
-            media_type: body.mediaType,
-            poster_path: body.mediaPoster,
-            vote_average: body.voteAverage,
-            vote_count: body.voteCount,
-            release_date: body.releaseDate,
-        })
+    const {error} = await createFavorite(supabase, {
+        userId: user.id,
+        tmdbId: body.mediaId,
+        title: body.mediaTitle,
+        mediaType: body.mediaType,
+        posterPath: body.mediaPoster,
+        voteAverage: body.voteAverage,
+        voteCount: body.voteCount,
+        releaseDate: body.releaseDate,
+    })
 
     return {
         success: !error,
