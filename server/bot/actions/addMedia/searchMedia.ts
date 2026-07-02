@@ -29,20 +29,21 @@ export const searchMedia = async (ctx: any, medias: any) => {
         'Выберите фильм из списка:',
         {
             reply_markup: {
-                inline_keyboard: result.map(
-                    (media: any) => [
-                        {
-                            text: `${media.title || media.name} (${FormatDate(media.release_date || media.first_air_date)})`,
-                            callback_data: `media_${media.id}_${media.media_type}`
-                        },
-                    ],
+                inline_keyboard: [
+                    ...result.map(
+                        (media: any) => [
+                            {
+                                text: `${media.title || media.name} (${FormatDate(media.release_date || media.first_air_date)})`,
+                                callback_data: `media_${media.id}_${media.media_type}`
+                            },
+                        ]),
                     [
                         {
                             text: 'меню',
                             callback_data: 'menu_bot'
                         }
                     ]
-                )
+                ]
             }
         },
     )

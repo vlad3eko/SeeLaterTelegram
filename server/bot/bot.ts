@@ -36,6 +36,48 @@ bot.action(/^back_(\d+)$/, async (ctx) => {
     await ctx.deleteMessage()
 })
 
+bot.action(/^delete_all_(\d+)$/, async (ctx) => {
+    // 1. Обязательно гасим часы на кнопке
+    await ctx.answerCbQuery();
+
+    // 2. Получаем количество сообщений из регулярного выражения (например, 5)
+    const countToDelete = parseInt(ctx.match[1] ?? '0', 10);
+
+    // 3. Проверяем, что сообщение существует и у него есть ID (защита от undefined)
+    if (!ctx.callbackQuery || !ctx.callbackQuery.message) {
+        console.log('Сообщение для удаления не найдено');
+        return;
+    }
+
+    const currentId = ctx.callbackQuery.message.message_id;
+    const chatId = ctx.chat?.id;
+
+    if (!chatId) {
+        console.log('ID чата не найден');
+        return;
+    }
+
+    // 4. Генерируем массив идентификаторов для удаления
+    const messagesToDelete: number[] = [];
+
+    for (let i = 0; i < countToDelete; i++) {
+        messagesToDelete.push(currentId - i);
+    }
+
+    try {
+        // 5. Удаляем пачку сообщений за один запрос
+        await ctx.telegram.deleteMessages(chatId, messagesToDelete);
+    } catch (error) {
+        // Кастим ошибку к типу Error, чтобы безопасно прочитать .message
+        if (error instanceof Error) {
+            console.log('Некоторые сообщения не удалось удалить:', error.message);
+        } else {
+            console.log('Неизвестная ошибка при удалении:', error);
+        }
+    }
+});
+
+
 // --- text handler ---
 bot.on('text', async (ctx) => {
 

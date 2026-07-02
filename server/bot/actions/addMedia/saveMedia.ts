@@ -43,7 +43,13 @@ export const saveMedia = async (ctx: any) => {
         if (error?.message.includes('duplicate key value')) {
 
             await ctx.reply(
-                `❌ Ой: вы уже сохраняли - ${media.title || media.name}`
+                `❌ Ой: вы уже сохраняли - ${media.title || media.name}`,
+                Markup.inlineKeyboard([
+                    Markup.button.callback(
+                        'Очистить историю чата',
+                        'delete_all_20'
+                    )
+                ])
             )
             return
         } else {
