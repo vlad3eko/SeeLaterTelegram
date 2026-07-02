@@ -78,4 +78,7 @@ export const saveMedia = async (ctx: any) => {
         currentId - 2,
         currentId - 3
     ])
+
+    console.log('ctx.chat.id', ctx.chat.id)
+    console.log('ctx', ctx)
 }
