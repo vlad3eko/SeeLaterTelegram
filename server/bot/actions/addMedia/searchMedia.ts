@@ -35,15 +35,15 @@ export const searchMedia = async (ctx: any, medias: any) => {
                             text: `${media.title || media.name} (${FormatDate(media.release_date || media.first_air_date)})`,
                             callback_data: `media_${media.id}_${media.media_type}`
                         },
+                    ],
+                    [
+                        {
+                            text: 'меню',
+                            callback_data: 'menu_bot'
+                        }
                     ]
                 )
             }
         },
-        Markup.inlineKeyboard([
-            Markup.button.callback(
-                'меню',
-                'menu_bot'
-            )
-        ])
     )
 }
