@@ -42,8 +42,6 @@ export const selectMedia = async (ctx: any) => {
         }
     }
 
-    console.log('releaseDate', releaseDate())
-
     const mediaTypeConvert = (type: string) => {
         if (type === 'movie') {
             return 'фильма'

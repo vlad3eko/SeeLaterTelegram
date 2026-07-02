@@ -3,11 +3,11 @@ import { Telegraf } from 'telegraf'
 import { start } from '#server/bot/commands/start'
 import { processTelegramAuth } from '#server/bot/services/auth/processTelegramAuth'
 import { processMediaSearch } from '#server/bot/services/addMedia/processMediaSearch'
-import { selectMedia } from '#server/bot/actions/addMedia/selectMedia'
 import { saveMedia } from '#server/bot/actions/addMedia/saveMedia'
 import { addMovie } from '#server/bot/actions/addMedia'
 import { addMediaState } from '#server/bot/consts/addMedia/addMediaState'
 import {menuBot} from "#server/bot/handlers/commands/start/menuBot";
+import {selectMedia} from "#server/bot/actions/addMedia/selectMedia";
 
 export const bot = new Telegraf(process.env.TELEGRAM_TOKEN!)
 const authRequests = new Map()
@@ -40,10 +40,11 @@ bot.action(/^back_(\d+)$/, async (ctx) => {
 // --- text handler ---
 bot.on('text', async (ctx) => {
 
-    await ctx.deleteMessage()
     const state = addMediaState.get(ctx.from.id)
 
     if (!state?.waitingMovie) return
 
     await addMovie(ctx)
+    await ctx.deleteMessage()
+
 })

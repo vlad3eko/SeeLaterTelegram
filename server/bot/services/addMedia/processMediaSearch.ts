@@ -2,8 +2,6 @@ import {addMediaState} from "#server/bot/consts/addMedia/addMediaState";
 import {Markup} from "telegraf";
 
 export const processMediaSearch = async (ctx: any) => {
-
-
     addMediaState.set(
         ctx.from.id,
         {
