@@ -1,6 +1,7 @@
 import {FormatDate} from "~/utils/formatMoviesData";
 import {dateConvert} from "~/utils/convert/dateConvert";
 import {dateIsoConvert} from "~/utils/convert/dateIsoConvert";
+import type {TmdbGenre} from "~/types/tmdb.types";
 
 export const selectMedia = async (ctx: any) => {
 
@@ -52,7 +53,7 @@ export const selectMedia = async (ctx: any) => {
     }
 
     const genresContent = media.genres
-        .map(i => i.name)
+        .map((i: TmdbGenre) => i.name)
         .join(' / #')
 
     const captionContent =

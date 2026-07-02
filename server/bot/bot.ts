@@ -7,6 +7,7 @@ import { selectMedia } from '#server/bot/actions/addMedia/selectMedia'
 import { saveMedia } from '#server/bot/actions/addMedia/saveMedia'
 import { addMovie } from '#server/bot/actions/addMedia'
 import { addMediaState } from '#server/bot/consts/addMedia/addMediaState'
+import {menuBot} from "#server/bot/handlers/commands/start/menuBot";
 
 export const bot = new Telegraf(process.env.TELEGRAM_TOKEN!)
 const authRequests = new Map()
@@ -15,6 +16,8 @@ const authRequests = new Map()
 bot.start(async (ctx) => {
     await start(ctx, authRequests)
 })
+
+bot.action('menu_bot', menuBot)
 
 // --- actions ---
 bot.action('check_sub', async (ctx) => {

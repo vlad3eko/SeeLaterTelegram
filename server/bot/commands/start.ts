@@ -1,5 +1,4 @@
 import {processTelegramAuth} from "#server/bot/services/auth/processTelegramAuth";
-import {failedLoginToken} from "#server/bot/handlers/commands/start/failedLoginToken";
 
 export const start = async (ctx: any, authRequests: Map<string, number>) => {
 
@@ -9,5 +8,5 @@ export const start = async (ctx: any, authRequests: Map<string, number>) => {
         authRequests.set(ctx.from.id, loginToken)
         await processTelegramAuth(ctx, authRequests, true)
     }
-    await processTelegramAuth(ctx, authRequests, false)
+    await processTelegramAuth(ctx, authRequests)
 }

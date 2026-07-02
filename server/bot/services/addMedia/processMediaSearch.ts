@@ -1,6 +1,7 @@
 import {addMediaState} from "#server/bot/consts/addMedia/addMediaState";
 import {addMovie} from "#server/bot/actions/addMedia";
 import {processTelegramAuth} from "#server/bot/services/auth/processTelegramAuth";
+import {Markup} from "telegraf";
 
 export const processMediaSearch = async (ctx: any) => {
 
@@ -17,5 +18,13 @@ export const processMediaSearch = async (ctx: any) => {
 
     await ctx.reply(
         'Введите название:',
+        Markup.inlineKeyboard([
+            Markup.button.callback(
+                'Меню',
+                'menu_bot'
+            )
+        ])
     )
+
+    await ctx.deleteMessage()
 }

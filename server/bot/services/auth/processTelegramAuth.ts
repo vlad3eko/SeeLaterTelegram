@@ -3,7 +3,7 @@ import {confirmUserRequest} from "#server/bot/handlers/auth/success/confirmUserR
 import {failedChannelSubscriber} from "#server/bot/handlers/auth/fail/failedChannelSubscriber";
 import {sendSubscriptionSuccessMessage} from "#server/bot/handlers/auth/success/sendSubscriptionSuccessMessage";
 import {checkChannelSubscriber} from "#server/bot/handlers/auth/check/checkChannelSubscriber";
-import {failedLoginToken} from "#server/bot/handlers/commands/start/failedLoginToken";
+import {menuBot} from "#server/bot/handlers/commands/start/menuBot";
 
 export const processTelegramAuth = async (ctx: any, authRequests: Map<string, number>, sendSuccessMessage: boolean = false) => {
 
@@ -21,8 +21,7 @@ export const processTelegramAuth = async (ctx: any, authRequests: Map<string, nu
         if (sendSuccessMessage) {
             await sendSubscriptionSuccessMessage(ctx, authRequests)
         } else {
-            await failedLoginToken(ctx)
-            await ctx.deleteMessage()
+            await menuBot(ctx)
         }
 
         return true
