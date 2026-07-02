@@ -72,14 +72,25 @@ export const saveMedia = async (ctx: any) => {
         ])
     )
 
-    const currentId = ctx.message.message_id;
+    if (!ctx.callbackQuery || !ctx.callbackQuery.message) {
+        console.log('Не удалось получить ID сообщения для удаления');
+        return;
+    }
 
-    console.log('ctx.chat.id', ctx.chat.id)
-    console.log('ctx', ctx)
+    // 3. Берем ID сообщения, НА КОТОРОМ была нажата кнопка «Сохранить»
+    const currentButtonMessageId = ctx.callbackQuery.message.message_id;
+    const chatId = ctx.chat?.id;
 
-    await ctx.telegram.deleteMessages(ctx.chat.id, [
-        currentId,
-        currentId - 1
-    ])
+    if (!chatId) return;
+
+    try {
+        // 4. Удаляем сообщение с кнопкой сохранения и одно сообщение НАД ним
+        await ctx.telegram.deleteMessages(chatId, [
+            currentButtonMessageId - 1,
+            currentButtonMessageId - 2
+        ]);
+    } catch (err) {
+        console.log('Не удалось удалить старые сообщения:', err);
+    }
 
 }
