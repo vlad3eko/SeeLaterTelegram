@@ -35,22 +35,22 @@ bot.action(/^back_(\d+)$/, async (ctx) => {
     await ctx.answerCbQuery()
 
     if (!ctx.callbackQuery || !ctx.callbackQuery.message) {
-        console.log('Не удалось получить ID сообщения для удаления');
-        return;
+        console.log('Не удалось получить ID сообщения для удаления')
+        return
     }
 
     // 3. Берем ID сообщения, НА КОТОРОМ была нажата кнопка «Сохранить»
-    const currentButtonMessageId = ctx.callbackQuery.message.message_id;
-    const chatId = ctx.chat?.id;
+    const currentButtonMessageId = ctx.callbackQuery.message.message_id
+    const chatId = ctx.chat?.id
 
-    if (!chatId) return;
+    if (!chatId) return
 
     try {
         // 4. Удаляем сообщение с кнопкой сохранения и одно сообщение НАД ним
         await ctx.telegram.deleteMessages(chatId, [
             currentButtonMessageId,
             currentButtonMessageId + 1
-        ]);
+        ])
     } catch (err) {
         console.log('Не удалось удалить старые сообщения:', err);
     }
