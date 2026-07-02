@@ -15,7 +15,6 @@ export const processTelegramAuth = async (ctx: any, authRequests: Map<string, nu
             await failedChannelSubscriber(ctx, authRequests)
             return false
         }
-        console.log('isCS', isChannelSubscriber)
 
         await saveTelegramUser(ctx)
         await confirmUserRequest(ctx, authRequests)

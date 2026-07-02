@@ -5,9 +5,11 @@ import {processTelegramAuth} from "#server/bot/services/auth/processTelegramAuth
 export const processMediaSearch = async (ctx: any, authRequests: any) => {
 
     await ctx.answerCbQuery()
-    const isAuthorized  = await processTelegramAuth(ctx, authRequests, false)
+    const isChannelMember  = await processTelegramAuth(ctx, authRequests, false)
 
-    if (!isAuthorized) {
+    console.log('isCM', isChannelMember)
+
+    if (!isChannelMember) {
         return
     }
 
