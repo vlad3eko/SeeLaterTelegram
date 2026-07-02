@@ -71,7 +71,7 @@ export const saveMedia = async (ctx: any, authRequests: Map<string, number>) => 
     const currentId = ctx.message.message_id;
 
     await ctx.telegram.deleteMessages(ctx.chat.id, [
-        currentId - 1,  // сообщение выше
-        currentId - 2   // сообщение еще выше
+        currentId - 1,
+        currentId - 2
     ]);
 }
