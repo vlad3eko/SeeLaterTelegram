@@ -74,11 +74,12 @@ export const saveMedia = async (ctx: any) => {
 
     const currentId = ctx.message.message_id;
 
-    await ctx.telegram.deleteMessages(ctx.chat.id, [
-        currentId - 2,
-        currentId - 3
-    ])
-
     console.log('ctx.chat.id', ctx.chat.id)
     console.log('ctx', ctx)
+
+    await ctx.telegram.deleteMessages(ctx.chat.id, [
+        currentId,
+        currentId - 1
+    ])
+
 }
