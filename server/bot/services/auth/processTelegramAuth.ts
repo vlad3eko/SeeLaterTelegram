@@ -7,7 +7,7 @@ import {menuBot} from "#server/bot/handlers/commands/start/menuBot";
 import {processMediaSearch} from "#server/bot/services/addMedia/processMediaSearch";
 import {isSubscriber} from "#server/bot/handlers/channel/isSubscriber";
 
-export const processTelegramAuth = async (ctx: any, authRequests: Map<string, number>, sendSuccessMessage: boolean = false) => {
+export const processTelegramAuth = async (ctx: any, sendSuccessMessage: boolean = false) => {
 
     const checkSub = await isSubscriber(ctx)
     if (!checkSub) return
@@ -15,7 +15,7 @@ export const processTelegramAuth = async (ctx: any, authRequests: Map<string, nu
     try {
 
         if (sendSuccessMessage) {
-            await sendSubscriptionSuccessMessage(ctx, authRequests)
+            await sendSubscriptionSuccessMessage(ctx)
         } else {
             await processMediaSearch(ctx)
         }

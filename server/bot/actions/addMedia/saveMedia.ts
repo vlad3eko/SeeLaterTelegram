@@ -60,18 +60,6 @@ export const saveMedia = async (ctx: any) => {
         }
     }
 
-
-
-    await ctx.reply(
-        `✅ ${mediaTitle} сохранён`,
-        Markup.inlineKeyboard([
-            Markup.button.callback(
-                'Искать ещё',
-                'add_media'
-            )
-        ])
-    )
-
     if (!ctx.callbackQuery || !ctx.callbackQuery.message) {
         console.log('Не удалось получить ID сообщения для удаления');
         return;
@@ -92,5 +80,17 @@ export const saveMedia = async (ctx: any) => {
     } catch (err) {
         console.log('Не удалось удалить старые сообщения:', err);
     }
+
+    await ctx.reply(
+        `✅ ${mediaTitle} сохранён`,
+        Markup.inlineKeyboard([
+            Markup.button.callback(
+                'Искать ещё',
+                'add_media'
+            )
+        ])
+    )
+
+
 
 }

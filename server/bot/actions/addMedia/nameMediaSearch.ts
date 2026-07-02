@@ -3,10 +3,7 @@ import {searchMedia} from "#server/bot/actions/addMedia/searchMedia";
 
 export const nameMediaSearch = async (ctx: any) => {
 
-    const state = addMediaState.get(
-        ctx.from.id
-    )
-
+    const state = addMediaState.get(ctx.from.id)
     if (!state?.waitingMovie) return
 
     addMediaState.delete(ctx.from.id)

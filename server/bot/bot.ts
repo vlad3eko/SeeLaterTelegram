@@ -20,7 +20,7 @@ bot.start(async (ctx) => {
 bot.action('menu_bot', menuBot)
 
 bot.action('check_sub', async (ctx) => {
-    await processTelegramAuth(ctx, authRequests)
+    await processTelegramAuth(ctx)
 })
 
 bot.action('add_media', async (ctx) => {
@@ -99,11 +99,4 @@ bot.action(/^delete_all_(\d+)$/, async (ctx) => {
 
 
 // --- text handler ---
-bot.on('text', async (ctx) => {
-
-    const state = addMediaState.get(ctx.from.id)
-
-    if (!state?.waitingMovie) return
-
-    await nameMediaSearch(ctx)
-})
+bot.on('text', nameMediaSearch)
