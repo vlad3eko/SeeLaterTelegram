@@ -8,6 +8,4 @@ export const isSubscriber = async (ctx: any) => {
         await failedChannelSubscriber(ctx)
         return false
     }
-
-    return true
 }

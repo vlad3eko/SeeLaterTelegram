@@ -12,5 +12,6 @@ export const start = async (ctx: any, authRequests: Map<string, number>) => {
         await processTelegramAuth(ctx, authRequests, true)
         await confirmUserRequest(ctx, loginToken)
     }
+
     await processTelegramAuth(ctx, authRequests)
 }
