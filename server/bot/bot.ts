@@ -1,5 +1,4 @@
 import { Telegraf } from 'telegraf'
-
 import { start } from '#server/bot/commands/start'
 import { processTelegramAuth } from '#server/bot/services/auth/processTelegramAuth'
 import { processMediaSearch } from '#server/bot/services/addMedia/processMediaSearch'
@@ -30,7 +29,7 @@ bot.action('add_media', async (ctx) => {
 
 bot.action(/^media_(\d+)_(movie|tv)$/, selectMedia)
 
-bot.action(/^save_(\d+)_(\d+)_(movie|tv)$/, async (ctx) => await saveMedia(ctx, authRequests))
+bot.action(/^save_(\d+)_(\d+)_(movie|tv)$/, saveMedia)
 
 bot.action(/^back_(\d+)$/, async (ctx) => {
     await ctx.answerCbQuery()

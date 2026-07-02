@@ -1,13 +1,9 @@
 import {Markup} from "telegraf";
-import {processTelegramAuth} from "#server/bot/services/auth/processTelegramAuth";
+import {isSubscriber} from "#server/bot/handlers/channel/isSubscriber";
 
-export const saveMedia = async (ctx: any, authRequests: Map<string, number>) => {
+export const saveMedia = async (ctx: any) => {
 
-    const isChannelMember = await processTelegramAuth(ctx, authRequests)
-
-    if (!isChannelMember) {
-        return false
-    }
+    await isSubscriber(ctx)
 
     const userId = Number(ctx.match[1])
     const mediaId = Number(ctx.match[2])

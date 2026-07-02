@@ -1,6 +1,4 @@
-export const confirmUserRequest = async (ctx: any, authRequests: Map<string, number>) => {
-
-    const loginToken = authRequests.get(ctx.from.id)
+export const confirmUserRequest = async (ctx: any, loginToken: string) => {
 
     await $fetch('/api/auth/telegram-confirm', {
         method: 'POST',

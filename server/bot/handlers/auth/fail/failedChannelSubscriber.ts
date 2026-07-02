@@ -1,6 +1,6 @@
 import {Markup} from "telegraf";
 
-export const failedChannelSubscriber = async (ctx: any, authRequests: Map<string, number>) => {
+export const failedChannelSubscriber = async (ctx: any) => {
 
     await ctx.reply(
         '❌ Подпишитесь на канал',
