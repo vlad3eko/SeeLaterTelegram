@@ -40,11 +40,11 @@ bot.action(/^back_(\d+)$/, async (ctx) => {
 // --- text handler ---
 bot.on('text', async (ctx) => {
 
+    await ctx.deleteMessage(ctx.message.message_id - 1)
+
     const state = addMediaState.get(ctx.from.id)
 
     if (!state?.waitingMovie) return
 
     await addMovie(ctx)
-    await ctx.deleteMessage()
-    await ctx.deleteMessage()
 })
