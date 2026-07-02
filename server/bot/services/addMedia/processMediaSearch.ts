@@ -23,6 +23,5 @@ export const processMediaSearch = async (ctx: any) => {
         ])
     )
 
-    await ctx.answerCbQuery()
     await ctx.deleteMessage()
 }
