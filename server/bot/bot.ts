@@ -4,7 +4,7 @@ import { start } from '#server/bot/commands/start'
 import { processTelegramAuth } from '#server/bot/services/auth/processTelegramAuth'
 import { processMediaSearch } from '#server/bot/services/addMedia/processMediaSearch'
 import { saveMedia } from '#server/bot/actions/addMedia/saveMedia'
-import { addMovie } from '#server/bot/actions/addMedia'
+import {nameMediaSearch} from '#server/bot/actions/addMedia/nameMediaSearch'
 import { addMediaState } from '#server/bot/consts/addMedia/addMediaState'
 import {menuBot} from "#server/bot/handlers/commands/start/menuBot";
 import {selectMedia} from "#server/bot/actions/addMedia/selectMedia";
@@ -40,14 +40,9 @@ bot.action(/^back_(\d+)$/, async (ctx) => {
 // --- text handler ---
 bot.on('text', async (ctx) => {
 
-    console.log('ctx.message.message_id', ctx.message.message_id - 1)
-    await ctx.deleteMessage(ctx.message.message_id - 1)
-
-    console.log('ctx.message.message_id', ctx.message)
-
     const state = addMediaState.get(ctx.from.id)
 
     if (!state?.waitingMovie) return
 
-    await addMovie(ctx)
+    await nameMediaSearch(ctx)
 })

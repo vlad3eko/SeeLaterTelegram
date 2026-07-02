@@ -1,7 +1,7 @@
 import {addMediaState} from "#server/bot/consts/addMedia/addMediaState";
 import {searchMedia} from "#server/bot/actions/addMedia/searchMedia";
 
-export const addMovie = async (ctx: any) => {
+export const nameMediaSearch = async (ctx: any) => {
 
     const state = addMediaState.get(
         ctx.from.id
@@ -23,5 +23,6 @@ export const addMovie = async (ctx: any) => {
     )
 
     await searchMedia(ctx, medias)
+    await ctx.deleteMessage(ctx.message.message_id - 2)
 
 }
