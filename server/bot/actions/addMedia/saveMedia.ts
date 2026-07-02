@@ -1,8 +1,15 @@
 import {Markup} from "telegraf";
 import {dateConvert} from "~/utils/convert/dateConvert";
 import {dateIsoConvert} from "~/utils/convert/dateIsoConvert";
+import {processTelegramAuth} from "#server/bot/services/auth/processTelegramAuth";
 
-export const saveMedia = async (ctx: any) => {
+export const saveMedia = async (ctx: any, authRequests: Map<string, number>) => {
+
+    const isChannelMember = await processTelegramAuth(ctx, authRequests)
+
+    if (!isChannelMember) {
+        return false
+    }
 
     await ctx.answerCbQuery()
 

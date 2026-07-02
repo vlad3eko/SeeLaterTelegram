@@ -22,12 +22,12 @@ bot.action('check_sub', async (ctx) => {
 })
 
 bot.action('add_media', async (ctx) => {
-    await processMediaSearch(ctx, authRequests)
+    await processMediaSearch(ctx)
 })
 
 bot.action(/^media_(\d+)_(movie|tv)$/, selectMedia)
 
-bot.action(/^save_(\d+)_(\d+)_(movie|tv)$/, saveMedia)
+bot.action(/^save_(\d+)_(\d+)_(movie|tv)$/, async (ctx) => await saveMedia(ctx, authRequests))
 
 bot.action(/^back_(\d+)$/, async (ctx) => {
     await ctx.answerCbQuery()
