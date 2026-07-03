@@ -4,9 +4,14 @@ import {FormatDate} from "~/utils/formatMoviesData";
 
 export const searchMedia = async (ctx: any, medias: any) => {
 
+    await ctx.deleteMessage()
+
     if (!medias.results.length) {
+
+        const title = ctx.message?.text ?? 'Запрос'
+
         await ctx.reply(
-            'Фильм не найден.',
+            `${title} - не найден.`,
             Markup.inlineKeyboard([
                 Markup.button.callback(
                     'Нажмите чтобы повторить',
