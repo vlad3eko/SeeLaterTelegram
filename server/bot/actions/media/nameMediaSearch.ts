@@ -1,5 +1,5 @@
 import {addMediaState} from "#server/bot/consts/addMedia/addMediaState";
-import {searchMedia} from "#server/bot/actions/media/searchMedia";
+import {processSearchMedia} from "#server/bot/services/addMedia/processSearchMedia";
 
 export const nameMediaSearch = async (ctx: any) => {
 
@@ -19,6 +19,6 @@ export const nameMediaSearch = async (ctx: any) => {
         }
     )
 
-    await searchMedia(ctx, medias)
+    await processSearchMedia(ctx, medias)
     await ctx.deleteMessage(ctx.message.message_id - 1)
 }

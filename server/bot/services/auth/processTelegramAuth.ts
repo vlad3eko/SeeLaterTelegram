@@ -1,11 +1,6 @@
-import {saveTelegramUser} from "#server/bot/handlers/auth/success/saveTelegramUser";
-import {confirmUserRequest} from "#server/bot/handlers/auth/success/confirmUserRequest";
-import {failedChannelSubscriber} from "#server/bot/handlers/auth/fail/failedChannelSubscriber";
 import {sendSubscriptionSuccessMessage} from "#server/bot/handlers/auth/success/sendSubscriptionSuccessMessage";
-import {checkChannelSubscriber} from "#server/bot/handlers/auth/check/checkChannelSubscriber";
-import {menuBot} from "#server/bot/handlers/commands/start/menuBot";
-import {processMediaSearch} from "#server/bot/services/addMedia/processMediaSearch";
 import {isSubscriber} from "#server/bot/handlers/channel/isSubscriber";
+import {searchMedia} from "#server/bot/actions/media/searchMedia";
 
 export const processTelegramAuth = async (ctx: any, sendSuccessMessage: boolean = false) => {
 
@@ -17,7 +12,7 @@ export const processTelegramAuth = async (ctx: any, sendSuccessMessage: boolean 
         if (sendSuccessMessage) {
             await sendSubscriptionSuccessMessage(ctx)
         } else {
-            await processMediaSearch(ctx)
+            await searchMedia(ctx)
         }
 
         return true

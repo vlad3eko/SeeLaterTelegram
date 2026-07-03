@@ -1,55 +1,23 @@
-import {searchMediaResults} from "#server/bot/consts/addMedia/saveMediaSearch";
+import {addMediaState} from "#server/bot/consts/addMedia/addMediaState";
 import {Markup} from "telegraf";
-import {FormatDate} from "~/utils/formatMoviesData";
 
-export const searchMedia = async (ctx: any, medias: any) => {
-
-    await ctx.deleteMessage()
-
-    if (!medias.results.length) {
-
-        const title = ctx.message?.text ?? 'Запрос'
-
-        await ctx.reply(
-            `${title} - не найден.`,
-            Markup.inlineKeyboard([
-                Markup.button.callback(
-                    'Нажмите чтобы повторить',
-                    'search_media'
-                )
-            ])
-        )
-        return
-    }
-
-    const result =
-        medias.results.slice(0, 5)
-
-    searchMediaResults.set(
+export const searchMedia = async (ctx: any) => {
+    addMediaState.set(
         ctx.from.id,
-        result
+        {
+            waitingMovie: true
+        }
     )
 
     await ctx.reply(
-        'Выберите фильм из списка:',
-        {
-            reply_markup: {
-                inline_keyboard: [
-                    ...result.map(
-                        (media: any) => [
-                            {
-                                text: `${media.title || media.name} (${FormatDate(media.release_date || media.first_air_date)})`,
-                                callback_data: `media_${media.id}_${media.media_type}`
-                            },
-                        ]),
-                    [
-                        {
-                            text: 'меню',
-                            callback_data: 'menu_bot'
-                        }
-                    ]
-                ]
-            }
-        },
+        'Введите название:',
+        Markup.inlineKeyboard([
+            Markup.button.callback(
+                'меню',
+                'menu_bot'
+            )
+        ])
     )
+
+    await ctx.deleteMessage()
 }
