@@ -89,6 +89,8 @@ export const saveMedia = async (ctx: any) => {
         console.log('Не удалось удалить старые сообщения:', err);
     }
 
+    await ctx.editMessageReplyMarkup()
+
     await ctx.reply(
         `✅ ${mediaTitle} сохранён`,
         Markup.inlineKeyboard([
