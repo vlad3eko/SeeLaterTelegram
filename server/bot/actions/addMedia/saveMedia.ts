@@ -45,6 +45,8 @@ export const saveMedia = async (ctx: any) => {
     })
 
     if (!success) {
+        await deleteMessages(ctx, [-1, -2])
+
         if (error?.message.includes('duplicate key value')) {
 
             await ctx.reply(
@@ -56,8 +58,6 @@ export const saveMedia = async (ctx: any) => {
                     )
                 ])
             )
-
-            await deleteMessages(ctx, [-1, -2])
             return
         } else {
             await ctx.reply(
