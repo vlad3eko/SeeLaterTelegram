@@ -1,17 +1,7 @@
 export async function deleteMessages(ctx: any, offsets: number[]) {
-    if (!ctx.callbackQuery?.message) {
-        console.log('Сообщение для удаления не найдено')
-        return
-    }
 
-    const chatId = ctx.chat?.id
-    if (!chatId) {
-        console.log('ID чата не найден')
-        return
-    }
-
+    const chatId = ctx.chat.id
     const currentId = ctx.callbackQuery.message.message_id
-
     const messageIds = offsets.map(offset => currentId + offset)
 
     try {
