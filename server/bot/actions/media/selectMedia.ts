@@ -2,6 +2,7 @@ import {FormatDate} from "~/utils/formatMoviesData";
 import {dateConvert} from "~/utils/convert/dateConvert";
 import {dateIsoConvert} from "~/utils/convert/dateIsoConvert";
 import type {TmdbGenre} from "~/types/tmdb.types";
+import {releaseDate} from "#server/bot/consts/media/releaseDate";
 
 export const selectMedia = async (ctx: any) => {
 
@@ -27,21 +28,6 @@ export const selectMedia = async (ctx: any) => {
     const mediaOverview = media.overview
     const releaseYear = FormatDate(media.release_date || media.first_air_date) || releaseDateUndefined
 
-    const releaseDate = () => {
-        const mediaDate = dateConvert(media.release_date) || dateIsoConvert(media.first_air_date);
-
-        if (mediaDate) {
-            const [day, month, year] = mediaDate.split('.');
-            const mediaTimestamp = new Date(`${year}-${month}-${day}`).getTime();
-            const todayTimestamp = new Date().getTime();
-            const isFuture = todayTimestamp > mediaTimestamp;
-
-            return isFuture ? `✅ ${mediaDate}` : `❌ ${mediaDate}`;
-        } else {
-            return releaseDateUndefined
-        }
-    }
-
     const mediaTypeConvert = (type: string) => {
         if (type === 'movie') {
             return 'фильма'
@@ -56,9 +42,7 @@ export const selectMedia = async (ctx: any) => {
 
     const captionContent =
         `<code>${mediaTitle} (${releaseYear})</code> 
-                <blockquote expandable>${mediaOverview}</blockquote> 
-                <b>Жанр:</b> <i>#${genresContent}</i> 
-                <b>Премьера ${mediaTypeConvert(mediaType)}</b>: <i>${releaseDate()} </i>`
+                <blockquote expandable>${mediaOverview}</blockquote> <b>Жанр:</b> <i>#${genresContent}</i> <b>Премьера ${mediaTypeConvert(mediaType)}</b>: <i>${releaseDate(media)} </i> \n<b>Статус:</b> ✅Cохранён`
 
     const callbackData =
         `${ctx.from.id}_${media.id}_${mediaType}`

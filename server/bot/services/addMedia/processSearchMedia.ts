@@ -1,4 +1,4 @@
-import {searchMediaResults} from "#server/bot/consts/addMedia/saveMediaSearch";
+import {searchMediaResults} from "#server/bot/consts/media/saveMediaSearch";
 import {Markup} from "telegraf";
 import {FormatDate} from "~/utils/formatMoviesData";
 

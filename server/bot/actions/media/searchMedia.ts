@@ -1,4 +1,4 @@
-import {addMediaState} from "#server/bot/consts/addMedia/addMediaState";
+import {addMediaState} from "#server/bot/consts/media/addMediaState";
 import {Markup} from "telegraf";
 
 export const searchMedia = async (ctx: any) => {
