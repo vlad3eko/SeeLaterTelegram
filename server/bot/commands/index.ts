@@ -12,6 +12,5 @@ export function registerCommands(bot:Telegraf) {
     })
 
     bot.command('help', help)
-
     bot.action('menu_bot', menuBot)
 }
