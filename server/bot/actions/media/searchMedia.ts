@@ -13,9 +13,9 @@ export const searchMedia = async (ctx: any, options: SearchMediaOptions = {}, st
         }
     )
 
-    const reply = `<code><b>Введите название фильма.</b></code>
+    const reply = `<code>Введите название фильма.</b></code>
     <i>Можно писать не полностью — поиск работает по словам.</i>
-                   \n<code><b>Например:</b></code>
+                   \n<code>Например:</b></code>
     <i>если ищете «28 лет спустя», достаточно ввести «28» — и появятся все подходящие варианты.</i>`
 
 
