@@ -1,6 +1,7 @@
 import {Markup} from "telegraf";
 import {isSubscriber} from "#server/bot/handlers/channel/isSubscriber";
 import {deleteMessages} from "#server/bot/actions/delete/deleteMessages";
+import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
 
 export const saveMedia = async (ctx: any) => {
 
@@ -69,24 +70,27 @@ export const saveMedia = async (ctx: any) => {
     }
 
     await deleteMessages(ctx, [-1, -2])
-    await ctx.editMessageReplyMarkup({
-        inline_keyboard: [
-            [
-                {
-                    text: '🗑 Удалить',
-                    callback_data: `delete_media_${media.id}`
-                }
-            ]
-        ]
-    })
 
-    await ctx.reply(
-        `✅ ${mediaTitle} сохранён`,
-        Markup.inlineKeyboard([
-            Markup.button.callback(
-                'Искать ещё',
-                'search_media'
-            )
-        ])
+    await ctx.editMessageCaption(
+        createMediaCaption(media, true, mediaType),
+        {
+            parse_mode: 'HTML',
+            reply_markup: {
+                inline_keyboard: [
+                    [
+                        {
+                            text: '🗑 Удалить',
+                            callback_data: `delete_media_${media.id}`
+                        }
+                    ],
+                    [
+                        {
+                            text: 'Искать ещё',
+                            callback_data: `search_media`
+                        }
+                    ]
+                ]
+            }
+        }
     )
 }
