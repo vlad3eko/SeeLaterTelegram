@@ -1,4 +1,7 @@
 export async function help(ctx: any) {
+
+    await ctx.deleteMessage()
+
     await ctx.reply(
         `📖 Доступные команды:
 
