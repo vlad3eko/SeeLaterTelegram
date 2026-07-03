@@ -36,7 +36,7 @@ export const selectMedia = async (ctx: any) => {
 
     const captionContent =
         `<code>${mediaTitle} (${releaseYear})</code> 
-                <blockquote expandable>${mediaOverview}</blockquote><b>Жанр:</b> <i>#${genresContent}</i>\n<b>Тип:</b> <i>${mediaTypeConvert(mediaType)}</i> <b>Дата выхода:</b> <i>${mediaReleaseConvert(media)} </i>\n<b>Статус:</b> <i>✅Cохранён</i>`
+                <blockquote expandable>${mediaOverview}</blockquote><b>Жанр:</b> <i>#${genresContent}</i>\n<b>Тип:</b> <i>${mediaTypeConvert(mediaType)}</i> \n<b>Дата выхода:</b> <i>${mediaReleaseConvert(media)} </i>\n<b>Статус:</b> <i>✅Cохранён</i>`
 
     const callbackData =
         `${ctx.from.id}_${media.id}_${mediaType}`
