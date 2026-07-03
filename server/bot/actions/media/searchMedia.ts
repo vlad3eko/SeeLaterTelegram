@@ -14,7 +14,11 @@ export const searchMedia = async (ctx: any, options: SearchMediaOptions = {}, st
     )
 
     await ctx.reply(
-        'Введите название:',
+        'Введите название фильма.\n' +
+        'Можно писать не полностью — поиск работает по словам.\n' +
+        '\n' +
+        'Например:\n' +
+        'если ищете «28 лет спустя», достаточно ввести «28» — и появятся все подходящие варианты.',
         Markup.inlineKeyboard([
             Markup.button.callback(
                 'меню',
