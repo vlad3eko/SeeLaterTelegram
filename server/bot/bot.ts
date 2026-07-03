@@ -9,8 +9,4 @@ registerCommands(bot)
 registerActions(bot)
 registerHandlers(bot)
 
-await bot.telegram.setMyCommands([
-    { command: 'start', description: 'Главное меню' },
-    { command: 'help', description: 'Помощь' },
-])
 
