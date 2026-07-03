@@ -30,7 +30,7 @@ export const searchMedia = async (ctx: any, options: SearchMediaOptions = {}) =>
             break
 
         case 'start':
-            await deleteMessages(ctx,  [0])
+            await deleteMessages(ctx,  [-1])
             break
 
         case 'default':
