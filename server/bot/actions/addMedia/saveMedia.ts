@@ -51,7 +51,7 @@ export const saveMedia = async (ctx: any) => {
             try {
                 await deleteMessages(ctx, [-1, -2])
             } catch (e) {
-                console.error(e)
+                await ctx.reply(e)
             }
 
             await ctx.reply(
