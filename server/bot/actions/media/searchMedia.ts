@@ -1,7 +1,11 @@
 import {addMediaState} from "#server/bot/consts/media/addMediaState";
 import {Markup} from "telegraf";
 
-export const searchMedia = async (ctx: any) => {
+interface SearchMediaOptions {
+    mode?: string
+}
+
+export const searchMedia = async (ctx: any, options: SearchMediaOptions = {}) => {
     addMediaState.set(
         ctx.from.id,
         {
@@ -19,5 +23,11 @@ export const searchMedia = async (ctx: any) => {
         ])
     )
 
-    await ctx.deleteMessage()
+    switch (options.mode) {
+        case 'keep':
+            break
+
+        case 'default':
+            await ctx.deleteMessage()
+    }
 }

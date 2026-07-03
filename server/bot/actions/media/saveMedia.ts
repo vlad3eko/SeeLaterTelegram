@@ -86,7 +86,7 @@ export const saveMedia = async (ctx: any) => {
                     [
                         {
                             text: 'Искать ещё',
-                            callback_data: `search_media`
+                            callback_data: `search_media:keep`
                         }
                     ]
                 ]
