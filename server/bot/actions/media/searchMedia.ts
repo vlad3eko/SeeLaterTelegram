@@ -29,10 +29,6 @@ export const searchMedia = async (ctx: any, options: SearchMediaOptions = {}) =>
             await ctx.answerCbQuery()
             break
 
-        case 'start':
-            await deleteMessages(ctx,  [-1])
-            break
-
         case 'default':
             await ctx.deleteMessage()
             break

@@ -12,7 +12,7 @@ export const processTelegramAuth = async (ctx: any, sendSuccessMessage: boolean 
         if (sendSuccessMessage) {
             await sendSubscriptionSuccessMessage(ctx)
         } else {
-            await searchMedia(ctx as any, {mode: 'start'})
+            await searchMedia(ctx)
         }
 
         return true
