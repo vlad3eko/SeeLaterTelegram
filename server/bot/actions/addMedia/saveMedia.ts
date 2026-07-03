@@ -4,6 +4,7 @@ import {deleteMessages} from "#server/bot/actions/delete/deleteMessages";
 
 export const saveMedia = async (ctx: any) => {
 
+    await ctx.answerCbQuery()
     await isSubscriber(ctx)
 
     const userId = Number(ctx.match[1])
@@ -47,11 +48,7 @@ export const saveMedia = async (ctx: any) => {
 
         if (error?.message.includes('duplicate key value')) {
 
-            try {
-                await deleteMessages(ctx, [-1, -2])
-            } catch (e) {
-                await ctx.reply(e)
-            }
+            await deleteMessages(ctx, [-1, -2])
 
             await ctx.reply(
                 `❌ Ой: вы уже сохраняли - ${media.title || media.name}`,
