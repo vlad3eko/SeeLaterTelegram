@@ -25,10 +25,6 @@ export const selectMedia = async (ctx: any) => {
     const mediaOverview = media.overview
     const releaseYear = FormatDate(media.release_date || media.first_air_date) || releaseDateUndefined
 
-    const mediaTypeConvertBot = (type: string) => {
-       return type === 'movie' ? 'фильма' : 'сериала'
-    }
-
     const genresContent = media.genres
         .map((i: TmdbGenre) => i.name)
         .join(' / #')
