@@ -31,7 +31,7 @@ export const processSearchMedia = async (ctx: any, medias: any) => {
     )
 
     await ctx.reply(
-        'Выберите фильм из списка:',
+        'Выберите из списка:',
         {
             reply_markup: {
                 inline_keyboard: [
