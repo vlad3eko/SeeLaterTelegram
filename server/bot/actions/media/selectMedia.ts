@@ -20,7 +20,6 @@ export const selectMedia = async (ctx: any) => {
     )
 
     const releaseDateUndefined = '❌официальной даты пока нет'
-
     const mediaPoster = media.poster_path || media.backdrop_path
     const mediaTitle = media.title || media.name
     const mediaOverview = media.overview
