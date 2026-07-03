@@ -1,5 +1,6 @@
 import {addMediaState} from "#server/bot/consts/media/addMediaState";
 import {Markup} from "telegraf";
+import {deleteMessages} from "#server/bot/actions/delete/deleteMessages";
 
 interface SearchMediaOptions {
     mode?: string
@@ -28,7 +29,12 @@ export const searchMedia = async (ctx: any, options: SearchMediaOptions = {}) =>
             await ctx.answerCbQuery()
             break
 
+        case 'start':
+            await deleteMessages(ctx,  [0, -1])
+            break
+
         case 'default':
             await ctx.deleteMessage()
+            break
     }
 }
