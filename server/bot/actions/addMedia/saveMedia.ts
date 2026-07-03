@@ -4,7 +4,6 @@ import {deleteMessages} from "#server/bot/actions/delete/deleteMessages";
 
 export const saveMedia = async (ctx: any) => {
 
-    await ctx.answerCbQuery()
     await isSubscriber(ctx)
 
     const userId = Number(ctx.match[1])
