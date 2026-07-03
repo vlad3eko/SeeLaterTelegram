@@ -18,6 +18,7 @@ export const searchMedia = async (ctx: any, options: SearchMediaOptions = {}, st
                    \n\n<b>Например:</b>
                    \n<i>если ищете «28 лет спустя», достаточно ввести «28» — и появятся все подходящие варианты.</i>`
 
+
     await ctx.reply(
         reply,
         Markup.inlineKeyboard([
