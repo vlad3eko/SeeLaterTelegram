@@ -20,7 +20,7 @@ export const mediaReleaseConvert = (media:any, none: string = 'официаль�
 }
 
 export const mediaTypeConvert = (type: string | undefined) => {
-   if (type) return type === 'movie' ? 'фильма' : 'сериала'
+   if (type) return type === 'movie' ? 'фильм' : 'сериал'
 }
 
 export const mediaDurationConvert = (data: TmdbMovieDetails | undefined) => {
