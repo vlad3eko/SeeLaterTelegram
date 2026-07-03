@@ -19,15 +19,12 @@ export const searchMedia = async (ctx: any, options: SearchMediaOptions = {}, st
                    \n<i>если ищете «28 лет спустя», достаточно ввести «28» — и появятся все подходящие варианты.</i>`
 
 
-    await ctx.reply(
-        reply,
-        Markup.inlineKeyboard([
-            Markup.button.callback(
-                'меню',
-                'menu_bot'
-            )
+    await ctx.reply(reply, {
+        parse_mode: 'HTML',
+        ...Markup.inlineKeyboard([
+            Markup.button.callback('меню', 'menu_bot')
         ])
-    )
+    })
 
     switch (options.mode) {
         case 'keep':
