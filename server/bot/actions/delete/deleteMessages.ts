@@ -1,6 +1,4 @@
 export async function deleteMessages(ctx: any, offsets: number[]) {
-    await ctx.answerCbQuery()
-
     if (!ctx.callbackQuery?.message) {
         console.log('Сообщение для удаления не найдено')
         return
