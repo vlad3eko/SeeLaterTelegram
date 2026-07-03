@@ -1,5 +1,5 @@
 import {addMediaState} from "#server/bot/consts/addMedia/addMediaState";
-import {searchMedia} from "#server/bot/actions/addMedia/searchMedia";
+import {searchMedia} from "#server/bot/actions/media/searchMedia";
 
 export const nameMediaSearch = async (ctx: any) => {
 

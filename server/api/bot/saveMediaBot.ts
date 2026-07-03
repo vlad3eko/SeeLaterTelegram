@@ -1,5 +1,5 @@
 import {serverSupabaseClient} from '#supabase/server'
-import {createFavorite} from "#server/bot/services/favorites";
+import {createFavorite} from "#server/bot/services/supabase/addFavorite";
 
 export default defineEventHandler(async (event) => {
 

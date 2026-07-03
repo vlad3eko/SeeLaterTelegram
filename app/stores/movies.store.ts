@@ -1,6 +1,6 @@
 import type {MediaTypesSupabase} from "~/types/bookmarks/media.types";
 import {useUserStore} from "~/stores/user.store";
-import {createFavorite} from "#server/bot/services/favorites";
+import {createFavorite} from "#server/bot/services/supabase/addFavorite";
 
 export const useMovieStore = defineStore('movies', () => {
 
