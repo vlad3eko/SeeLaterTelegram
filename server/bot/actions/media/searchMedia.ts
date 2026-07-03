@@ -16,7 +16,7 @@ export const searchMedia = async (ctx: any, options: SearchMediaOptions = {}, st
     const reply = `<code>Введите название фильма.</code>
     <i>Можно писать не полностью — поиск работает по словам.</i>
                    \n<code>Например:</code>
-    <i>если ищете «28 лет спустя», достаточно ввести «28» — и появятся все подходящие варианты.</i>`
+    <i>если ищете «<code>28 лет спустя</code>», достаточно ввести «<code>28</code>» — и появятся все подходящие варианты.</i>`
 
 
     await ctx.reply(reply, {
