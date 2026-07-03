@@ -13,11 +13,11 @@ export const menuBot = async (ctx: any) => {
             ),
             Markup.button.callback(
                 'Поиск',
-                'add_media'
+                'search_media'
             ),
             Markup.button.callback(
                 'Сохранённые',
-                'add_media'
+                'search_media'
             )
         ]),
     )

@@ -10,7 +10,7 @@ export const searchMedia = async (ctx: any, medias: any) => {
             Markup.inlineKeyboard([
                 Markup.button.callback(
                     'Нажмите чтобы повторить',
-                    'add_media'
+                    'search_media'
                 )
             ])
         )

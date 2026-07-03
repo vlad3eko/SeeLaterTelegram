@@ -3,6 +3,7 @@ import {isSubscriber} from "#server/bot/handlers/channel/isSubscriber";
 
 export const saveMedia = async (ctx: any) => {
 
+    await ctx.answerCbQuery()
     await isSubscriber(ctx)
 
     const userId = Number(ctx.match[1])
@@ -25,7 +26,10 @@ export const saveMedia = async (ctx: any) => {
     const mediaPoster = media.poster_path || media.backdrop_path
     const releaseDate = media.release_date || media.first_air_date
 
-    const {success, error} = await $fetch('/api/bot/saveMediaBot', {
+    const {success, error} = await $fetch<{
+        success: boolean,
+        error: any
+    }>('/api/bot/saveMediaBot', {
         method: 'POST',
         body: {
             userId,
@@ -86,7 +90,7 @@ export const saveMedia = async (ctx: any) => {
         Markup.inlineKeyboard([
             Markup.button.callback(
                 'Искать ещё',
-                'add_media'
+                'search_media'
             )
         ])
     )
