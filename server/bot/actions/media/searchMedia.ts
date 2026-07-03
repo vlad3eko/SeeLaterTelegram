@@ -25,6 +25,7 @@ export const searchMedia = async (ctx: any, options: SearchMediaOptions = {}) =>
 
     switch (options.mode) {
         case 'keep':
+            await ctx.answerCbQuery()
             break
 
         case 'default':
