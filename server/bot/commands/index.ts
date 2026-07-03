@@ -7,7 +7,8 @@ const authRequests = new Map()
 
 export function registerCommands(bot:Telegraf) {
     bot.start(async (ctx) => {
-        await start(ctx, authRequests)
+        const startId = ctx.message.message_id
+        await start(ctx, authRequests, startId)
     })
     bot.command('help', help)
     bot.action('menu_bot', menuBot)

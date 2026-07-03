@@ -1,12 +1,11 @@
 import {addMediaState} from "#server/bot/consts/media/addMediaState";
 import {Markup} from "telegraf";
-import {deleteMessages} from "#server/bot/actions/delete/deleteMessages";
 
 interface SearchMediaOptions {
     mode?: string
 }
 
-export const searchMedia = async (ctx: any, options: SearchMediaOptions = {}) => {
+export const searchMedia = async (ctx: any, options: SearchMediaOptions = {}, startId?: number | undefined) => {
     addMediaState.set(
         ctx.from.id,
         {
@@ -27,6 +26,10 @@ export const searchMedia = async (ctx: any, options: SearchMediaOptions = {}) =>
     switch (options.mode) {
         case 'keep':
             await ctx.answerCbQuery()
+            break
+
+        case 'start':
+            await ctx.telegram.deleteMessage(ctx.chat.id, startId)
             break
 
         case 'default':
