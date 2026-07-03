@@ -23,7 +23,7 @@
     </p>
     <p class=" text-muted-foreground font-bold letter">
       Тип:
-      <UiButton variant="secondary">{{ mediaTypeConvert(data) }}</UiButton>
+      <UiButton variant="secondary">{{ mediaTypeConvert(data?.media_type) }}</UiButton>
     </p>
   </div>
 </template>
