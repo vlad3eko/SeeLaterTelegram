@@ -94,5 +94,5 @@ export const saveMedia = async (ctx: any) => {
             }
         }
     )
-    await addSessionMessage(ctx.from.id, ctx.message_id)
+    await addSessionMessage(ctx.from.id, ctx.message.message_id)
 }
