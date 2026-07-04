@@ -31,7 +31,7 @@ export const searchMedia = async (ctx: any, options: SearchMediaOptions = {}, st
             await ctx.answerCbQuery()
             break
 
-        case 'default':
+        default:
             await ctx.deleteMessage()
             break
     }
