@@ -32,7 +32,6 @@ export const searchMedia = async (ctx: any, options: SearchMediaOptions = {}, st
             break
 
         case 'start':
-            if (startId)
             await ctx.deleteMessage()
             break
 
