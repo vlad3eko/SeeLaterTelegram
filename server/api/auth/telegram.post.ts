@@ -12,7 +12,8 @@ export default defineEventHandler(async (event) => {
             {
                 telegram_id: Number(body.telegram_id),
                 username: body.username,
-                first_name: body.first_name
+                first_name: body.first_name,
+                subscriber: false
             },
             {
                 onConflict: 'telegram_id'
