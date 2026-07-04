@@ -4,10 +4,16 @@ export default defineEventHandler(async (event) => {
     const supabase = await serverSupabaseClient(event)
     const body = await readBody(event)
 
-    const {data} = await supabase
+    const {data: user} = await supabase
         .from('users')
-        .select('message_ids')
+        .select('id')
         .eq('telegram_id', body.telegram_id)
+        .single()
+
+    const {data} = await supabase
+        .from('users_session')
+        .select('message_ids')
+        .eq('user_id', user.id)
         .single()
 
     const messages = data?.message_ids ?? []
@@ -15,12 +21,12 @@ export default defineEventHandler(async (event) => {
     messages.push(body.message_id)
 
     const {error} = await supabase
-        .from('users')
-        .update({
+        .from('users_session')
+        .upsert({
+            user_id: user.id,
             last_activity: new Date().toISOString(),
             message_ids: messages
         })
-        .eq('telegram_id', body.telegram_id)
 
     if (error) throw error
 })
