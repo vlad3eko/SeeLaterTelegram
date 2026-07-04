@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
 
     const {error} = await supabase
         .from('users')
-        .upsert({
+        .update({
             last_activity: new Date().toISOString(),
             message_ids: messages
         })
