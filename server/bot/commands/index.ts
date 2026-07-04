@@ -2,7 +2,7 @@ import {Telegraf} from "telegraf";
 import {menuBot} from "#server/bot/handlers/commands/start/menuBot";
 import {start} from "#server/bot/commands/start";
 import {help} from "#server/bot/commands/help";
-import {addSessionMessage} from "#server/bot/services/session/addSessionMessage";
+import {addMessageSession} from "#server/bot/services/session/addMessageSession";
 import {clear} from "#server/bot/commands/clear";
 
 const authRequests = new Map()
@@ -14,7 +14,7 @@ export function registerCommands(bot:Telegraf) {
 
         await start(ctx, authRequests)
 
-        await addSessionMessage(
+        await addMessageSession(
             ctx.from.id,
             message
         )

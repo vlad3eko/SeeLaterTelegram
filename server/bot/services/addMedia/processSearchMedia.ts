@@ -1,7 +1,7 @@
 import {searchMediaResults} from "#server/bot/consts/media/saveMediaSearch";
 import {Markup} from "telegraf";
 import {FormatDate} from "~/utils/formatMoviesData";
-import {addSessionMessage} from "#server/bot/services/session/addSessionMessage";
+import {addMessageSession} from "#server/bot/services/session/addMessageSession";
 
 export const processSearchMedia = async (ctx: any, medias: any) => {
 
@@ -20,7 +20,7 @@ export const processSearchMedia = async (ctx: any, medias: any) => {
                 )
             ])
         )
-        await addSessionMessage(
+        await addMessageSession(
             ctx.from.id,
             messageNotFound.message_id
         )
@@ -57,7 +57,7 @@ export const processSearchMedia = async (ctx: any, medias: any) => {
             }
         },
     )
-    await addSessionMessage(
+    await addMessageSession(
         ctx.from.id,
         messageChooseMedia.message_id
     )

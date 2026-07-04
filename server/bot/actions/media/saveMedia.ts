@@ -2,8 +2,8 @@ import {Markup} from "telegraf";
 import {isSubscriber} from "#server/bot/handlers/channel/isSubscriber";
 import {deleteMessages} from "#server/bot/actions/delete/deleteMessages";
 import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
-import {addSessionMessage} from "#server/bot/services/session/addSessionMessage";
-import {saveSessionMessage} from "#server/bot/services/session/saveSessionMessage";
+import {addMessageSession} from "#server/bot/services/session/addMessageSession";
+import {saveMessageSession} from "#server/bot/services/session/saveMessageSession";
 
 export const saveMedia = async (ctx: any) => {
 
@@ -62,7 +62,7 @@ export const saveMedia = async (ctx: any) => {
                     )
                 ])
             )
-            await addSessionMessage(
+            await addMessageSession(
                 ctx.from.id,
                 message.message_id
             )
@@ -71,7 +71,7 @@ export const saveMedia = async (ctx: any) => {
             const message = await ctx.reply(
                 `❌ Неизвестная ошибка: ${error?.message} \n\nПопробуйте позже, или свяжитесь со мной`
             )
-            await addSessionMessage(
+            await addMessageSession(
                 ctx.from.id,
                 message.message_id
             )
@@ -103,5 +103,5 @@ export const saveMedia = async (ctx: any) => {
             }
         }
     )
-    await saveSessionMessage(ctx.from.id, successSave.message_id)
+    await saveMessageSession(ctx.from.id, successSave.message_id)
 }

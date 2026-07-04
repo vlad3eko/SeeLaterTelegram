@@ -1,5 +1,5 @@
 import {Markup} from "telegraf";
-import {addSessionMessage} from "#server/bot/services/session/addSessionMessage";
+import {addMessageSession} from "#server/bot/services/session/addMessageSession";
 
 export const failedChannelSubscriber = async (ctx: any) => {
 
@@ -16,7 +16,7 @@ export const failedChannelSubscriber = async (ctx: any) => {
             )
         ])
     )
-    await addSessionMessage(
+    await addMessageSession(
         ctx.from.id,
         message.message_id
     )

@@ -1,6 +1,6 @@
 import {addMediaState} from "#server/bot/consts/media/addMediaState";
 import {Markup} from "telegraf";
-import {addSessionMessage} from "#server/bot/services/session/addSessionMessage";
+import {addMessageSession} from "#server/bot/services/session/addMessageSession";
 
 interface SearchMediaOptions {
     mode?: string
@@ -27,7 +27,7 @@ export const searchMedia = async (ctx: any, options: SearchMediaOptions = {}, st
         ])
     })
 
-    await addSessionMessage(ctx.from.id, message.message_id)
+    await addMessageSession(ctx.from.id, message.message_id)
 
     switch (options.mode) {
         case 'keep':

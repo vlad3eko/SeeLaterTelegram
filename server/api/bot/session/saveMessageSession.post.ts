@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
     if (userError || !user) {
         throw createError({
             statusCode: 404,
-            message: "Пользователь не найден saveSessionMessage"
+            message: "Пользователь не найден saveMessageSession"
         });
     }
 

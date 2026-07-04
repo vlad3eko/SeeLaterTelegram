@@ -1,11 +1,11 @@
-export const saveSessionMessage = async (
+export const saveMessageSession = async (
     telegramId: number,
     messageId: number
 ) => {
 
     if (!telegramId || !messageId) return;
 
-    await $fetch('/api/bot/session/editSaveSessionMessage', {
+    await $fetch('/api/bot/session/saveMessageSession', {
         method: 'POST',
         body: {
             telegram_id: telegramId,

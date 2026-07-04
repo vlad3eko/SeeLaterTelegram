@@ -1,10 +1,10 @@
-export const addSessionMessage = async (telegramId: number, messageId: number) => {
+export const addMessageSession = async (telegramId: number, messageId: number) => {
 
     console.log('telegramId',telegramId)
     console.log('messageId',messageId)
     if (!telegramId || !messageId) return
 
-    await $fetch('/api/bot/session/editAddSessionMessage', {
+    await $fetch('/api/bot/session/addMessageSession', {
         method: 'POST',
         body: {
             telegram_id: telegramId,

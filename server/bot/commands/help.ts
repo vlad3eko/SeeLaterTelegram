@@ -1,4 +1,4 @@
-import {addSessionMessage} from "#server/bot/services/session/addSessionMessage";
+import {addMessageSession} from "#server/bot/services/session/addMessageSession";
 
 export async function help(ctx: any) {
 
@@ -11,7 +11,7 @@ export async function help(ctx: any) {
         /help — помощь
         /profile — профиль
         `)
-    await addSessionMessage(
+    await addMessageSession(
         ctx.from.id,
         message.message_id
     )
