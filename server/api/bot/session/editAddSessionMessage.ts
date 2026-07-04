@@ -22,6 +22,7 @@ export default defineEventHandler(async (event) => {
             last_activity: new Date().toISOString(),
             message_ids: messages
         })
+        .eq('telegram_id', body.telegram_id)
 
     if (error) throw error
 })
