@@ -1,10 +1,8 @@
 import {serverSupabaseClient} from "#supabase/server";
 
 export default defineEventHandler(async (event) => {
-    const supabase =
-        await serverSupabaseClient(event)
-    const body =
-        await readBody(event)
+    const supabase = await serverSupabaseClient(event)
+    const body = await readBody(event)
 
     const {data} = await supabase
         .from('users')
@@ -23,8 +21,6 @@ export default defineEventHandler(async (event) => {
             message_ids: messages
         })
         .eq('telegram_id', body.telegram_id)
-
-
 
     if (error) throw error
 })
