@@ -3,6 +3,7 @@ import {isSubscriber} from "#server/bot/handlers/channel/isSubscriber";
 import {deleteMessages} from "#server/bot/actions/delete/deleteMessages";
 import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
 import {addSessionMessage} from "#server/bot/services/session/addSessionMessage";
+import {saveSessionMessage} from "#server/bot/services/session/saveSessionMessage";
 
 export const saveMedia = async (ctx: any) => {
 
@@ -102,4 +103,5 @@ export const saveMedia = async (ctx: any) => {
             }
         }
     )
+    await saveSessionMessage(ctx.from.id, ctx.message_id)
 }

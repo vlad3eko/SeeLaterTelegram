@@ -1,4 +1,4 @@
-export const removeSessionMessage = async (
+export const saveSessionMessage = async (
     telegramId: number,
     messageId: number
 ) => {
