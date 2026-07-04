@@ -2,6 +2,17 @@ export const sendSubscriptionSuccessMessage = async (ctx: any) => {
 
     await ctx.deleteMessage()
     await ctx.reply(
-        '✅ Подписка подтверждена \n Спасибо за поддержку проекта!',
+        '✅ Подписка подтверждена \n Спасибо за поддержку проекта!', {
+            reply_markup: {
+                inline_keyboard: [
+                    [
+                        {
+                            text: 'меню',
+                            callback_data: 'menu_bot'
+                        }
+                    ]
+                ]
+            }
+        }
     )
 }
