@@ -1,39 +1,34 @@
-import {serverSupabaseClient} from "#supabase/server";
+import { serverSupabaseClient } from "#supabase/server";
 
 export default defineEventHandler(async (event) => {
-    const supabase = await serverSupabaseClient(event)
-    const body = await readBody(event)
+    const supabase = await serverSupabaseClient(event);
+    const body = await readBody(event);
 
-    const {data: user} = await supabase
-        .from('users')
-        .select('id')
-        .eq('telegram_id', body.telegram_id)
-        .single()
+    // 1. получаем user.id
+    const { data: user, error: userError } = await supabase
+        .from("users")
+        .select("id")
+        .eq("telegram_id", body.telegram_id)
+        .single();
 
-    if (!user) {
+    if (userError || !user) {
         throw createError({
             statusCode: 404,
-            message: 'Пользователь не найден editAddSessionMessage'
-        })
+            message: "Пользователь не найден editAddSessionMessage"
+        });
     }
 
-    const {data} = await supabase
-        .from('users_session')
-        .select('message_ids')
-        .eq('user_id', user.id)
-        .single()
+    // 2. атомарно добавляем сообщение через RPC (SQL function)
+    const { error } = await supabase.rpc("add_session_message", {
+        p_user_id: user.id,
+        p_message_id: body.message_id
+    });
 
-    const messages = data?.message_ids ?? []
+    if (error) {
+        throw error;
+    }
 
-    messages.push(body.message_id)
-
-    const {error} = await supabase
-        .from('users_session')
-        .upsert({
-            user_id: user.id,
-            last_activity: new Date().toISOString(),
-            message_ids: messages
-        })
-
-        if (error) throw error
-})
+    return {
+        success: true
+    };
+});

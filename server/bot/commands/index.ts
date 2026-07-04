@@ -8,7 +8,7 @@ import {clear} from "#server/bot/commands/clear";
 const authRequests = new Map()
 
 export function registerCommands(bot:Telegraf) {
-    bot.start(async (ctx) => {
+    bot.start(async (ctx: any) => {
 
         const message = ctx.message.message_id
 
