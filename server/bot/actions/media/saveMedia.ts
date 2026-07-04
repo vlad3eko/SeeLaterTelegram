@@ -79,7 +79,7 @@ export const saveMedia = async (ctx: any) => {
                 inline_keyboard: [
                     [
                         {
-                            text: '🗑 Удалить',
+                            text: '🗑 Удалить из коллекции',
                             callback_data: `delete_media_${media.id}`
                         }
                     ],
