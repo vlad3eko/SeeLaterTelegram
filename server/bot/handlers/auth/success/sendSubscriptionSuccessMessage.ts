@@ -1,3 +1,5 @@
+import {addSessionMessage} from "#server/bot/services/session/addSessionMessage";
+
 export const sendSubscriptionSuccessMessage = async (ctx: any) => {
 
     await ctx.deleteMessage()
@@ -15,4 +17,5 @@ export const sendSubscriptionSuccessMessage = async (ctx: any) => {
             }
         }
     )
+    await addSessionMessage(ctx.from.id, ctx.message_id)
 }
