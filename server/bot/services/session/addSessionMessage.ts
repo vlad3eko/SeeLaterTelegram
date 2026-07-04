@@ -1,8 +1,7 @@
 export const addSessionMessage = async (telegramId: number, messageId: number) => {
 
     if ((!telegramId && !messageId)) {
-        console.log('возврат')
-        console.log('прошла', telegramId + ':', messageId)
+        console.log('возврат', telegramId + ':', messageId)
     }
     console.log('прошла', telegramId + ':', messageId)
     console.log('telegramId', telegramId)
