@@ -1,11 +1,6 @@
 export const addSessionMessage = async (telegramId: number, messageId: number, ctx?: any) => {
 
-    if ((!telegramId && !messageId)) {
-        console.log('возврат', telegramId + ':', messageId)
-        return
-    }
-
-    console.log('прошло', telegramId + ':', messageId)
+    if ((!telegramId && !messageId)) return
 
     await $fetch('/api/bot/session/editAddSessionMessage', {
         method: 'POST',
