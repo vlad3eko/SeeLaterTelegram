@@ -1,6 +1,7 @@
 import {addSessionMessage} from "#server/bot/services/session/addSessionMessage";
 
 export const deleteMedia = async (ctx: any) => {
+    await addSessionMessage(ctx.from.id, ctx.message_id, ctx)
     await ctx.answerCbQuery()
 
     const telegramId = ctx.from.id
@@ -13,6 +14,5 @@ export const deleteMedia = async (ctx: any) => {
             tmdb_id: mediaId
         }
     })
-    await addSessionMessage(ctx.from.id, ctx.message_id, ctx)
     await ctx.deleteMessage()
 }
