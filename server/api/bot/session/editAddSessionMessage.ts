@@ -24,5 +24,7 @@ export default defineEventHandler(async (event) => {
         })
         .eq('telegram_id', body.telegram_id)
 
+
+
     if (error) throw error
 })
