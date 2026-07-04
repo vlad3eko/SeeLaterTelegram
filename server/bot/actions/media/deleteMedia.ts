@@ -13,6 +13,7 @@ export const deleteMedia = async (ctx: any) => {
             tmdb_id: mediaId
         }
     })
+    console.log('ctx', ctx)
     await addSessionMessage(ctx.from.id, ctx.message_id)
     await ctx.deleteMessage()
 }
