@@ -3,7 +3,7 @@ import {registerCommands} from "#server/bot/commands";
 import {registerHandlers} from "#server/bot/handlers";
 import {Telegraf} from "telegraf";
 
-export const bot = new Telegraf(process.env.TELEGRAM_TOK)
+export const bot = new Telegraf(process.env.TELEGRAM_TOKEN!)
 
 registerCommands(bot)
 registerActions(bot)
