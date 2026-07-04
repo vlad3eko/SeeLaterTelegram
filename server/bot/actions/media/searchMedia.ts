@@ -20,14 +20,14 @@ export const searchMedia = async (ctx: any, options: SearchMediaOptions = {}, st
     <i>если ищете «<code>28 лет спустя</code>», достаточно ввести «<code>28</code>» — и появятся все подходящие варианты.</i>`
 
 
-    await ctx.reply(reply, {
+    const answer = await ctx.reply(reply, {
         parse_mode: 'HTML',
         ...Markup.inlineKeyboard([
             Markup.button.callback('меню', 'menu_bot')
         ])
     })
 
-    await addSessionMessage(ctx.from.id, ctx.message_id)
+    await addSessionMessage(ctx.from.id, answer.message_id)
 
     switch (options.mode) {
         case 'keep':

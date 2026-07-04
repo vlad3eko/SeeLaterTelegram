@@ -1,5 +1,3 @@
-import {addSessionMessage} from "#server/bot/services/session/addSessionMessage";
-
 export const deleteMedia = async (ctx: any) => {
     await ctx.answerCbQuery()
 

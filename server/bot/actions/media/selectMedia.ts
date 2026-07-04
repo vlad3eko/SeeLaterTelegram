@@ -23,7 +23,7 @@ export const selectMedia = async (ctx: any) => {
     const callbackData =
         `${ctx.from.id}_${media.id}_${mediaType}`
 
-    await ctx.replyWithPhoto(
+    const answer = await ctx.replyWithPhoto(
         `https://image.tmdb.org/t/p/w500${mediaPoster}`,
         {
             caption: createMediaCaption(media, false, mediaType),
@@ -46,5 +46,5 @@ export const selectMedia = async (ctx: any) => {
             parse_mode: 'HTML'
         }
     )
-    await addSessionMessage(ctx.from.id, ctx.message_id)
+    await addSessionMessage(ctx.from.id, answer.message_id)
 }
