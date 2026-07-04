@@ -80,7 +80,7 @@ export const saveMedia = async (ctx: any) => {
 
     await deleteMessages(ctx, [-1, -2])
 
-   await ctx.editMessageCaption(
+   const successSave = await ctx.editMessageCaption(
         createMediaCaption(media, true, mediaType),
         {
             parse_mode: 'HTML',

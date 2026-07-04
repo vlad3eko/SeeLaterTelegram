@@ -1,6 +1,5 @@
 import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
 import {addSessionMessage} from "#server/bot/services/session/addSessionMessage";
-import {message} from "telegraf/filters";
 
 export const selectMedia = async (ctx: any) => {
 
