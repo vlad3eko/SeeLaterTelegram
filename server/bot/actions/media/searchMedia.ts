@@ -32,7 +32,8 @@ export const searchMedia = async (ctx: any, options: SearchMediaOptions = {}, st
             break
 
         case 'start':
-            await ctx.telegram.deleteMessage(ctx.chat.id, startId)
+            if (startId)
+            await ctx.telegram.deleteMessage(ctx.chat.id, startId + 1)
             break
 
         case 'default':
