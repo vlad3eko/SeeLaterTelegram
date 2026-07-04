@@ -4,7 +4,8 @@ import { bot } from "#server/bot/bot";
 export default defineEventHandler(async (event) => {
 
     const supabase = await serverSupabaseClient(event);
-    const minutes = 1
+
+    const minutes = 1;
 
     const expireDate = new Date(
         Date.now() - minutes * 60 * 1000
@@ -15,7 +16,7 @@ export default defineEventHandler(async (event) => {
         .select(`
             user_id,
             message_ids,
-            users (
+            users!inner (
                 telegram_id
             )
         `)
@@ -25,13 +26,16 @@ export default defineEventHandler(async (event) => {
         throw error;
     }
 
-    for (const session of sessions ?? []) {
+    if (!sessions?.length) {
+        return {
+            success: true,
+            deleted: 0
+        };
+    }
 
-        const telegramId = session.users?.telegram_id;
+    for (const session of sessions) {
 
-        if (!telegramId) {
-            continue;
-        }
+        const telegramId = session.users.telegram_id;
 
         for (const messageId of session.message_ids ?? []) {
 
@@ -42,24 +46,29 @@ export default defineEventHandler(async (event) => {
                     messageId
                 );
 
-            } catch {
+            } catch (err: any) {
 
-                console.log(`Не удалось удалить сообщение ${messageId}`);
+                console.log(
+                    `Не удалось удалить сообщение ${messageId}:`,
+                    err?.description || err?.message
+                );
 
             }
 
         }
 
-        await supabase
+        const { error: deleteError } = await supabase
             .from("users_session")
             .delete()
             .eq("user_id", session.user_id);
 
+        if (deleteError) {
+            console.error(deleteError);
+        }
     }
 
     return {
         success: true,
-        deleted: sessions?.length ?? 0
+        deleted: sessions.length
     };
-
 });
