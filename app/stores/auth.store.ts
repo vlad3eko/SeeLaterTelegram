@@ -11,7 +11,7 @@ export const useAuthStore = defineStore('isAuth', () => {
         const token = crypto.randomUUID()
 
         window.open(
-            `https://t.me/@kinomanovNet_bot?start=${token}`,
+            `https://t.me/kinomanovNet_bot?start=${token}`,
             '_blank'
         )
 
