@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
 
     messages.push(body.message_id)
 
-    const {error} = await supabase
+    const {data: createUser} = await supabase
         .from('users_session')
         .upsert({
             user_id: user.id,
@@ -28,5 +28,15 @@ export default defineEventHandler(async (event) => {
             message_ids: messages
         })
 
-    if (error) throw error
+    if (!createUser) {
+        const {error} = await supabase
+            .from('users_session')
+            .update({
+                last_activity: new Date().toISOString(),
+                message_ids: messages
+            })
+            .eq('user_id', user.id)
+
+        if (error) throw error
+    }
 })
