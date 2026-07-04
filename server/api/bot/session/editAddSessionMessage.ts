@@ -13,7 +13,15 @@ export default defineEventHandler(async (event) => {
         .single()
 
     const messages = data?.message_ids ?? []
-    console.log('data', data)
 
+    messages.push(body.message_id)
 
+    const {error} = await supabase
+        .from('users')
+        .upsert({
+            last_activity: new Date().toISOString(),
+            message_ids: messages
+        })
+
+    if (error) throw error
 })
