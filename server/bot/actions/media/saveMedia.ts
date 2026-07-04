@@ -2,6 +2,7 @@ import {Markup} from "telegraf";
 import {isSubscriber} from "#server/bot/handlers/channel/isSubscriber";
 import {deleteMessages} from "#server/bot/actions/delete/deleteMessages";
 import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
+import {addSessionMessage} from "#server/bot/services/session/addSessionMessage";
 
 export const saveMedia = async (ctx: any) => {
 
@@ -93,4 +94,5 @@ export const saveMedia = async (ctx: any) => {
             }
         }
     )
+    await addSessionMessage(ctx.from.id, ctx.message_id)
 }

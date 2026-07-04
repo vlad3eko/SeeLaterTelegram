@@ -1,3 +1,5 @@
+import {addSessionMessage} from "#server/bot/services/session/addSessionMessage";
+
 export const deleteMedia = async (ctx: any) => {
     await ctx.answerCbQuery()
 
@@ -11,6 +13,6 @@ export const deleteMedia = async (ctx: any) => {
             tmdb_id: mediaId
         }
     })
-
+    await addSessionMessage(ctx.from.id, ctx.message_id)
     await ctx.deleteMessage()
 }

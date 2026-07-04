@@ -1,4 +1,5 @@
 import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
+import {addSessionMessage} from "#server/bot/services/session/addSessionMessage";
 
 export const selectMedia = async (ctx: any) => {
 
@@ -45,4 +46,5 @@ export const selectMedia = async (ctx: any) => {
             parse_mode: 'HTML'
         }
     )
+    await addSessionMessage(ctx.from.id, ctx.message_id)
 }
