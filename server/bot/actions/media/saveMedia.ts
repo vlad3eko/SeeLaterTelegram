@@ -72,7 +72,7 @@ export const saveMedia = async (ctx: any) => {
 
     await deleteMessages(ctx, [-1, -2])
 
-    await ctx.editMessageCaption(
+   const answer = await ctx.editMessageCaption(
         createMediaCaption(media, true, mediaType),
         {
             parse_mode: 'HTML',
@@ -94,5 +94,5 @@ export const saveMedia = async (ctx: any) => {
             }
         }
     )
-    await addSessionMessage(ctx.from.id, ctx.message.message_id)
+    await addSessionMessage(ctx.from.id, answer.message_id)
 }
