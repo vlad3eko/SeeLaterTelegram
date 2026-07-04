@@ -2,7 +2,7 @@ import {processTelegramAuth} from "#server/bot/services/auth/processTelegramAuth
 import {confirmUserRequest} from "#server/bot/handlers/auth/success/confirmUserRequest";
 import {saveTelegramUser} from "#server/bot/handlers/auth/success/saveTelegramUser";
 
-export const start = async (ctx: any, authRequests: Map<string, number>) => {
+export const start = async (ctx: any, authRequests: Map<string, number>, startId?: number | undefined) => {
 
     const loginToken = ctx.payload
     await saveTelegramUser(ctx)
@@ -13,5 +13,5 @@ export const start = async (ctx: any, authRequests: Map<string, number>) => {
         await confirmUserRequest(ctx, loginToken)
     }
 
-    await processTelegramAuth(ctx, false)
+    await processTelegramAuth(ctx, false, startId)
 }
