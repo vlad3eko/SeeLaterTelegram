@@ -11,7 +11,7 @@ export const processSearchMedia = async (ctx: any, medias: any) => {
 
         const title = ctx.message?.text ?? 'Запрос'
 
-        const message = await ctx.reply(
+        const messageNotFound = await ctx.reply(
             `${title} - не найден.`,
             Markup.inlineKeyboard([
                 Markup.button.callback(
@@ -22,7 +22,7 @@ export const processSearchMedia = async (ctx: any, medias: any) => {
         )
         await addSessionMessage(
             ctx.from.id,
-            message.message_id
+            messageNotFound.message_id
         )
         return
     }
@@ -35,7 +35,7 @@ export const processSearchMedia = async (ctx: any, medias: any) => {
         result
     )
 
-    const message = await ctx.reply(
+    const messageChooseMedia = await ctx.reply(
         'Выберите из списка:',
         {
             reply_markup: {
@@ -59,6 +59,6 @@ export const processSearchMedia = async (ctx: any, medias: any) => {
     )
     await addSessionMessage(
         ctx.from.id,
-        message.message_id
+        messageChooseMedia.message_id
     )
 }
