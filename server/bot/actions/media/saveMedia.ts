@@ -52,7 +52,7 @@ export const saveMedia = async (ctx: any) => {
 
             await deleteMessages(ctx, [0, -1])
 
-            await ctx.reply(
+            const message = await ctx.reply(
                 `❌ Ой: вы уже сохраняли - ${media.title || media.name}`,
                 Markup.inlineKeyboard([
                     Markup.button.callback(
@@ -61,10 +61,18 @@ export const saveMedia = async (ctx: any) => {
                     )
                 ])
             )
+            await addSessionMessage(
+                ctx.from.id,
+                message.message_id
+            )
             return
         } else {
-            await ctx.reply(
+            const message = await ctx.reply(
                 `❌ Неизвестная ошибка: ${error?.message} \n\nПопробуйте позже, или свяжитесь со мной`
+            )
+            await addSessionMessage(
+                ctx.from.id,
+                message.message_id
             )
             return
         }
@@ -72,7 +80,7 @@ export const saveMedia = async (ctx: any) => {
 
     await deleteMessages(ctx, [-1, -2])
 
-   const answer = await ctx.editMessageCaption(
+   await ctx.editMessageCaption(
         createMediaCaption(media, true, mediaType),
         {
             parse_mode: 'HTML',
@@ -94,5 +102,4 @@ export const saveMedia = async (ctx: any) => {
             }
         }
     )
-    await addSessionMessage(ctx.from.id, answer.message_id)
 }

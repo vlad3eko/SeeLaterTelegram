@@ -1,6 +1,7 @@
 import {searchMediaResults} from "#server/bot/consts/media/saveMediaSearch";
 import {Markup} from "telegraf";
 import {FormatDate} from "~/utils/formatMoviesData";
+import {addSessionMessage} from "#server/bot/services/session/addSessionMessage";
 
 export const processSearchMedia = async (ctx: any, medias: any) => {
 
@@ -10,7 +11,7 @@ export const processSearchMedia = async (ctx: any, medias: any) => {
 
         const title = ctx.message?.text ?? 'Запрос'
 
-        await ctx.reply(
+        const message = await ctx.reply(
             `${title} - не найден.`,
             Markup.inlineKeyboard([
                 Markup.button.callback(
@@ -18,6 +19,10 @@ export const processSearchMedia = async (ctx: any, medias: any) => {
                     'search_media'
                 )
             ])
+        )
+        await addSessionMessage(
+            ctx.from.id,
+            message.message_id
         )
         return
     }
@@ -30,7 +35,7 @@ export const processSearchMedia = async (ctx: any, medias: any) => {
         result
     )
 
-    await ctx.reply(
+    const message = await ctx.reply(
         'Выберите из списка:',
         {
             reply_markup: {
@@ -51,5 +56,9 @@ export const processSearchMedia = async (ctx: any, medias: any) => {
                 ]
             }
         },
+    )
+    await addSessionMessage(
+        ctx.from.id,
+        message.message_id
     )
 }

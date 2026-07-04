@@ -1,6 +1,7 @@
 import {sendSubscriptionSuccessMessage} from "#server/bot/handlers/auth/success/sendSubscriptionSuccessMessage";
 import {isSubscriber} from "#server/bot/handlers/channel/isSubscriber";
 import {searchMedia} from "#server/bot/actions/media/searchMedia";
+import {addSessionMessage} from "#server/bot/services/session/addSessionMessage";
 
 export const processTelegramAuth = async (ctx: any, sendSuccessMessage: boolean = false) => {
 
@@ -22,8 +23,12 @@ export const processTelegramAuth = async (ctx: any, sendSuccessMessage: boolean 
 
         if (error.message.includes('member')) return
 
-        await ctx.reply(
+        const message = await ctx.reply(
             `Подождите или повторите запрос позже`
+        )
+        await addSessionMessage(
+            ctx.from.id,
+            message.message_id
         )
 
         return false

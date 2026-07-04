@@ -1,8 +1,9 @@
 import {Markup} from "telegraf";
+import {addSessionMessage} from "#server/bot/services/session/addSessionMessage";
 
 export const failedChannelSubscriber = async (ctx: any) => {
 
-    await ctx.reply(
+   const message = await ctx.reply(
         '❌ Подпишитесь на канал',
         Markup.inlineKeyboard([
             Markup.button.url(
@@ -14,5 +15,9 @@ export const failedChannelSubscriber = async (ctx: any) => {
                 'check_sub'
             )
         ])
+    )
+    await addSessionMessage(
+        ctx.from.id,
+        message.message_id
     )
 }

@@ -1,5 +1,6 @@
 import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
 import {addSessionMessage} from "#server/bot/services/session/addSessionMessage";
+import {message} from "telegraf/filters";
 
 export const selectMedia = async (ctx: any) => {
 
@@ -23,7 +24,7 @@ export const selectMedia = async (ctx: any) => {
     const callbackData =
         `${ctx.from.id}_${media.id}_${mediaType}`
 
-    const answer = await ctx.replyWithPhoto(
+    const message = await ctx.replyWithPhoto(
         `https://image.tmdb.org/t/p/w500${mediaPoster}`,
         {
             caption: createMediaCaption(media, false, mediaType),
@@ -46,5 +47,5 @@ export const selectMedia = async (ctx: any) => {
             parse_mode: 'HTML'
         }
     )
-    await addSessionMessage(ctx.from.id, answer.message_id)
+    await addSessionMessage(ctx.from.id, message.message_id)
 }

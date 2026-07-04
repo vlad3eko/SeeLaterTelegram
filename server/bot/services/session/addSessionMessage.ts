@@ -1,4 +1,4 @@
-export const addSessionMessage = async (telegramId: number, messageId: number, ctx?: any) => {
+export const addSessionMessage = async (telegramId: number, messageId: number) => {
 
     if ((!telegramId && !messageId)) return
 

@@ -10,6 +10,13 @@ export default defineEventHandler(async (event) => {
         .eq('telegram_id', body.telegram_id)
         .single()
 
+    if (!user) {
+        throw createError({
+            statusCode: 404,
+            message: 'Пользователь не найден editAddSessionMessage'
+        })
+    }
+
     const {data} = await supabase
         .from('users_session')
         .select('message_ids')
@@ -20,7 +27,7 @@ export default defineEventHandler(async (event) => {
 
     messages.push(body.message_id)
 
-    const {data: createUser} = await supabase
+    const {error} = await supabase
         .from('users_session')
         .upsert({
             user_id: user.id,
@@ -28,15 +35,5 @@ export default defineEventHandler(async (event) => {
             message_ids: messages
         })
 
-    if (!createUser) {
-        const {error} = await supabase
-            .from('users_session')
-            .update({
-                last_activity: new Date().toISOString(),
-                message_ids: messages
-            })
-            .eq('user_id', user.id)
-
         if (error) throw error
-    }
 })

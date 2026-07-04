@@ -3,7 +3,7 @@ import {addSessionMessage} from "#server/bot/services/session/addSessionMessage"
 export const sendSubscriptionSuccessMessage = async (ctx: any) => {
 
     await ctx.deleteMessage()
-    const answer = await ctx.reply(
+    const message = await ctx.reply(
         '✅ Подписка подтверждена \n Спасибо за поддержку проекта!', {
             reply_markup: {
                 inline_keyboard: [
@@ -17,5 +17,5 @@ export const sendSubscriptionSuccessMessage = async (ctx: any) => {
             }
         }
     )
-    await addSessionMessage(ctx.from.id, answer.message_id)
+    await addSessionMessage(ctx.from.id, message.message_id)
 }

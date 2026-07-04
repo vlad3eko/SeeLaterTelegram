@@ -1,11 +1,12 @@
 import {Markup} from "telegraf";
+import {addSessionMessage} from "#server/bot/services/session/addSessionMessage";
 
 export const menuBot = async (ctx: any) => {
 
     await ctx.answerCbQuery()
     await ctx.deleteMessage()
 
-    await ctx.reply(`Добро пожаловать ${ctx.from.first_name || ctx.from.username}`,
+    const message = await ctx.reply(`Добро пожаловать ${ctx.from.first_name || ctx.from.username}`,
         Markup.inlineKeyboard([
             Markup.button.url(
                 'Перейти на сайт',
@@ -20,5 +21,9 @@ export const menuBot = async (ctx: any) => {
                 'search_media'
             )
         ]),
+    )
+    await addSessionMessage(
+        ctx.from.id,
+        message.message_id
     )
 }
