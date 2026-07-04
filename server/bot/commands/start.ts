@@ -13,5 +13,5 @@ export const start = async (ctx: any, authRequests: Map<string, number>, startId
         await confirmUserRequest(ctx, loginToken)
     }
 
-    await processTelegramAuth(ctx, false, startId)
+    await processTelegramAuth(ctx)
 }

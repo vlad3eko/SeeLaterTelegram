@@ -1,9 +1,8 @@
 import {sendSubscriptionSuccessMessage} from "#server/bot/handlers/auth/success/sendSubscriptionSuccessMessage";
 import {isSubscriber} from "#server/bot/handlers/channel/isSubscriber";
 import {searchMedia} from "#server/bot/actions/media/searchMedia";
-import {deleteMessages} from "#server/bot/actions/delete/deleteMessages";
 
-export const processTelegramAuth = async (ctx: any, sendSuccessMessage: boolean = false, startId?: number | undefined) => {
+export const processTelegramAuth = async (ctx: any, sendSuccessMessage: boolean = false) => {
 
     const checkSub = await isSubscriber(ctx)
     if (!checkSub) return
@@ -13,7 +12,7 @@ export const processTelegramAuth = async (ctx: any, sendSuccessMessage: boolean 
         if (sendSuccessMessage) {
             await sendSubscriptionSuccessMessage(ctx)
         } else {
-            await searchMedia(ctx, {mode: 'start'}, startId)
+            await searchMedia(ctx)
         }
 
         return true
