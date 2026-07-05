@@ -4,7 +4,7 @@ export default defineEventHandler(async (event) => {
     const body = await readBody(event)
 
     try {
-        await bot.handleUpdate(body)
+        console.log('bot', bot)
         return { ok: true }
     } catch (err: any) {
         console.error('Telegram webhook error:', err)
