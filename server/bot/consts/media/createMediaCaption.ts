@@ -14,9 +14,11 @@ export const createMediaCaption = async (media: any, isSaved: boolean, mediaType
     const releaseYear = FormatDate(media.release_date || media.first_air_date) || releaseDateUndefined
     const status = isSaved ? '✅Сохранён' : '❌ Не сохранён'
 
-    await ctx.answerCbQuery()
     const wait = ctx.reply('Процесс добавление фильма...')
-    ctx.deleteMessage(wait)
+    if (status) {
+        await ctx.answerCbQuery()
+        ctx.deleteMessage(wait)
+    }
 
     return `<code>${mediaTitle} (${releaseYear})</code> 
                 <blockquote expandable>${mediaOverview}</blockquote> \n<b>Жанр:</b> <i>#${genresContent}</i>\n<b>Тип:</b> <i>#${mediaTypeConvert(mediaType)}</i> \n<b>Дата выхода:</b> <i>${mediaReleaseConvert(media)} </i>\n<b>Статус:</b> <i>${status}</i>`
