@@ -7,7 +7,6 @@ import {saveMessageSession} from "#server/bot/services/session/saveMessageSessio
 
 export const saveMedia = async (ctx: any) => {
 
-    await ctx.answerCbQuery()
     await isSubscriber(ctx)
 
     const userId = Number(ctx.match[1])
@@ -82,7 +81,7 @@ export const saveMedia = async (ctx: any) => {
     await deleteMessages(ctx, [-1, -2])
 
    const successSave = await ctx.editMessageCaption(
-        createMediaCaption(media, true, mediaType),
+        await createMediaCaption(media, true, mediaType),
         {
             parse_mode: 'HTML',
             reply_markup: {

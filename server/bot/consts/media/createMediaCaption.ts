@@ -2,7 +2,7 @@ import {FormatDate} from "~/utils/formatMoviesData";
 import {mediaReleaseConvert, mediaTypeConvert} from "~/utils/convert/mediaConvert";
 import type {TmdbGenre} from "~/types/tmdb.types";
 
-export const createMediaCaption = (media: any, isSaved: boolean, mediaType: string) => {
+export const createMediaCaption = async (media: any, isSaved: boolean, mediaType: string, ctx?: any) => {
     const releaseDateUndefined = '❌официальной даты пока нет'
 
     const genresContent = media.genres
@@ -14,6 +14,12 @@ export const createMediaCaption = (media: any, isSaved: boolean, mediaType: stri
     const releaseYear = FormatDate(media.release_date || media.first_air_date) || releaseDateUndefined
     const status = isSaved ? '✅Сохранён' : '❌ Не сохранён'
 
+    const wait = await ctx.reply('Сохранение фильма...')
+
+    if (status) {
+        await ctx.answerCbQuery()
+        await ctx.deleteMessage(wait)
+    }
 
     return `<code>${mediaTitle} (${releaseYear})</code> 
                 <blockquote expandable>${mediaOverview}</blockquote> \n<b>Жанр:</b> <i>#${genresContent}</i>\n<b>Тип:</b> <i>#${mediaTypeConvert(mediaType)}</i> \n<b>Дата выхода:</b> <i>${mediaReleaseConvert(media)} </i>\n<b>Статус:</b> <i>${status}</i>`
