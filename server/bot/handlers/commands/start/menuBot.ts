@@ -16,10 +16,10 @@ export const menuBot = async (ctx: any) => {
                 'Поиск',
                 'search_media'
             ),
-            Markup.button.callback(
-                'Сохранённые',
-                'search_media'
-            )
+            // Markup.button.callback(
+            //     'Сохранённые',
+            //     'search_media'
+            // )
         ]),
     )
     await addMessageSession(
