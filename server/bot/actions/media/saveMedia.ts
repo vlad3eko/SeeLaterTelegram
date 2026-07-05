@@ -55,7 +55,7 @@ export const saveMedia = async (ctx: any) => {
             await deleteMessages(ctx, [0, -1])
 
 
-            await ctx.deleteMessage()
+            await ctx.deleteMessage(ok)
 
             const message = await ctx.reply(
                 `❌ Ой: вы уже сохраняли - ${media.title || media.name}`,
