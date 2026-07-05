@@ -7,6 +7,8 @@ import {saveMessageSession} from "#server/bot/services/session/saveMessageSessio
 
 export const saveMedia = async (ctx: any) => {
 
+    const ok = await ctx.reply('сохранение...')
+
     await isSubscriber(ctx)
 
     const userId = Number(ctx.match[1])
@@ -102,11 +104,6 @@ export const saveMedia = async (ctx: any) => {
             }
         }
     )
-
-    if (!successSave) {
-        await ctx.reply('не сохранён')
-    } else {
-        await ctx.reply('сохранён')
-    }
+    if (successSave) ctx.deleteMessage(ok)
     await saveMessageSession(ctx.from.id, successSave.message_id)
 }
