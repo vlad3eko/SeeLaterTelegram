@@ -25,9 +25,10 @@ export const useAuthStore = defineStore('isAuth', () => {
         pendingAuth.value = true
 
         const startTime = Date.now()
-        const TIMEOUT = 2000
+        const TIMEOUT = 5000
 
         const interval = setInterval(async () => {
+            console.log('TICK START')
             try {
 
                 // ⛔ stop after 1 minute
@@ -62,6 +63,7 @@ export const useAuthStore = defineStore('isAuth', () => {
             } catch (err) {
                 console.error('Auth polling error:', err)
             }
+            console.log('TICK END')
         }, 1000)
     }
 
