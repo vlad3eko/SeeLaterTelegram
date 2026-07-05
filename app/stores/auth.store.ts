@@ -24,25 +24,25 @@ export const useAuthStore = defineStore('isAuth', () => {
 
         pendingAuth.value = true
 
-        const startTime = Date.now()
-        const TIMEOUT = 1000
+        const MAX_ATTEMPTS = 10
+        let attempts = 0
 
         const interval = setInterval(async () => {
             console.log('TICK START')
+
             try {
 
-                // ⛔ stop after 1 minute
-                if (Date.now() - startTime > TIMEOUT) {
+                // ⛔ Останавливаем после 10 попыток
+                if (++attempts >= MAX_ATTEMPTS) {
                     clearInterval(interval)
                     pendingAuth.value = false
-                    console.warn('Auth timeout: user did not confirm within 1 minute')
                     return
                 }
 
                 const data: TelegramResponse = await $fetch(
                     '/api/auth/telegram-verify',
                     {
-                        query: {token}
+                        query: { token }
                     }
                 )
 
@@ -56,13 +56,16 @@ export const useAuthStore = defineStore('isAuth', () => {
                             telegram_id: data.user.telegram_id
                         }
                     })
+
                     await user.refresh()
+
                     clearInterval(interval)
                 }
 
             } catch (err) {
                 console.error('Auth polling error:', err)
             }
+
             console.log('TICK END')
         }, 1000)
     }
