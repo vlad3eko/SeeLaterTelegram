@@ -55,7 +55,6 @@ export const saveMedia = async (ctx: any) => {
             await deleteMessages(ctx, [0, -1])
 
 
-            await ctx.deleteMessage(waitSaveMessage)
 
             const message = await ctx.reply(
                 `❌ Ой: вы уже сохраняли - ${media.title || media.name}`,
@@ -66,6 +65,7 @@ export const saveMedia = async (ctx: any) => {
                     )
                 ])
             )
+            await ctx.deleteMessage(waitSaveMessage)
             await addMessageSession(
                 ctx.from.id,
                 message.message_id
