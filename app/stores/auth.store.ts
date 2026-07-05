@@ -25,7 +25,7 @@ export const useAuthStore = defineStore('isAuth', () => {
         pendingAuth.value = true
 
         const startTime = Date.now()
-        const TIMEOUT = 5000
+        const TIMEOUT = 1000
 
         const interval = setInterval(async () => {
             console.log('TICK START')
