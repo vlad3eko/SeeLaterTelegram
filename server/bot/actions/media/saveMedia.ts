@@ -7,7 +7,7 @@ import {saveMessageSession} from "#server/bot/services/session/saveMessageSessio
 
 export const saveMedia = async (ctx: any) => {
 
-    const ok = await ctx.reply('сохранение...')
+    const waitSave = await ctx.reply('сохранение...')
 
     await isSubscriber(ctx)
 
@@ -55,7 +55,7 @@ export const saveMedia = async (ctx: any) => {
             await deleteMessages(ctx, [0, -1])
 
 
-            await ctx.deleteMessage(ok)
+            await ctx.deleteMessage(waitSave)
 
             const message = await ctx.reply(
                 `❌ Ой: вы уже сохраняли - ${media.title || media.name}`,
