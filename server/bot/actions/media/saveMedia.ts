@@ -7,6 +7,8 @@ import {saveMessageSession} from "#server/bot/services/session/saveMessageSessio
 
 export const saveMedia = async (ctx: any) => {
 
+    const ok = await ctx.reply('сохранение...')
+
     await isSubscriber(ctx)
 
     const userId = Number(ctx.match[1])
@@ -51,6 +53,9 @@ export const saveMedia = async (ctx: any) => {
         if (error?.message.includes('duplicate key value')) {
 
             await deleteMessages(ctx, [0, -1])
+
+
+            await ctx.deleteMessage()
 
             const message = await ctx.reply(
                 `❌ Ой: вы уже сохраняли - ${media.title || media.name}`,
@@ -102,6 +107,8 @@ export const saveMedia = async (ctx: any) => {
             }
         }
     )
-
+    if (successSave) {
+        await deleteMessages(ctx, [1])
+    }
     await saveMessageSession(ctx.from.id, successSave.message_id)
 }
