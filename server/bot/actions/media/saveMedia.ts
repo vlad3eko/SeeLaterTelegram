@@ -49,6 +49,7 @@ export const saveMedia = async (ctx: any) => {
     })
 
     if (!success) {
+        await ctx.deleteMessage(waitSaveMessage)
 
         if (error?.message.includes('duplicate key value')) {
 
@@ -63,7 +64,6 @@ export const saveMedia = async (ctx: any) => {
                     )
                 ])
             )
-            await deleteMessages(ctx, [waitSaveMessage])
             await addMessageSession(
                 ctx.from.id,
                 message.message_id
