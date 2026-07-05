@@ -15,6 +15,7 @@ export const createMediaCaption = async (media: any, isSaved: boolean, mediaType
     const status = isSaved ? '✅Сохранён' : '❌ Не сохранён'
 
     const wait = ctx.reply('Процесс добавление фильма...')
+
     if (status) {
         await ctx.answerCbQuery()
         ctx.deleteMessage(wait)
