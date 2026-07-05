@@ -54,8 +54,6 @@ export const saveMedia = async (ctx: any) => {
 
             await deleteMessages(ctx, [0, -1])
 
-
-
             const message = await ctx.reply(
                 `❌ Ой: вы уже сохраняли - ${media.title || media.name}`,
                 Markup.inlineKeyboard([
@@ -65,7 +63,7 @@ export const saveMedia = async (ctx: any) => {
                     )
                 ])
             )
-            await ctx.deleteMessage(waitSaveMessage)
+            await ctx.deleteMessage()
             await addMessageSession(
                 ctx.from.id,
                 message.message_id
