@@ -49,7 +49,7 @@ export const saveMedia = async (ctx: any) => {
     })
 
     if (!success) {
-        await ctx.deleteMessage(waitSaveMessage)
+        await ctx.deleteMessage()
 
         if (error?.message.includes('duplicate key value')) {
 
