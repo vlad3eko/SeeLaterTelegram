@@ -4,7 +4,7 @@ export const sendSubscriptionSuccessMessage = async (ctx: any) => {
 
     await ctx.deleteMessage()
     const message = await ctx.reply(
-        '✅ Подписка подтверждена \n Спасибо за поддержку проекта!', {
+        '✅ Подписка подтверждена \n Можете вернуться на сайт.', {
             reply_markup: {
                 inline_keyboard: [
                     [
