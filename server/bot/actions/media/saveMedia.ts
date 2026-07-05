@@ -81,7 +81,7 @@ export const saveMedia = async (ctx: any) => {
     await deleteMessages(ctx, [-1, -2])
 
    const successSave = await ctx.editMessageCaption(
-        await createMediaCaption(media, true, mediaType),
+        createMediaCaption(media, true, mediaType),
         {
             parse_mode: 'HTML',
             reply_markup: {
@@ -102,5 +102,11 @@ export const saveMedia = async (ctx: any) => {
             }
         }
     )
+
+    if (!successSave) {
+        await ctx.reply('не сохранён')
+    } else {
+        await ctx.reply('сохранён')
+    }
     await saveMessageSession(ctx.from.id, successSave.message_id)
 }
