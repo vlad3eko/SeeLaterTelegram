@@ -19,8 +19,8 @@ export const createMediaCaption = async (media: any, isSaved: boolean, mediaType
     if (status) {
         await ctx.answerCbQuery()
         await ctx.deleteMessage(wait)
-    } else {
+    }
+
     return `<code>${mediaTitle} (${releaseYear})</code> 
                 <blockquote expandable>${mediaOverview}</blockquote> \n<b>Жанр:</b> <i>#${genresContent}</i>\n<b>Тип:</b> <i>#${mediaTypeConvert(mediaType)}</i> \n<b>Дата выхода:</b> <i>${mediaReleaseConvert(media)} </i>\n<b>Статус:</b> <i>${status}</i>`
-    }
 }
