@@ -7,8 +7,6 @@ import {saveMessageSession} from "#server/bot/services/session/saveMessageSessio
 
 export const saveMedia = async (ctx: any) => {
 
-    const ok = await ctx.reply('сохранение...')
-
     await isSubscriber(ctx)
 
     const userId = Number(ctx.match[1])
