@@ -4,7 +4,7 @@ import {addMessageSession} from "#server/bot/services/session/addMessageSession"
 export const failedChannelSubscriber = async (ctx: any) => {
 
    const message = await ctx.reply(
-        '❌ Подпишитесь на канал',
+        '❌ Подпишитесь на канал \nпосле чего нажмите (Проверить подписку)',
         Markup.inlineKeyboard([
             Markup.button.url(
                 'Подписаться',
