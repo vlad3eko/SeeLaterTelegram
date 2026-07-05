@@ -19,14 +19,24 @@ export const useAuthStore = defineStore('isAuth', () => {
 
         await supabase
             .from('auth_requests')
-            .insert({
-                token: token,
-            })
+            .insert({token})
             .select()
 
         pendingAuth.value = true
 
-        const startInterval = setInterval(async () => {
+        const startTime = Date.now()
+        const TIMEOUT = 60_000 // 1 minute
+
+        const interval = setInterval(async () => {
+            try {
+
+                // ⛔ stop after 1 minute
+                if (Date.now() - startTime > TIMEOUT) {
+                    clearInterval(interval)
+                    pendingAuth.value = false
+                    console.warn('Auth timeout: user did not confirm within 1 minute')
+                    return
+                }
 
                 const data: TelegramResponse = await $fetch(
                     '/api/auth/telegram-verify',
@@ -35,7 +45,7 @@ export const useAuthStore = defineStore('isAuth', () => {
                     }
                 )
 
-                if (data.data.confirmed) {
+                if (data?.data?.confirmed) {
 
                     pendingAuth.value = false
 
@@ -46,15 +56,16 @@ export const useAuthStore = defineStore('isAuth', () => {
                         }
                     })
                     await user.refresh()
-
-                    clearInterval(startInterval)
+                    clearInterval(interval)
                 }
-            }, 1000
-        )
+
+            } catch (err) {
+                console.error('Auth polling error:', err)
+            }
+        }, 1000)
     }
 
     const logout = async () => {
-
         try {
             await $fetch('/api/auth/telegram-logout', {
                 method: 'POST',
