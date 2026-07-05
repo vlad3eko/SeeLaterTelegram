@@ -26,7 +26,7 @@ export const selectMedia = async (ctx: any) => {
     const message = await ctx.replyWithPhoto(
         `https://image.tmdb.org/t/p/w500${mediaPoster}`,
         {
-            caption: createMediaCaption(media, false, mediaType, ctx),
+            caption: createMediaCaption(media, false, mediaType),
 
             reply_markup: {
                 inline_keyboard: [
