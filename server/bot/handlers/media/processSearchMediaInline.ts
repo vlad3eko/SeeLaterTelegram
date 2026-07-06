@@ -4,7 +4,7 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
 
     const results = medias.results.map((media: any) => ({
         type: 'article',
-        id: String(media.tmdb_id),
+        id: String(media.id),
         poster: media.poster_path || media.backdrop_path,
         title: media.title || media.name,
         media_type: media.media_type,
@@ -16,7 +16,7 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
 
 
         input_message_content: {
-            message_text: `${media.title || media.name} (${FormatDate(media.release_date || media.first_air_date)})`,
+            message_text: `${media.title || media.name} (${FormatDate(media.release_date || media.first_air_date)} ${media.id} ${media.tmdb_id})`,
             reply_markup: {
                 inline_keyboard: [
                     {
