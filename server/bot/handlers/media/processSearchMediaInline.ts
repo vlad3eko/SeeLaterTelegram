@@ -1,3 +1,5 @@
+import {FormatDate} from "~/utils/formatMoviesData";
+
 export const processSearchMediaInline = async (ctx: any, medias: any) => {
 
     const results = medias.results.map((media: any) => ({
@@ -10,9 +12,18 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
         overview: media.overview,
         count: media.vote_count,
         vote: media.vote_average,
+        release_date: media.release_date || media.first_air_date,
 
         input_message_content: {
-            message_text: media.title || media.name
+            message_text: media.title || media.name,
+            reply_markup: {
+                inline_keyboard: [
+                    {
+                        text: `${results.title} (${FormatDate(results.release_date)})`,
+                        callback_data: `media_${results.id}_${results.media_type}`
+                    },
+                ]
+            },
         }
     }))
 
