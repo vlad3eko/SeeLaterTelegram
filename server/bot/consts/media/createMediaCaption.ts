@@ -15,5 +15,6 @@ export const createMediaCaption =  (media: any, isSaved: boolean, mediaType: str
     const status = isSaved ? '✅Сохранён' : '❌ Не сохранён'
 
     return `<code>${mediaTitle} (${releaseYear})</code> 
-                <blockquote expandable>${mediaOverview}</blockquote> \n<b>Жанр:</b> <i>#${genresContent}</i>\n<b>Тип:</b> <i>#${mediaTypeConvert(mediaType)}</i> \n<b>Дата выхода:</b> <i>${mediaReleaseConvert(media)} </i>\n<b>Статус:</b> <i>${status}</i>`
+                <blockquote expandable>${mediaOverview}</blockquote> \n <b>Тип:</b> <i>#${mediaTypeConvert(mediaType)}</i> \n<b>Дата выхода:</b> <i>${mediaReleaseConvert(media)} </i>\n<b>Статус:</b> <i>${status}</i>`
 }
+//<b>Жанр:</b> <i>#${genresContent}</i>\n

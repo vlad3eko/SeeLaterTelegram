@@ -7,7 +7,7 @@ export const searchMediaInline = async (ctx: any) => {
             query: {
                 q: ctx.inlineQuery.query,
             }
-        });
+        })
 
         await processSearchMediaInline(ctx, medias);
 
