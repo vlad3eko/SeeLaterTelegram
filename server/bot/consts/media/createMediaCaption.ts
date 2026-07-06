@@ -5,9 +5,9 @@ import type {TmdbGenre} from "~/types/tmdb.types";
 export const createMediaCaption =  (media: any, isSaved: boolean, mediaType: string) => {
     const releaseDateUndefined = '❌официальной даты пока нет'
 
-    // const genresContent = media.genres
-    //     .map((i: TmdbGenre) => i.name)
-    //     .join(' / #')
+    const genresContent = media.genres
+        .map((i: TmdbGenre) => i.name)
+        .join(' / #')
 
     const mediaTitle = media.title || media.name
     const mediaOverview = media.overview
@@ -15,6 +15,5 @@ export const createMediaCaption =  (media: any, isSaved: boolean, mediaType: str
     const status = isSaved ? '✅Сохранён' : '❌ Не сохранён'
 
     return `<code>${mediaTitle} (${releaseYear})</code> 
-                <blockquote expandable>${mediaOverview}</blockquote> \n <b>Тип:</b> <i>#${mediaTypeConvert(mediaType)}</i> \n<b>Дата выхода:</b> <i>${mediaReleaseConvert(media)} </i>\n<b>Статус:</b> <i>${status}</i>`
+                <blockquote expandable>${mediaOverview}</blockquote> \n<b>Жанр:</b> <i>#${genresContent}</i>\n<b>Тип:</b> <i>#${mediaTypeConvert(mediaType)}</i> \n<b>Дата выхода:</b> <i>${mediaReleaseConvert(media)} </i>\n<b>Статус:</b> <i>${status}</i>`
 }
-//<b>Жанр:</b> <i>#${genresContent}</i>\n

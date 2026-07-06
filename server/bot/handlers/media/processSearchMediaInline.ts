@@ -9,14 +9,14 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
             poster: media.poster_path || media.backdrop_path,
             title: media.title || media.name,
             media_type: media.media_type,
-            genres: media.genre_ids,
+            genres: media.genres,
             overview: media.overview,
             count: media.vote_count,
             vote: media.vote_average,
             release_date: media.release_date || media.first_air_date,
 
             input_message_content: {
-                message_text: createMediaCaption(media, false, media.media_type),
+                message_text: `media_${media.id}_${media.media_type}`,
                 parse_mode: 'HTML'
             },
             reply_markup: {

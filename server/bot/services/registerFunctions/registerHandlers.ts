@@ -2,9 +2,17 @@ import {Telegraf} from "telegraf";
 import {nameMediaSearch} from "#server/bot/actions/media/nameMediaSearch";
 import {addMessageSession} from "#server/bot/services/session/addMessageSession";
 import {searchMediaInline} from "#server/bot/handlers/media/searchMediaInline";
+import {openInlineMovie} from "#server/bot/handlers/media/openInlineMovie";
 
 export function registerHandlers(bot: Telegraf) {
     bot.on('text', async (ctx) => {
+
+        const text = ctx.message.text
+
+        if (text.startsWith('media_')) {
+            await openInlineMovie(ctx)
+            return
+        }
 
         await addMessageSession(
             ctx.from.id,
