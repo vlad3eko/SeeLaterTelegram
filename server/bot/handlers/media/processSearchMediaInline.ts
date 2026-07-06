@@ -19,16 +19,6 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
                 message_text: `media_${media.id}_${media.media_type}`,
                 parse_mode: 'HTML'
             },
-            reply_markup: {
-                inline_keyboard: [
-                    [
-                        {
-                            text: 'Выбрать',
-                            callback_data: `media_${media.id}_${media.media_type}`
-                        },
-                    ]
-                ]
-            },
         }))
 
         await ctx.answerInlineQuery(results)
