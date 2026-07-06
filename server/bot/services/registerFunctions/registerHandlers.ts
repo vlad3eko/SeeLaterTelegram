@@ -12,7 +12,6 @@ export function registerHandlers(bot: Telegraf) {
 
         const text = ctx.message.text
         const state = addMediaState.get(ctx.from.id)
-        await ctx.deleteMessage()
 
         if (text.startsWith("media_")) {
             await ctx.deleteMessage()

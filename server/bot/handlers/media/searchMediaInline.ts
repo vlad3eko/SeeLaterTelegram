@@ -6,6 +6,7 @@ export const searchMediaInline = async (ctx: any) => {
     try {
 
         await loadGenres()
+        await ctx.deleteMessage()
 
         const medias = await $fetch('/api/tmdb/search', {
             query: {
