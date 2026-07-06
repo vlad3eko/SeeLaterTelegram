@@ -1,5 +1,5 @@
 import {Telegraf} from "telegraf";
-import {registerMediaActions} from "#server/bot/actions/media";
+import {registerMediaActions} from "#server/bot/actions/media/registerMediaActions";
 import {registerAuthAction} from "#server/bot/actions/auth";
 import {registerDeleteActions} from "#server/bot/actions/delete";
 

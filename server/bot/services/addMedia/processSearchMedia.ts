@@ -54,7 +54,7 @@ export const processSearchMedia = async (ctx: any, medias: any) => {
                         }
                     ]
                 ]
-            }
+            },
         },
     )
     await addMessageSession(
