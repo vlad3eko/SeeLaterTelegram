@@ -1,4 +1,14 @@
 export const inlineSearchMedia = async (ctx: any) => {
-    console.log('inline', ctx.inlineQuery.query)
+    const query = ctx.inlineQuery.query
 
+    const medias = await $fetch(
+        '/api/tmdb/search',
+        {
+            query: {
+                q: query,
+            }
+        }
+    )
+
+    console.log('medias', medias)
 }
