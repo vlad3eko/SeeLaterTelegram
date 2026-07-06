@@ -14,6 +14,7 @@ export function registerHandlers(bot: Telegraf) {
         const state = addMediaState.get(ctx.from.id)
 
         if (text.startsWith("media_")) {
+            await ctx.deleteMessage()
             await openInlineMovie(ctx)
             return
         }
@@ -33,7 +34,6 @@ export function registerHandlers(bot: Telegraf) {
                     ]
                 ])
             )
-
             await addMessageSession(ctx.from.id, message.message_id)
             return
         }
