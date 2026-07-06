@@ -1,7 +1,14 @@
-import {FormatDate} from "~/utils/formatMoviesData";
 import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
 
 export const processSearchMediaInline = async (ctx: any, medias: any) => {
+
+    const createInlineMessage = (media: any) => {
+        return `
+${media.title || media.name}
+${media.release_date || media.first_air_date}
+⭐ ${media.vote_average}
+`
+    }
 
     const results = medias.results.map((media: any) => ({
         type: 'article',
@@ -16,7 +23,7 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
         release_date: media.release_date || media.first_air_date,
 
         input_message_content: {
-            message_text: `${createMediaCaption(media, false, media.media_type)})`,
+            message_text: createInlineMessage(media),
         },
         reply_markup: {
             inline_keyboard: [
