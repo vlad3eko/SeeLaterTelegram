@@ -3,11 +3,6 @@ import {processSearchMedia} from "#server/bot/services/addMedia/processSearchMed
 
 export const nameMediaSearch = async (ctx: any) => {
 
-    const state = addMediaState.get(ctx.from.id)
-    if (!state?.waitingMovie) return
-
-    addMediaState.delete(ctx.from.id)
-
     const query = ctx.message.text
 
     const medias = await $fetch(
