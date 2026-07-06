@@ -18,23 +18,23 @@ export function registerHandlers(bot: Telegraf) {
             return
         }
 
-        if (!state?.waitingMovie) {
-
-            const message = await ctx.reply(
-                `🔍 Искать фильм «${text}» через быстрый поиск?`,
-                Markup.inlineKeyboard([
-                    [
-                        Markup.button.switchToCurrentChat(
-                            `🔍 Искать «${text}»`,
-                            text
-                        )
-                    ]
-                ])
-            )
-            await deleteMessages(ctx, [message.message_id - 1])
-            await addMessageSession(ctx.from.id, message.message_id)
-            return
-        }
+        // if (!state?.waitingMovie) {
+        //
+        //     const message = await ctx.reply(
+        //         `🔍 Искать фильм «${text}» через быстрый поиск?`,
+        //         Markup.inlineKeyboard([
+        //             [
+        //                 Markup.button.switchToCurrentChat(
+        //                     `🔍 Искать «${text}»`,
+        //                     text
+        //                 )
+        //             ]
+        //         ])
+        //     )
+        //     await deleteMessages(ctx, [message.message_id - 1])
+        //     await addMessageSession(ctx.from.id, message.message_id)
+        //     return
+        // }
 
         await addMessageSession(ctx.from.id, ctx.message.message_id)
         await nameMediaSearch(ctx)
