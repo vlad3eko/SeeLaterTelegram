@@ -1,5 +1,3 @@
-import type {TmdbGenre} from "~/types/tmdb.types";
-
 export const processSearchMediaInline = async (ctx: any, medias: any) => {
 
     const results = medias.results.map((media: any) => ({
@@ -12,7 +10,12 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
         overview: media.overview,
         count: media.vote_count,
         vote: media.vote_average,
+
+        input_message_content: {
+            message_text: media.title || media.name
+        }
     }))
 
+    await ctx.answerInlineQuery(results)
     console.log('results', results)
 }
