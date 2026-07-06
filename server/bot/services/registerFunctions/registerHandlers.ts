@@ -8,8 +8,6 @@ export function registerHandlers(bot: Telegraf) {
     bot.on('text', async (ctx) => {
 
         const text = ctx.message.text
-        console.log('text', text)
-        console.log('ctx', ctx)
 
         if (text.startsWith('media_')) {
             await openInlineMovie(ctx)
