@@ -3,7 +3,7 @@ import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
 export const processSearchMediaInline = async (ctx: any, medias: any) => {
 
     console.log('media', medias)
-    console.log('media', medias.genres_ids)
+    console.log('media', medias[0].genre_ids)
 
     // try {
     //     const results = medias.results.map((media: any) => ({
