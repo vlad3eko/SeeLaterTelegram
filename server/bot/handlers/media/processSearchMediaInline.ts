@@ -14,9 +14,8 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
         vote: media.vote_average,
         release_date: media.release_date || media.first_air_date,
 
-
         input_message_content: {
-            message_text: `${media.title || media.name} (${FormatDate(media.release_date || media.first_air_date)} ${media.id} ${media.tmdb_id})`,
+            message_text: `${media.title || media.name} (${FormatDate(media.release_date || media.first_air_date)})`,
             reply_markup: {
                 inline_keyboard: [
                     {
@@ -29,5 +28,5 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
     }))
 
     await ctx.answerInlineQuery(results)
-    console.log('results', results)
+    console.log('results', results.input_message_content)
 }
