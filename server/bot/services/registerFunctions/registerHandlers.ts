@@ -12,7 +12,7 @@ export function registerHandlers(bot: Telegraf) {
 
         const text = ctx.message.text
         const state = addMediaState.get(ctx.from.id)
-
+        await ctx.deleteMessage()
 
         if (text.startsWith("media_")) {
             await ctx.deleteMessage()
@@ -33,6 +33,7 @@ export function registerHandlers(bot: Telegraf) {
                     ]
                 ])
             )
+            await ctx.deleteMessage()
             await deleteMessages(ctx, [message.message_id])
             await addMessageSession(ctx.from.id, message.message_id)
             return
