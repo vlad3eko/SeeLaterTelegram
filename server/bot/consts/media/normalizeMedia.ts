@@ -1,4 +1,4 @@
-import {getGenreNames} from "./genres";
+import {getGenreNames} from "./genresConvert";
 
 export function normalizeMedia(media: any) {
 

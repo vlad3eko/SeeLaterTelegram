@@ -1,5 +1,5 @@
 import {processSearchMediaInline} from "#server/bot/handlers/media/processSearchMediaInline";
-import {loadGenres} from "#server/bot/consts/media/genres";
+import {loadGenres} from "#server/bot/consts/media/genresConvert";
 import {normalizeMedia} from "#server/bot/consts/media/normalizeMedia";
 
 export const searchMediaInline = async (ctx: any) => {
@@ -16,11 +16,11 @@ export const searchMediaInline = async (ctx: any) => {
         medias.results =
             medias.results.map(normalizeMedia)
 
-        await processSearchMediaInline(ctx, medias);
+        await processSearchMediaInline(ctx, medias)
 
     } catch (error) {
-        console.error(error);
+        console.error(error)
 
-        await ctx.answerInlineQuery([]);
+        await ctx.answerInlineQuery([])
     }
-};
+}

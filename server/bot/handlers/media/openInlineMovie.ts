@@ -5,7 +5,6 @@ import {addMessageSession} from "#server/bot/services/session/addMessageSession"
 export const openInlineMovie = async (ctx: any) => {
 
     const mediaTrigger = ctx.message.text
-    await ctx.deleteMessage()
     await addMessageSession(ctx.from.id, mediaTrigger.message_id)
 
     const [, id, mediaType] =
