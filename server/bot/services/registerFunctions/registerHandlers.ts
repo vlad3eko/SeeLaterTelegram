@@ -14,14 +14,12 @@ export function registerHandlers(bot: Telegraf) {
         const state = addMediaState.get(ctx.from.id)
 
         if (text.startsWith("media_")) {
-            await ctx.deleteMessage()
             await openInlineMovie(ctx)
+            await ctx.deleteMessage()
             return
         }
 
         if (!state?.waitingMovie) {
-
-            await ctx.deleteMessage()
 
             const message = await ctx.reply(
                 `🔍 Искать фильм «${text}» через быстрый поиск?`,
@@ -34,6 +32,7 @@ export function registerHandlers(bot: Telegraf) {
                     ]
                 ])
             )
+            await ctx.deleteMessage()
             await addMessageSession(ctx.from.id, message.message_id)
             return
         }
