@@ -5,9 +5,9 @@ import type {TmdbGenre} from "~/types/tmdb.types";
 export const createMediaCaption =  (media: any, isSaved: boolean, mediaType: string) => {
     const releaseDateUndefined = '❌официальной даты пока нет'
 
-    const genresContent = media.genres
-        .map((i: TmdbGenre) => i.name)
-        .join(' / #')
+    // const genresContent = media.genres
+    //     .map((i: TmdbGenre) => i.name)
+    //     .join(' / #')
 
     const mediaTitle = media.title || media.name
     const mediaOverview = media.overview
