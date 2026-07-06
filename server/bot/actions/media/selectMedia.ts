@@ -6,13 +6,15 @@ export const selectMedia = async (ctx: any) => {
 
     await ctx.answerCbQuery()
     const state = addMediaState.get(ctx.from.id)
-    if (!state?.waitingMovie) {
-        await deleteMessages(ctx, [-1])
 
-    }
 
     const mediaId = Number(ctx.match[1])
     const mediaType = String(ctx.match[2])
 
  await sendMediaCard(ctx, mediaId, mediaType)
+
+    if (!state?.waitingMovie) {
+        await deleteMessages(ctx, [-1])
+
+    }
 }
