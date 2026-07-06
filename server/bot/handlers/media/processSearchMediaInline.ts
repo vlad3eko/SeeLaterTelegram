@@ -15,11 +15,11 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
         release_date: media.release_date || media.first_air_date,
 
         input_message_content: {
-            message_text: media.title || media.name,
+            message_text: `${media.title || media.name} (${FormatDate(media.release_date || media.first_air_date)})`,
             reply_markup: {
                 inline_keyboard: [
                     {
-                        text: `${media.title || media.name} (${FormatDate(media.release_date || media.first_air_date)})`,
+                        text: 'Выбрать',
                         callback_data: `media_${media.id}_${media.media_type}`
                     },
                 ]
