@@ -23,7 +23,8 @@ ${media.release_date || media.first_air_date}
         release_date: media.release_date || media.first_air_date,
 
         input_message_content: {
-            message_text: createInlineMessage(media),
+            message_text: createMediaCaption(media, false, media.media_type),
+            parse_mode: 'HTML'
         },
         reply_markup: {
             inline_keyboard: [
