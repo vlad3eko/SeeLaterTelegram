@@ -1,4 +1,5 @@
 import {FormatDate} from "~/utils/formatMoviesData";
+import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
 
 export const processSearchMediaInline = async (ctx: any, medias: any) => {
 
@@ -15,7 +16,7 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
         release_date: media.release_date || media.first_air_date,
 
         input_message_content: {
-            message_text: `${media.title || media.name} (${FormatDate(media.release_date || media.first_air_date)})`,
+            message_text: `${createMediaCaption(media, false, media.media_type)})`,
         },
         reply_markup: {
             inline_keyboard: [
