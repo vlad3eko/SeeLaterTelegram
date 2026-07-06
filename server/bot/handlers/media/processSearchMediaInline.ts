@@ -12,21 +12,23 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
         overview: media.overview,
         count: media.vote_count,
         vote: media.vote_average,
-        release_date: media.release_date || media.first_air_date,
+        release_date: media.release_date || media.first_air_date
+    }))
 
+    const answer = {
         input_message_content: {
-            message_text: `${media.title || media.name} (${FormatDate(media.release_date || media.first_air_date)})`,
+            message_text: `${results.title} (${FormatDate(results.release_date)} 123)`,
             reply_markup: {
                 inline_keyboard: [
                     {
                         text: 'Выбрать',
-                        callback_data: `media_${media.id}_${media.media_type}`
+                        callback_data: `media_${results.id}_${results.media_type}`
                     },
                 ]
             },
         }
-    }))
+    }
 
-    await ctx.answerInlineQuery(results)
+    await ctx.answerInlineQuery(answer)
     console.log('results', results)
 }
