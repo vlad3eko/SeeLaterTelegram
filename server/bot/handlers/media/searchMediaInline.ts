@@ -1,12 +1,13 @@
 import {processSearchMediaInline} from "#server/bot/handlers/media/processSearchMediaInline";
 import {loadGenres} from "#server/bot/consts/media/genresConvert";
 import {normalizeMedia} from "#server/bot/consts/media/normalizeMedia";
+import {deleteMessages} from "#server/bot/actions/delete/deleteMessages";
 
 export const searchMediaInline = async (ctx: any) => {
     try {
 
         await loadGenres()
-        await ctx.deleteMessage()
+        await deleteMessages(ctx, [-1])
 
         const medias = await $fetch('/api/tmdb/search', {
             query: {
