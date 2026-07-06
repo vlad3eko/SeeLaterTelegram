@@ -14,6 +14,7 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
         vote: media.vote_average,
         release_date: media.release_date || media.first_air_date,
 
+
         input_message_content: {
             message_text: `${media.title || media.name} (${FormatDate(media.release_date || media.first_air_date)})`,
             reply_markup: {
