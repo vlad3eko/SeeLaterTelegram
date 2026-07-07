@@ -6,11 +6,11 @@ export default defineEventHandler(async (event) => {
     const supabase = await serverSupabaseClient(event)
     const body = await readBody(event)
 
-    const minutes = 2
-
-    const expireDate = new Date(
-        Date.now() - minutes * 60 * 1000
-    ).toISOString()
+    // const minutes = 2
+    //
+    // const expireDate = new Date(
+    //     Date.now() - minutes * 60 * 1000
+    // ).toISOString()
 
     const { data: sessions, error } = await supabase
         .from("users_session")
