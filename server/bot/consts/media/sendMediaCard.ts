@@ -1,6 +1,7 @@
 import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
 import {addMessageSession} from "#server/bot/services/session/addMessageSession";
 import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
+import {keyboardSendMediaCard} from "#server/bot/consts/buttons/keyboardBot";
 
 export const sendMediaCard = async (ctx: any, id: number, mediaType: string) => {
     const media = await $fetch(
@@ -23,20 +24,7 @@ export const sendMediaCard = async (ctx: any, id: number, mediaType: string) => 
         {
             caption: createMediaCaption(media, false, mediaType),
             reply_markup: {
-                inline_keyboard: [
-                    [
-                        {
-                            text: '⬅️ Назад',
-                            callback_data: `back_${ctx.from.id}`
-                        }
-                    ],
-                    [
-                        {
-                            text: '💾 Сохранить в коллекцию',
-                            callback_data: `save_media_${callbackData}`
-                        }
-                    ]
-                ]
+                inline_keyboard: keyboardSendMediaCard(ctx, callbackData)
             },
             parse_mode: 'HTML'
         }

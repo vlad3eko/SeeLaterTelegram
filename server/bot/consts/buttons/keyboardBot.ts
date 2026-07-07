@@ -1,29 +1,22 @@
 import {Markup} from "telegraf";
+import {deleteMediaButtonBot, SaveMediaButtonBot, SearchButtonBot} from "#server/bot/consts/buttons/buttonsBot";
 
 export const keyboardSMenuBot = () => {
     return Markup.inlineKeyboard([
-        [
-            Markup.button.switchToCurrentChat(
-                '🔍 Поиск',
-                ''
-            )
-        ],
+        SearchButtonBot('🔍 Поиск'),
     ]).reply_markup
 }
 
 export const keyboardSavedMediaCardBot = (media: any) => {
     return Markup.inlineKeyboard([
-        [
-            Markup.button.callback(
-                '🗑 Удалить из коллекции',
-                `delete_media_${media.id}`
-            )
-        ],
-        [
-            Markup.button.switchToCurrentChat(
-                `🔍 Искать ещё`,
-                ''
-            )
-        ]
+        deleteMediaButtonBot(media),
+        SearchButtonBot('🔍 Искать ещё')
+    ]).reply_markup
+}
+
+export const keyboardSendMediaCard = (ctx: any, callback: any) => {
+    return Markup.inlineKeyboard([
+        SearchButtonBot('🔍 Искать другое'),
+        SaveMediaButtonBot(callback)
     ]).reply_markup
 }
