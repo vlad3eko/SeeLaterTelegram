@@ -7,6 +7,7 @@ import {addMediaState} from "#server/bot/consts/media/addMediaState"
 import {deleteMessages} from "#server/bot/actions/delete/deleteMessages"
 import {Markup} from "telegraf"
 import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
+import {keyboardSearchBot} from "#server/bot/consts/buttons/keyboardBot";
 
 export function registerHandlers(bot: Telegraf) {
     bot.on("text", async (ctx) => {
@@ -26,14 +27,9 @@ export function registerHandlers(bot: Telegraf) {
 
             const message = await ctx.reply(
                 `🔍 Искать фильм «${text}» через быстрый поиск?`,
-                Markup.inlineKeyboard([
-                    [
-                        Markup.button.switchToCurrentChat(
-                            `🔍 Искать «${text}»`,
-                            text
-                        )
-                    ]
-                ])
+                {
+                    reply_markup: keyboardSearchBot('🔍 Искать', text, text)
+                }
             )
             await deleteMessages(ctx, [message.message_id - 1])
             await addMessageSession(ctx.from.id, message.message_id, SessionMessageType.SearchInline)
