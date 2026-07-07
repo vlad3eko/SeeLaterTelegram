@@ -3,14 +3,15 @@ import {isSubscriber} from "#server/bot/handlers/channel/isSubscriber";
 import {deleteMessages} from "#server/bot/actions/delete/deleteMessages";
 import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
 import {addMessageSession} from "#server/bot/services/session/addMessageSession";
-import {saveMessageSession} from "#server/bot/services/session/saveMessageSession";
+import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
 
 export const saveMedia = async (ctx: any) => {
 
     const waitSaveMessage = await ctx.reply('сохранение...')
     await addMessageSession(
         ctx.from.id,
-        waitSaveMessage.message_id
+        waitSaveMessage.message_id,
+        SessionMessageType.Temp
     )
 
     await isSubscriber(ctx)
@@ -58,7 +59,7 @@ export const saveMedia = async (ctx: any) => {
 
             await deleteMessages(ctx, [1, 0, -1])
 
-            const message = await ctx.reply(
+            const errorMessage = await ctx.reply(
                 `❌ Ой: вы уже сохраняли - ${media.title || media.name}`,
                 Markup.inlineKeyboard([
                     Markup.button.callback(
@@ -69,16 +70,18 @@ export const saveMedia = async (ctx: any) => {
             )
             await addMessageSession(
                 ctx.from.id,
-                message.message_id
+                errorMessage.message_id,
+                SessionMessageType.Error
             )
             return
         } else {
-            const message = await ctx.reply(
-                `❌ Неизвестная ошибка: ${error?.message} \n\nПопробуйте позже, или свяжитесь со мной`
+            const errorMessage = await ctx.reply(
+                `❌ Неизвестная ошибка: ${error?.errorMessage} \n\nПопробуйте позже, или свяжитесь со мной`
             )
             await addMessageSession(
                 ctx.from.id,
-                message.message_id
+                errorMessage.message_id,
+                SessionMessageType.Error
             )
             return
         }
@@ -111,5 +114,5 @@ export const saveMedia = async (ctx: any) => {
     if (successSave) {
         await deleteMessages(ctx, [1])
     }
-    await saveMessageSession(ctx.from.id, successSave.message_id)
+    await addMessageSession(ctx.from.id, successSave.message_id, SessionMessageType.Media)
 }

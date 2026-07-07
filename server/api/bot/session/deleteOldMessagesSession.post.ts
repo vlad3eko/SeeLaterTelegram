@@ -1,15 +1,15 @@
-import { serverSupabaseClient } from "#supabase/server";
-import { bot } from "#server/bot/bot";
+import { serverSupabaseClient } from "#supabase/server"
+import { bot } from "#server/bot/bot"
 
 export default defineEventHandler(async (event) => {
 
-    const supabase = await serverSupabaseClient(event);
+    const supabase = await serverSupabaseClient(event)
 
-    const minutes = 15;
+    const minutes = 15
 
     const expireDate = new Date(
         Date.now() - minutes * 60 * 1000
-    ).toISOString();
+    ).toISOString()
 
     const { data: sessions, error } = await supabase
         .from("users_session")
@@ -20,38 +20,44 @@ export default defineEventHandler(async (event) => {
                 telegram_id
             )
         `)
-        .lt("last_activity", expireDate);
+        .lt("last_activity", expireDate)
 
     if (error) {
-        throw error;
+        throw error
     }
 
     if (!sessions?.length) {
         return {
             success: true,
             deleted: 0
-        };
+        }
     }
 
     for (const session of sessions) {
 
-        const telegramId = session.users.telegram_id;
+        const telegramId = session.users.telegram_id
 
-        for (const messageId of session.message_ids ?? []) {
+        const mediaSaved = []
+
+        for (const message of session.message_ids ?? []) {
+
+            if (message.type === 'media') {
+                mediaSaved.push(message)
+            }
 
             try {
 
                 await bot.telegram.deleteMessage(
                     telegramId,
-                    messageId
-                );
+                    message.id
+                )
 
             } catch (err: any) {
 
                 console.log(
-                    `Не удалось удалить сообщение ${messageId}:`,
+                    `Не удалось удалить сообщение ${message}:`,
                     err?.description || err?.message
-                );
+                )
 
             }
 
@@ -59,16 +65,18 @@ export default defineEventHandler(async (event) => {
 
         const { error: deleteError } = await supabase
             .from("users_session")
-            .delete()
-            .eq("user_id", session.user_id);
+            .update({
+                message_ids: mediaSaved
+            })
+            .eq("user_id", session.user_id)
 
         if (deleteError) {
-            console.error(deleteError);
+            console.error(deleteError)
         }
     }
 
     return {
         success: true,
         deleted: sessions.length
-    };
-});
+    }
+})

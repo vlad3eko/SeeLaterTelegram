@@ -1,5 +1,6 @@
 import {Markup} from "telegraf";
 import {addMessageSession} from "#server/bot/services/session/addMessageSession";
+import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
 
 export const menuBot = async (ctx: any) => {
 
@@ -24,6 +25,7 @@ export const menuBot = async (ctx: any) => {
     )
     await addMessageSession(
         ctx.from.id,
-        message.message_id
+        message.message_id,
+        SessionMessageType.Menu
     )
 }

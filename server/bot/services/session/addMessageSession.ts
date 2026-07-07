@@ -1,4 +1,4 @@
-export const addMessageSession = async (telegramId: number, messageId: number) => {
+export const addMessageSession = async (telegramId: number, messageId: number, type: string) => {
 
     if (!telegramId || !messageId) return
 
@@ -6,7 +6,8 @@ export const addMessageSession = async (telegramId: number, messageId: number) =
         method: 'POST',
         body: {
             telegram_id: telegramId,
-            message_id: messageId
+            message_id: messageId,
+            type
         }
     })
 }

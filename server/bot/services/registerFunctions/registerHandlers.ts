@@ -6,6 +6,7 @@ import {openInlineMovie} from "#server/bot/handlers/media/openInlineMovie"
 import {addMediaState} from "#server/bot/consts/media/addMediaState"
 import {deleteMessages} from "#server/bot/actions/delete/deleteMessages"
 import {Markup} from "telegraf"
+import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
 
 export function registerHandlers(bot: Telegraf) {
     bot.on("text", async (ctx) => {
@@ -34,11 +35,11 @@ export function registerHandlers(bot: Telegraf) {
                 ])
             )
             await deleteMessages(ctx, [message.message_id - 1])
-            await addMessageSession(ctx.from.id, message.message_id)
+            await addMessageSession(ctx.from.id, message.message_id, SessionMessageType.Search)
             return
         }
 
-        await addMessageSession(ctx.from.id, ctx.message.message_id)
+        await addMessageSession(ctx.from.id, ctx.message.message_id, SessionMessageType.Text)
         await nameMediaSearch(ctx)
 
     })
