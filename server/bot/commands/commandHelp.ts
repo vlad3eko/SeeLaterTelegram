@@ -1,7 +1,7 @@
 import {addMessageSession} from "#server/bot/services/session/addMessageSession";
 import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
 
-export async function help(ctx: any) {
+export async function commandHelp(ctx: any) {
 
     await ctx.deleteMessage()
 

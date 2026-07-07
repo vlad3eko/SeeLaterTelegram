@@ -5,7 +5,7 @@ export default defineEventHandler(async (event) => {
 
     const supabase = await serverSupabaseClient(event)
 
-    const minutes = 15
+    const minutes = 0
 
     const expireDate = new Date(
         Date.now() - minutes * 60 * 1000

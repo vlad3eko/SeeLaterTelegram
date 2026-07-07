@@ -1,9 +1,9 @@
 import {Telegraf} from "telegraf";
 import {menuBot} from "#server/bot/handlers/commands/start/menuBot";
-import {start} from "#server/bot/commands/start";
-import {help} from "#server/bot/commands/help";
+import {commandStart} from "#server/bot/commands/commandStart";
+import {commandHelp} from "#server/bot/commands/commandHelp";
 import {addMessageSession} from "#server/bot/services/session/addMessageSession";
-import {clear} from "#server/bot/commands/clear";
+import {commandClear} from "#server/bot/commands/commandClear";
 import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
 
 const authRequests = new Map()
@@ -13,7 +13,7 @@ export function registerCommands(bot:Telegraf) {
 
         const message = ctx.message.message_id
 
-        await start(ctx, authRequests)
+        await commandStart(ctx, authRequests)
 
         await addMessageSession(
             ctx.from.id,
@@ -21,7 +21,7 @@ export function registerCommands(bot:Telegraf) {
             SessionMessageType.Command
         )
     })
-    bot.command('help', help)
-    bot.command('clear', clear)
+    bot.command('help', commandHelp)
+    bot.command('clear', commandClear)
     bot.action('menu_bot', menuBot)
 }

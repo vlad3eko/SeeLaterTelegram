@@ -4,6 +4,7 @@ import {deleteMessages} from "#server/bot/actions/delete/deleteMessages";
 import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
 import {addMessageSession} from "#server/bot/services/session/addMessageSession";
 import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
+import {commandClear} from "#server/bot/commands/commandClear";
 
 export const saveMedia = async (ctx: any) => {
 
@@ -115,4 +116,5 @@ export const saveMedia = async (ctx: any) => {
         await deleteMessages(ctx, [1])
     }
     await addMessageSession(ctx.from.id, successSave.message_id, SessionMessageType.Media)
+    await commandClear()
 }
