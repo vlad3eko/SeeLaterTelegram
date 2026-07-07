@@ -7,11 +7,11 @@ export const SearchButtonBot = (text: string | undefined, mediaSearch?: string, 
         return Markup.button.switchToCurrentChat(
             `${text} «${mediaSearch}»`,
             buttonTitle)
+    } else {
+        return Markup.button.switchToCurrentChat(
+            `${text}`,
+            '')
     }
-
-    return Markup.button.switchToCurrentChat(
-        `${text}`,
-        '')
 
 }
 
