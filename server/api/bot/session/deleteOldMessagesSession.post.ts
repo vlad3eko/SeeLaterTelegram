@@ -5,7 +5,6 @@ export default defineEventHandler(async (event) => {
 
     const supabase = await serverSupabaseClient(event)
     const body = await readBody(event)
-    console.log('body.id', body.telegram_id)
 
     // const minutes = 2
     //
