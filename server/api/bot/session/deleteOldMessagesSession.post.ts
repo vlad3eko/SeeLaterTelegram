@@ -12,6 +12,14 @@ export default defineEventHandler(async (event) => {
     //     Date.now() - minutes * 60 * 1000
     // ).toISOString()
 
+    const { data: user, error: userError } = await supabase
+        .from("users")
+        .select("id")
+        .eq("telegram_id", body.telegram_id)
+        .single();
+
+    if (userError) throw userError;
+
     const { data: sessions, error } = await supabase
         .from("users_session")
         .select(`
@@ -20,7 +28,8 @@ export default defineEventHandler(async (event) => {
         users!inner (
             telegram_id
         )
-    `).eq("users.telegram_id", body.telegram_id)
+    `)
+        .eq("users.telegram_id", user.id)
         // .lt("last_activity", expireDate)
 
     console.log('sessions', sessions)
