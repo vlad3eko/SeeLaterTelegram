@@ -94,8 +94,7 @@ export const saveMedia = async (ctx: any) => {
         createMediaCaption(media, true, mediaType),
         {
             parse_mode: 'HTML',
-            reply_markup: {
-                inline_keyboard: Markup.inlineKeyboard([
+            reply_markup: Markup.inlineKeyboard([
                         [
                             Markup.button.callback(
                                 '🗑 Удалить из коллекции',
@@ -110,7 +109,6 @@ export const saveMedia = async (ctx: any) => {
                         ]
                     ]
                 )
-            }
         }
     )
     if (successSave) {
