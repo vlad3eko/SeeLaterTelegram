@@ -10,7 +10,7 @@ export const menuBot = async (ctx: any) => {
     const message = await ctx.reply(`🍿 Привет ${ctx.from.first_name || ctx.from.username}\n
 🔍 Для поиска используй кнопки ниже или отправь в сообщении название кино`,
         {
-            reply_markup: [
+            reply_markup:
                 Markup.inlineKeyboard([
                     // Markup.button.url(
                     //     'Перейти на сайт',
@@ -27,7 +27,6 @@ export const menuBot = async (ctx: any) => {
                     //     'search_media'
                     // )
                 ]),
-            ]
         }
     )
     await addMessageSession(
