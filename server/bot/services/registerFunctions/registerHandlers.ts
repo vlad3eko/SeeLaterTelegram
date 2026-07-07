@@ -18,6 +18,7 @@ export function registerHandlers(bot: Telegraf) {
 
         if (text.startsWith("media_")) {
             await openInlineMovie(ctx)
+            await addMessageSession(ctx.from.id, ctx.message.message_id , SessionMessageType.SearchInline)
             return
         }
 

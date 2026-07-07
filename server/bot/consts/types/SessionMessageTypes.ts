@@ -6,5 +6,6 @@ export enum SessionMessageType {
     Temp = 'temp',
     Menu = 'menu',
     Search = 'search',
+    SearchInline = 'searchInline',
     Auth = 'auth'
 }
