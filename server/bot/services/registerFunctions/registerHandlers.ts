@@ -29,7 +29,7 @@ export function registerHandlers(bot: Telegraf) {
                 Markup.inlineKeyboard([
                     [
                         Markup.button.switchToCurrentChat(
-                            `🔍 Искать «${text}»`,
+                            `🔍 Искать `,
                             text
                         )
                     ]
