@@ -5,6 +5,7 @@ export default defineEventHandler(async (event) => {
 
     const supabase = await serverSupabaseClient(event)
     const body = await readBody(event)
+    console.log('body.id', body.telegram_id)
 
     // const minutes = 2
     //
@@ -31,9 +32,6 @@ export default defineEventHandler(async (event) => {
     `)
         .eq("user_id", user.id)
         // .lt("last_activity", expireDate)
-
-    console.log('sessions', sessions)
-    console.log('JSON', JSON.stringify(sessions, null, 2))
 
     if (error) {
         throw error
