@@ -4,6 +4,6 @@ import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
 export const sendSubscriptionSuccessMessage = async (ctx: any) => {
 
     await ctx.deleteMessage()
-    const message = await ctx.reply('✅ Спасибо, подписка подтверждена \n Можете вернуться на сайт.')
+    const message = await ctx.reply('✅ Спасибо, можете вернуться на сайт.')
     await addMessageSession(ctx.from.id, message.message_id, SessionMessageType.Auth)
 }
