@@ -20,9 +20,10 @@ export default defineEventHandler(async (event) => {
         users!inner (
             telegram_id
         )
-    `)
-        .eq("users.telegram_id", body.telegram_id)
+    `).eq("users.telegram_id", body.telegram_id)
         // .lt("last_activity", expireDate)
+
+    console.log(sessions)
 
     if (error) {
         throw error
