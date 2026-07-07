@@ -23,9 +23,7 @@ export const sendMediaCard = async (ctx: any, id: number, mediaType: string) => 
         `https://image.tmdb.org/t/p/w500${mediaPoster}`,
         {
             caption: createMediaCaption(media, false, mediaType),
-            reply_markup: {
-                inline_keyboard: keyboardSendMediaCard(ctx, callbackData)
-            },
+            reply_markup: keyboardSendMediaCard(ctx, callbackData),
             parse_mode: 'HTML'
         }
     )
