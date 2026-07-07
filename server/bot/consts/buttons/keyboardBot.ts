@@ -1,7 +1,7 @@
 import {Markup} from "telegraf";
 import {deleteMediaButtonBot, SaveMediaButtonBot, SearchButtonBot} from "#server/bot/consts/buttons/buttonsBot";
 
-export const keyboardSMenuBot = () => {
+export const keyboardSearchBot = () => {
     return Markup.inlineKeyboard([
         [SearchButtonBot('🔍 Поиск')]
     ]).reply_markup
