@@ -1,5 +1,16 @@
 import {Markup} from "telegraf";
 
+export const keyboardSMenuBot = () => {
+    return Markup.inlineKeyboard([
+        [
+            Markup.button.switchToCurrentChat(
+                '🔍 Поиск',
+                ''
+            )
+        ]
+    ]).reply_markup
+}
+
 export const keyboardSavedMediaCardBot = (media: any) => {
     return Markup.inlineKeyboard([
         [
