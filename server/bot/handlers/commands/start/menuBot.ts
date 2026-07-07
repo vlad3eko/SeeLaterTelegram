@@ -22,6 +22,7 @@ export const menuBot = async (ctx: any) => {
         }
     )
 
+
     await addMessageSession(
         ctx.from.id,
         message.message_id,
