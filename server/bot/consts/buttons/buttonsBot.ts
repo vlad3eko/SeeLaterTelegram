@@ -1,28 +1,14 @@
 import {Markup} from "telegraf";
 
+// Возвращаем чистый объект кнопки, без [ ]
 export const SearchButtonBot = (text: string) => {
-    return [
-        Markup.button.switchToCurrentChat(
-            `${text}`,
-            ''
-        )
-    ]
+    return Markup.button.switchToCurrentChat(`${text}`, '')
 }
 
 export const SaveMediaButtonBot = (callback: any) => {
-    return [
-        Markup.button.callback(
-            '💾 Сохранить в коллекцию',
-            `save_media_${callback}`
-        )
-    ]
+    return Markup.button.callback('💾 Сохранить в коллекцию', `save_media_${callback}`)
 }
 
 export const deleteMediaButtonBot = (media: any) => {
-    return [
-        Markup.button.callback(
-            '🗑 Удалить из коллекции',
-            `delete_media_${media.id}`
-        )
-    ]
+    return Markup.button.callback('🗑 Удалить из коллекции', `delete_media_${media.id}`)
 }
