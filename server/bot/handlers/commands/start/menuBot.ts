@@ -9,22 +9,26 @@ export const menuBot = async (ctx: any) => {
 
     const message = await ctx.reply(`🍿 Привет ${ctx.from.first_name || ctx.from.username}\n
 🔍 Для поиска используй кнопки ниже или отправь в сообщении название кино`,
-        Markup.inlineKeyboard([
-            // Markup.button.url(
-            //     'Перейти на сайт',
-            //     'https://see-later-telegram.vercel.app/bookmarks'
-            // ),
-            [
-                Markup.button.switchToCurrentChat(
-                    `🔍 Поиск`,
-                    ''
-                )
+        {
+            reply_markup: [
+                Markup.inlineKeyboard([
+                    // Markup.button.url(
+                    //     'Перейти на сайт',
+                    //     'https://see-later-telegram.vercel.app/bookmarks'
+                    // ),
+                    [
+                        Markup.button.switchToCurrentChat(
+                            `🔍 Поиск`,
+                            ''
+                        )
+                    ]
+                    // Markup.button.callback(
+                    //     'Сохранённые',
+                    //     'search_media'
+                    // )
+                ]),
             ]
-            // Markup.button.callback(
-            //     'Сохранённые',
-            //     'search_media'
-            // )
-        ]),
+        }
     )
     await addMessageSession(
         ctx.from.id,
