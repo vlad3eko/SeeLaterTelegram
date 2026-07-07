@@ -101,6 +101,7 @@ export const saveMedia = async (ctx: any) => {
     if (successSave) {
         await deleteMessages(ctx, [1])
     }
+
     await addMessageSession(ctx.from.id, successSave.message_id, SessionMessageType.Media)
-    await commandClear()
+    await commandClear(ctx)
 }

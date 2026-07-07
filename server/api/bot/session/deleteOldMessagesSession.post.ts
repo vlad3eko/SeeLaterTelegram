@@ -4,8 +4,9 @@ import { bot } from "#server/bot/bot"
 export default defineEventHandler(async (event) => {
 
     const supabase = await serverSupabaseClient(event)
+    const body = await readBody(event)
 
-    const minutes = 0
+    const minutes = 2
 
     const expireDate = new Date(
         Date.now() - minutes * 60 * 1000
@@ -14,13 +15,14 @@ export default defineEventHandler(async (event) => {
     const { data: sessions, error } = await supabase
         .from("users_session")
         .select(`
-            user_id,
-            message_ids,
-            users!inner (
-                telegram_id
-            )
-        `)
-        .lt("last_activity", expireDate)
+        user_id,
+        message_ids,
+        users!inner (
+            telegram_id
+        )
+    `)
+        .eq("users.telegram_id", body.telegram_id)
+        // .lt("last_activity", expireDate)
 
     if (error) {
         throw error
