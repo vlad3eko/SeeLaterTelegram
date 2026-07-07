@@ -36,7 +36,7 @@ export function registerHandlers(bot: Telegraf) {
                 ])
             )
             await deleteMessages(ctx, [message.message_id - 1])
-            await addMessageSession(ctx.from.id, message.message_id, SessionMessageType.Search)
+            await addMessageSession(ctx.from.id, message.message_id, SessionMessageType.SearchInline)
             return
         }
 

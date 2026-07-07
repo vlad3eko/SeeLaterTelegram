@@ -24,7 +24,7 @@ export const processSearchMedia = async (ctx: any, medias: any) => {
         await addMessageSession(
             ctx.from.id,
             messageNotFound.message_id,
-            SessionMessageType.Search
+            SessionMessageType.Error
         )
         return
     }

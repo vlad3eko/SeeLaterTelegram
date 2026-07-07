@@ -4,6 +4,7 @@ import {processSearchMedia} from "#server/bot/services/addMedia/processSearchMed
 export const nameMediaSearch = async (ctx: any) => {
 
     const query = ctx.message.text
+    addMediaState.delete(ctx.from.id)
 
     const medias = await $fetch(
         '/api/tmdb/search',
