@@ -13,8 +13,11 @@ export const menuBot = async (ctx: any) => {
 🔍 Для поиска используй кнопки ниже или отправь в сообщении название кино\n
 Связь: https://t.me/kinomanovnet?direct`,
         {
-            reply_markup: keyboardSMenuBot()
-        }
+            reply_markup: keyboardSMenuBot(),
+            link_preview_options: {
+                is_disabled: true
+            }
+        },
     )
 
 
