@@ -10,7 +10,8 @@ export const menuBot = async (ctx: any) => {
     const message = await ctx.reply(
         `Привет ${ctx.from.first_name || ctx.from.username}
 
-🔍 Для поиска используй кнопки ниже или отправь в сообщении название кино`,
+🔍 Для поиска используй кнопки ниже или отправь в сообщении название кино\n
+Связь: https://t.me/kinomanovnet?direct`,
         {
             reply_markup: keyboardSMenuBot()
         }
