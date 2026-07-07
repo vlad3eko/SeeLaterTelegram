@@ -9,7 +9,7 @@ export const keyboardSearchBot = (text?: string, mediaSearch?: string, buttonTit
         ]).reply_markup
     } else {
         return Markup.inlineKeyboard([
-            [SearchButtonBot('🔍 Поиск')]
+            [SearchButtonBot('Поиск')]
         ]).reply_markup
     }
 }
@@ -17,13 +17,13 @@ export const keyboardSearchBot = (text?: string, mediaSearch?: string, buttonTit
 export const keyboardSavedMediaCardBot = (media: any) => {
     return Markup.inlineKeyboard([
         [deleteMediaButtonBot(media)],
-        [SearchButtonBot('🔍 Искать ещё')]
+        [SearchButtonBot('Искать ещё')]
     ]).reply_markup
 }
 
 export const keyboardSendMediaCard = (ctx: any, callback: any) => {
     return Markup.inlineKeyboard([
-        [SearchButtonBot('🔍 Искать другое')],
+        [SearchButtonBot('Искать другое')],
         [SaveMediaButtonBot(callback)]
     ]).reply_markup
 }

@@ -28,7 +28,7 @@ export function registerHandlers(bot: Telegraf) {
             const message = await ctx.reply(
                 `🔍 Искать фильм «${text}» через быстрый поиск?`,
                 {
-                    reply_markup: keyboardSearchBot('🔍 Искать', text, text)
+                    reply_markup: keyboardSearchBot('Искать', text, text)
                 }
             )
             await deleteMessages(ctx, [message.message_id - 1])
