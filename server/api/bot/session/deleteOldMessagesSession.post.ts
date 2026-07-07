@@ -23,7 +23,8 @@ export default defineEventHandler(async (event) => {
     `).eq("users.telegram_id", body.telegram_id)
         // .lt("last_activity", expireDate)
 
-    console.log(sessions)
+    console.log('sessions', sessions)
+    console.log('JSON', JSON.stringify(sessions, null, 2))
 
     if (error) {
         throw error
