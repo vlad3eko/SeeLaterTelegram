@@ -1,6 +1,6 @@
 import {Markup} from "telegraf";
 
-export const keyboardBot = (media: any) => {
+export const keyboardSavedMediaCardBot = (media: any) => {
     return Markup.inlineKeyboard([
         [
             Markup.button.callback(
