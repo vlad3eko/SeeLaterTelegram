@@ -8,12 +8,6 @@ export const keyboardSMenuBot = () => {
                 ''
             )
         ],
-        [
-            Markup.button.callback(
-                'Очистить историю',
-                'clear'
-            )
-        ]
     ]).reply_markup
 }
 
