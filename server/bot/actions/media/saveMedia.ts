@@ -90,25 +90,26 @@ export const saveMedia = async (ctx: any) => {
 
     await deleteMessages(ctx, [-1, -2])
 
-   const successSave = await ctx.editMessageCaption(
+    const successSave = await ctx.editMessageCaption(
         createMediaCaption(media, true, mediaType),
         {
             parse_mode: 'HTML',
             reply_markup: {
-                inline_keyboard: [
-                    [
-                        {
-                            text: '🗑 Удалить из коллекции',
-                            callback_data: `delete_media_${media.id}`
-                        }
-                    ],
-                    [
-                        {
-                            text: 'Искать ещё',
-                            callback_data: `search_media:keep`
-                        }
+                inline_keyboard: Markup.inlineKeyboard([
+                        [
+                            Markup.button.callback(
+                                '🗑 Удалить из коллекции',
+                                `delete_media_${media.id}`
+                            )
+                        ],
+                        [
+                            Markup.button.switchToCurrentChat(
+                                `🔍 Искать ещё`,
+                                ''
+                            )
+                        ]
                     ]
-                ]
+                )
             }
         }
     )

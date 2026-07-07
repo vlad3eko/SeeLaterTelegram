@@ -30,7 +30,7 @@ export function registerHandlers(bot: Telegraf) {
                     [
                         Markup.button.switchToCurrentChat(
                             `🔍 Искать «${text}»`,
-                            ''
+                            text
                         )
                     ]
                 ])
