@@ -3,6 +3,7 @@ import {isSubscriber} from "#server/bot/handlers/channel/isSubscriber";
 import {searchMedia} from "#server/bot/actions/media/searchMedia";
 import {addMessageSession} from "#server/bot/services/session/addMessageSession";
 import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
+import {menuBot} from "#server/bot/handlers/commands/start/menuBot";
 
 export const processTelegramAuth = async (ctx: any, sendSuccessMessage: boolean = false) => {
 
@@ -14,7 +15,7 @@ export const processTelegramAuth = async (ctx: any, sendSuccessMessage: boolean 
         if (sendSuccessMessage) {
             await sendSubscriptionSuccessMessage(ctx)
         } else {
-            await searchMedia(ctx)
+            await menuBot(ctx)
         }
 
         return true
