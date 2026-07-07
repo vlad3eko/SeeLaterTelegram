@@ -7,6 +7,12 @@ export const keyboardSMenuBot = () => {
                 '🔍 Поиск',
                 ''
             )
+        ],
+        [
+            Markup.button.callback(
+                'Очистить историю',
+                'clear'
+            )
         ]
     ]).reply_markup
 }
