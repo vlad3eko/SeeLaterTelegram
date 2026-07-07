@@ -7,16 +7,17 @@ export const menuBot = async (ctx: any) => {
     await ctx.answerCbQuery()
     await ctx.deleteMessage()
 
-    const message = await ctx.reply(`Добро пожаловать ${ctx.from.first_name || ctx.from.username}`,
+    const message = await ctx.reply(`🍿 Привет ${ctx.from.first_name || ctx.from.username}\n
+🔍 Для поиска используй кнопки ниже или отправь в сообщении название кино`,
         Markup.inlineKeyboard([
             // Markup.button.url(
             //     'Перейти на сайт',
             //     'https://see-later-telegram.vercel.app/bookmarks'
             // ),
-            Markup.button.callback(
-                'Поиск',
-                'search_media'
-            ),
+            Markup.button.switchToCurrentChat(
+                `🔍 Поиск`,
+                ''
+            )
             // Markup.button.callback(
             //     'Сохранённые',
             //     'search_media'
