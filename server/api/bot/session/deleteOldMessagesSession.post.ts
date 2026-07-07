@@ -43,22 +43,19 @@ export default defineEventHandler(async (event) => {
 
             if (message.type === 'media') {
                 mediaSaved.push(message)
+                continue
             }
 
             try {
-
                 await bot.telegram.deleteMessage(
                     telegramId,
                     message.id
                 )
-
             } catch (err: any) {
-
                 console.log(
-                    `Не удалось удалить сообщение ${message}:`,
+                    `Не удалось удалить сообщение ${message.id}:`,
                     err?.description || err?.message
                 )
-
             }
 
         }
