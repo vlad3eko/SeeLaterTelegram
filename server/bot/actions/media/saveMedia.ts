@@ -5,6 +5,7 @@ import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
 import {addMessageSession} from "#server/bot/services/session/addMessageSession";
 import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
 import {commandClear} from "#server/bot/commands/commandClear";
+import {keyboardBot} from "#server/bot/consts/buttons/keyboardBot";
 
 export const saveMedia = async (ctx: any) => {
 
@@ -94,21 +95,7 @@ export const saveMedia = async (ctx: any) => {
         createMediaCaption(media, true, mediaType),
         {
             parse_mode: 'HTML',
-            reply_markup: Markup.inlineKeyboard([
-                        [
-                            Markup.button.callback(
-                                '🗑 Удалить из коллекции',
-                                `delete_media_${media.id}`
-                            )
-                        ],
-                        [
-                            Markup.button.switchToCurrentChat(
-                                `🔍 Искать ещё`,
-                                ''
-                            )
-                        ]
-                    ]
-                )
+            reply_markup: keyboardBot(media)
         }
     )
     if (successSave) {
