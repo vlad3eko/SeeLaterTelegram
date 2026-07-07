@@ -14,10 +14,12 @@ export const menuBot = async (ctx: any) => {
             //     'Перейти на сайт',
             //     'https://see-later-telegram.vercel.app/bookmarks'
             // ),
-            Markup.button.switchToCurrentChat(
-                `🔍 Поиск`,
-                ''
-            )
+            [
+                Markup.button.switchToCurrentChat(
+                    `🔍 Поиск`,
+                    ''
+                )
+            ]
             // Markup.button.callback(
             //     'Сохранённые',
             //     'search_media'
