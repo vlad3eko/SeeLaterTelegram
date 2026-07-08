@@ -4,15 +4,15 @@ import {addMessageSession} from "#server/bot/services/session/addMessageSession"
 import {searchMediaInline} from "#server/bot/handlers/media/searchMediaInline"
 import {openInlineMovie} from "#server/bot/handlers/media/openInlineMovie"
 import {addMediaState} from "#server/bot/consts/media/addMediaState"
-import {deleteMessages} from "#server/bot/actions/delete/deleteMessages"
-import {Markup} from "telegraf"
 import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
 import {keyboardSearchBot} from "#server/bot/consts/buttons/keyboardBot";
+import {deleteMessages} from "#server/bot/actions/delete/deleteMessages";
 
 export function registerHandlers(bot: Telegraf) {
     bot.on("text", async (ctx) => {
 
         const text = ctx.message.text
+        const textId = ctx.message.message_id
         const state = addMediaState.get(ctx.from.id)
 
         if (text.startsWith('/')) return
@@ -25,7 +25,7 @@ export function registerHandlers(bot: Telegraf) {
 
         if (!state?.waitingMovie) {
 
-            await ctx.deleteMessage()
+            await deleteMessages(ctx, [textId])
             const message = await ctx.reply(
                 `🔍 Искать фильм «${text}» через быстрый поиск?`, {
                     reply_markup: keyboardSearchBot('Искать', text, text)
