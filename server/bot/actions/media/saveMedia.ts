@@ -1,4 +1,3 @@
-import {Markup} from "telegraf";
 import {isSubscriber} from "#server/bot/handlers/channel/isSubscriber";
 import {deleteMessages} from "#server/bot/actions/delete/deleteMessages";
 import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
@@ -6,7 +5,7 @@ import {addMessageSession} from "#server/bot/services/session/addMessageSession"
 import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
 import {commandClear} from "#server/bot/commands/commandClear";
 import {keyboardSavedMediaCardBot, keyboardSearchBot} from "#server/bot/consts/buttons/keyboardBot";
-import {SearchButtonBot} from "#server/bot/consts/buttons/buttonsBot";
+import {saveMessageSession} from "#server/bot/services/session/saveMessageSession";
 
 export const saveMedia = async (ctx: any) => {
 
@@ -63,8 +62,8 @@ export const saveMedia = async (ctx: any) => {
             await deleteMessages(ctx, [1, -1])
 
             const errorMessage = await ctx.reply(
-                `❌ Ой: вы уже сохраняли - ${mediaTitle}`,{
-                    reply_markup: keyboardSearchBot(ctx, mediaTitle, '')
+                `❌ Ой: вы уже сохраняли - «${mediaTitle}»`,{
+                    reply_markup: keyboardSearchBot(ctx, '')
                 }
             )
 
@@ -98,10 +97,8 @@ export const saveMedia = async (ctx: any) => {
     )
     if (successSave) {
         await deleteMessages(ctx, [1])
-    } else {
-        await addMessageSession(ctx.from.id, successSave.message_id, SessionMessageType.Temp)
     }
 
-
+    await saveMessageSession(ctx.from.id, successSave.message_id, SessionMessageType.Temp)
     await commandClear(ctx)
 }
