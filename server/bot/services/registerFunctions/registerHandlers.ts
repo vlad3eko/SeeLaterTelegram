@@ -18,6 +18,7 @@ export function registerHandlers(bot: Telegraf) {
         if (text.startsWith('/')) return
 
         if (text.startsWith("media_")) {
+            await ctx.deleteMessage()
             await openInlineMovie(ctx)
             await addMessageSession(ctx.from.id, ctx.message.message_id, SessionMessageType.SearchInline)
             return
