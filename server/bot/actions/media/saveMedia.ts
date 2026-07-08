@@ -6,6 +6,7 @@ import {addMessageSession} from "#server/bot/services/session/addMessageSession"
 import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
 import {commandClear} from "#server/bot/commands/commandClear";
 import {keyboardSavedMediaCardBot} from "#server/bot/consts/buttons/keyboardBot";
+import {SearchButtonBot} from "#server/bot/consts/buttons/buttonsBot";
 
 export const saveMedia = async (ctx: any) => {
 
@@ -56,22 +57,16 @@ export const saveMedia = async (ctx: any) => {
     })
 
     if (!success) {
-        await ctx.callbackQuery()
 
         if (error?.message.includes('duplicate key value')) {
 
             await deleteMessages(ctx, [1, -1])
 
             const errorMessage = await ctx.reply(
-                `❌ Ой: вы уже сохраняли - ${media.title || media.name}`,
-                Markup.inlineKeyboard([
-                    Markup.button.callback(
-                        'Искать другое',
-                        'search_media'
-                    )
-                ])
+                `❌ Ой: вы уже сохраняли - ${mediaTitle}`,{
+                    reply_markup: SearchButtonBot(ctx, mediaTitle, '')
+                }
             )
-
 
             await addMessageSession(
                 ctx.from.id,
