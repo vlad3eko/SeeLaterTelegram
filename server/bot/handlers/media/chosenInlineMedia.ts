@@ -3,7 +3,7 @@ import { addInlineMessageSession } from "#server/bot/services/session/addInlineM
 
 export const chosenInlineMedia = async (ctx: any) => {
 
-    console.log(ctx.update)
+    console.log(ctx)
     console.dir(ctx.update, { depth: null })
 
     const result = ctx.chosenInlineResult
