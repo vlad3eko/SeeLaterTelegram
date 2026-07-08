@@ -6,7 +6,7 @@ export default defineEventHandler(async (event) => {
     const supabase = await serverSupabaseClient(event)
     const body = await readBody(event)
 
-    const minutes = 2 // 0 = без проверки времени
+    const minutes = 0
 
     const expireDate = new Date(
         Date.now() - minutes * 60 * 1000
