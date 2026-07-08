@@ -21,24 +21,17 @@ export const keyboardSavedMediaCardBot = (media: any) => {
     ]).reply_markup
 }
 
-export const keyboardSendMediaCard = (ctx: any, callback: any) => {
+export const keyboardSendMediaCard = (mediaId: number, mediaType: string) => {
     return Markup.inlineKeyboard([
         [SearchButtonBot('Искать другое')],
-        [SaveMediaButtonBot(callback)]
+        [SaveMediaButtonBot(mediaId, mediaType)]
     ]).reply_markup
 }
 
-export const keyboardSendMediaCardInline = (
-    mediaId:number,
-    mediaType:string
-) => {
+export const keyboardSendMediaCardInline = (mediaId: number, mediaType: string) => {
 
     return Markup.inlineKeyboard([
-        [
-            Markup.button.callback(
-                'Сохранить',
-                `save_media_${mediaId}_${mediaType}`
-            )
-        ]
-    ])
+        [SearchButtonBot('Искать другое')],
+        [SaveMediaButtonBot(mediaId, mediaType)]
+    ]).reply_markup
 }

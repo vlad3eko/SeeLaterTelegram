@@ -15,10 +15,10 @@ export const SearchButtonBot = (text: string | undefined, mediaSearch?: string, 
 
 }
 
-export const SaveMediaButtonBot = (callback: any) => {
+export const SaveMediaButtonBot = (mediaId: number, mediaType: string) => {
     return Markup.button.callback(
         '💾 Сохранить в коллекцию',
-        `save_media_${callback}`)
+        `save_media_${mediaId}_${mediaType}`)
 }
 
 export const deleteMediaButtonBot = (media: any) => {
