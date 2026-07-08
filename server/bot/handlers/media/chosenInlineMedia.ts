@@ -1,17 +1,18 @@
-import {addInlineMessageSession} from "#server/bot/services/session/addInlineMessageSession";
-import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
+import { SessionMessageType } from "#server/bot/consts/types/SessionMessageTypes";
+import { addInlineMessageSession } from "#server/bot/services/session/addInlineMessageSession";
 
+export const chosenInlineMedia = async (ctx: any) => {
 
-export const chosenInlineMedia = async(ctx:any)=>{
+    console.log(ctx.update)
+    console.dir(ctx.update, { depth: null })
 
+    const result = ctx.chosenInlineResult
 
-    const inlineMessageId =
-        ctx.chosenInlineResult.inline_message_id
-
+    if (!result.inline_message_id) return
 
     await addInlineMessageSession(
         ctx.from.id,
-        inlineMessageId,
+        result.inline_message_id,
         SessionMessageType.InlineMediaCard
     )
 
