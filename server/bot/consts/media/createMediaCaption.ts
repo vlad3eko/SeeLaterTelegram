@@ -10,7 +10,9 @@ export const createMediaCaption =  (media: any, isSaved: boolean, mediaType: str
         .join(' / #') || 'нет данных'
 
     const mediaTitle = media.title || media.name
-    const mediaOverview = media.overview || 'Описание отсутствует'
+    const mediaOverview = media.overview?.length > 350
+        ? media.overview.slice(0, 150) + '...'
+        : media.overview || 'Описание отсутствует'
     const releaseYear = FormatDate(media.release_date || media.first_air_date) || releaseDateUndefined
     const status = isSaved ? '✅Сохранён' : '❌ Не сохранён'
 
