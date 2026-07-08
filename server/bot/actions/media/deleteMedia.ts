@@ -12,5 +12,4 @@ export const deleteMedia = async (ctx: any) => {
             tmdb_id: mediaId
         }
     })
-    await ctx.deleteMessage()
 }
