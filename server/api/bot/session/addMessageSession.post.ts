@@ -17,6 +17,13 @@ export default defineEventHandler(async (event) => {
         })
     }
 
+    console.log({
+        p_user_id: user.id,
+        p_message_id: body.message_id,
+        p_inline_message_id: body.inline_message_id,
+        p_type: body.type
+    })
+
     const { error } = await supabase.rpc(
         'add_session_message',
         {
