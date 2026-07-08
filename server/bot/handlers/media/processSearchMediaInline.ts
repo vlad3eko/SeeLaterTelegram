@@ -15,7 +15,6 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
 
             parse_mode: 'HTML',
             reply_markup: keyboardSendMediaCardInline(media.id, media.media_type)
-
         }))
 
         await ctx.answerInlineQuery(results)
