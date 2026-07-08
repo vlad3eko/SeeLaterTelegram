@@ -14,8 +14,3 @@ export interface MediaTypesSupabase {
     release_date: number | string
     first_air_date?: string | undefined
 }
-
-export interface MediaListSupabase {
-    media: MediaTypesSupabase[]
-    showInfo: boolean
-}

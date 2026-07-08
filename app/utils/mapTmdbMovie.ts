@@ -1,4 +1,3 @@
-import type {Movie} from "~/types/movie.types";
 import type {TmdbMovieDetails} from "~/types/tmdb.types";
 import type {MediaTypesSupabase} from "~/types/bookmarks/media.types";
 

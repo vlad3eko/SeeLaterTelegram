@@ -18,6 +18,3 @@ export interface TelegramResponse {
     user: TelegramUser
 }
 
-export interface TelegramBotUser {
-    from: TelegramUser
-}

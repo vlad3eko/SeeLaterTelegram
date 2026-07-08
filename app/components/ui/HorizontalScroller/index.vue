@@ -26,10 +26,6 @@
 
 <script lang="ts" setup>
 
-interface BaseItem {
-  id: string
-}
-
 // TODO поставил заглушку any[] ругается родительский [slug]
 interface HorizontalScrollItem {
   title?: string

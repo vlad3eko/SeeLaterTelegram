@@ -5,7 +5,6 @@ export enum SessionMessageType {
     Error = 'error',
     Temp = 'temp',
     Menu = 'menu',
-    Search = 'search',
     SearchInline = 'searchInline',
     SendMediaCard = 'SendMediaCard',
     Auth = 'auth'
