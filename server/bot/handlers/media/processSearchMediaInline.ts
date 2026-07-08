@@ -1,24 +1,24 @@
 import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
+import {keyboardSendMediaCard} from "#server/bot/consts/buttons/keyboardBot";
 
 export const processSearchMediaInline = async (ctx: any, medias: any) => {
 
     try {
         const results = medias.results.map((media: any) => ({
-            type: 'article',
+            type: 'cached_photo',
             id: String(media.id),
-            poster: media.poster_path || media.backdrop_path,
-            title: media.title || media.name,
-            media_type: media.media_type,
-            genres: media.genres,
-            overview: media.overview,
-            count: media.vote_count,
-            vote: media.vote_average,
-            release_date: media.release_date || media.first_air_date,
 
-            input_message_content: {
-                message_text: `media_${media.id}_${media.media_type}`,
-                parse_mode: 'HTML'
-            },
+            photo_url: `https://image.tmdb.org/t/p/w500${media.poster_path}`,
+            thumbnail_url: `https://image.tmdb.org/t/p/w500${media.poster_path}`,
+
+            caption: createMediaCaption(
+                media,
+                false,
+                media.media_type
+            ),
+
+                parse_mode: 'HTML',
+                reply_markup: keyboardSendMediaCard(ctx, `${ctx.from.id}_${media.id}_${media.media_type}`)
         }))
 
         await ctx.answerInlineQuery(results)

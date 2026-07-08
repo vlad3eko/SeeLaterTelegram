@@ -3,7 +3,7 @@ import {deleteMessages} from "#server/bot/actions/delete/deleteMessages";
 import {addMessageSession} from "#server/bot/services/session/addMessageSession";
 import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
 
-export const openInlineMovie = async (ctx: any) => {
+export const openInlineMedia = async (ctx: any) => {
 
     const mediaTrigger = ctx.message.text
     await addMessageSession(ctx.from.id, mediaTrigger.message_id, SessionMessageType.Text)

@@ -1,7 +1,7 @@
 import {Telegraf} from "telegraf"
 import {addMessageSession} from "#server/bot/services/session/addMessageSession"
 import {searchMediaInline} from "#server/bot/handlers/media/searchMediaInline"
-import {openInlineMovie} from "#server/bot/handlers/media/openInlineMovie"
+import {openInlineMedia} from "#server/bot/handlers/media/openInlineMedia"
 import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
 import {keyboardSearchBot} from "#server/bot/consts/buttons/keyboardBot";
 
@@ -15,7 +15,7 @@ export function registerHandlers(bot: Telegraf) {
 
         if (text.startsWith("media_")) {
             await ctx.deleteMessage()
-            await openInlineMovie(ctx)
+            await openInlineMedia(ctx)
             await addMessageSession(ctx.from.id, ctx.message.message_id, SessionMessageType.SearchInline)
             return
         }
