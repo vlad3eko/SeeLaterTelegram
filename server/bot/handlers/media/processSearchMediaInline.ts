@@ -5,7 +5,7 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
 
     try {
         const results = medias.results.map((media: any) => ({
-            type: 'cached_photo',
+            type: 'photo',
             id: String(media.id),
 
             photo_url: `https://image.tmdb.org/t/p/w500${media.poster_path}`,
