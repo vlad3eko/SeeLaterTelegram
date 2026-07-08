@@ -58,19 +58,9 @@ export default defineEventHandler(async (event) => {
 
 
         // inline карточки не удаляем
-        if(message.inlineMessageId){
-            continue
-        }
-
-
-        if (message.inlineMessageId) {
-            continue
-        }
-
-        if (!message.messageId) {
-            continue
-        }
-
+        if(message.inlineMessageId) continue
+        if (message.inlineMessageId) continue
+        if (!message.messageId) continue
 
         try {
 
