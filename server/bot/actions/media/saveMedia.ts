@@ -60,7 +60,6 @@ export const saveMedia = async (ctx: any) => {
         if (error?.message.includes('duplicate key value')) {
 
             await deleteMessages(ctx, [1, -1])
-            await ctx.callbackQuery()
 
             const errorMessage = await ctx.reply(
                 `❌ Ой: вы уже сохраняли - ${media.title || media.name}`,
@@ -71,6 +70,9 @@ export const saveMedia = async (ctx: any) => {
                     )
                 ])
             )
+
+            await ctx.callbackQuery()
+
             await addMessageSession(
                 ctx.from.id,
                 errorMessage.message_id,
