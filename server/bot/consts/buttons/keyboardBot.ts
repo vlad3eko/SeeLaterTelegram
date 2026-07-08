@@ -27,3 +27,18 @@ export const keyboardSendMediaCard = (ctx: any, callback: any) => {
         [SaveMediaButtonBot(callback)]
     ]).reply_markup
 }
+
+export const keyboardSendMediaCardInline = (
+    mediaId:number,
+    mediaType:string
+) => {
+
+    return Markup.inlineKeyboard([
+        [
+            Markup.button.callback(
+                'Сохранить',
+                `save_media_${mediaId}_${mediaType}`
+            )
+        ]
+    ])
+}

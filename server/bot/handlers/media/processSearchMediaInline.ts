@@ -1,5 +1,5 @@
 import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
-import {keyboardSendMediaCard} from "#server/bot/consts/buttons/keyboardBot";
+import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBot";
 
 export const processSearchMediaInline = async (ctx: any, medias: any) => {
 
@@ -11,14 +11,11 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
             photo_url: `https://image.tmdb.org/t/p/w500${media.poster_path}`,
             thumbnail_url: `https://image.tmdb.org/t/p/w500${media.poster_path}`,
 
-            caption: createMediaCaption(
-                media,
-                false,
-                media.media_type
-            ),
+            caption: createMediaCaption(media, false, media.media_type),
 
-                parse_mode: 'HTML',
-                reply_markup: keyboardSendMediaCard(ctx, `${ctx.from.id}_${media.id}_${media.media_type}`)
+            parse_mode: 'HTML',
+            reply_markup: keyboardSendMediaCardInline(media.id, media.media_type)
+
         }))
 
         await ctx.answerInlineQuery(results)

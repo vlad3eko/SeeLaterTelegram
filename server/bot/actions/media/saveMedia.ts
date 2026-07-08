@@ -1,5 +1,4 @@
 import {isSubscriber} from "#server/bot/handlers/channel/isSubscriber";
-import {deleteMessages} from "#server/bot/actions/delete/deleteMessages";
 import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
 import {addMessageSession} from "#server/bot/services/session/addMessageSession";
 import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
@@ -9,16 +8,11 @@ import {removeMessageSession} from "#server/bot/services/session/removeMessageSe
 
 export const saveMedia = async (ctx: any) => {
 
-    const waitSaveMessage = await ctx.reply('сохранение...')
-    await addMessageSession(
-        ctx.from.id,
-        waitSaveMessage.message_id,
-        SessionMessageType.Temp
-    )
+    await ctx.answerCbQuery('сохранение...')
 
     await isSubscriber(ctx)
 
-    const userId = Number(ctx.match[1])
+    const userId = ctx.from.id
     const mediaId = Number(ctx.match[2])
     const mediaType = ctx.match[3]
 
@@ -59,10 +53,8 @@ export const saveMedia = async (ctx: any) => {
 
         if (error?.message.includes('duplicate key value')) {
 
-            await deleteMessages(ctx, [1, -1])
-
             const errorMessage = await ctx.reply(
-                `❌ Ой: вы уже сохраняли - «${mediaTitle}»`,{
+                `❌ Ой: вы уже сохраняли - «${mediaTitle}»`, {
                     reply_markup: keyboardSearchBot(ctx, '')
                 }
             )
@@ -86,8 +78,6 @@ export const saveMedia = async (ctx: any) => {
         }
     }
 
-    await deleteMessages(ctx, [-1, -2])
-
     const successSave = await ctx.editMessageCaption(
         createMediaCaption(media, true, mediaType),
         {
@@ -95,10 +85,10 @@ export const saveMedia = async (ctx: any) => {
             reply_markup: keyboardSavedMediaCardBot(media)
         }
     )
-    if (successSave) {
-        await deleteMessages(ctx, [1])
+
+    if (successSave?.message_id) {
+        await removeMessageSession(ctx.from.id, successSave.message_id)
     }
 
-    await removeMessageSession(ctx.from.id, successSave.message_id)
     await commandClear(ctx)
 }

@@ -1,5 +1,4 @@
 import {sendMediaCard} from "#server/bot/consts/media/sendMediaCard";
-import {deleteMessages} from "#server/bot/actions/delete/deleteMessages";
 import {addMessageSession} from "#server/bot/services/session/addMessageSession";
 import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
 

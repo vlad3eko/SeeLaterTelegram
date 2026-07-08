@@ -5,12 +5,12 @@ import type {TmdbGenre} from "~/types/tmdb.types";
 export const createMediaCaption =  (media: any, isSaved: boolean, mediaType: string) => {
     const releaseDateUndefined = '❌официальной даты пока нет'
 
-    const genresContent = media.genres
+    const genresContent = (media.genres || [])
         .map((i: TmdbGenre) => i.name)
-        .join(' / #')
+        .join(' / #') || 'нет данных'
 
     const mediaTitle = media.title || media.name
-    const mediaOverview = media.overview
+    const mediaOverview = media.overview || 'Описание отсутствует'
     const releaseYear = FormatDate(media.release_date || media.first_air_date) || releaseDateUndefined
     const status = isSaved ? '✅Сохранён' : '❌ Не сохранён'
 
