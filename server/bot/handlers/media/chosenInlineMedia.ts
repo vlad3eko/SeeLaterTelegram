@@ -1,5 +1,5 @@
 import { SessionMessageType } from "#server/bot/consts/types/SessionMessageTypes";
-import { addInlineMessageSession } from "#server/bot/services/session/addInlineMessageSession";
+import {addInlineMessageSession} from "#server/bot/services/session/addInlineMessageSession";
 
 export const chosenInlineMedia = async (ctx: any) => {
 

@@ -1,4 +1,4 @@
-export const addMessageSession = async (
+export const addInlineMessageSession = async (
     telegramId: number,
     messageId: number,
     type: string
