@@ -1,7 +1,6 @@
 import {Telegraf} from "telegraf"
 import {addMessageSession} from "#server/bot/services/session/addMessageSession"
 import {searchMediaInline} from "#server/bot/handlers/media/searchMediaInline"
-import {openInlineMedia} from "#server/bot/handlers/media/openInlineMedia"
 import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
 import {keyboardSearchBot} from "#server/bot/consts/buttons/keyboardBot";
 
@@ -12,13 +11,6 @@ export function registerHandlers(bot: Telegraf) {
         const textId = ctx.message.message_id
 
         if (text.startsWith('/')) return
-
-        if (text.startsWith("media_")) {
-            await ctx.deleteMessage()
-            await openInlineMedia(ctx)
-            await addMessageSession(ctx.from.id, ctx.message.message_id, SessionMessageType.SearchInline)
-            return
-        }
 
         await addMessageSession(ctx.from.id, textId, SessionMessageType.SearchInline)
         const message = await ctx.reply(
