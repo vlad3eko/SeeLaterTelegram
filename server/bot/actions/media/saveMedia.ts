@@ -89,7 +89,6 @@ export const saveMedia = async (ctx: any) => {
         }
     }
 
-    await deleteMessages(ctx, [-1, -2])
 
     const successSave = await ctx.editMessageCaption(
         createMediaCaption(media, true, mediaType),
@@ -99,9 +98,8 @@ export const saveMedia = async (ctx: any) => {
         }
     )
     if (successSave) {
-        await deleteMessages(ctx, [1])
     }
 
-    
+
     await commandClear(ctx)
 }
