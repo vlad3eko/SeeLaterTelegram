@@ -16,5 +16,4 @@ export const removeMessageSession = async (
             inline_message_id: options.inlineMessageId ?? null
         }
     })
-
 }
