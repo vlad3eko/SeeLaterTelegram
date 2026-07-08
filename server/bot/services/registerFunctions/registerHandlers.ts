@@ -25,9 +25,7 @@ export function registerHandlers(bot: Telegraf) {
 
         if (!state?.waitingMovie) {
 
-            try {
-                await ctx.deleteMessage()
-            } catch (e) {}
+            await ctx.deleteMessage()
 
             await addMessageSession(ctx.from.id, textId, SessionMessageType.SearchInline)
             const message = await ctx.reply(
