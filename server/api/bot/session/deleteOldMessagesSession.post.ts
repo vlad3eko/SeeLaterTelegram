@@ -56,19 +56,34 @@ export default defineEventHandler(async (event) => {
 
     for (const message of session.message_ids ?? []) {
 
-        if (!message?.id) continue
+
+        // inline карточки не удаляем
+        if(message.inlineMessageId){
+            continue
+        }
+
+
+        if(!message.messageId){
+            continue
+        }
+
 
         try {
+
             await bot.telegram.deleteMessage(
                 telegramId,
-                message.id
+                message.messageId
             )
-        } catch (err: any) {
+
+        } catch(err:any){
+
             console.log(
-                `Не удалось удалить сообщение ${message.id}:`,
+                `Не удалось удалить сообщение ${message.messageId}:`,
                 err?.description || err?.message
             )
+
         }
+
     }
 
     const { error: updateError } = await supabase

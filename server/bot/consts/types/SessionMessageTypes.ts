@@ -7,5 +7,7 @@ export enum SessionMessageType {
     Menu = 'menu',
     SearchInline = 'searchInline',
     SendMediaCard = 'SendMediaCard',
-    Auth = 'auth'
+    Auth = 'auth',
+    InlineMediaCard = 'InlineMediaCard'
+
 }

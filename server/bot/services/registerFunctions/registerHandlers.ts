@@ -3,6 +3,7 @@ import {addMessageSession} from "#server/bot/services/session/addMessageSession"
 import {searchMediaInline} from "#server/bot/handlers/media/searchMediaInline"
 import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
 import {keyboardSearchBot} from "#server/bot/consts/buttons/keyboardBot";
+import {chosenInlineMedia} from "#server/bot/handlers/media/chosenInlineMedia";
 
 export function registerHandlers(bot: Telegraf) {
     bot.on("text", async (ctx) => {
@@ -22,4 +23,5 @@ export function registerHandlers(bot: Telegraf) {
     })
 
     bot.on('inline_query', searchMediaInline)
+    bot.on('chosen_inline_result', chosenInlineMedia)
 }

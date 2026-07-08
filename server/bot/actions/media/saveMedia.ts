@@ -1,6 +1,8 @@
 import {isSubscriber} from "#server/bot/handlers/channel/isSubscriber";
 import {keyboardSavedMediaCardBot} from "#server/bot/consts/buttons/keyboardBot";
 import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
+import {commandClear} from "#server/bot/commands/commandClear";
+import {removeInlineMessageSession} from "#server/bot/services/session/removeInlineMessageSession";
 
 export const saveMedia = async (ctx: any) => {
 
@@ -9,7 +11,6 @@ export const saveMedia = async (ctx: any) => {
     await isSubscriber(ctx)
 
     const userId = ctx.from.id
-
     const mediaId = Number(ctx.match[1])
     const mediaType = ctx.match[2]
 
@@ -67,6 +68,10 @@ export const saveMedia = async (ctx: any) => {
         return
     }
 
+    if(ctx.inlineMessageId){
+        await removeInlineMessageSession(ctx.from.id, ctx.inlineMessageId)
+    }
+
 
     await ctx.editMessageCaption(
         createMediaCaption(
@@ -80,5 +85,5 @@ export const saveMedia = async (ctx: any) => {
         }
     )
 
-    /*await commandClear()*/
+    await commandClear(ctx)
 }
