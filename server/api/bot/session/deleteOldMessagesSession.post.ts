@@ -30,31 +30,20 @@ export default defineEventHandler(async (event) => {
         )
     `)
         .eq("user_id", user.id)
+        .single()
         // .lt("last_activity", expireDate)
 
     if (error) {
         throw error
     }
 
-    if (!sessions?.length) {
-        return {
-            success: true,
-            deleted: 0
-        }
-    }
-
     for (const session of sessions) {
 
         const telegramId = session.users.telegram_id
 
-        const mediaSaved = []
-
         for (const message of session.message_ids ?? []) {
 
-            if (message.type === 'media') {
-                mediaSaved.push(message)
-                continue
-            }
+            if (!message?.id) continue
 
             try {
                 await bot.telegram.deleteMessage(
@@ -70,15 +59,15 @@ export default defineEventHandler(async (event) => {
 
         }
 
-        const { error: deleteError } = await supabase
+        const { error: updateError } = await supabase
             .from("users_session")
             .update({
-                message_ids: mediaSaved
+                message_ids: []
             })
             .eq("user_id", session.user_id)
 
-        if (deleteError) {
-            console.error(deleteError)
+        if (updateError) {
+            console.error(updateError)
         }
     }
 
