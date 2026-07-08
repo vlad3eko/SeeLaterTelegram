@@ -76,7 +76,7 @@ export const saveMedia = async (ctx: any) => {
         ),
         {
             parse_mode:'HTML',
-            reply_markup: keyboardSavedMediaCardBot(mediaId, mediaType)
+            reply_markup: keyboardSavedMediaCardBot(mediaId)
         }
     )
 

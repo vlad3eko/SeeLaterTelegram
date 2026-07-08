@@ -14,9 +14,9 @@ export const keyboardSearchBot = (text?: string, mediaSearch?: string, buttonTit
     }
 }
 
-export const keyboardSavedMediaCardBot = (mediaId: number, mediaType: string) => {
+export const keyboardSavedMediaCardBot = (mediaId: number) => {
     return Markup.inlineKeyboard([
-        [deleteMediaButtonBot(mediaId, mediaType)],
+        [deleteMediaButtonBot(mediaId)],
         [SearchButtonBot('Искать ещё')]
     ]).reply_markup
 }

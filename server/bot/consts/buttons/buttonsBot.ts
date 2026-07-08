@@ -21,8 +21,8 @@ export const SaveMediaButtonBot = (mediaId: number, mediaType: string) => {
         `save_media_${mediaId}_${mediaType}`)
 }
 
-export const deleteMediaButtonBot = (mediaId: number, mediaType: string) => {
+export const deleteMediaButtonBot = (mediaId: number) => {
     return Markup.button.callback(
         '🗑 Удалить из коллекции',
-        `delete_media_${mediaId}_${mediaType}`)
+        `delete_media_${mediaId}`)
 }
