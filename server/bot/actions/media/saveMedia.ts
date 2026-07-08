@@ -102,5 +102,6 @@ export const saveMedia = async (ctx: any) => {
         await deleteMessages(ctx, [1])
     }
 
+    
     await commandClear(ctx)
 }
