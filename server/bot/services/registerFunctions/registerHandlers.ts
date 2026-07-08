@@ -19,12 +19,15 @@ export function registerHandlers(bot: Telegraf) {
 
         if (text.startsWith("media_")) {
             await openInlineMovie(ctx)
-            await addMessageSession(ctx.from.id, ctx.message.message_id , SessionMessageType.SearchInline)
+            await addMessageSession(ctx.from.id, ctx.message.message_id, SessionMessageType.SearchInline)
             return
         }
 
         if (!state?.waitingMovie) {
 
+            try {
+                await ctx.deleteMessage()
+            } catch (e) {}
 
             await addMessageSession(ctx.from.id, textId, SessionMessageType.SearchInline)
             const message = await ctx.reply(
