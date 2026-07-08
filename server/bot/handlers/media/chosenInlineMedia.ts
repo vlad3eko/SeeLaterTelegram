@@ -7,7 +7,6 @@ export const chosenInlineMedia = async (ctx: any) => {
     console.dir(ctx.update, { depth: null })
 
     const result = ctx.chosenInlineResult
-
     if (!result.inline_message_id) return
 
     await addInlineMessageSession(
