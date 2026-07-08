@@ -27,5 +27,4 @@ export const sendMediaCard = async (ctx: any, id: number, mediaType: string) => 
             parse_mode: 'HTML'
         }
     )
-    await addMessageSession(ctx.from.id, message.message_id, SessionMessageType.Temp)
 }

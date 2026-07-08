@@ -89,6 +89,7 @@ export const saveMedia = async (ctx: any) => {
         }
     }
 
+    await deleteMessages(ctx, [-1, -2])
 
     const successSave = await ctx.editMessageCaption(
         createMediaCaption(media, true, mediaType),
@@ -98,6 +99,9 @@ export const saveMedia = async (ctx: any) => {
         }
     )
     if (successSave) {
+        await deleteMessages(ctx, [1])
+    } else {
+        await addMessageSession(ctx.from.id, successSave.message_id, SessionMessageType.Temp)
     }
 
 
