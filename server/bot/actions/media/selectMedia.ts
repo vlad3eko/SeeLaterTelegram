@@ -1,6 +1,4 @@
 import {sendMediaCard} from "#server/bot/consts/media/sendMediaCard";
-import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
-import {addMessageSession} from "#server/bot/services/session/addMessageSession";
 
 export const selectMedia = async (ctx: any) => {
 

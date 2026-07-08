@@ -19,7 +19,7 @@ export default defineEventHandler(async (event) => {
 
     const {error: prcError} = await supabase.rpc('save_message_session', {
         p_user_id: user.id,
-        p_message_id: body.telegram_id,
+        p_message_id: body.message_id,
         p_type: body.type
     })
 
