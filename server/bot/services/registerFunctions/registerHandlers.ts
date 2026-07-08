@@ -25,7 +25,8 @@ export function registerHandlers(bot: Telegraf) {
 
         if (!state?.waitingMovie) {
 
-            await deleteMessages(ctx, [textId])
+
+            await addMessageSession(ctx.from.id, textId, SessionMessageType.SearchInline)
             const message = await ctx.reply(
                 `🔍 Искать фильм «${text}» через быстрый поиск?`, {
                     reply_markup: keyboardSearchBot('Искать', text, text)
