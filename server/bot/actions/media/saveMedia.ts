@@ -56,6 +56,7 @@ export const saveMedia = async (ctx: any) => {
     })
 
     if (!success) {
+        await ctx.callbackQuery()
 
         if (error?.message.includes('duplicate key value')) {
 
@@ -71,7 +72,6 @@ export const saveMedia = async (ctx: any) => {
                 ])
             )
 
-            await ctx.callbackQuery()
 
             await addMessageSession(
                 ctx.from.id,
