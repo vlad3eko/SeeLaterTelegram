@@ -5,7 +5,7 @@ import {addMessageSession} from "#server/bot/services/session/addMessageSession"
 import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
 import {commandClear} from "#server/bot/commands/commandClear";
 import {keyboardSavedMediaCardBot, keyboardSearchBot} from "#server/bot/consts/buttons/keyboardBot";
-import {saveMessageSession} from "#server/bot/services/session/saveMessageSession";
+import {removeMessageSession} from "#server/bot/services/session/removeMessageSession";
 
 export const saveMedia = async (ctx: any) => {
 
@@ -99,6 +99,6 @@ export const saveMedia = async (ctx: any) => {
         await deleteMessages(ctx, [1])
     }
 
-    await saveMessageSession(ctx.from.id, successSave.message_id, SessionMessageType.Media)
+    await removeMessageSession(ctx.from.id, successSave.message_id)
     await commandClear(ctx)
 }

@@ -28,5 +28,5 @@ export const sendMediaCard = async (ctx: any, id: number, mediaType: string) => 
         }
     )
 
-    await addMessageSession(ctx.from.id, sendCardMedia.message_id, SessionMessageType.SearchInline)
+    await addMessageSession(ctx.from.id, sendCardMedia.message_id, SessionMessageType.SendMediaCard)
 }
