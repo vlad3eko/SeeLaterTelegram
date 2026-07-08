@@ -19,7 +19,7 @@ export const sendMediaCard = async (ctx: any, id: number, mediaType: string) => 
     const callbackData =
         `${ctx.from.id}_${media.id}_${mediaType}`
 
-    const message = await ctx.replyWithPhoto(
+    await ctx.replyWithPhoto(
         `https://image.tmdb.org/t/p/w500${mediaPoster}`,
         {
             caption: createMediaCaption(media, false, mediaType),
