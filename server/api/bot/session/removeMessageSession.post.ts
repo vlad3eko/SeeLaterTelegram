@@ -17,10 +17,14 @@ export default defineEventHandler(async (event) => {
         })
     }
 
-    const {error: prcError} = await supabase.rpc('remove_message_session', {
-        p_user_id: user.id,
-        p_message_id: body.message_id,
-    })
+    const {error: prcError} = await supabase.rpc(
+        'remove_message_session',
+        {
+            p_user_id: user.id,
+            p_message_id: body.message_id,
+            p_inline_message_id: body.inline_message_id
+        }
+    )
 
     if (prcError) {
         throw prcError

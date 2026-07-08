@@ -1,4 +1,8 @@
-export const addMessageSession = async (telegramId: number, messageId: number, type: string) => {
+export const addMessageSession = async (
+    telegramId: number,
+    messageId: number,
+    type: string
+) => {
 
     if (!telegramId || !messageId) return
 
@@ -7,7 +11,9 @@ export const addMessageSession = async (telegramId: number, messageId: number, t
         body: {
             telegram_id: telegramId,
             message_id: messageId,
+            inline_message_id: null,
             type
         }
     })
+
 }

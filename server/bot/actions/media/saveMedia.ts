@@ -2,7 +2,7 @@ import {isSubscriber} from "#server/bot/handlers/channel/isSubscriber";
 import {keyboardSavedMediaCardBot} from "#server/bot/consts/buttons/keyboardBot";
 import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
 import {commandClear} from "#server/bot/commands/commandClear";
-import {removeInlineMessageSession} from "#server/bot/services/session/removeInlineMessageSession";
+import {removeMessageSession} from "#server/bot/services/session/removeMessageSession";
 
 export const saveMedia = async (ctx: any) => {
 
@@ -68,9 +68,12 @@ export const saveMedia = async (ctx: any) => {
         return
     }
 
-    if(ctx.inlineMessageId){
-        await removeInlineMessageSession(ctx.from.id, ctx.inlineMessageId)
-    }
+    await removeMessageSession(
+        ctx.from.id,
+        {
+            inlineMessageId: ctx.inlineMessageId
+        }
+    )
 
 
     await ctx.editMessageCaption(

@@ -63,7 +63,11 @@ export default defineEventHandler(async (event) => {
         }
 
 
-        if(!message.messageId){
+        if (message.inlineMessageId) {
+            continue
+        }
+
+        if (!message.messageId) {
             continue
         }
 

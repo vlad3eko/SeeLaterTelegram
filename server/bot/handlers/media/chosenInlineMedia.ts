@@ -3,11 +3,7 @@ import { addInlineMessageSession } from "#server/bot/services/session/addInlineM
 
 export const chosenInlineMedia = async (ctx: any) => {
 
-    console.log(ctx)
-    console.dir(ctx.update, { depth: null })
-
     const result = ctx.chosenInlineResult
-    console.log('res', result)
     if (!result.inline_message_id) return
 
     await addInlineMessageSession(
@@ -15,5 +11,4 @@ export const chosenInlineMedia = async (ctx: any) => {
         result.inline_message_id,
         SessionMessageType.InlineMediaCard
     )
-
 }

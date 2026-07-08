@@ -1,17 +1,19 @@
-export const addInlineMessageSession = async (
+export const addMessageSession = async (
     telegramId: number,
-    inlineMessageId: string,
+    messageId: number,
     type: string
 ) => {
 
-    if (!telegramId || !inlineMessageId) return
+    if (!telegramId || !messageId) return
 
-    await $fetch('/api/bot/session/addInlineMessageSession', {
+    await $fetch('/api/bot/session/addMessageSession', {
         method: 'POST',
         body: {
             telegram_id: telegramId,
-            inline_message_id: inlineMessageId,
+            message_id: messageId,
+            inline_message_id: null,
             type
         }
     })
+
 }
