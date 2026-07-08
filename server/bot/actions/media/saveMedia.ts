@@ -5,7 +5,7 @@ import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
 import {addMessageSession} from "#server/bot/services/session/addMessageSession";
 import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
 import {commandClear} from "#server/bot/commands/commandClear";
-import {keyboardSavedMediaCardBot} from "#server/bot/consts/buttons/keyboardBot";
+import {keyboardSavedMediaCardBot, keyboardSearchBot} from "#server/bot/consts/buttons/keyboardBot";
 import {SearchButtonBot} from "#server/bot/consts/buttons/buttonsBot";
 
 export const saveMedia = async (ctx: any) => {
@@ -64,7 +64,7 @@ export const saveMedia = async (ctx: any) => {
 
             const errorMessage = await ctx.reply(
                 `❌ Ой: вы уже сохраняли - ${mediaTitle}`,{
-                    reply_markup: SearchButtonBot(ctx, mediaTitle, '')
+                    reply_markup: keyboardSearchBot(ctx, mediaTitle, '')
                 }
             )
 
