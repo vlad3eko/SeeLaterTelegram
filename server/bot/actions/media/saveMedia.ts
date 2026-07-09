@@ -7,7 +7,7 @@ import {removeMessageSession} from "#server/bot/services/session/removeMessageSe
 export const saveMedia = async (ctx: any) => {
 
     await ctx.answerCbQuery('Сохранение...')
-
+    console.log('SAVE CLICKED')
     await isSubscriber(ctx)
 
     const userId = ctx.from.id
