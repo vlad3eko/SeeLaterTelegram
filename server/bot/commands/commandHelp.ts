@@ -14,7 +14,8 @@ export async function commandHelp(ctx: any) {
         `)
     await addMessageSession(
         ctx.from.id,
-        message.message_id,
-        SessionMessageType.Command
+        SessionMessageType.Command, {
+            messageId: message.message_id
+        }
     )
 }

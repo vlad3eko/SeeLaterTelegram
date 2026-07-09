@@ -1,9 +1,35 @@
+import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
+import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBot";
+
 export const deleteMedia = async (ctx: any) => {
 
     await ctx.answerCbQuery('Удаление...')
 
     const telegramId = ctx.from.id
     const mediaId = Number(ctx.match[1])
+    const mediaType = ctx.match[2]
+
+    const media = await $fetch('/api/bot/getMediaBot', {
+        query: {
+            id: mediaId,
+            media: mediaType
+        }
+    })
+
+    await ctx.editMessageCaption(
+        createMediaCaption(
+            media,
+            false,
+            media.media_type
+        ),
+        {
+            parse_mode: 'HTML',
+            reply_markup: keyboardSendMediaCardInline(
+                media.id,
+                media.media_type
+            )
+        }
+    )
 
     await $fetch('/api/bot/deleteMediaBot', {
         method: 'POST',
@@ -12,4 +38,6 @@ export const deleteMedia = async (ctx: any) => {
             tmdb_id: mediaId
         }
     })
+
+    await ctx.answerCbQuery('Удалено...')
 }

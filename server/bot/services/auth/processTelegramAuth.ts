@@ -29,8 +29,8 @@ export const processTelegramAuth = async (ctx: any, sendSuccessMessage: boolean 
         )
         await addMessageSession(
             ctx.from.id,
-            errorMessage.message_id,
-            SessionMessageType.Error
+            SessionMessageType.Error,
+            {messageId: errorMessage.message_id}
         )
 
         return false

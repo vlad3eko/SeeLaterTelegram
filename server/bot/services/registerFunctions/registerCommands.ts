@@ -17,8 +17,9 @@ export function registerCommands(bot:Telegraf) {
 
         await addMessageSession(
             ctx.from.id,
-            message,
-            SessionMessageType.Command
+            SessionMessageType.Command, {
+                messageId: message
+            }
         )
     })
     bot.command('help', commandHelp)

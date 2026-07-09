@@ -13,13 +13,13 @@ export function registerHandlers(bot: Telegraf) {
 
         if (text.startsWith('/')) return
 
-        await addMessageSession(ctx.from.id, textId, SessionMessageType.SearchInline)
+        await addMessageSession(ctx.from.id, SessionMessageType.SearchInline, {messageId: textId})
         const message = await ctx.reply(
             `🔍 Искать фильм «${text}» через быстрый поиск?`, {
                 reply_markup: keyboardSearchBot('Искать', text, text)
             }
         )
-        await addMessageSession(ctx.from.id, message.message_id, SessionMessageType.SearchInline)
+        await addMessageSession(ctx.from.id, SessionMessageType.SearchInline, {messageId: message.message_id})
     })
 
     bot.on('inline_query', searchMediaInline)
