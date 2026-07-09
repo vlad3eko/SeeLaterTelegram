@@ -19,7 +19,6 @@ export const deleteMedia = async (ctx: any) => {
     await ctx.editMessageCaption(
         createMediaCaption(
             media,
-            false,
             mediaType
         ),
         {
