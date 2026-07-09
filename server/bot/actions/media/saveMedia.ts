@@ -8,7 +8,12 @@ export const saveMedia = async (ctx: any) => {
 
     const isUserBot = await isSubscriber(ctx)
 
-    await ctx.answerCbQuery(isUserBot ? '✅ Добавлено в вашу коллекцию' : '❌ Только для пользователей бота')
+    if (isUserBot) {
+        await ctx.answerCbQuery('✅ Добавлено в вашу коллекцию')
+    } else {
+        await ctx.answerCbQuery('❌ Только для пользователей бота')
+        return
+    }
 
     const userId = ctx.from.id
     const mediaId = Number(ctx.match[1])
