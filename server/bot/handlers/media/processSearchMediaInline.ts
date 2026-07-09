@@ -11,7 +11,7 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
             photo_url: `https://image.tmdb.org/t/p/w500${media.poster_path}`,
             thumbnail_url: `https://image.tmdb.org/t/p/w500${media.poster_path}`,
 
-            caption: createMediaCaption(media, false, media.media_type),
+            caption: createMediaCaption(media, media.media_type),
 
             parse_mode: 'HTML',
             reply_markup: keyboardSendMediaCardInline(media.id, media.media_type)

@@ -79,7 +79,6 @@ export const saveMedia = async (ctx: any) => {
     await ctx.editMessageCaption(
         createMediaCaption(
             media,
-            true,
             mediaType
         ),
         {
