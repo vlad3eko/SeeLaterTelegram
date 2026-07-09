@@ -15,8 +15,7 @@ export const createMediaCaption = (media: any, isSaved: boolean, mediaType: stri
         ? media.overview.slice(0, 150) + '...'
         : media.overview || 'Описание отсутствует'
     const releaseYear = FormatDate(media.release_date || media.first_air_date) || releaseDateUndefined
-    const status = isSaved ? '✅Сохранён' : '❌ Не сохранён'
 
     return `<code>«${mediaTitle}» (${releaseYear})</code> 
-                <blockquote expandable>${mediaOverview}</blockquote> \n<b>Жанр:</b> <i>#${genresContent}</i>\n<b>Тип:</b> <i>#${mediaTypeConvert(mediaType)}</i> \n<b>Дата выхода:</b> <i>${mediaReleaseConvert(media)} </i>\n<b>Статус:</b> <i>${status}</i>`
+                <blockquote expandable>${mediaOverview}</blockquote> \n<b>Жанр:</b> <i>#${genresContent}</i>\n<b>Тип:</b> <i>#${mediaTypeConvert(mediaType)}</i> \n<b>Дата выхода:</b> <i>${mediaReleaseConvert(media)} </i>\n`
 }

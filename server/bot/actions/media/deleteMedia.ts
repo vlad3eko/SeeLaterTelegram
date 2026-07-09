@@ -3,7 +3,7 @@ import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBo
 
 export const deleteMedia = async (ctx: any) => {
 
-    await ctx.answerCbQuery('Удаление...')
+    await ctx.answerCbQuery('✅ Удалено из вашей коллекции')
 
     const telegramId = ctx.from.id
     const mediaId = Number(ctx.match[1])
