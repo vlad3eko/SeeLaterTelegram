@@ -2,7 +2,8 @@ import {FormatDate} from "~/utils/formatMoviesData";
 import {mediaReleaseConvert, mediaTypeConvert} from "~/utils/convert/mediaConvert";
 import type {TmdbGenre} from "~/types/tmdb.types";
 
-export const createMediaCaption =  (media: any, isSaved: boolean, mediaType: string) => {
+export const createMediaCaption = (media: any, isSaved: boolean, mediaType: string) => {
+
     const releaseDateUndefined = '❌официальной даты пока нет'
 
     const genresContent = (media.genres || [])

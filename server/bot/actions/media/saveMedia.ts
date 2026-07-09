@@ -88,7 +88,5 @@ export const saveMedia = async (ctx: any) => {
         }
     )
 
-    await ctx.answerCbQuery('Сохранено...')
-
     await commandClear(ctx)
 }
