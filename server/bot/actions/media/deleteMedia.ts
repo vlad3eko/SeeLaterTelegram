@@ -31,10 +31,6 @@ export const deleteMedia = async (ctx: any) => {
         }
     )
 
-    console.log(
-        keyboardSendMediaCardInline(media.id, media.media_type)
-    )
-
     await $fetch('/api/bot/deleteMediaBot', {
         method: 'POST',
         body: {

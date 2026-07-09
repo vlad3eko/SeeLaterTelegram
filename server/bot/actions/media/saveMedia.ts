@@ -5,7 +5,11 @@ import {commandClear} from "#server/bot/commands/commandClear";
 import {removeMessageSession} from "#server/bot/services/session/removeMessageSession";
 
 export const saveMedia = async (ctx: any) => {
-
+    console.log({
+        inlineMessageId: ctx.inlineMessageId,
+        callbackInlineId: ctx.callbackQuery?.inline_message_id,
+        message: ctx.callbackQuery?.message
+    })
     await ctx.answerCbQuery('Сохранение...')
     console.log('SAVE CLICKED')
     await isSubscriber(ctx)
