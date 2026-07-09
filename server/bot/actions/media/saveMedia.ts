@@ -25,14 +25,6 @@ export const saveMedia = async (ctx: any) => {
         }
     )
 
-    console.log(
-        JSON.stringify(
-            keyboardSendMediaCardInline(media.id, media.media_type),
-            null,
-            2
-        )
-    )
-
     const mediaTitle = media.title || media.name
     const voteAverage = media.vote_average || 0
     const voteCount = media.vote_count || 0

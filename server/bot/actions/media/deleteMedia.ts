@@ -16,6 +16,15 @@ export const deleteMedia = async (ctx: any) => {
         }
     })
 
+
+    console.log(
+        JSON.stringify(
+            keyboardSendMediaCardInline(media.id, media.media_type),
+            null,
+            2
+        )
+    )
+
     await ctx.editMessageCaption(
         createMediaCaption(
             media,
