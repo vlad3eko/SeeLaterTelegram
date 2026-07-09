@@ -29,13 +29,13 @@ export const deleteMedia = async (ctx: any) => {
         createMediaCaption(
             media,
             false,
-            media.media_type
+            mediaType
         ),
         {
             parse_mode: 'HTML',
             reply_markup: keyboardSendMediaCardInline(
                 media.id,
-                media.media_type
+                mediaType
             )
         }
     )
