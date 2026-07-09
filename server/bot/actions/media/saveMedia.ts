@@ -1,15 +1,11 @@
 import {isSubscriber} from "#server/bot/handlers/channel/isSubscriber";
-import {keyboardSavedMediaCardBot} from "#server/bot/consts/buttons/keyboardBot";
+import {keyboardSavedMediaCardBot, keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBot";
 import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
 import {commandClear} from "#server/bot/commands/commandClear";
 import {removeMessageSession} from "#server/bot/services/session/removeMessageSession";
 
 export const saveMedia = async (ctx: any) => {
-    console.log({
-        inlineMessageId: ctx.inlineMessageId,
-        callbackInlineId: ctx.callbackQuery?.inline_message_id,
-        message: ctx.callbackQuery?.message
-    })
+
     await ctx.answerCbQuery('Сохранение...')
     console.log('SAVE CLICKED')
     await isSubscriber(ctx)
@@ -17,6 +13,7 @@ export const saveMedia = async (ctx: any) => {
     const userId = ctx.from.id
     const mediaId = Number(ctx.match[1])
     const mediaType = ctx.match[2]
+
 
     const media = await $fetch(
         '/api/bot/getMediaBot',
@@ -28,6 +25,13 @@ export const saveMedia = async (ctx: any) => {
         }
     )
 
+    console.log(
+        JSON.stringify(
+            keyboardSendMediaCardInline(media.id, media.media_type),
+            null,
+            2
+        )
+    )
 
     const mediaTitle = media.title || media.name
     const voteAverage = media.vote_average || 0
