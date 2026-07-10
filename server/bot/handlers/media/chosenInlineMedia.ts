@@ -1,44 +1,108 @@
-import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
-import {addMessageSession} from "#server/bot/services/session/addMessageSession";
 import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
 import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBot";
 
-export const chosenInlineMedia = async (ctx: any) => {
-
-    console.log('start')
-    const result = await ctx.chosenInlineResult
-    console.log('result', result)
+export const chosenInlineMedia = async (ctx:any)=>{
 
     try {
 
+        const result =
+            ctx.chosenInlineResult
+
+
+        console.log(
+            'chosen result',
+            result
+        )
+
+
         const inlineMessageId =
             result.inline_message_id
-        console.log('result', inlineMessageId)
+
 
         const resultId =
             result.result_id
-        console.log('result', resultId)
 
-        if (!inlineMessageId || !resultId)
+
+        if(!inlineMessageId || !resultId)
             return
 
+
+
         const [
-            type,
-            id
-        ] = resultId.split('_')
-        console.log('type, id', type, id)
+            mediaType,
+            mediaId
+        ] =
+            resultId.split('_')
 
-        const media = await $fetch('/api/bot/getMediaBot', {
-            query: {
-                id: id,
-                media: type
+
+
+        const media = await $fetch(
+            '/api/bot/media/getMediaBot',
+            {
+                query:{
+                    media: mediaType,
+                    id: mediaId
+                }
             }
-        })
-        console.log('media')
+        )
 
-        await new Promise(resolve => setTimeout(resolve, 300))
+
+
+        await new Promise(resolve =>
+            setTimeout(resolve,300)
+        )
+
+
 
         await ctx.telegram.editMessageMedia(
+
+            undefined,
+
+            undefined,
+
+            inlineMessageId,
+
+
+            {
+                type:'photo',
+
+                media:
+                    `https://image.tmdb.org/t/p/w500${media.poster_path}`,
+
+                caption:
+                    createMediaCaption(
+                        media,
+                        mediaType
+                    ),
+
+                parse_mode:'HTML'
+            },
+
+
+            {
+                reply_markup:
+                    keyboardSendMediaCardInline(
+                        mediaId,
+                        mediaType
+                    )
+            }
+        )
+
+
+
+    } catch(e){
+
+        console.log(
+            'chosenInlineMedia error',
+            e
+        )
+
+    }
+
+}
+
+/*
+* await ctx.telegram.editMessageMedia(
             undefined,
             undefined,
             inlineMessageId,
@@ -51,12 +115,4 @@ export const chosenInlineMedia = async (ctx: any) => {
             {
                 reply_markup: keyboardSendMediaCardInline(media.id, media.media_type)
             }
-        )
-
-        console.log('end')
-
-    } catch (e) {
-        console.log('chosenInlineMedia error', e)
-    }
-
-}
+        )*/
