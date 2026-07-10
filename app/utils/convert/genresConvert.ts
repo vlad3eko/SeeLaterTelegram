@@ -1,5 +1,4 @@
-import type { TmdbGenre } from "~/types/tmdb.types";
-
+import type {TmdbGenre} from "~/types/tmdb.types";
 
 export const genresConvert = (
     genres: TmdbGenre[] = []
@@ -56,5 +55,5 @@ export const genresConvert = (
 
         })
         .filter(Boolean)
-        .join(' ')
+        .join(' • ')
 }
