@@ -12,7 +12,7 @@ export const createMediaCaption = (media: any, mediaType: string) => {
     const mediaOverview = media.overview?.length > 350
         ? media.overview.slice(0, 150) + '...'
         : media.overview || 'Описание отсутствует'
-    const channelLink = `👁‍🗨 <a href="https://t.me/kinomanovNet_bot">Киноманов BOT | Ищи и Сохраняй</a>`
+    const channelLink = `🏷 <a href="https://t.me/kinomanovNet_bot">Киноманов BOT | Ищи и Сохраняй</a>`
 
     return `${mediaTitle}
                 <blockquote expandable>${mediaOverview}</blockquote>\n
