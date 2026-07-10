@@ -12,9 +12,9 @@ export function registerHandlers(bot: Telegraf) {
         const textId = ctx.message.message_id
 
         if (text.startsWith('/')) return
-        if (text.startsWith('bot:')) {
-            return chosenInlineMedia
-        }
+        // if (text.startsWith('bot:')) {
+        //     return chosenInlineMedia
+        // }
 
         await addMessageSession(ctx.from.id, SessionMessageType.SearchInline, {messageId: textId})
         const message = await ctx.reply(
