@@ -1,4 +1,4 @@
-import {keyboardSavedMediaCardBot} from "#server/bot/consts/buttons/keyboardBot";
+import {keyboardSavedMediaCardBot, keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBot";
 import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
 import {commandClear} from "#server/bot/commands/commandClear";
 import {removeMessageSession} from "#server/bot/services/session/removeMessageSession";
@@ -88,7 +88,7 @@ export const saveMedia = async (ctx: any) => {
         ),
         {
             parse_mode:'HTML',
-            reply_markup: keyboardSavedMediaCardBot(mediaId, mediaType)
+            reply_markup: keyboardSendMediaCardInline(mediaId, mediaType)
         }
     )
 
