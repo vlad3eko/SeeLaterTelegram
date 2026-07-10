@@ -7,9 +7,6 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
         const results = medias.results.map((media: any) => ({
             type: 'photo',
             id: `${media.media_type}_${media.id}`,
-            title: media.title || media.name,
-
-            description: "Тестовое описание",
             photo_url: `https://image.tmdb.org/t/p/w500${media.poster_path}`,
             thumbnail_url: `https://image.tmdb.org/t/p/w500${media.poster_path}`,
 
