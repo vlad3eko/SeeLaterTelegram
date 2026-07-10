@@ -1,7 +1,7 @@
 import type {TmdbMovieDetails} from "~/types/tmdb.types";
 import type {MediaTypesSupabase} from "~/types/bookmarks/media.types";
 
-export const mapTmdbMovie = (
+export const mapMediaSupabase = (
     media: TmdbMovieDetails
 ): Partial<MediaTypesSupabase> => {
 

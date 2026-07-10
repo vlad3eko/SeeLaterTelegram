@@ -47,13 +47,13 @@ export interface TmdbGenre {
 
 export interface TmdbMovieProps {
     media: TmdbMovieDetails
-    mode?: Extract<MoviePropsMode, 'tmdb'>
+    mode?: Extract<MoviePropsMode, 'search'>
     showInfo?: boolean
 }
 
 export interface TmdbMoviesProps {
     media: TmdbMovieDetails[]
     loading?: boolean
-    mode?: Extract<MoviePropsMode, 'tmdb'>
+    mode?: Extract<MoviePropsMode, 'search'>
     showInfo?: boolean
 }

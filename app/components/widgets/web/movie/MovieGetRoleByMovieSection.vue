@@ -7,7 +7,7 @@
 
     <CastNCrewPanel v-for="section in convertCrewSection" :key="section.id">
       <UiHorizontalScroller :title="section.title" :items="section.items" v-slot="{item}">
-          <PersonCard :item="item" :mode="'tmdb'"/>
+          <PersonCard :item="item" :mode="'search'"/>
       </UiHorizontalScroller>
     </CastNCrewPanel>
 </template>

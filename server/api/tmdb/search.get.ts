@@ -1,4 +1,5 @@
 export default defineEventHandler(async (event) => {
+
     const query = getQuery(event)
 
     const config = useRuntimeConfig()
@@ -9,11 +10,19 @@ export default defineEventHandler(async (event) => {
     }
 
     const type = query.media || 'multi'
+    const params = new URLSearchParams({
+        query: String(query.q || ''),
+        language: 'ru-RU',
+        page: String(query.page || 1)
+    })
 
     const res = await fetch(
-        `https://api.themoviedb.org/3/search/${type}?query=${query.q}&language=ru-RU`,
-        { headers }
+        `https://api.themoviedb.org/3/search/${type}?${params}`,
+        {
+            headers
+        }
     )
 
     return await res.json()
+
 })
