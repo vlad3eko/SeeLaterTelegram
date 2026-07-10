@@ -9,7 +9,7 @@ export const createMediaCaption = (media: any, mediaType: string) => {
 
     const mediaTitle = `<code>${media.title || media.name} (${FormatDate(media.release_date || media.first_air_date) || '❌официальной даты пока нет'})</code> `
     const mediaOverview = media.overview?.length > 350
-        ? media.overview.slice(0, 250) + '...'
+        ? media.overview.slice(0, 350) + '...'
         : media.overview || 'Описание отсутствует'
     const channelLink = `🏷 <a href="https://t.me/kinomanovNet_bot">Киноманов BOT | Ищи и Сохраняй</a>`
 
