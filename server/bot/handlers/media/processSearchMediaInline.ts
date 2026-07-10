@@ -14,7 +14,7 @@ export const processSearchMediaInline = async (
             description:  `${media.media_type} | imdb 7.9 | (${FormatDate(media.release_date || media.first_air_date) || '❌ отсутствует'})`,
             thumb_url:  `https://image.tmdb.org/t/p/w500${media.poster_path}`,
             message_text:  'Загрузка карточки...',
-            reply_markup: null
+            reply_markup: keyboardSendMediaCardInline(media.id, media.media_type)
         }))
 
 

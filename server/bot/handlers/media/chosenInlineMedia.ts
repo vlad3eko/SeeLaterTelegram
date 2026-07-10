@@ -1,34 +1,81 @@
-import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
 import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBot";
+import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
 
-export const chosenInlineMedia = async (ctx:any)=>{
+
+export const chosenInlineMedia = async(ctx:any)=>{
+
+    try {
+
+        const result =
+            ctx.chosenInlineResult
 
 
-    console.log('UPDATE:')
-    console.dir(ctx.update, { depth: null })
+        console.log(
+            'chosen result:',
+            result
+        )
 
-    console.log('CTX:')
-    console.dir(ctx.chosenInlineResult, { depth: null })
 
-    const result = ctx.chosenInlineResult
-    console.log('chosen results', result)
+        const inlineMessageId =
+            result.inline_message_id
 
-    if (!result.inline_message_id) return
 
-}
+        if(!inlineMessageId){
+            console.log(
+                'Нет inline_message_id'
+            )
+            return
+        }
 
-/*
-* await ctx.telegram.editMessageMedia(
+
+        const [
+            mediaType,
+            mediaId
+        ] =
+            result.result_id.split('_')
+
+
+        const media =
+            await $fetch(
+                '/api/bot/media/getMediaBot',
+                {
+                    query:{
+                        media:mediaType,
+                        id:mediaId
+                    }
+                }
+            )
+
+        await new Promise(resolve =>
+            setTimeout(resolve,800)
+        )
+
+
+        await ctx.telegram.editMessageMedia(
             undefined,
             undefined,
             inlineMessageId,
             {
                 type: 'photo',
-                media: `https://image.tmdb.org/t/p/w500${media.poster_path}`,
-                caption: createMediaCaption(media, media.media_type),
+                media: `https://image.tmdb.org/t/p/w500${media.poster_path || media.backdrop_path}`,
+                caption: createMediaCaption(media, mediaType),
                 parse_mode: 'HTML',
             },
             {
-                reply_markup: keyboardSendMediaCardInline(media.id, media.media_type)
+                reply_markup: keyboardSendMediaCardInline(mediaId, mediaType)
             }
-        )*/
+        )
+
+
+    } catch(e){
+
+        console.log(
+            'chosenInlineMedia error:',
+            e
+        )
+    }
+
+}
+
+/*
+* */
