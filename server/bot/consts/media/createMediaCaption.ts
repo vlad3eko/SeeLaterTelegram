@@ -6,7 +6,7 @@ export const createMediaCaption = (media: any, mediaType: string) => {
 
     const genresContent = (media.genres || [])
         .map((i: TmdbGenre) => i.name)
-        .join(' / #') || 'нет данных'
+        .join(' • #') || 'нет данных'
 
     const mediaTitle = `<code>${media.title || media.name} (${FormatDate(media.release_date || media.first_air_date) || '❌официальной даты пока нет'})</code> `
     const mediaOverview = media.overview?.length > 350

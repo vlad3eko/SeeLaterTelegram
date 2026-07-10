@@ -5,7 +5,7 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
 
     try {
         const results = medias.results.map((media: any) => ({
-            type: 'photo',
+            type: 'article',
 
             id: `${media.media_type}_${media.id}`,
 
