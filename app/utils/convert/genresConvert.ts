@@ -26,7 +26,7 @@ export const genresConvert = (
                 )
 
             })
-            .join('')
+            .join(' • ')
             .replace(
                 /[^а-яА-Яa-zA-Z0-9]/g,
                 ''
