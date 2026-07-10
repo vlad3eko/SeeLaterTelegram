@@ -1,23 +1,31 @@
 import {FormatDate} from "~/utils/formatMoviesData";
 
-export const processSearchMediaInline = async (ctx: any, medias: any) => {
+export const processSearchMediaInline = async (
+    ctx: any,
+    medias: any
+) => {
 
     try {
+
         const results = medias.results.map((media:any)=>({
-            type: 'article',
-            id: `${media.media_type}_${media.id}`,
-
+            type:'article',
+            id:  `${media.media_type}_${media.id}`,
             title:  media.title || media.name,
-            description: `${media.media_type} | imdb 7.9 | (${FormatDate(media.release_date || media.first_air_date) || '❌ отсутствует'})`,
-            thumb_url: `https://image.tmdb.org/t/p/w500${media.poster_path}`,
-
-            message_text: 'bot: загрузка карточки...',
+            description:  `${media.media_type} | imdb 7.9 | (${FormatDate(media.release_date || media.first_air_date) || '❌ отсутствует'})`,
+            thumb_url:  `https://image.tmdb.org/t/p/w500${media.poster_path}`,
+            message_text:  'Загрузка карточки...',
+            parse_mode:'HTML'
         }))
 
-        await ctx.answerInlineQuery(
-            results, {cache_time:0})
 
-    } catch(e) {
+        await ctx.answerInlineQuery(
+            results,
+            {
+                cache_time:0
+            }
+        )
+
+    } catch(e){
         console.log('Ошибка inline:', e)
         await ctx.answerInlineQuery([])
     }
