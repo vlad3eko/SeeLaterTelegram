@@ -1,12 +1,12 @@
-import {isSubscriber} from "#server/bot/handlers/channel/isSubscriber";
-import {keyboardSavedMediaCardBot, keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBot";
+import {keyboardSavedMediaCardBot} from "#server/bot/consts/buttons/keyboardBot";
 import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
 import {commandClear} from "#server/bot/commands/commandClear";
 import {removeMessageSession} from "#server/bot/services/session/removeMessageSession";
+import {checkChannelSubscriber} from "#server/bot/handlers/auth/check/checkChannelSubscriber";
 
 export const saveMedia = async (ctx: any) => {
 
-    const isUserBot = await isSubscriber(ctx)
+    const isUserBot = await checkChannelSubscriber(ctx)
 
     if (isUserBot) {
         await ctx.answerCbQuery('✅ Добавлено в вашу коллекцию')
