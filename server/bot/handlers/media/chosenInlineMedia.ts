@@ -37,7 +37,7 @@ export const chosenInlineMedia = async(ctx:any)=>{
 
         const media =
             await $fetch(
-                '/api/bot/media/getMediaBot',
+                '/api/bot/getMediaBot',
                 {
                     query:{
                         media:mediaType,
