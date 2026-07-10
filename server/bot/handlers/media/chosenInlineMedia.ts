@@ -3,6 +3,13 @@ import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBo
 
 export const chosenInlineMedia = async (ctx:any)=>{
 
+
+    console.log('UPDATE:')
+    console.dir(ctx.update, { depth: null })
+
+    console.log('CTX:')
+    console.dir(ctx.chosenInlineResult, { depth: null })
+
     const result = ctx.chosenInlineResult
     console.log('chosen results', result)
 
