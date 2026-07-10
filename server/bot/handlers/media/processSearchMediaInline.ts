@@ -12,7 +12,6 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
             thumb_url: `https://image.tmdb.org/t/p/w500${media.poster_path}`,
 
             message_text: 'bot: загрузка карточки...',
-            parse_mode: 'HTML'
         }))
 
         await ctx.answerInlineQuery(
