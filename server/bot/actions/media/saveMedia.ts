@@ -1,4 +1,4 @@
-import {keyboardSavedMediaCardBot, keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBot";
+import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBot";
 import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
 import {commandClear} from "#server/bot/commands/commandClear";
 import {removeMessageSession} from "#server/bot/services/session/removeMessageSession";

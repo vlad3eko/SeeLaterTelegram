@@ -4,18 +4,20 @@ import type {TmdbGenre} from "~/types/tmdb.types";
 
 export const createMediaCaption = (media: any, mediaType: string) => {
 
-    const releaseDateUndefined = '❌официальной даты пока нет'
-
     const genresContent = (media.genres || [])
         .map((i: TmdbGenre) => i.name)
         .join(' / #') || 'нет данных'
 
-    const mediaTitle = media.title || media.name
+    const mediaTitle = `<code>«${media.title || media.name}» (${FormatDate(media.release_date || media.first_air_date) || '❌официальной даты пока нет'})</code> `
     const mediaOverview = media.overview?.length > 350
         ? media.overview.slice(0, 150) + '...'
         : media.overview || 'Описание отсутствует'
-    const releaseYear = FormatDate(media.release_date || media.first_air_date) || releaseDateUndefined
+    const channelLink = `🔸 <a href="https://t.me/kinomanovNet_bot">Киноманов BOT | Ищи и Сохраняй</a>`
 
-    return `<code>«${mediaTitle}» (${releaseYear})</code> 
-                <blockquote expandable>${mediaOverview}</blockquote> \n<b>Жанр:</b> <i>#${genresContent}</i>\n<b>Тип:</b> <i>#${mediaTypeConvert(mediaType)}</i> \n<b>Дата выхода:</b> <i>${mediaReleaseConvert(media)} </i>\n`
+    return `${mediaTitle}
+                <blockquote expandable>${mediaOverview}</blockquote>\n
+                <b>Жанр:</b><i>#${genresContent}</i>\n
+                <b>Тип:</b><i>#${mediaTypeConvert(mediaType)}</i>\n
+                <b>Дата выхода:</b><i>${mediaReleaseConvert(media)}</i>\n
+                <b><i>${channelLink}</i></b>\n`
 }
