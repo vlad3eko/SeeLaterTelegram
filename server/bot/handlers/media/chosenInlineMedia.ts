@@ -6,17 +6,17 @@ import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBo
 export const chosenInlineMedia = async (ctx: any) => {
 
     console.log('start')
+    const result = ctx.chosenInlineResult
+    console.log('result', result)
     try {
-        const result = ctx.chosenInlineResult
-        console.log('result', result)
 
         const inlineMessageId =
             result.inline_message_id
-         console.log('result', inlineMessageId)
+        console.log('result', inlineMessageId)
 
         const resultId =
             result.result_id
-         console.log('result', resultId)
+        console.log('result', resultId)
 
         if (!inlineMessageId || !resultId)
             return
@@ -43,7 +43,7 @@ export const chosenInlineMedia = async (ctx: any) => {
             inlineMessageId,
             {
                 type: 'photo',
-                media:  `https://image.tmdb.org/t/p/w500${media.poster_path}`,
+                media: `https://image.tmdb.org/t/p/w500${media.poster_path}`,
                 caption: createMediaCaption(media, media.media_type),
                 parse_mode: 'HTML',
             },
