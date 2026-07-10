@@ -5,9 +5,10 @@ import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBo
 
 export const chosenInlineMedia = async (ctx: any) => {
 
+    console.log('start')
     try {
         const result = ctx.chosenInlineResult
-        console.log('chosen result', result)
+        console.log('result', result)
 
         const inlineMessageId =
             result.inline_message_id
@@ -30,6 +31,7 @@ export const chosenInlineMedia = async (ctx: any) => {
                 media: type
             }
         })
+        console.log('media')
 
         await new Promise(resolve => setTimeout(resolve, 300))
 
@@ -48,7 +50,7 @@ export const chosenInlineMedia = async (ctx: any) => {
             }
         )
 
-        console.log('media', media)
+        console.log('end')
 
     } catch (e) {
         console.log('chosenInlineMedia error', e)
