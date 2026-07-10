@@ -6,7 +6,6 @@ export const processSearchMediaInline = async (
 ) => {
 
     try {
-
         const results = medias.results.map((media:any)=>({
             type:'article',
             id:  `${media.media_type}_${media.id}`,
@@ -14,17 +13,10 @@ export const processSearchMediaInline = async (
             description:  `${media.media_type} | imdb 7.9 | (${FormatDate(media.release_date || media.first_air_date) || '❌ отсутствует'})`,
             thumb_url:  `https://image.tmdb.org/t/p/w500${media.poster_path}`,
             message_text:  'Загрузка карточки...',
-            parse_mode:'HTML'
         }))
 
 
-        await ctx.answerInlineQuery(
-            results,
-            {
-                cache_time:0
-            }
-        )
-
+        await ctx.answerInlineQuery(results)
     } catch(e){
         console.log('Ошибка inline:', e)
         await ctx.answerInlineQuery([])
