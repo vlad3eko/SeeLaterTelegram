@@ -4,6 +4,7 @@ import { addMessageSession } from "#server/bot/services/session/addMessageSessio
 export const chosenInlineMedia = async (ctx: any) => {
 
     const result = ctx.chosenInlineResult
+    console.log('chosen results', result)
 
     if (!result.inline_message_id) return
 
