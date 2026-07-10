@@ -23,4 +23,13 @@ export const chosenInlineMedia = async (ctx: any) => {
     ] = resultId.split('_')
     console.log('type, id', type, id)
 
+    const media = await $fetch('/api/bot/getMediaBot', {
+        query: {
+            id: id,
+            media: type
+        }
+    })
+
+    console.log('media', media)
+
 }
