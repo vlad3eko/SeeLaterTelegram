@@ -26,7 +26,7 @@ export const genresConvert = (
                 )
 
             })
-            .join(' • ')
+            .join('')
             .replace(
                 /[^а-яА-Яa-zA-Z0-9]/g,
                 ''
@@ -47,7 +47,7 @@ export const genresConvert = (
                 return words
                     .filter(word => word !== 'и')
                     .map(word => `#${formatGenre(word)}`)
-                    .join(' ')
+                    .join(' • ')
             }
 
 
