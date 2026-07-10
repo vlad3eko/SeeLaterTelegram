@@ -1,6 +1,7 @@
 import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
 import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBot";
 import {FormatDate} from "~/utils/formatMoviesData";
+
 export const processSearchMediaInline = async (ctx: any, medias: any) => {
 
     try {
@@ -18,8 +19,8 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
 
             input_message_content: {
                 message_text: createMediaCaption(media, media.media_type),
+                parse_mode: 'HTML',
             },
-            parse_mode: 'HTML',
             reply_markup: keyboardSendMediaCardInline(media.id, media.media_type)
         }))
 
