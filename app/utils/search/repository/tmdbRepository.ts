@@ -18,15 +18,14 @@ export const searchMulti = async (
 export const discoverMovies = async (
     query: NormalizedSearchQuery
 ) => {
-    // пока заглушка
-    // discover endpoint мы добавим следующим шагом
     return await $fetch(
-        "/api/tmdb/search",
+        "/api/tmdb/discover",
         {
             query: {
-                q: query.text,
+                media: "movie",
                 page: query.page,
-                media: "movie"
+                with_genres:
+                    query.filters.genres.join(",")
             }
         }
     )
