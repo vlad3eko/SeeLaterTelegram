@@ -7,9 +7,9 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
         const results = medias.results.map((media: any) => ({
             type: 'article',
 
-            id: '1',
+            id: `${media.media_type}_${media.id}`,
 
-            title: 'Железный человек',
+            title: media.title || media.name,
 
             description: 'фильм | imdb 7.9 | 2008',
 
