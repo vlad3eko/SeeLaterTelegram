@@ -14,6 +14,7 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
 
             title: media.title || media.name,
 
+
             description: [
                 media.media_type === 'movie' ? 'фильм' : 'сериал',
                 media.vote_average ? `★ ${media.vote_average.toFixed(1)}` : '',
