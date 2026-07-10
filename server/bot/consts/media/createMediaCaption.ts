@@ -8,16 +8,16 @@ export const createMediaCaption = (media: any, mediaType: string) => {
         .map((i: TmdbGenre) => i.name)
         .join(' / #') || 'нет данных'
 
-    const mediaTitle = `<code>«${media.title || media.name}» (${FormatDate(media.release_date || media.first_air_date) || '❌официальной даты пока нет'})</code> `
+    const mediaTitle = `<code>${media.title || media.name} (${FormatDate(media.release_date || media.first_air_date) || '❌официальной даты пока нет'})</code> `
     const mediaOverview = media.overview?.length > 350
         ? media.overview.slice(0, 150) + '...'
         : media.overview || 'Описание отсутствует'
-    const channelLink = `🔸 <a href="https://t.me/kinomanovNet_bot">Киноманов BOT | Ищи и Сохраняй</a>`
+    const channelLink = `👁‍🗨 <a href="https://t.me/kinomanovNet_bot">Киноманов BOT | Ищи и Сохраняй</a>`
 
     return `${mediaTitle}
                 <blockquote expandable>${mediaOverview}</blockquote>\n
- <b>Жанр:</b><i>#${genresContent}</i>
- <b>Тип:</b><i>#${mediaTypeConvert(mediaType)}</i>
- <b>Дата выхода:</b><i>${mediaReleaseConvert(media)}</i>\n
+ <b>Жанр: </b><i>#${genresContent}</i>
+ <b>Тип: </b><i>#${mediaTypeConvert(mediaType)}</i>
+ <b>Дата выхода: </b><i>${mediaReleaseConvert(media)}</i>\n
  <b><i>${channelLink}</i></b>`
 }
