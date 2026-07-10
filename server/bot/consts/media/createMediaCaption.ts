@@ -21,3 +21,6 @@ export const createMediaCaption = (media: any, mediaType: string) => {
 <b>Дата выхода: </b><i>${mediaReleaseConvert(media)}</i>\n
 <b><i>${channelLink}</i></b>`
 }
+
+
+

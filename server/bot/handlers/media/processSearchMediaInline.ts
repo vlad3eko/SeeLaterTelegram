@@ -1,6 +1,6 @@
 import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
 import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBot";
-
+import {FormatDate} from "~/utils/formatMoviesData";
 export const processSearchMediaInline = async (ctx: any, medias: any) => {
 
     try {
@@ -14,11 +14,13 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
 
             title: media.title || media.name,
 
-            description: 'фильм | imdb 7.9 | 2008',
+            description: `${media.media_type} | imdb 7.9 | (${FormatDate(media.release_date || media.first_air_date) || '❌ отсутствует'})`,
 
             input_message_content: {
-                message_text: 'test'
-            }
+                message_text: createMediaCaption(media, media.media_type),
+            },
+            parse_mode: 'HTML',
+            reply_markup: keyboardSendMediaCardInline(media.id, media.media_type)
         }))
 
         console.log('result', results[0])
@@ -28,3 +30,5 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
         await ctx.answerInlineQuery([])
     }
 }
+// caption:
+
