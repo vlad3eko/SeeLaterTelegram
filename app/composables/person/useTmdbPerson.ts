@@ -3,9 +3,9 @@ import type {
     TmdbPersonMovieCast,
     TmdbPersonMovieCrew
 } from "~/types/tmdb.person.types";
-import {sortByRating} from "~/utils/movie/sortByRating";
-import {filterTheMovie} from "~/utils/movie/filterTheMovie";
-import {getSectionMovieByRole} from "~/utils/movie/getSectionMovieByJob";
+import {sortByRating} from "~/utils/media/sortByRating";
+import {filterTheMovie} from "~/utils/media/filterTheMovie";
+import {getSectionMovieByRole} from "~/utils/media/getSectionMovieByJob";
 import {photoPersonSection} from "~/utils/person/photo/photoPersonSection";
 
 export const useTmdbPerson = () => {

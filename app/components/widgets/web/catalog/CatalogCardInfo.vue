@@ -52,7 +52,7 @@ const loadInfo = async () => {
 
   if (movieInfo.value) return
 
-  const data = await $fetch<TmdbMovieDetails>('/api/tmdb/movie', {
+  const data = await $fetch<TmdbMovieDetails>('/api/tmdb/media', {
     query: {
       id: props.media.id,
       media: props.media.media_type

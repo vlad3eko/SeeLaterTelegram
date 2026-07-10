@@ -27,9 +27,8 @@ export const parseSearchQuery = (
         }
 
         if (/^\d+$/.test(word)) {
-
-            page = Number(word)
-
+            const number = Number(word)
+            if(number <= 20) page = number
             continue
         }
 

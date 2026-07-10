@@ -16,7 +16,7 @@ export const useMovieDetails = () => {
     })
 
     const {data, pending} = useAsyncData<TmdbMovieDetails>(`${media}-${idMedia.value}`,
-        () => $fetch('/api/tmdb/movie', {
+        () => $fetch('/api/tmdb/media', {
             query: {
                 id: idMedia.value,
                 media

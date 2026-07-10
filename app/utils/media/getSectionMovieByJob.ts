@@ -1,6 +1,6 @@
 import type {TmdbPersonMovieCrew} from "~/types/tmdb.person.types";
 import {CREW_JOBS} from "~/constants/tmdb/crewJobs";
-import {getMovieByJob} from "~/utils/movie/mapMovieByRole";
+import {getMovieByJob} from "~/utils/media/mapMovieByRole";
 
 export const getSectionMovieByRole = (data: TmdbPersonMovieCrew[]) => {
 

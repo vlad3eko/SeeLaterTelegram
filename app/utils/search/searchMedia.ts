@@ -1,24 +1,22 @@
-import {parseSearchQuery} from "./parseSearchQuery";
-
-import {normalizeSearchQuery} from "./normalizeSearchQuery";
-import {resolveSearchStrategy} from "./strategy/resolveSearchStrategy";
-import {executeSearchStrategy} from "./strategy/executeSearchStrategy";
+import {executeSearchStrategy} from "~/utils/search/strategy/executeSearchStrategy";
+import {resolveSearchStrategy} from "~/utils/search/strategy/resolveSearchStrategy";
+import {normalizeSearchQuery} from "~/utils/search/normalizeSearchQuery";
+import {parseSearchQuery} from "~/utils/search/parseSearchQuery";
+import {filterTmdbMediaResults} from "~/utils/media/filterTmdbMediaResults";
 
 
 export const searchMedia = async (
-    input: string
-) => {
-    // 1. Разбираем текст пользователя
+    input:string
+)=>{
+
     const parsedQuery = parseSearchQuery(input)
 
-    // 2. Преобразуем пользовательские фильтры
-    // в формат для TMDB
     const normalizedQuery = normalizeSearchQuery(parsedQuery)
 
-    // 3. Определяем способ поиска
     const strategy = resolveSearchStrategy(normalizedQuery)
 
-    // 4. Выполняем поиск
-    return await executeSearchStrategy(strategy, normalizedQuery)
+    const result:any = await executeSearchStrategy(strategy, normalizedQuery)
+    result.results = filterTmdbMediaResults(result.results)
+    return result
 
 }
