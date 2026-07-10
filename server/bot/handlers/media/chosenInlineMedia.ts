@@ -1,35 +1,57 @@
 import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
 import {addMessageSession} from "#server/bot/services/session/addMessageSession";
+import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
+import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBot";
 
 export const chosenInlineMedia = async (ctx: any) => {
 
-    console.log('chosen results', ctx.chosenInlineResult)
+    try {
+        const result = ctx.chosenInlineResult
+        console.log('chosen result', result)
 
-    const result = ctx.chosenInlineResult
-    console.log('result', result)
+        const inlineMessageId =
+            result.inline_message_id
 
-    const inlineMessageId =
-        result.inline_message_id
+        const resultId =
+            result.result_id
 
-    const resultId =
-        result.result_id
+        if (!inlineMessageId || !resultId)
+            return
 
-    if(!inlineMessageId || !resultId)
-        return
+        const [
+            type,
+            id
+        ] = resultId.split('_')
+        console.log('type, id', type, id)
 
-    const [
-        type,
-        id
-    ] = resultId.split('_')
-    console.log('type, id', type, id)
+        const media = await $fetch('/api/bot/getMediaBot', {
+            query: {
+                id: id,
+                media: type
+            }
+        })
 
-    const media = await $fetch('/api/bot/getMediaBot', {
-        query: {
-            id: id,
-            media: type
-        }
-    })
+        await new Promise(resolve => setTimeout(resolve, 300))
 
-    console.log('media', media)
+        await ctx.telegram.editMessageMedia(
+            undefined,
+            undefined,
+            inlineMessageId,
+            {
+                type: 'photo',
+                media:  `https://image.tmdb.org/t/p/w500${media.poster_path}`,
+                caption: createMediaCaption(media, media.media_type),
+                parse_mode: 'HTML',
+            },
+            {
+                reply_markup: keyboardSendMediaCardInline(media.id, media.media_type)
+            }
+        )
+
+        console.log('media', media)
+
+    } catch (e) {
+        console.log('chosenInlineMedia error', e)
+    }
 
 }
