@@ -6,8 +6,9 @@ import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBo
 export const chosenInlineMedia = async (ctx: any) => {
 
     console.log('start')
-    const result = ctx.chosenInlineResult
+    const result = await ctx.chosenInlineResult
     console.log('result', result)
+
     try {
 
         const inlineMessageId =
