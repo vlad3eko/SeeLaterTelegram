@@ -17,10 +17,8 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
 
             description: `${media.media_type} | imdb 7.9 | (${FormatDate(media.release_date || media.first_air_date) || '❌ отсутствует'})`,
 
-            input_message_content: {
-                message_text: createMediaCaption(media, media.media_type),
-                parse_mode: 'HTML',
-            },
+            message_text: createMediaCaption(media, media.media_type),
+            parse_mode: 'HTML',
             reply_markup: keyboardSendMediaCardInline(media.id, media.media_type)
         }))
 
