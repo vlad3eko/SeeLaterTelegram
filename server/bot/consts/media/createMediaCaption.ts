@@ -16,8 +16,8 @@ export const createMediaCaption = (media: any, mediaType: string) => {
 
     return `${mediaTitle}
                 <blockquote expandable>${mediaOverview}</blockquote>\n
-                <b>Жанр:</b><i>#${genresContent}</i>\n
-                <b>Тип:</b><i>#${mediaTypeConvert(mediaType)}</i>\n
-                <b>Дата выхода:</b><i>${mediaReleaseConvert(media)}</i>\n
-                <b><i>${channelLink}</i></b>\n`
+ <b>Жанр:</b><i>#${genresContent}</i>\n
+ <b>Тип:</b><i>#${mediaTypeConvert(mediaType)}</i>\n
+ <b>Дата выхода:</b><i>${mediaReleaseConvert(media)}</i>\n
+ <b><i>${channelLink}</i></b>\n`
 }
