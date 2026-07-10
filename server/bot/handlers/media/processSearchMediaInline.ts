@@ -19,7 +19,7 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
             reply_markup: keyboardSendMediaCardInline(media.id, media.media_type)
         }))
 
-        console.log('result', results)
+        console.log('result', results[0])
         await ctx.answerInlineQuery(results)
     } catch (e) {
         console.log('Ошибка: ', e)
