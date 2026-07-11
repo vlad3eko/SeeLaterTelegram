@@ -1,4 +1,4 @@
-import {FormatDate} from "~/utils/formatMoviesData";
+import {FormatDate, FormatRating} from "~/utils/formatMoviesData";
 import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBot";
 
 export const processSearchMediaInline = async (ctx:any, medias:any)=>{
@@ -14,8 +14,7 @@ export const processSearchMediaInline = async (ctx:any, medias:any)=>{
                     'Без названия',
 
                 description:
-                    `${media.media_type === 'movie' ? 'Фильм' : 'Сериал'} 
-                    | ${FormatDate(
+                    `${media.media_type === 'movie' ? 'Фильм' : 'Сериал'} | 💎 ${FormatRating(media.vote_average)} | ${FormatDate(
                         media.release_date
                     ) || '❌ дата неизвестна'}`,
 
