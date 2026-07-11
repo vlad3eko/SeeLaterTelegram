@@ -4,10 +4,9 @@ import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
 
 export const chosenInlineMedia = async (ctx: any) => {
 
-    try {
 
+    try {
         const result = ctx.chosenInlineResult
-        console.log('results', result)
 
         const inlineMessageId = result.inline_message_id
 
