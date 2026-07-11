@@ -6,8 +6,10 @@ import {normalizeTmdbMedia} from "~/utils/media/normalizeTmdbMedia";
 import {filterTmdbMediaResults} from "~/utils/media/filterTmdbMediaResults";
 import {normalizeMediaGenres} from "#server/bot/consts/media/normalizeMediaGenres";
 import {sortMediaResults} from "~/utils/media/sortMediaResults";
+import {loadGenres} from "#server/bot/consts/media/genresConvert";
 
 export const searchMedia = async (query: string, page: number = 1) => {
+    await loadGenres()
 
     const parsed = parseSearchQuery(query)
 
