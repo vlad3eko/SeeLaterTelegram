@@ -6,7 +6,7 @@ export const searchMulti = async (query: NormalizedSearchQuery, page:number = 1)
     let media = "multi"
 
     if(query.filters.mediaTypes.length === 1){
-        media = query.filters.mediaTypes[0]!
+        media = query.filters.mediaTypes[0]
     }
 
     return await $fetch(
