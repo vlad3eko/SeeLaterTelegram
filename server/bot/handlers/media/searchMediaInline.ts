@@ -12,7 +12,7 @@ export const searchMediaInline = async (ctx: any) => {
             page
         )
         const medias = await searchMedia(ctx.inlineQuery.query, page)
-        console.log('medias', medias)
+        console.log('medias', medias[0])
 
         if (!medias.results?.length) return ctx.answerInlineQuery([])
 
