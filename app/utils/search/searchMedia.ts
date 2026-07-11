@@ -3,6 +3,7 @@ import {resolveSearchStrategy} from "~/utils/search/strategy/resolveSearchStrate
 import {normalizeSearchQuery} from "~/utils/search/normalizeSearchQuery";
 import {parseSearchQuery} from "~/utils/search/parseSearchQuery";
 import {filterTmdbMediaResults} from "~/utils/media/filterTmdbMediaResults";
+import {sortMediaResults} from "~/utils/media/sortMediaResults";
 
 
 export const searchMedia = async (
@@ -18,7 +19,9 @@ export const searchMedia = async (
     const strategy = resolveSearchStrategy(normalizedQuery)
 
     const result:any = await executeSearchStrategy(strategy, normalizedQuery)
-    result.results = filterTmdbMediaResults(result.results)
+    result.results = sortMediaResults(
+        filterTmdbMediaResults(result.results)
+    )
     return result
 
 }
