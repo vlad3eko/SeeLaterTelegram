@@ -10,13 +10,16 @@ export const searchMedia = async (
 )=>{
 
     const parsedQuery = parseSearchQuery(input)
+    console.log('parsedQuery', parsedQuery)
 
     const normalizedQuery = normalizeSearchQuery(parsedQuery)
+    console.log('normalizedQuery', normalizedQuery)
 
     const strategy = resolveSearchStrategy(normalizedQuery)
 
     const result:any = await executeSearchStrategy(strategy, normalizedQuery)
     result.results = filterTmdbMediaResults(result.results)
+    console.log('executeSearchStrategy result', result)
     return result
 
 }

@@ -2,6 +2,7 @@ export default defineEventHandler(async (event) => {
 
     const query = getQuery(event)
     const config = useRuntimeConfig()
+    console.log('query discover', query)
 
     const headers = {
         accept: 'application/json',
@@ -36,5 +37,4 @@ export default defineEventHandler(async (event) => {
     )
 
     return await res.json()
-
 })
