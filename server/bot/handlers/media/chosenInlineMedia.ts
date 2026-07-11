@@ -8,6 +8,7 @@ export const chosenInlineMedia = async (ctx: any) => {
 
         const result = ctx.chosenInlineResult
         console.log('results', result)
+
         const inlineMessageId = result.inline_message_id
 
         if (!inlineMessageId) return
