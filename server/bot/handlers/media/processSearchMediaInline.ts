@@ -14,7 +14,7 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
                     'Без названия',
 
                 description:
-                    `${media.media_type === 'movie' ? 'Фильм' : 'Сериал'} | ${media.vote_average ? '💎' + FormatRating(media?.vote_average) + ' | ' : ''} ${media.vote_count ? '🍿' + media.vote_count + ' | ' : ''} ${FormatDate(media.release_date) || '❌ дата неизвестна'}`,
+                    `${media.media_type === 'movie' ? 'Фильм' : 'Сериал'} | ${media.vote_average ? '💎' + FormatRating(media?.vote_average) + ' | ' : ''}${media.vote_count ? '🍿' + media.vote_count + ' | ' : ''}${FormatDate(media.release_date) || '❌ дата неизвестна'}`,
 
                 thumb_url:
                     media.poster_path
