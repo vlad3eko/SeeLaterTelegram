@@ -24,10 +24,13 @@ export const parseSearchQuery = (
 
     for (const word of words) {
 
-        // ---------- TAG ----------
-        if (word.startsWith("#")) {
+        const cleanWord = word
+            .replace(/[()"«»']/g, '')
 
-            const tag = word
+        // ---------- TAG ----------
+        if (cleanWord.startsWith("#")) {
+
+            const tag = cleanWord
                 .slice(1)
                 .toLowerCase()
 
@@ -69,11 +72,11 @@ export const parseSearchQuery = (
         }
 
         // ---------- ГОД ----------
-        if (/^\d{4}$/.test(word) &&
-            Number(word) >= 1900 &&
-            Number(word) <= new Date().getFullYear() + 5)
+        if (/^\d{4}$/.test(cleanWord) &&
+            Number(cleanWord) >= 1900 &&
+            Number(cleanWord) <= new Date().getFullYear() + 5)
         {
-            years.push(Number(word))
+            years.push(Number(cleanWord))
             continue
         }
 
