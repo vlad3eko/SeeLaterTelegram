@@ -24,6 +24,11 @@ export const searchMedia = async (query: string, page: number = 1) => {
         .filter(filterTmdbMediaResults)
         .map(normalizeMediaGenres)
 
-    result.results = sortMediaResults(medias)
+    if (page === 1) {
+        result.results = sortMediaResults(medias)
+    } else {
+        result.results = medias
+    }
+
     return result
 }
