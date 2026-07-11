@@ -8,18 +8,15 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
             (media: any, index: number) => ({
                 type: 'article',
                 id: `${media.media_type}_${media.tmdb_id || media.id}_${index}`,
-                title:
-                    media.title ||
-                    media.name ||
-                    'Без названия',
+                title: (media.title || media.name),
 
                 description:
-                    `${media.media_type === 'movie' ? 'Фильм' : 'Сериал'} | ${media.vote_average ? '💎' + FormatRating(media?.vote_average) + ' | ' : ''}${media.vote_count ? '🍿' + media.vote_count + ' | ' : ''}${FormatDate(media.release_date) || '❌ дата неизвестна'}`,
+                    `${media.media_type === 'movie' ? 'Фильм' : 'Сериал'} | ${media.vote_average ? '💎' + FormatRating(media?.vote_average) + ' | ' : ''}${media.vote_count ? '🍿' + media.vote_count + ' | ' : ''}${FormatDate(media.release_date)}`,
 
                 thumb_url:
                     media.poster_path
                         ? `https://image.tmdb.org/t/p/w500${media.poster_path}`
-                        : undefined,
+                        : `https://image.tmdb.org/t/p/w500${media.backdrop_path}`,
 
                 input_message_content: {
                     message_text:
