@@ -2,6 +2,7 @@
 export default defineEventHandler(async (event) => {
 
     const query = getQuery(event)
+    const id = Number(query.id)
 
     const config = useRuntimeConfig()
 
@@ -11,6 +12,23 @@ export default defineEventHandler(async (event) => {
     }
 
     const media = query.media || 'multi'
+
+    if (media !== "movie" && media !== "tv") {
+        throw createError({
+            statusCode: 400,
+            statusMessage: "Invalid media type"
+        })
+    }
+
+    if (
+        Number.isNaN(id) ||
+        !["movie", "tv"].includes(String(media))
+    ) {
+        throw createError({
+            statusCode: 400,
+            statusMessage: "Invalid request"
+        })
+    }
 
     const [movieRes, trailerRu, trailerEn] = await Promise.all([
 
@@ -34,10 +52,21 @@ export default defineEventHandler(async (event) => {
     const trailerRus = await trailerRu.json()
     const trailerEng = await trailerEn.json()
 
+    const ruResults = Array.isArray(trailerRus.results)
+        ? trailerRus.results
+        : []
+
+    const enResults = Array.isArray(trailerEng.results)
+        ? trailerEng.results
+        : []
+
     return {
         ...movie,
-        media_type,
-        trailers: [...trailerRus.results,...trailerEng.results]
+        media_type: media,
+        trailers: [
+            ...ruResults,
+            ...enResults
+        ]
     }
 
 })
