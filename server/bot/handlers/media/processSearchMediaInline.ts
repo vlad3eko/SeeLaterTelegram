@@ -14,7 +14,7 @@ export const processSearchMediaInline = async (ctx:any, medias:any)=>{
                     'Без названия',
 
                 description:
-                    `${media.media_type === 'movie' ? 'Фильм' : 'Сериал'} | 💎 ${FormatRating(media.vote_average)} | ${FormatDate(
+                    `${media.media_type === 'movie' ? 'Фильм' : 'Сериал'} |  ${media.vote_average ? '💎' + FormatRating(media?.vote_average) : '❌'} | ${FormatDate(
                         media.release_date
                     ) || '❌ дата неизвестна'}`,
 
