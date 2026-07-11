@@ -1,7 +1,7 @@
 <template>
   <SearchPanel v-model="searchInput" @search="searchMovies"/>
   <CatalogList
-      :media="filterMedia"
+      :media="movies"
       :loading="pending"
       :show-info="true"
   />
