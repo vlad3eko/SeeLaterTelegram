@@ -1,67 +1,35 @@
-import type { TmdbResponse } from "~/types/tmdb.types";
-import { searchMedia } from "~/utils/search/searchMedia";
+import type {TmdbResponse} from "~/types/tmdb.types";
 
 export const useTmdbSearch = () => {
 
-    const searchInput = ref("")
-    const movies = ref<any[]>([])
-    const page = ref(1)
-    const totalPages = ref(1)
-    const pending = ref(false)
+    const searchInput = ref<string>()
+
+    const {data, pending, refresh} = useAsyncData<TmdbResponse>('media-search',
+        () => $fetch('/api/tmdb/search', {
+            query: {
+                q: searchInput.value,
+            }
+        }),
+        {
+            immediate: false
+        }
+    )
+
+
+    const movies = computed(() => {
+        return (data.value?.results || []).filter(media => {
+                const description = media.overview
+                const releaseDate =
+                    'release_date' in media
+                        ? media.release_date
+                        : media.first_air_date
+                return (releaseDate && media.poster_path && description)
+            }
+        )
+    })
 
     const searchMovies = async () => {
-
-        if (!searchInput.value.trim()) {
-            movies.value = []
-            return
-        }
-
-        pending.value = true
-
-        try {
-
-            page.value = 1
-
-            const result:any = await searchMedia(
-                searchInput.value,
-                page.value
-            )
-
-            movies.value = result.results || []
-            totalPages.value =
-                result.total_pages || 1
-
-        } finally {
-            pending.value = false
-        }
-    }
-
-    const loadMore = async () => {
-
-        if (pending.value)
-            return
-
-        if (page.value >= totalPages.value)
-            return
-
-        pending.value = true
-
-        try {
-
-            page.value++
-
-            const result:any = await searchMedia(
-                searchInput.value,
-                page.value
-            )
-
-            movies.value.push(
-                ...(result.results || [])
-            )
-
-        } finally {
-            pending.value = false
-        }
+        await refresh()
     }
 
     return {
@@ -69,8 +37,5 @@ export const useTmdbSearch = () => {
         pending,
         searchInput,
         searchMovies,
-        loadMore,
-        page,
-        totalPages
     }
 }
