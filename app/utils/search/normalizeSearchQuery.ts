@@ -2,7 +2,8 @@ import type {NormalizedSearchQuery, SearchQuery} from "~/utils/search/typesSearc
 import {findGenre} from "~/utils/media/findGenre";
 
 export const normalizeSearchQuery = (
-    query: SearchQuery
+    query: SearchQuery,
+    page: number = 1
 ): NormalizedSearchQuery => {
 
     const mediaType =
@@ -10,7 +11,7 @@ export const normalizeSearchQuery = (
 
     return {
         text: query.text,
-        page: query.page,
+        page: page,
         filters: {
             genres: findGenre(query.filters.genres, mediaType),
             years: query.filters.years,

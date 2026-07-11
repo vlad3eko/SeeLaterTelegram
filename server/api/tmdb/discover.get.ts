@@ -22,6 +22,13 @@ export default defineEventHandler(async (event) => {
         )
     }
 
+    if(query.primary_release_year){
+        params.append(
+            'primary_release_year',
+            String(query.primary_release_year)
+        )
+    }
+
     if(query.sort_by){
         params.append(
             'sort_by',

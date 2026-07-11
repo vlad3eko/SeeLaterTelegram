@@ -69,14 +69,12 @@ export const parseSearchQuery = (
         }
 
         // ---------- ГОД ----------
-        if (/^\d{4}$/.test(word)) {
-
-            const year = Number(word)
-
-            if (year >= 1900 && year <= 2100) {
-                years.push(year)
-                continue
-            }
+        if (/^\d{4}$/.test(word) &&
+            Number(word) >= 1900 &&
+            Number(word) <= new Date().getFullYear() + 5)
+        {
+            years.push(Number(word))
+            continue
         }
 
         // ---------- РЕЙТИНГ ----------

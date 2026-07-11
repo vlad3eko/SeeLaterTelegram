@@ -13,7 +13,7 @@ export const searchMedia = async (query: string, page: number = 1) => {
 
     const parsed = parseSearchQuery(query)
 
-    const normalized = normalizeSearchQuery(parsed)
+    const normalized = normalizeSearchQuery(parsed, page)
 
     const strategy = resolveSearchStrategy(normalized)
 
