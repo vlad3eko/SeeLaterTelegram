@@ -11,6 +11,9 @@ export const searchMediaInline = async (
         if(!medias.results?.length){
             return ctx.answerInlineQuery([])
         }
+
+        console.log('medias', medias)
+
         await processSearchMediaInline(ctx, medias)
 
     } catch(error) {
