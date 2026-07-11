@@ -19,7 +19,7 @@ export const searchMedia = async (
 
     const result:any = await executeSearchStrategy(strategy, normalizedQuery)
     result.results = filterTmdbMediaResults(result.results)
-    console.log('executeSearchStrategy result', result)
+    console.log('executeSearchStrategy result', result.results)
     return result
 
 }
