@@ -15,7 +15,6 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
         }))
 
         await ctx.answerInlineQuery(results)
-        console.log('results', results)
 
     } catch (e) {
         console.log('Ошибка inline:', e)
