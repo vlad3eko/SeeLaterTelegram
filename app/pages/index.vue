@@ -12,6 +12,7 @@
 import SearchPanel from "~/components/layout/SearchPanel.vue";
 import CatalogList from "~/components/widgets/web/catalog/CatalogList.vue";
 import {useTmdbSearch} from "~/composables/useTmdbSearch";
+import {useInfiniteScroll} from "~/composables/useInfiniteScroll";
 
 const {
   movies,
@@ -22,31 +23,12 @@ const {
 } = useTmdbSearch()
 
 
-const loadMoreTrigger = ref<HTMLElement | null>(null)
-let observer: IntersectionObserver | null = null
-
-onMounted(() => {
-
-  if (!loadMoreTrigger.value) return
-
-  observer = new IntersectionObserver(async ([entry]) => {
-
-        if (entry.isIntersecting && !pending.value && movies.value.length) {
-
-          await loadMore()
-        }
-
-      },
-      {
-        rootMargin: "300px"
-      }
-  )
-
-  observer.observe(loadMoreTrigger.value)
-})
-
-onUnmounted(() =>  observer?.disconnect())
-
+const {
+  target: loadMoreTrigger
+} = useInfiniteScroll(
+    loadMore,
+    pending
+)
 </script>
 
 <style scoped>

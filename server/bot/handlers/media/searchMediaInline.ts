@@ -2,23 +2,24 @@ import {processSearchMediaInline} from "#server/bot/handlers/media/processSearch
 import {searchMedia} from "~/utils/search/searchMedia";
 
 
-export const searchMediaInline = async (
-    ctx:any
-)=>{
+export const searchMediaInline = async (ctx: any) => {
 
     try {
-        const medias = await searchMedia(ctx.inlineQuery.query)
-        if(!medias.results?.length){
-            return ctx.answerInlineQuery([])
-        }
 
+        const page = Number(ctx.inlineQuery.offset) || 1
+        console.log(
+            "INLINE PAGE",
+            page
+        )
+        const medias = await searchMedia(ctx.inlineQuery.query, page)
         console.log('medias', medias)
+
+        if (!medias.results?.length) return ctx.answerInlineQuery([])
 
         await processSearchMediaInline(ctx, medias)
 
-    } catch(error) {
+    } catch (error) {
         console.error("inline search error:", error)
         await ctx.answerInlineQuery([])
     }
-
 }

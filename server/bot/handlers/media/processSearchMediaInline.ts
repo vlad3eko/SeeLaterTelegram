@@ -34,7 +34,15 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
             })
         )
 
-        await ctx.answerInlineQuery(results)
+        await ctx.answerInlineQuery(
+            results,
+            {
+                next_offset:
+                    medias.page < medias.total_pages
+                        ? String(medias.page + 1)
+                        : ''
+            }
+        )
 
     } catch (e) {
         console.log('Ошибка inline:', e)

@@ -10,7 +10,6 @@ export const useTmdbSearch = () => {
     const pending = ref(false)
 
     const searchMovies = async () => {
-
         if (!searchInput.value.trim()) {
             movies.value = []
             return
