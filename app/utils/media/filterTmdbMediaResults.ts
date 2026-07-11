@@ -1,11 +1,10 @@
 export const filterTmdbMediaResults = (
-    results:any[]
+    media:any
 )=>{
 
-    return results.filter(
-        item =>
-            item.media_type === "movie" ||
-            item.media_type === "tv"
+    return (
+        media.media_type === "movie" ||
+        media.media_type === "tv"
     )
 
 }
