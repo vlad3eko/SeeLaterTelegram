@@ -27,7 +27,7 @@ export const searchMedia = async (query: string, page: number = 1) => {
     if (page === 1) {
         result.results = sortMediaResults(medias)
     } else {
-        result.results = medias
+        result.results = sortMediaResults(medias, true)
     }
 
     return result

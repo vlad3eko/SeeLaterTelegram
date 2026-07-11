@@ -1,35 +1,71 @@
-export const sortMediaResults = (medias:any[])=>{
+export const sortMediaResults = (
+    medias: any[],
+    onlyValid: boolean = false
+) => {
 
     const today = new Date().getTime()
 
-    const enriched = medias.map(item=>{
+    let filtered = medias
 
-            const date = item.release_date || item.first_air_date
+    if (onlyValid) {
 
-            const releaseDate =
-                new Date(date || 0)
-                    .getTime()
+        filtered = medias.filter(media => {
 
-            return {
-                ...item,
-                _vote: item.vote_count || 0,
+            const title =
+                media.title || media.name
 
-                _date: releaseDate,
+            const description =
+                media.overview?.trim()
 
-                _isUnreleased: releaseDate > today
-            }
+            const image =
+                media.poster_path || media.backdrop_path
+
+            return (
+                title &&
+                description &&
+                image
+            )
         })
 
+    }
+
+    const enriched = filtered.map(item => {
+
+        const date =
+            item.release_date ||
+            item.first_air_date
+
+        const releaseDate =
+            new Date(date || 0).getTime()
+
+        return {
+
+            ...item,
+
+            _vote:
+                item.vote_count || 0,
+
+            _date:
+            releaseDate,
+
+            _isUnreleased:
+                releaseDate > today
+        }
+
+    })
 
     const topRanked =
         [...enriched]
             .sort(
-                (a,b)=>
+                (a, b) =>
                     b._vote - a._vote
-            ).slice(0,3)
+            )
+            .slice(0, 3)
 
-
-    const topIds = new Set(topRanked.map(i=>i.id))
+    const topIds =
+        new Set(
+            topRanked.map(i => i.id)
+        )
 
     const unreleased =
         enriched
@@ -39,8 +75,8 @@ export const sortMediaResults = (medias:any[])=>{
                     !topIds.has(media.id)
             )
             .sort(
-                (a,b)=>
-                    b._vote-a._vote
+                (a, b) =>
+                    b._vote - a._vote
             )
 
     const others =
@@ -51,9 +87,13 @@ export const sortMediaResults = (medias:any[])=>{
                     !topIds.has(media.id)
             )
             .sort(
-                (a,b)=>
-                    b._vote-a._vote
+                (a, b) =>
+                    b._vote - a._vote
             )
+
+    if (onlyValid) {
+        return others
+    }
 
     return [
         ...unreleased,

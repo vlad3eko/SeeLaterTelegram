@@ -7,7 +7,7 @@ export const createMediaCaption = (media: any, mediaType: string) => {
 
     const genresContent = genresConvert(media.genres)
 
-    const mediaTitle = `<code>${media.title || media.name} (${FormatDate(media.release_date || media.first_air_date) || '❌официальной даты пока нет'})</code> `
+    const mediaTitle = `<code>${media.title || media.name} (${FormatDate(media.release_date || media.first_air_date) || '-'})</code>`
     const mediaOverview = media.overview?.length > 350
         ? media.overview.slice(0, 350) + '...'
         : media.overview || 'Описание отсутствует'
