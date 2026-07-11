@@ -3,22 +3,8 @@ import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBo
 
 export const processSearchMediaInline = async (ctx: any, medias: any) => {
 
-    const uniqueResults =
-        Array.from(
-            new Map(
-                medias.results.map(
-                    (media: any) => [
-                        `${media.media_type}_${media.id}`,
-                        media
-                    ]
-                )
-            ).values()
-        )
-
-
-
     try {
-        const results = uniqueResults.map((media: any) => ({
+        const results = medias.results.map((media: any) => ({
             type: 'article',
             id: `${media.media_type}_${media.id}`,
             title: media.title || media.name || 'без названия',
