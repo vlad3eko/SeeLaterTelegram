@@ -27,5 +27,6 @@ export interface NormalizedSearchFilters {
 
 export interface NormalizedSearchQuery {
     text: string
+    page: number
     filters: NormalizedSearchFilters
 }

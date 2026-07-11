@@ -4,7 +4,10 @@ import {discoverMovies, getPopularMovies, searchMixed, searchMulti} from "~/util
 
 export const executeSearchStrategy = async (strategy: SearchStrategy, query: NormalizedSearchQuery, page: number = 1) => {
 
+        query.page = page
+
     switch(strategy) {
+
 
         case SearchStrategy.SEARCH_BY_TEXT:
             return await searchMulti(query, page)
