@@ -1,45 +1,44 @@
 import type {NormalizedSearchQuery} from "~/utils/search/typesSearch";
+import {buildTmdbParams} from "~/utils/media/buildTmdbParams";
 
-export const searchMulti = async (query: NormalizedSearchQuery) => {
+export const searchMulti = async (query: NormalizedSearchQuery, page: number = 1) => {
     return await $fetch(
         "/api/tmdb/search", {
             query: {
                 q: query.text,
-                page: query.page,
+                page: page,
                 media: "multi"
             }
         }
     )
 }
 
-export const discoverMovies = async (query: NormalizedSearchQuery) => {
+export const discoverMovies = async (query: NormalizedSearchQuery, page: number = 1) => {
     return await $fetch(
         "/api/tmdb/discover", {
             query: {
                 media: "movie",
-                page: query.page,
-                with_genres:
-                    query.filters.genres.join(",")
+                ...buildTmdbParams(query, page)
             }
         }
     )
 }
 
-export const getPopularMovies = async (query: NormalizedSearchQuery) => {
+export const getPopularMovies = async (query: NormalizedSearchQuery, page: number = 1) => {
     // пока тоже используем поиск
     // потом заменим на /discover/media?sort_by=popularity.desc
     return await $fetch(
         "/api/tmdb/search", {
             query: {
                 q: query.text,
-                page: query.page,
+                page: page,
                 media: "movie"
             }
         }
     )
 }
 
-export const searchMixed = async (query: NormalizedSearchQuery) => {
+export const searchMixed = async (query: NormalizedSearchQuery, page: number = 1) => {
 
     const result: any = await searchMulti(query)
 

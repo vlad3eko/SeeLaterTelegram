@@ -11,7 +11,6 @@ export interface SearchFilters {
 
 export interface SearchQuery {
     text: string
-    page: number
     filters: SearchFilters
 }
 
@@ -28,6 +27,5 @@ export interface NormalizedSearchFilters {
 
 export interface NormalizedSearchQuery {
     text: string
-    page: number
     filters: NormalizedSearchFilters
 }

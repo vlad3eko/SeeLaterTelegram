@@ -1,27 +1,28 @@
-import {executeSearchStrategy} from "~/utils/search/strategy/executeSearchStrategy";
-import {resolveSearchStrategy} from "~/utils/search/strategy/resolveSearchStrategy";
-import {normalizeSearchQuery} from "~/utils/search/normalizeSearchQuery";
 import {parseSearchQuery} from "~/utils/search/parseSearchQuery";
+import {normalizeSearchQuery} from "~/utils/search/normalizeSearchQuery";
+import {resolveSearchStrategy} from "~/utils/search/strategy/resolveSearchStrategy";
+import {executeSearchStrategy} from "~/utils/search/strategy/executeSearchStrategy";
+import {normalizeTmdbMedia} from "~/utils/media/normalizeTmdbMedia";
 import {filterTmdbMediaResults} from "~/utils/media/filterTmdbMediaResults";
+import {normalizeMediaGenres} from "#server/bot/consts/media/normalizeMediaGenres";
 import {sortMediaResults} from "~/utils/media/sortMediaResults";
 
+export const searchMedia = async (query: string, page: number = 1) => {
 
-export const searchMedia = async (
-    input:string
-)=>{
+    const parsed = parseSearchQuery(query)
 
-    const parsedQuery = parseSearchQuery(input)
-    console.log('parsedQuery', parsedQuery)
+    const normalized = normalizeSearchQuery(parsed)
 
-    const normalizedQuery = normalizeSearchQuery(parsedQuery)
-    console.log('normalizedQuery', normalizedQuery)
+    const strategy = resolveSearchStrategy(normalized)
 
-    const strategy = resolveSearchStrategy(normalizedQuery)
+    const result = await executeSearchStrategy(strategy, normalized, page)
 
-    const result:any = await executeSearchStrategy(strategy, normalizedQuery)
-    result.results = sortMediaResults(
-        filterTmdbMediaResults(result.results)
-    )
+    const medias = result.results
+        .map(normalizeTmdbMedia)
+        .filter(filterTmdbMediaResults)
+        .map(normalizeMediaGenres)
+
+    result.results = sortMediaResults(medias)
+
     return result
-
 }
