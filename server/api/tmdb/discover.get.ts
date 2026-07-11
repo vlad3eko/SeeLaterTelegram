@@ -36,5 +36,12 @@ export default defineEventHandler(async (event) => {
         }
     )
 
-    return await res.json()
+    const json = await res.json()
+
+    json.results = json.results.map((item: any) => ({
+        ...item,
+        media_type: media
+    }))
+
+    return json
 })
