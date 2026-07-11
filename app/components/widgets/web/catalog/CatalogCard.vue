@@ -71,7 +71,7 @@ const computedImagesSrc = computed(() => {
 
   if (!image) return errorImage
 
-  return `https://image.tmdb.org/t/p/w600_and_h900_face/${image}`
+  return image ? `https://image.tmdb.org/t/p/w600_and_h900_face/${image}` : errorImage
 
 })
 const statusClass = computed<string>(() => {

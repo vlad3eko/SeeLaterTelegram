@@ -4,16 +4,14 @@ export const normalizeTmdbMedia = (media:any)=>{
 
         ...media,
 
-        tmdb_id:
-            media.tmdb_id ||
-            media.id,
+        tmdb_id: media.id,
 
         media_type:
             media.media_type ||
             (
                 media.title
-                    ? 'movie'
-                    : 'tv'
+                    ? "movie"
+                    : "tv"
             ),
 
         title:
@@ -26,8 +24,7 @@ export const normalizeTmdbMedia = (media:any)=>{
 
         poster_path:
             media.poster_path ||
-            media.backdrop_path ||
-            null
+            media.backdrop_path
     }
 
 }
