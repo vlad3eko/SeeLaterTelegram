@@ -65,24 +65,15 @@ const date = computed(() => {
 
 const computedImagesSrc = computed(() => {
 
-  const errorImage =
-      '/assets/errorImageMovie/errorImage.jpg'
+  const errorImage = '/assets/errorImageMovie/errorImage.jpg'
 
-  if (props.mode === 'tmdb') {
+  const image = props.media.poster_path || props.media.backdrop_path
 
-    return props.media.poster_path
-    || props.media.backdrop_path
-        ? `https://image.tmdb.org/t/p/w600_and_h900_face/${
-            props.media.poster_path ||
-            props.media.backdrop_path
-        }`
-        : errorImage
-  }
+  if (!image) return errorImage
 
-  return `https://image.tmdb.org/t/p/w600_and_h900_face/${
-      props.media.poster_path}` || errorImage
+  return `https://image.tmdb.org/t/p/w600_and_h900_face/${image}`
+
 })
-
 const statusClass = computed<string>(() => {
 
   if (props.mode === 'tmdb') {
