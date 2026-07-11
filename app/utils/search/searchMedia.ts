@@ -16,13 +16,18 @@ export const searchMedia = async (query: string, page: number = 1) => {
     const strategy = resolveSearchStrategy(normalized)
 
     const result = await executeSearchStrategy(strategy, normalized, page)
+    console.log("SEARCH RESULT", result.results[0])
 
     const medias = result.results
         .map(normalizeTmdbMedia)
         .filter(filterTmdbMediaResults)
         .map(normalizeMediaGenres)
 
-    result.results = sortMediaResults(medias)
+    console.log(
+        "NORMALIZED MEDIA",
+        medias[0]
+    )
 
+    result.results = sortMediaResults(medias)
     return result
 }

@@ -49,7 +49,11 @@ import type {TmdbMovieProps} from "~/types/tmdb.types";
 import {createSlug} from "~/utils/createSlug";
 import CatalogCardInfo from "~/components/widgets/web/catalog/CatalogCardInfo.vue";
 
-const props = defineProps<TmdbMovieProps>()
+const props = defineProps<{
+  media:any,
+  showInfo?:boolean,
+  mode?:string
+}>()
 
 const title = computed(() => {
   return 'title' in props.media
