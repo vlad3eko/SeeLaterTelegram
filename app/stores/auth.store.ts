@@ -28,8 +28,6 @@ export const useAuthStore = defineStore('isAuth', () => {
         let attempts = 0
 
         const interval = setInterval(async () => {
-            console.log('TICK START')
-
             try {
 
                 // ⛔ Останавливаем после 10 попыток
@@ -65,8 +63,6 @@ export const useAuthStore = defineStore('isAuth', () => {
             } catch (err) {
                 console.error('Auth polling error:', err)
             }
-
-            console.log('TICK END')
         }, 1000)
     }
 

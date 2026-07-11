@@ -12,16 +12,12 @@ export const searchMedia = async (query: string, page: number = 1) => {
     await loadGenres()
 
     const parsed = parseSearchQuery(query)
-    console.log("PARSED", parsed)
 
     const normalized = normalizeSearchQuery(parsed, page)
-    console.log("normalized", parsed)
 
     const strategy = resolveSearchStrategy(normalized)
-    console.log("strategy", parsed)
 
     const result = await executeSearchStrategy(strategy, normalized, page)
-    console.log("result", parsed)
 
     const medias = result.results
         .map(normalizeTmdbMedia)

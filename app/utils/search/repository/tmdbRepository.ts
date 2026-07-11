@@ -21,26 +21,39 @@ export const searchMulti = async (query: NormalizedSearchQuery, page:number = 1)
     )
 }
 
-export const discoverMovies = async (query: NormalizedSearchQuery, page: number = 1) => {
+export const discoverMovies = async (query: NormalizedSearchQuery, page:number = 1)=>{
+    let media = "movie"
+
+    if(query.filters.mediaTypes.length === 1){
+        media = query.filters.mediaTypes[0]
+    }
+
     return await $fetch(
-        "/api/tmdb/discover", {
-            query: {
-                media: "movie",
-                ...buildTmdbParams(query, page)
+        "/api/tmdb/discover",
+        {
+            query:{
+                media,
+                ...buildTmdbParams(query,page)
             }
         }
     )
 }
 
-export const getPopularMovies = async (query: NormalizedSearchQuery, page: number = 1) => {
-    // пока тоже используем поиск
-    // потом заменим на /discover/media?sort_by=popularity.desc
+export const getPopularMovies = async (query: NormalizedSearchQuery, page:number = 1)=>{
+
+    let media = "movie"
+
+    if(query.filters.mediaTypes.length === 1){
+        media = query.filters.mediaTypes[0]
+    }
+
     return await $fetch(
-        "/api/tmdb/search", {
-            query: {
-                q: query.text,
-                page: page,
-                media: "movie"
+        "/api/tmdb/search",
+        {
+            query:{
+                q:query.text,
+                page,
+                media
             }
         }
     )

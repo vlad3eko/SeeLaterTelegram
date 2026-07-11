@@ -14,7 +14,8 @@ export const processSearchMediaInline = async (ctx:any, medias:any)=>{
                     'Без названия',
 
                 description:
-                    `${media.media_type === 'movie' ? 'Фильм' : 'Сериал'} | ${FormatDate(
+                    `${media.media_type === 'movie' ? 'Фильм' : 'Сериал'} 
+                    | ${FormatDate(
                         media.release_date
                     ) || '❌ дата неизвестна'}`,
 
@@ -36,6 +37,7 @@ export const processSearchMediaInline = async (ctx:any, medias:any)=>{
             })
         )
 
+        console.log('results', results)
         await ctx.answerInlineQuery(results)
 
     } catch(e){
