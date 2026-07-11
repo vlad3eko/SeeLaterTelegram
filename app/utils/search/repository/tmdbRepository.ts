@@ -38,20 +38,18 @@ export const getPopularMovies = async (query: NormalizedSearchQuery, page: numbe
     )
 }
 
-export const searchMixed = async (query: NormalizedSearchQuery, page: number = 1) => {
+export const searchMixed = async (query: NormalizedSearchQuery, page:number = 1)=>{
 
-    const result: any = await searchMulti(query)
+    const result:any = await searchMulti(query,page)
 
-    if (!query.filters.genres.length) {
-        return result
-    }
+    let results = result.results
 
-    return {
-        ...result,
+    if(query.filters.genres.length){
+        results = results.filter(
+            (media:any)=>{
 
-        results: result.results.filter(
-            (media: any) => {
-                if (!media.genre_ids) return false
+                if(!media.genre_ids)
+                    return false
 
                 return query.filters.genres.every(
                     genreId =>
@@ -59,5 +57,30 @@ export const searchMixed = async (query: NormalizedSearchQuery, page: number = 1
                 )
             }
         )
+    }
+
+    if(query.filters.years.length){
+
+        results = results.filter(
+            (media:any)=>{
+                const date =
+                    media.release_date ||
+                    media.first_air_date
+
+                if(!date)
+                    return false
+
+                const year =
+                    Number(date.slice(0,4))
+
+                return query.filters.years.includes(year)
+
+            }
+        )
+    }
+
+    return {
+        ...result,
+        results
     }
 }
