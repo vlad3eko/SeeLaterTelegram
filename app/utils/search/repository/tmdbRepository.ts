@@ -1,13 +1,21 @@
 import type {NormalizedSearchQuery} from "~/utils/search/typesSearch";
 import {buildTmdbParams} from "~/utils/media/buildTmdbParams";
 
-export const searchMulti = async (query: NormalizedSearchQuery, page: number = 1) => {
+export const searchMulti = async (query: NormalizedSearchQuery, page:number = 1)=>{
+
+    let media = "multi"
+
+    if(query.filters.mediaTypes.length === 1){
+        media = query.filters.mediaTypes[0]!
+    }
+
     return await $fetch(
-        "/api/tmdb/search", {
-            query: {
-                q: query.text,
-                page: page,
-                media: "multi"
+        "/api/tmdb/search",
+        {
+            query:{
+                q:query.text,
+                page,
+                media
             }
         }
     )

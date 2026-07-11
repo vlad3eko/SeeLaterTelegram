@@ -13,7 +13,8 @@ export const resolveSearchStrategy = (
         query.filters.years.length > 0 ||
         query.filters.providers.length > 0 ||
         query.filters.countries.length > 0 ||
-        query.filters.companies.length > 0
+        query.filters.companies.length > 0 ||
+        query.filters.mediaTypes.length > 0
 
     if (hasText && hasFilters) {
         return SearchStrategy.SEARCH_MIXED
