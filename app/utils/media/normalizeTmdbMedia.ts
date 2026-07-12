@@ -17,8 +17,7 @@ export const normalizeTmdbMedia = (media:any)=>{
         media_type: mediaType,
         title:
             media.title ||
-            media.name ||
-            'Без названия',
+            media.name,
         release_date:
             media.release_date ||
             media.first_air_date ||
