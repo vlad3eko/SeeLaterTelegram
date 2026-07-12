@@ -8,10 +8,10 @@ import {normalizeMediaGenres} from "#server/bot/consts/media/normalizeMediaGenre
 import {sortMediaResults} from "~/utils/media/sortMediaResults";
 import {loadGenres} from "#server/bot/consts/media/genresConvert";
 
-export const searchMedia = async (query: string, page: number = 1) => {
+export const searchMedia = async (query: string, page: number = 1, userId: number = null) => {
     await loadGenres()
 
-    const parsed = parseSearchQuery(query)
+    const parsed = parseSearchQuery(query, userId)
     console.log('parsed', parsed)
 
     const normalized = normalizeSearchQuery(parsed, page)

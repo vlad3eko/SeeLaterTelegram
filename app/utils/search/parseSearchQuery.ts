@@ -1,7 +1,8 @@
 import type { SearchQuery } from "~/utils/search/typesSearch";
 
 export const parseSearchQuery = (
-    query: string
+    query: string,
+    userId: number | null
 ): SearchQuery => {
 
     const words = query
@@ -14,7 +15,7 @@ export const parseSearchQuery = (
     const providers: string[] = []
     const countries: string[] = []
     const companies: string[] = []
-    let bookmarks: boolean = false
+    let bookmarksOfUserId: number | null = null
 
     const mediaTypes: ("movie" | "tv")[] = []
 
@@ -69,8 +70,8 @@ export const parseSearchQuery = (
 
             if (["collection", "коллекция", "избранные", "избранное", "сохранённые", "сохранённое"].includes(tag)) {
                 console.log('parseSearchQuery detect: ', tag)
-                bookmarks = true
-                console.log('parseSearchQuery bookmarks: ', bookmarks)
+                bookmarksOfUserId = userId
+                console.log('parseSearchQuery bookmarksOfUserId: ', bookmarksOfUserId)
             }
 
             genres.push(tag)
@@ -97,6 +98,7 @@ export const parseSearchQuery = (
     }
 
     return {
+        from: bookmarksOfUserId,
         text: text.join(" "),
         filters: {
             genres,
@@ -107,7 +109,6 @@ export const parseSearchQuery = (
             mediaTypes,
             sort,
             vote,
-            bookmarks
         }
     }
 }

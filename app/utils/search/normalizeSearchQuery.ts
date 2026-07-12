@@ -10,6 +10,7 @@ export const normalizeSearchQuery = (
         query.filters.mediaTypes[0] || "movie"
 
     return {
+        from: query.from,
         text: query.text,
         page: page,
         filters: {
@@ -21,7 +22,6 @@ export const normalizeSearchQuery = (
             mediaTypes: query.filters.mediaTypes,
             sort: query.filters.sort,
             vote: query.filters.vote,
-            bookmarks: query.filters.bookmarks
         }
     }
 }

@@ -16,8 +16,8 @@ export const resolveSearchStrategy = (
         query.filters.companies.length > 0 ||
         query.filters.mediaTypes.length > 0
 
-    const hasBookmarks =
-        query.filters.bookmarks
+    const hasFromUserId =
+        query.from
 
     if (hasText && hasFilters) {
         return SearchStrategy.SEARCH_MIXED
@@ -31,8 +31,8 @@ export const resolveSearchStrategy = (
         return SearchStrategy.SEARCH_BY_FILTERS
     }
 
-    if (hasBookmarks) {
-        console.log('strategy', hasBookmarks)
+    if (hasFromUserId) {
+        console.log('strategy', hasFromUserId)
         return SearchStrategy.BOOKMARKS
     }
 
