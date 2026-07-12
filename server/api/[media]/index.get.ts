@@ -3,14 +3,18 @@ import { serverSupabaseClient } from "#supabase/server";
 export default defineEventHandler(async (event) => {
     const query = getQuery(event)
 
-    // Пагинация: получаем текущий offset (смещение) и limit (размер страницы)
-    const offset = parseInt(query.offset as string) || 0
+    // Пагинация: получаем текущую страницу page и лимит элементов limit
+    const page = parseInt(query.page as string) || 1
     const limit = parseInt(query.limit as string) || 20
+
+    // ИСПРАВЛЕНО: Вычисляем границы диапазона для Supabase .range()
+    const from = (page - 1) * limit
+    const to = (page * limit) - 1
 
     const sortBy = typeof query.sortBy === 'string' ? query.sortBy : 'created_at'
     const userId = typeof query.userId === 'number' || typeof query.userId === 'string' ? query.userId : null
 
-    if (!userId) return { results: [], nextOffset: null }
+    if (!userId) return { results: [], nextPage: null }
 
     const supabase = await serverSupabaseClient(event)
 
@@ -20,21 +24,21 @@ export default defineEventHandler(async (event) => {
         .eq('telegram_id', userId)
         .maybeSingle()
 
-    if (!user) return { results: [], nextOffset: null }
+    if (!user) return { results: [], nextPage: null }
 
-    // Запрос с пагинацией через .range()
+    // Запрос с пагинацией через новые границы диапазона from и to
     const { data, count } = await supabase
         .from('favorites')
-        .select('*', { count: 'exact' }) // count: 'exact' вернет общее число записей в базе
+        .select('*', { count: 'exact' })
         .eq('user_id', user.id)
         .order(sortBy, { ascending: false })
-        .range(offset, offset + limit - 1) // Запрашиваем с элемента X по элемент Y
+        .range(from, to) // Теперь передаем корректный срез
 
-    // Вычисляем, есть ли следующая страница
-    const nextOffset = count && (offset + limit < count) ? offset + limit : null
+    // Вычисляем, есть ли следующая страница (номер следующей страницы или null)
+    const nextPage = count && (page * limit < count) ? page + 1 : null
 
     return {
         results: data || [],
-        nextOffset // Отдаем фронтенду/боту информацию, откуда брать следующую страницу
+        nextPage // Возвращаем nextPage вместо nextOffset для фронтенда/бота
     }
 })
