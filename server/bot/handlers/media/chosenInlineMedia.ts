@@ -4,8 +4,6 @@ import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
 
 export const chosenInlineMedia = async (ctx: any) => {
 
-    console.log('result choose', ctx.chosenInlineResult)
-
     try {
         const result = ctx.chosenInlineResult
 
@@ -14,7 +12,6 @@ export const chosenInlineMedia = async (ctx: any) => {
         if (!inlineMessageId) return
 
         const [_, mediaType, mediaId] = result.result_id.split('_')
-        console.log('mediaType, mediaId', mediaType, mediaId)
 
         const media = await $fetch(
             '/api/bot/getMediaBot',

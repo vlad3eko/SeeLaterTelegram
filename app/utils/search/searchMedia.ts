@@ -30,7 +30,5 @@ export const searchMedia = async (query: string, page: number = 1) => {
         result.results = sortMediaResults(medias, true)
     }
 
-    console.log('medias', medias)
-    console.log('result.results', result.results)
     return result
 }

@@ -23,15 +23,13 @@ export const isLiquidMedia = (media: any): boolean => {
         )
 
     const hasOverview =
-        Boolean(
-            media.overview?.trim()
-        )
+        (media.overview ?? "")
+            .trim()
+            .length >= 20
 
     const hasPoster =
-        Boolean(
-            media.poster_path ||
-            media.backdrop_path
-        )
+        typeof media.poster_path === "string" &&
+        media.poster_path.length > 5
 
     const hasVotes =
         (media.vote_count ?? 0) >= 10
