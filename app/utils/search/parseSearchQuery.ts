@@ -67,7 +67,7 @@ export const parseSearchQuery = (
                 continue
             }
 
-            if (["collection", "коллекция", "избранные", "избранное", "сохранённые"].includes(tag)) {
+            if (["collection", "коллекция", "избранные", "избранное", "сохранённые", "сохранённое"].includes(tag)) {
                 console.log('parseSearchQuery detect: ', tag)
                 bookmarks = true
                 console.log('parseSearchQuery bookmarks: ', bookmarks)
