@@ -2,6 +2,8 @@ import {FormatDate, FormatRating} from "~/utils/formatMoviesData";
 import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBot";
 
 export const processSearchMediaInline = async (ctx: any, medias: any) => {
+
+    console.log('processSearchMediaInline', medias[0])
     try {
 
         const results = medias.results.map(
