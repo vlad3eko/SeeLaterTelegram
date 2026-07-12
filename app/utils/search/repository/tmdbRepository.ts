@@ -107,9 +107,13 @@ export const searchMixed = async (query: NormalizedSearchQuery, page: number = 1
 }
 
 export const searchBookmarks = async (query: NormalizedSearchQuery) => {
+
+    const userId = query.from
+    console.log('userId check', userId)
+
     return await $fetch('/api/:media', {
         query: {
-            userId: query.from,
+            userId
         }
     })
 }

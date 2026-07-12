@@ -26,6 +26,8 @@ export default defineEventHandler(async (event) => {
             }
         )
 
+    console.log('check fetch inside data', data)
+
     return {
         data,
         error
