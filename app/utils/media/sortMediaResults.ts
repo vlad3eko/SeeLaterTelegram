@@ -4,10 +4,8 @@ import {filterMediaQuality} from "~/utils/search/filterMediaQuality";
 export const sortMediaResults = (
     medias: any[],
     onlyLiquid = false,
-    userId: number
 ) => {
 
-    if (!userId) {
         const today = Date.now()
 
         const source = medias
@@ -77,16 +75,13 @@ export const sortMediaResults = (
                         b._vote - a._vote
                 )
 
-        if (!userId) {
             if (onlyLiquid) {
                 return others
             }
-        }
 
         return [
             ...unreleased,
             ...topRanked,
             ...others
         ]
-    }
 }
