@@ -26,3 +26,10 @@ export const deleteMediaButtonBot = (mediaId: number, mediaType: string) => {
         '🗑 Удалить из коллекции',
         `delete_media_${mediaId}_${mediaType}`)
 }
+
+export const checkFavoritesMedias = () => {
+    return Markup.button.callback(
+        '📦 Коллекция',
+        ''
+    )
+}

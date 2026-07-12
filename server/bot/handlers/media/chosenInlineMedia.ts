@@ -6,7 +6,8 @@ export const chosenInlineMedia = async (ctx: any) => {
 
     try {
         const result = ctx.chosenInlineResult
-        console.log('results', result)
+        const user = ctx.from.id
+        console.log('user', user)
 
         const inlineMessageId = result.inline_message_id
 
