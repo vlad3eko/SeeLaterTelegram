@@ -7,11 +7,6 @@ export const sortMediaResults = (
     userId: number
 ) => {
 
-
-    let unreleased: [] = []
-    let topRanked: [] = []
-    let others: [] = []
-
     if (!userId) {
         const today = Date.now()
 
@@ -87,11 +82,11 @@ export const sortMediaResults = (
                 return others
             }
         }
-    }
 
-    return [
-        ...unreleased,
-        ...topRanked,
-        ...others
-    ]
+        return [
+            ...unreleased,
+            ...topRanked,
+            ...others
+        ]
+    }
 }

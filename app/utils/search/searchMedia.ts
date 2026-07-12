@@ -27,9 +27,7 @@ export const searchMedia = async (query: string, page: number = 1, userId: numbe
     if (page === 1) {
         result.results = sortMediaResults(medias)
     } else {
-        console.log('before medias', medias )
-        result.results = sortMediaResults(medias, true, userId)
-        console.log('after medias', medias )
+        result.results = sortMediaResults(medias, true)
     }
 
     return result
