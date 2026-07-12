@@ -27,7 +27,6 @@ export const executeSearchStrategy = async (strategy: SearchStrategy, query: Nor
             return await getPopularMovies(query, page)
 
         case SearchStrategy.BOOKMARKS:
-            console.log('bookl,', await getBookmarks(query, page))
             return await getBookmarks(query, page)
 
         default:
