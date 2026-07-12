@@ -33,6 +33,15 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
             })
         )
 
+        console.log('log2', await ctx.answerInlineQuery(
+            results,
+            {
+                next_offset:
+                    medias.page < medias.total_pages
+                        ? String(medias.page + 1)
+                        : ''
+            }
+        ))
         await ctx.answerInlineQuery(
             results,
             {
