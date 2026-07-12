@@ -7,7 +7,6 @@ export const chosenInlineMedia = async (ctx: any) => {
     try {
         const result = ctx.chosenInlineResult
         const user = ctx.from.id
-        console.log('user', user)
 
         const inlineMessageId = result.inline_message_id
 
@@ -37,7 +36,7 @@ export const chosenInlineMedia = async (ctx: any) => {
                 parse_mode: 'HTML',
             },
             {
-                reply_markup: keyboardSendMediaCardInline(mediaId, mediaType)
+                reply_markup: keyboardSendMediaCardInline(mediaId, mediaType, user)
             }
         )
 
