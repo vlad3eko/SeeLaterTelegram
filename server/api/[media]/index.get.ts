@@ -40,6 +40,6 @@ export default defineEventHandler(async (event) => {
 
     return {
         results: data || [],
-        nextPage // Возвращаем nextPage вместо nextOffset для фронтенда/бота
+        page // Возвращаем nextPage вместо nextOffset для фронтенда/бота
     }
 })
