@@ -14,7 +14,8 @@ export const resolveSearchStrategy = (
         query.filters.providers.length > 0 ||
         query.filters.countries.length > 0 ||
         query.filters.companies.length > 0 ||
-        query.filters.mediaTypes.length > 0
+        query.filters.mediaTypes.length > 0 ||
+        query.filters.bookmarks
 
     if (hasText && hasFilters) {
         return SearchStrategy.SEARCH_MIXED

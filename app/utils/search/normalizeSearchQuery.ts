@@ -20,7 +20,8 @@ export const normalizeSearchQuery = (
             companies: [],
             mediaTypes: query.filters.mediaTypes,
             sort: query.filters.sort,
-            vote: query.filters.vote
+            vote: query.filters.vote,
+            bookmarks: query.filters.bookmarks
         }
     }
 }

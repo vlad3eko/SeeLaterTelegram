@@ -14,6 +14,7 @@ export const parseSearchQuery = (
     const providers: string[] = []
     const countries: string[] = []
     const companies: string[] = []
+    let bookmarks: boolean = false
 
     const mediaTypes: ("movie" | "tv")[] = []
 
@@ -66,7 +67,11 @@ export const parseSearchQuery = (
                 continue
             }
 
-            if (["collection", "коллекция", "избранные", "избранное", "сохранённые"].includes(tag)) console.log('parseSearchQuery detect: ', tag)
+            if (["collection", "коллекция", "избранные", "избранное", "сохранённые"].includes(tag)) {
+                console.log('parseSearchQuery detect: ', tag)
+                bookmarks = true
+                console.log('parseSearchQuery bookmarks: ', bookmarks)
+            }
 
             genres.push(tag)
 
@@ -101,7 +106,8 @@ export const parseSearchQuery = (
             companies,
             mediaTypes,
             sort,
-            vote
+            vote,
+            bookmarks
         }
     }
 }
