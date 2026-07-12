@@ -21,8 +21,8 @@ export const searchMedia = async (query: string, page: number = 1, userId: numbe
 
     const medias = result.results
         .map(normalizeTmdbMedia)
-        .filter(filterTmdbMediaResults)
-        // .map(normalizeMediaGenres)
+        .filter(media => filterTmdbMediaResults(media, userId))
+        .map(normalizeMediaGenres)
     console.log('medias filters', medias)
 
     if (page === 1) {

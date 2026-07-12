@@ -1,5 +1,6 @@
 export const filterTmdbMediaResults = (
-    media: any
+    media: any,
+    userId: number
 ) => {
 
     // только фильмы и сериалы
@@ -11,11 +12,9 @@ export const filterTmdbMediaResults = (
     }
 
     // должно быть описание
-    if (
-        !media.overview ||
-        media.overview.trim().length < 20
-    ) {
-        return false
+    if (!userId) {
+        return !(!media.overview ||
+            media.overview.trim().length < 20);
     }
 
     return true
