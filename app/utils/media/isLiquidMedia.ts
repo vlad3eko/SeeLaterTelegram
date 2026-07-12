@@ -23,8 +23,9 @@ export const isLiquidMedia = (media: any, userId: number): boolean => {
         )
 
 
+    let hasOverview
     if (!userId) {
-       const hasOverview =
+       hasOverview =
             (media.overview ?? "")
                 .trim()
                 .length >= 20
@@ -42,7 +43,7 @@ export const isLiquidMedia = (media: any, userId: number): boolean => {
 
     return (
         hasTitle &&
-        (hasOverview || '') &&
+        hasOverview &&
         hasPoster &&
         hasVotes &&
         hasRating
