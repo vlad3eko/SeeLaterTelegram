@@ -106,20 +106,3 @@ export const searchMixed = async (query: NormalizedSearchQuery, page: number = 1
     }
 }
 
-const searchBookmarks = () => {
-    const {data: medias, pending} = await useAsyncData(
-        'movies-bookmarks',
-        () => $fetch('/api/:media', {
-            query: {
-                userId: data?.value?.id,
-                sortBy: sortBy.value,
-            }
-        }),
-        {
-            watch: [
-                sortBy,
-                () => data?.value?.id
-            ]
-        }
-    )
-}
