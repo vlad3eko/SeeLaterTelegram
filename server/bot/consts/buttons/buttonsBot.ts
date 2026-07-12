@@ -28,8 +28,8 @@ export const deleteMediaButtonBot = (mediaId: number, mediaType: string) => {
 }
 
 export const checkFavoritesMedias = (user: number) => {
-    return Markup.button.callback(
+    return Markup.button.switchToCurrentChat(
         '📦 Коллекция',
-        `favorites_media_${user}`
+        ''
     )
 }

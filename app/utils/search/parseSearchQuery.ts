@@ -14,6 +14,7 @@ export const parseSearchQuery = (
     const providers: string[] = []
     const countries: string[] = []
     const companies: string[] = []
+    const bookmarks: [] = []
 
     const mediaTypes: ("movie" | "tv")[] = []
 
@@ -65,6 +66,8 @@ export const parseSearchQuery = (
                 sort = "primary_release_date.asc"
                 continue
             }
+
+            if (["collection", "коллекция", "избранные", "избранное", "сохранённые"].includes(tag)) console.log('parseSearchQuery detect: ', tag)
 
             genres.push(tag)
 

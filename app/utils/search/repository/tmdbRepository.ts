@@ -1,19 +1,19 @@
 import type {NormalizedSearchQuery} from "~/utils/search/typesSearch";
 import {buildTmdbParams} from "~/utils/media/buildTmdbParams";
 
-export const searchMulti = async (query: NormalizedSearchQuery, page:number = 1)=>{
+export const searchMulti = async (query: NormalizedSearchQuery, page: number = 1) => {
 
     let media = "multi"
 
-    if(query.filters.mediaTypes.length === 1){
+    if (query.filters.mediaTypes.length === 1) {
         media = query.filters.mediaTypes[0]
     }
 
     return await $fetch(
         "/api/tmdb/search",
         {
-            query:{
-                q:query.text,
+            query: {
+                q: query.text,
                 page,
                 media
             }
@@ -21,37 +21,37 @@ export const searchMulti = async (query: NormalizedSearchQuery, page:number = 1)
     )
 }
 
-export const discoverMovies = async (query: NormalizedSearchQuery, page:number = 1)=>{
+export const discoverMovies = async (query: NormalizedSearchQuery, page: number = 1) => {
     let media = "movie"
 
-    if(query.filters.mediaTypes.length === 1){
+    if (query.filters.mediaTypes.length === 1) {
         media = query.filters.mediaTypes[0]
     }
 
     return await $fetch(
         "/api/tmdb/discover",
         {
-            query:{
+            query: {
                 media,
-                ...buildTmdbParams(query,page)
+                ...buildTmdbParams(query, page)
             }
         }
     )
 }
 
-export const getPopularMovies = async (query: NormalizedSearchQuery, page:number = 1)=>{
+export const getPopularMovies = async (query: NormalizedSearchQuery, page: number = 1) => {
 
     let media = "movie"
 
-    if(query.filters.mediaTypes.length === 1){
+    if (query.filters.mediaTypes.length === 1) {
         media = query.filters.mediaTypes[0]
     }
 
     return await $fetch(
         "/api/tmdb/search",
         {
-            query:{
-                q:query.text,
+            query: {
+                q: query.text,
                 page,
                 media
             }
@@ -59,17 +59,17 @@ export const getPopularMovies = async (query: NormalizedSearchQuery, page:number
     )
 }
 
-export const searchMixed = async (query: NormalizedSearchQuery, page:number = 1)=>{
+export const searchMixed = async (query: NormalizedSearchQuery, page: number = 1) => {
 
-    const result:any = await searchMulti(query,page)
+    const result: any = await searchMulti(query, page)
 
     let results = result.results
 
-    if(query.filters.genres.length){
+    if (query.filters.genres.length) {
         results = results.filter(
-            (media:any)=>{
+            (media: any) => {
 
-                if(!media.genre_ids)
+                if (!media.genre_ids)
                     return false
 
                 return query.filters.genres.every(
@@ -80,19 +80,19 @@ export const searchMixed = async (query: NormalizedSearchQuery, page:number = 1)
         )
     }
 
-    if(query.filters.years.length){
+    if (query.filters.years.length) {
 
         results = results.filter(
-            (media:any)=>{
+            (media: any) => {
                 const date =
                     media.release_date ||
                     media.first_air_date
 
-                if(!date)
+                if (!date)
                     return false
 
                 const year =
-                    Number(date.slice(0,4))
+                    Number(date.slice(0, 4))
 
                 return query.filters.years.includes(year)
 
