@@ -9,12 +9,15 @@ export const sortMediaResults = (
 
     const today = Date.now()
 
+    console.log('before result.results', medias)
+
     const source = medias
         .filter(filterMediaQuality)
         .filter(
             media =>
                 !onlyLiquid || isLiquidMedia(media, userId)
         )
+    console.log('after result.results', medias)
 
     const enriched = source.map(item => {
 
