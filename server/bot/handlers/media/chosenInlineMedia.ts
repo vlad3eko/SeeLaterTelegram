@@ -24,7 +24,6 @@ export const chosenInlineMedia = async (ctx: any) => {
                 }
             }
         )
-        console.log('media', media)
 
         await new Promise(resolve =>
             setTimeout(resolve, 300)
