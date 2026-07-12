@@ -25,10 +25,8 @@ export const searchMedia = async (query: string, page: number = 1) => {
         .map(normalizeMediaGenres)
 
     if (page === 1) {
-        result.results = sortMediaResults(medias)
+        return result.results = sortMediaResults(medias)
     } else {
-        result.results = sortMediaResults(medias, true)
+        return result.results = sortMediaResults(medias, true)
     }
-
-    return result
 }
