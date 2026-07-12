@@ -35,6 +35,6 @@ export default defineEventHandler(async (event) => {
 
     return {
         results: data,
-        error
+        error: []
     }
 })
