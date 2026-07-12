@@ -18,6 +18,7 @@ export const searchMedia = async (query: string, page: number = 1) => {
     console.log('normalized', normalized)
 
     const strategy = resolveSearchStrategy(normalized)
+    console.log('strategy', strategy)
 
     const result = await executeSearchStrategy(strategy, normalized, page)
 
