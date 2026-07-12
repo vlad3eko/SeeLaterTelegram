@@ -14,7 +14,6 @@ export const parseSearchQuery = (
     const providers: string[] = []
     const countries: string[] = []
     const companies: string[] = []
-    const bookmarks: [] = []
 
     const mediaTypes: ("movie" | "tv")[] = []
 
