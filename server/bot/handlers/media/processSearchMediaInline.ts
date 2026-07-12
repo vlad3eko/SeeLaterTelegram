@@ -5,9 +5,9 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
     try {
 
         const results = medias.results.map(
-            (media: any, index: number) => ({
+            (media: any) => ({
                 type: 'article',
-                id: `${media.media_type}_${media.tmdb_id || media.id}_${medias.page}`,
+                id: `${medias.page}_${media.media_type}_${media.id}`,
                 title: (media.title || media.name),
 
                 description:
@@ -32,9 +32,7 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
                     )
             })
         )
-        console.log(
-            JSON.stringify(results[0], null, 2)
-        )
+
         await ctx.answerInlineQuery(
             results,
             {

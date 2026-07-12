@@ -24,26 +24,10 @@ export const searchMedia = async (query: string, page: number = 1) => {
         .filter(filterTmdbMediaResults)
         .map(normalizeMediaGenres)
 
-        console.log(
-            "before sort",
-            medias.length
-        )
     if (page === 1) {
         result.results = sortMediaResults(medias)
-        console.log(
-            "after sort",
-            result.results.length
-        )
     } else {
         result.results = sortMediaResults(medias, true)
-        console.log(
-            "after sort true",
-            result.results.length
-        )
     }
-    console.log(
-        "return result",
-        result.results.length
-    )
     return result
 }
