@@ -1,4 +1,4 @@
-import type { SearchQuery } from "~/utils/search/typesSearch";
+import type {SearchQuery} from "~/utils/search/typesSearch";
 
 export const parseSearchQuery = (
     query: string,
@@ -69,9 +69,7 @@ export const parseSearchQuery = (
             }
 
             if (["collection", "collections", "коллекция", "избранные", "избранное", "сохранённые", "сохранённое"].includes(tag)) {
-                console.log('parseSearchQuery detect: ', tag)
                 bookmarksOfUserId = userId
-                console.log('parseSearchQuery bookmarksOfUserId: ', bookmarksOfUserId)
             }
 
             genres.push(tag)
@@ -82,8 +80,7 @@ export const parseSearchQuery = (
         // ---------- ГОД ----------
         if (/^\d{4}$/.test(cleanWord) &&
             Number(cleanWord) >= 1900 &&
-            Number(cleanWord) <= new Date().getFullYear() + 5)
-        {
+            Number(cleanWord) <= new Date().getFullYear() + 5) {
             years.push(Number(cleanWord))
             continue
         }

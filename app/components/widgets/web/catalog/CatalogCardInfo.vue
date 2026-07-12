@@ -71,7 +71,6 @@ const loadInfo = async () => {
       props.media.media_type
 
   if (!mediaId || !mediaType) {
-
     console.log('CatalogCardInfo: missing media data', props.media)
     return
   }
