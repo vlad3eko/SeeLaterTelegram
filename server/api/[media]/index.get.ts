@@ -18,10 +18,16 @@ export default defineEventHandler(async (event) => {
 
     const supabase = await serverSupabaseClient(event)
 
+    const { data: user } = await supabase
+        .from('users')
+        .select()
+        .eq('id', userId)
+        .single()
+
     const {data, error} = await supabase
         .from('favorites')
         .select()
-        .eq('user_id', userId)
+        .eq('user_id', user.id)
         // .order(sortBy,
         //     {
         //         ascending: false
