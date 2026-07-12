@@ -7,6 +7,11 @@ export const sortMediaResults = (
     userId: number
 ) => {
 
+
+    let unreleased
+    let topRanked
+    let others
+
     if (!userId) {
         const today = Date.now()
 
@@ -38,7 +43,7 @@ export const sortMediaResults = (
 
         })
 
-        const topRanked =
+        topRanked =
             [...enriched]
                 .sort(
                     (a, b) =>
@@ -53,7 +58,7 @@ export const sortMediaResults = (
                 )
             )
 
-        const unreleased =
+        unreleased =
             enriched
                 .filter(
                     media =>
@@ -65,7 +70,7 @@ export const sortMediaResults = (
                         b._vote - a._vote
                 )
 
-        const others =
+        others =
             enriched
                 .filter(
                     media =>
