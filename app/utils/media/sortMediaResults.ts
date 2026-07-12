@@ -1,4 +1,4 @@
-import { isLiquidMedia } from "./isLiquidMedia"
+import {isLiquidMedia} from "./isLiquidMedia"
 import {filterMediaQuality} from "~/utils/search/filterMediaQuality";
 
 export const sortMediaResults = (
@@ -76,8 +76,10 @@ export const sortMediaResults = (
                     b._vote - a._vote
             )
 
-    if (onlyLiquid) {
-        return others
+    if (!userId) {
+        if (onlyLiquid) {
+            return others
+        }
     }
 
     return [

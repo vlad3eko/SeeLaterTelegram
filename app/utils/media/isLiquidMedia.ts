@@ -1,16 +1,25 @@
 export const isLiquidMedia = (media: any, userId: number): boolean => {
 
+     let today
+     let releaseDate
+     let isReleased
+     let hasTitle
+     let hasOverview
+     let hasPoster
+     let hasVotes
+     let hasRating
+
     if (!userId) {
 
-        const today = Date.now()
+         today = Date.now()
 
-        const releaseDate = new Date(
+         releaseDate = new Date(
             media.release_date ||
             media.first_air_date ||
             0
         ).getTime()
 
-        const isReleased =
+         isReleased =
             releaseDate > 0 &&
             releaseDate <= today
 
@@ -19,32 +28,33 @@ export const isLiquidMedia = (media: any, userId: number): boolean => {
             return true
         }
 
-        const hasTitle =
+         hasTitle =
             Boolean(
                 (media.title || media.name)?.trim()
             )
 
-        const hasOverview =
+         hasOverview =
             (media.overview ?? "")
                 .trim()
                 .length >= 20
 
-        const hasPoster =
+         hasPoster =
             typeof media.poster_path === "string" &&
             media.poster_path.length > 5
 
-        const hasVotes =
+         hasVotes =
             (media.vote_count ?? 0) >= 10
 
-        const hasRating =
+         hasRating =
             (media.vote_average ?? 0) >= 5
 
-        return (
-            hasTitle &&
-            hasOverview &&
-            hasPoster &&
-            hasVotes &&
-            hasRating
-        )
     }
+
+    return (
+        hasTitle &&
+        hasOverview &&
+        hasPoster &&
+        hasVotes &&
+        hasRating
+    )
 }
