@@ -1,4 +1,5 @@
 import { isLiquidMedia } from "./isLiquidMedia"
+import {filterMediaQuality} from "~/utils/search/filterMediaQuality";
 
 export const sortMediaResults = (
     medias: any[],
@@ -7,10 +8,12 @@ export const sortMediaResults = (
 
     const today = Date.now()
 
-    const source =
-        onlyLiquid
-            ? medias.filter(isLiquidMedia)
-            : medias
+    const source = medias
+        .filter(filterMediaQuality)
+        .filter(
+            media =>
+                !onlyLiquid || isLiquidMedia(media)
+        )
 
     const enriched = source.map(item => {
 
