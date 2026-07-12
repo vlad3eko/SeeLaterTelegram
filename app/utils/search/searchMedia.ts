@@ -32,5 +32,5 @@ export const searchMedia = async (query: string, page: number = 1) => {
 
     console.log('medias', medias)
     console.log('result.results', result.results)
-    return result.results
+    return result
 }
