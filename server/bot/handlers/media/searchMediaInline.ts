@@ -4,10 +4,11 @@ import {searchMedia} from "~/utils/search/searchMedia";
 
 export const searchMediaInline = async (ctx: any) => {
 
-    console.log('1 searchMediaInline ctx.inlineQuery.query', ctx.inlineQuery.query, page, ctx.from.id)
+    console.log('1 searchMediaInline ctx.inlineQuery.query', ctx.inlineQuery.query, ctx.from.id)
     try {
 
         const page = Number(ctx.inlineQuery.offset) || 1
+        console.log('1 , page', page)
 
         const medias = await searchMedia(ctx.inlineQuery.query, page, ctx.from.id)
 
