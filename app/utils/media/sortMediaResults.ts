@@ -3,7 +3,7 @@ export const sortMediaResults = (
     onlyValid: boolean = false
 ) => {
 
-    const today = new Date().getTime()
+    const today = Date.now()
 
     let filtered = medias
 
@@ -11,19 +11,39 @@ export const sortMediaResults = (
 
         filtered = medias.filter(media => {
 
-            const title =
-                media.title || media.name
+            const releaseDate = new Date(
+                media.release_date ||
+                media.first_air_date ||
+                0
+            ).getTime()
 
-            const description =
-                media.overview?.trim()
+            const isReleased =
+                releaseDate > 0 &&
+                releaseDate <= today
 
-            const image =
-                media.poster_path || media.backdrop_path
+            const hasTitle =
+                !!(media.title || media.name)
 
+            const hasDescription =
+                !!media.overview?.trim()
+
+            const hasImage =
+                !!(media.poster_path || media.backdrop_path)
+
+            const hasVotes =
+                (media.vote_count || 0) >= 10
+
+            // Для будущих релизов достаточно названия
+            if (!isReleased) {
+                return hasTitle
+            }
+
+            // Для уже вышедших фильмов всё обязательно
             return (
-                title &&
-                description &&
-                image
+                hasTitle &&
+                hasDescription &&
+                hasImage &&
+                hasVotes
             )
         })
 
@@ -39,7 +59,6 @@ export const sortMediaResults = (
             new Date(date || 0).getTime()
 
         return {
-
             ...item,
 
             _vote:
