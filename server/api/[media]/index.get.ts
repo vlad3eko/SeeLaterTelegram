@@ -35,11 +35,13 @@ export default defineEventHandler(async (event) => {
         .order(sortBy, { ascending: false })
         .range(from, to) // Теперь передаем корректный срез
 
+    const totalItems = count || 0
+    const total_pages = Math.ceil(totalItems / limit)
+
     // Вычисляем, есть ли следующая страница (номер следующей страницы или null)
-    const nextPage = count && (page * limit < count) ? page + 1 : null
 
     return {
         results: data || [],
-        page // Возвращаем nextPage вместо nextOffset для фронтенда/бота
+        total_pages // Возвращаем nextPage вместо nextOffset для фронтенда/бота
     }
 })

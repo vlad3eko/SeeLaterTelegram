@@ -32,7 +32,6 @@ export const resolveSearchStrategy = (
     }
 
     if (hasFromUserId) {
-        console.log('strategy', hasFromUserId)
         return SearchStrategy.BOOKMARKS
     }
 
