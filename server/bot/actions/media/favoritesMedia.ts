@@ -1,4 +1,6 @@
 export const favoritesMedia = (user: number) => {
-    console.log('user favorites', user)
-    console.log('user favorites', user.id)
+
+    const user = ctx.match[1]
+    console.log('ctx.from.id', ctx.from.id)
+    console.log('user', user)
 }
