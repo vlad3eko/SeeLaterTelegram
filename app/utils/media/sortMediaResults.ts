@@ -3,7 +3,8 @@ import {filterMediaQuality} from "~/utils/search/filterMediaQuality";
 
 export const sortMediaResults = (
     medias: any[],
-    onlyLiquid = false
+    onlyLiquid = false,
+    userId: number
 ) => {
 
     const today = Date.now()
@@ -12,7 +13,7 @@ export const sortMediaResults = (
         .filter(filterMediaQuality)
         .filter(
             media =>
-                !onlyLiquid || isLiquidMedia(media)
+                !onlyLiquid || isLiquidMedia(media, userId)
         )
 
     const enriched = source.map(item => {
