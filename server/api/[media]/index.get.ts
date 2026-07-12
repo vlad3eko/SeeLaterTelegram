@@ -30,7 +30,7 @@ export default defineEventHandler(async (event) => {
     const {data, error} = await supabase
         .from('favorites')
         .select()
-        .eq('user_id', user)
+        .eq('user_id', user.id)
         // .order(sortBy,
         //     {
         //         ascending: false
