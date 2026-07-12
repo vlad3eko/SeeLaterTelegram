@@ -1,4 +1,4 @@
-export const isLiquidMedia = (media: any, userId: number): boolean => {
+export const isLiquidMedia = (media: any): boolean => {
 
     const today = Date.now()
 
@@ -22,14 +22,10 @@ export const isLiquidMedia = (media: any, userId: number): boolean => {
             (media.title || media.name)?.trim()
         )
 
-
-    let hasOverview
-    if (!userId) {
-       hasOverview =
+    const hasOverview =
             (media.overview ?? "")
                 .trim()
                 .length >= 20
-    }
 
     const hasPoster =
         typeof media.poster_path === "string" &&

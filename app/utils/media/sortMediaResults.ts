@@ -14,7 +14,7 @@ export const sortMediaResults = (
             .filter(filterMediaQuality)
             .filter(
                 media =>
-                    !onlyLiquid || isLiquidMedia(media, userId)
+                    !onlyLiquid || isLiquidMedia(media)
             )
 
         const enriched = source.map(item => {
@@ -38,7 +38,7 @@ export const sortMediaResults = (
 
         })
 
-        topRanked =
+        const topRanked =
             [...enriched]
                 .sort(
                     (a, b) =>
@@ -53,7 +53,7 @@ export const sortMediaResults = (
                 )
             )
 
-        unreleased =
+        const unreleased =
             enriched
                 .filter(
                     media =>
@@ -65,7 +65,7 @@ export const sortMediaResults = (
                         b._vote - a._vote
                 )
 
-        others =
+        const others =
             enriched
                 .filter(
                     media =>
