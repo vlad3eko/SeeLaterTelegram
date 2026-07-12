@@ -11,19 +11,19 @@ import {loadGenres} from "#server/bot/consts/media/genresConvert";
 export const searchMedia = async (query: string, page: number = 1, userId: number = null) => {
     await loadGenres()
 
-    console.log('2 searchMedia')
+    console.log('2 searchMedia', query, page, userId)
 
     const parsed = parseSearchQuery(query, userId)
-    console.log('3 parsed')
+    console.log('3 parsed', parsed)
 
     const normalized = normalizeSearchQuery(parsed, page)
-    console.log('4 normalized')
+    console.log('4 normalized', normalized[0])
 
     const strategy = resolveSearchStrategy(normalized)
-    console.log('5 strategy')
+    console.log('5 strategy', strategy)
 
     const result = await executeSearchStrategy(strategy, normalized, page)
-    console.log('6 result')
+    console.log('6 result', result.results[0])
 
     console.log('7 before result', result.results[0])
     const medias = result.results
@@ -37,7 +37,7 @@ export const searchMedia = async (query: string, page: number = 1, userId: numbe
     } else if (!userId) {
         result.results = sortMediaResults(medias, true)
     }
-    console.log('9 medias')
+    console.log('9 medias', medias[0])
 
     return result
 }

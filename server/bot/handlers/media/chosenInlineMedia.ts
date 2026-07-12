@@ -7,6 +7,7 @@ export const chosenInlineMedia = async (ctx: any) => {
     console.log('11 chosenInlineMedia')
     try {
         const result = ctx.chosenInlineResult
+    console.log('12 chosenInlineMedia', result)
         const user = ctx.from.id
 
 
@@ -26,7 +27,7 @@ export const chosenInlineMedia = async (ctx: any) => {
             }
         )
 
-        console.log('12 chosenInlineMedia fetch data')
+        console.log('13 chosenInlineMedia fetch data', media)
 
         await new Promise(resolve =>
             setTimeout(resolve, 300)
