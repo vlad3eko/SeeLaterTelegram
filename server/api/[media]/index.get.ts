@@ -42,8 +42,8 @@ export default defineEventHandler(async (event) => {
     // Вычисляем, есть ли следующая страница (номер следующей страницы или null)
 
     return {
-        results: data || [],
         page,
+        results: data || [],
         total_pages // Возвращаем nextPage вместо nextOffset для фронтенда/бота
     }
 })
