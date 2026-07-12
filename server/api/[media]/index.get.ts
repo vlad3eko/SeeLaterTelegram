@@ -14,6 +14,8 @@ export default defineEventHandler(async (event) => {
             ? query.userId
             : null
 
+    console.log('userId inside', userId)
+
     const supabase = await serverSupabaseClient(event)
 
     const {data, error} = await supabase
@@ -27,6 +29,7 @@ export default defineEventHandler(async (event) => {
         // )
 
     console.log('check fetch inside data', data)
+    console.log('check fetch inside error', error)
 
     return {
         data,
