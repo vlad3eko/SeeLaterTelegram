@@ -1,5 +1,7 @@
 export const normalizeTmdbMedia = (media:any)=>{
 
+    console.log('media', media)
+
     const mediaType =
         media.media_type ||
         (
@@ -12,7 +14,7 @@ export const normalizeTmdbMedia = (media:any)=>{
 
     return {
         ...media,
-        tmdb_id: media.tmdb_id,
+        tmdb_id: media.id,
         id: media.id,
         media_type: mediaType,
         title:
