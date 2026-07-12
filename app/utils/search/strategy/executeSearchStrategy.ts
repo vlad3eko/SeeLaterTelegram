@@ -31,7 +31,6 @@ export const executeSearchStrategy = async (strategy: SearchStrategy, query: Nor
             console.log('fetch bookmarks from: ', query.from)
             const {data} = await searchBookmarks(query)
             console.log('fetch Success data: ', data)
-            return await searchBookmarks(query)
 
         default:
             return {

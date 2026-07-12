@@ -4,10 +4,10 @@ export default defineEventHandler(async (event) => {
 
     const query = getQuery(event)
 
-    const sortBy =
-        typeof query.sortBy === 'string'
-            ? query.sortBy
-            : 'created_at'
+    // const sortBy =
+    //     typeof query.sortBy === 'string'
+    //         ? query.sortBy
+    //         : 'created_at'
 
     const userId =
         typeof query.userId === 'number' || 'string'
@@ -20,11 +20,11 @@ export default defineEventHandler(async (event) => {
         .from('favorites')
         .select()
         .eq('user_id', userId)
-        .order(sortBy,
-            {
-                ascending: false
-            }
-        )
+        // .order(sortBy,
+        //     {
+        //         ascending: false
+        //     }
+        // )
 
     console.log('check fetch inside data', data)
 
