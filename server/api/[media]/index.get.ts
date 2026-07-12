@@ -5,6 +5,7 @@ export default defineEventHandler(async (event) => {
 
     // Пагинация: получаем текущую страницу page и лимит элементов limit
     const page = parseInt(query.page as string) || 1
+    console.log('query.page', query.page)
     const limit = parseInt(query.limit as string) || 20
 
     // ИСПРАВЛЕНО: Вычисляем границы диапазона для Supabase .range()

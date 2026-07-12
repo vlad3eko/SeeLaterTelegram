@@ -1,7 +1,7 @@
 import type {NormalizedSearchQuery} from "~/utils/search/typesSearch";
 import {buildTmdbParams} from "~/utils/media/buildTmdbParams";
 
-export const searchMulti = async (query: NormalizedSearchQuery, page: number = 1) => {
+export const searchMulti = async (query: NormalizedSearchQuery, page: number) => {
 
     let media = "multi"
 
@@ -21,7 +21,7 @@ export const searchMulti = async (query: NormalizedSearchQuery, page: number = 1
     )
 }
 
-export const discoverMovies = async (query: NormalizedSearchQuery, page: number = 1) => {
+export const discoverMovies = async (query: NormalizedSearchQuery, page: number) => {
     let media = "movie"
 
     if (query.filters.mediaTypes.length === 1) {
@@ -39,7 +39,7 @@ export const discoverMovies = async (query: NormalizedSearchQuery, page: number 
     )
 }
 
-export const getPopularMovies = async (query: NormalizedSearchQuery, page: number = 1) => {
+export const getPopularMovies = async (query: NormalizedSearchQuery, page: number) => {
 
     let media = "movie"
 
@@ -59,7 +59,7 @@ export const getPopularMovies = async (query: NormalizedSearchQuery, page: numbe
     )
 }
 
-export const searchMixed = async (query: NormalizedSearchQuery, page: number = 1) => {
+export const searchMixed = async (query: NormalizedSearchQuery, page: number) => {
 
     const result: any = await searchMulti(query, page)
 
@@ -106,7 +106,7 @@ export const searchMixed = async (query: NormalizedSearchQuery, page: number = 1
     }
 }
 
-export const getBookmarks = async (query: NormalizedSearchQuery, page: number = 1) => {
+export const getBookmarks = async (query: NormalizedSearchQuery, page: number) => {
     return await $fetch('/api/:media', {
         query: {
             userId: query.from,
