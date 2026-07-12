@@ -23,6 +23,9 @@ export const executeSearchStrategy = async (strategy: SearchStrategy, query: Nor
 
         case SearchStrategy.BOOKMARKS:
             console.log('fetch bookmarks from: ', query.from)
+            const {data} = await searchBookmarks
+            console.log('fetch Success data: ', data)
+            return await searchBookmarks
 
         default:
             return {
