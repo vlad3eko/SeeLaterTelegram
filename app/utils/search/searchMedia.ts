@@ -21,7 +21,7 @@ export const searchMedia = async (query: string, page: number = 1, userId: numbe
     console.log('strategy', strategy)
 
     const result = await executeSearchStrategy(strategy, normalized, page)
-    console.log('result before', result)
+    console.log('result before', result.results)
 
     const medias = result.results
         .map(normalizeTmdbMedia)
