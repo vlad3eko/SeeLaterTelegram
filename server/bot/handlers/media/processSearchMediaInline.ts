@@ -7,7 +7,7 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
         const results = medias.results.map(
             (media: any, index: number) => ({
                 type: 'article',
-                id: `${media.media_type}_${media.tmdb_id}`,
+                id: `${media.media_type}_${media.tmdb_id || media.id}_${medias.page}`,
                 title: (media.title || media.name),
 
                 description:
