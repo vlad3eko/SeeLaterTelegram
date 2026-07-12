@@ -14,7 +14,9 @@ export const resolveSearchStrategy = (
         query.filters.providers.length > 0 ||
         query.filters.countries.length > 0 ||
         query.filters.companies.length > 0 ||
-        query.filters.mediaTypes.length > 0 ||
+        query.filters.mediaTypes.length > 0
+
+    const hasBookmarks =
         query.filters.bookmarks
 
     if (hasText && hasFilters) {
@@ -27,6 +29,11 @@ export const resolveSearchStrategy = (
 
     if (hasFilters) {
         return SearchStrategy.SEARCH_BY_FILTERS
+    }
+
+    if (hasBookmarks) {
+        console.log('strategy', hasBookmarks)
+        return SearchStrategy.BOOKMARKS
     }
 
     return SearchStrategy.POPULAR
