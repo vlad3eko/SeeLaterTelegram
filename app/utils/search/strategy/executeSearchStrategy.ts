@@ -2,8 +2,8 @@ import {SearchStrategy} from "~/utils/search/strategy/enums";
 import type {NormalizedSearchQuery} from "~/utils/search/typesSearch";
 import {
     discoverMovies,
+    getBookmarks,
     getPopularMovies,
-    searchBookmarks,
     searchMixed,
     searchMulti
 } from "~/utils/search/repository/tmdbRepository";
@@ -13,7 +13,6 @@ export const executeSearchStrategy = async (strategy: SearchStrategy, query: Nor
         query.page = page
 
     switch(strategy) {
-
 
         case SearchStrategy.SEARCH_BY_TEXT:
             return await searchMulti(query, page)
@@ -28,9 +27,7 @@ export const executeSearchStrategy = async (strategy: SearchStrategy, query: Nor
             return await getPopularMovies(query, page)
 
         case SearchStrategy.BOOKMARKS:
-            console.log('fetch bookmarks from: ', query.from)
-            const {data} = await searchBookmarks(query)
-            console.log('fetch Success data: ', data)
+            return await getBookmarks(query)
 
         default:
             return {

@@ -15,8 +15,6 @@ export default defineEventHandler(async (event) => {
             ? query.userId
             : null
 
-    console.log('userId inside', userId)
-
     const supabase = await serverSupabaseClient(event)
 
     const { data: user } = await supabase
@@ -24,8 +22,6 @@ export default defineEventHandler(async (event) => {
         .select('id')
         .eq('telegram_id', userId)
         .single()
-
-    console.log('true user', user)
 
     const {data, error} = await supabase
         .from('favorites')
@@ -36,9 +32,6 @@ export default defineEventHandler(async (event) => {
                 ascending: false
             }
         )
-
-    console.log('check fetch inside data', data)
-    console.log('check fetch inside error', error)
 
     return {
         data,
