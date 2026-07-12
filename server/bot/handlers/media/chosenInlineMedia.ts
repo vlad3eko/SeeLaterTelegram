@@ -4,11 +4,12 @@ import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
 
 export const chosenInlineMedia = async (ctx: any) => {
 
+    console.log('11 chosenInlineMedia')
     try {
         const result = ctx.chosenInlineResult
         const user = ctx.from.id
 
-        console.log('result chosen', result)
+
         const inlineMessageId = result.inline_message_id
 
         if (!inlineMessageId) return
@@ -25,7 +26,7 @@ export const chosenInlineMedia = async (ctx: any) => {
             }
         )
 
-        console.log('chosen', media)
+        console.log('12 chosenInlineMedia fetch data')
 
         await new Promise(resolve =>
             setTimeout(resolve, 300)
