@@ -12,7 +12,7 @@ export const searchMedia = async (query: string, page: number = 1) => {
     await loadGenres()
 
     const parsed = parseSearchQuery(query)
-    console.log('parsed')
+    console.log('parsed', parsed)
 
     const normalized = normalizeSearchQuery(parsed, page)
 
