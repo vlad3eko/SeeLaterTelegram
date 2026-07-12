@@ -1,19 +1,16 @@
-import {serverSupabaseClient} from "#supabase/server";
-import {login} from "telegraf/typings/button";
+import { serverSupabaseClient } from "#supabase/server";
 
 export default defineEventHandler(async (event) => {
-
     const query = getQuery(event)
 
-    const sortBy =
-        typeof query.sortBy === 'string'
-            ? query.sortBy
-            : 'created_at'
+    // Пагинация: получаем текущий offset (смещение) и limit (размер страницы)
+    const offset = parseInt(query.offset as string) || 0
+    const limit = parseInt(query.limit as string) || 20
 
-    const userId =
-        typeof query.userId === 'number' || 'string'
-            ? query.userId
-            : null
+    const sortBy = typeof query.sortBy === 'string' ? query.sortBy : 'created_at'
+    const userId = typeof query.userId === 'number' || typeof query.userId === 'string' ? query.userId : null
+
+    if (!userId) return { results: [], nextOffset: null }
 
     const supabase = await serverSupabaseClient(event)
 
@@ -21,20 +18,23 @@ export default defineEventHandler(async (event) => {
         .from('users')
         .select('id')
         .eq('telegram_id', userId)
-        .single()
+        .maybeSingle()
 
-    const {data, error} = await supabase
+    if (!user) return { results: [], nextOffset: null }
+
+    // Запрос с пагинацией через .range()
+    const { data, count } = await supabase
         .from('favorites')
-        .select()
+        .select('*', { count: 'exact' }) // count: 'exact' вернет общее число записей в базе
         .eq('user_id', user.id)
-        .order(sortBy,
-            {
-                ascending: false
-            }
-        )
+        .order(sortBy, { ascending: false })
+        .range(offset, offset + limit - 1) // Запрашиваем с элемента X по элемент Y
+
+    // Вычисляем, есть ли следующая страница
+    const nextOffset = count && (offset + limit < count) ? offset + limit : null
 
     return {
-        results: data,
-        error: []
+        results: data || [],
+        nextOffset // Отдаем фронтенду/боту информацию, откуда брать следующую страницу
     }
 })
