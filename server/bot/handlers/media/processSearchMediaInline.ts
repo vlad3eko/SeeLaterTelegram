@@ -16,7 +16,9 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
                 thumb_url:
                     media.poster_path
                         ? `https://image.tmdb.org/t/p/w500${media.poster_path}`
-                        : `https://image.tmdb.org/t/p/w500${media.backdrop_path}`,
+                        : media.backdrop_path
+                            ? `https://image.tmdb.org/t/p/w500${media.backdrop_path}`
+                            : undefined,
 
                 input_message_content: {
                     message_text:
@@ -30,7 +32,9 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
                     )
             })
         )
-
+        console.log(
+            JSON.stringify(results[0], null, 2)
+        )
         await ctx.answerInlineQuery(
             results,
             {
