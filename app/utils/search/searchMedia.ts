@@ -19,10 +19,10 @@ export const searchMedia = async (query: string, page: number = 1, userId: numbe
 
     const result = await executeSearchStrategy(strategy, normalized, page)
 
-    console.log('before', result.results)
+    console.log('before', result.results[0])
     const medias = result.results
         .map(normalizeTmdbMedia)
-    console.log('after', medias)
+    console.log('after', medias[0])
         // .filter(media => filterTmdbMediaResults(media, userId))
         // .map(normalizeMediaGenres)
 
