@@ -37,6 +37,7 @@ export default defineEventHandler(async (event) => {
 
     const totalItems = count || 0
     const total_pages = Math.ceil(totalItems / limit)
+    console.log('totalPages', total_pages)
 
     // Вычисляем, есть ли следующая страница (номер следующей страницы или null)
 
