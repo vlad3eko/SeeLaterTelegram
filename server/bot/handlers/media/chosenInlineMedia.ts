@@ -14,6 +14,7 @@ export const chosenInlineMedia = async (ctx: any) => {
         if (!inlineMessageId) return
 
         const [mediaType, mediaId] = result.result_id.split('_')
+        console.log('mediaType, mediaId', mediaType, mediaId)
 
         const media = await $fetch(
             '/api/bot/getMediaBot',
