@@ -27,7 +27,7 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
 
                 reply_markup:
                     keyboardSendMediaCardInline(
-                        media.tmdb_id || media.id,
+                        media.id,
                         media.media_type
                     )
             })

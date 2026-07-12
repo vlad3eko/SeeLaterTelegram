@@ -22,9 +22,9 @@ export const searchMedia = async (query: string, page: number = 1, userId: numbe
     console.log('before', result.results[0])
     const medias = result.results
         .map(normalizeTmdbMedia)
+        .filter(media => filterTmdbMediaResults(media, userId))
+        .map(normalizeMediaGenres)
     console.log('after', medias[0])
-        // .filter(media => filterTmdbMediaResults(media, userId))
-        // .map(normalizeMediaGenres)
 
     if (page === 1) {
         result.results = sortMediaResults(medias)

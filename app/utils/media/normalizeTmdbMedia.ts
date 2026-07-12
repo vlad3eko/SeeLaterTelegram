@@ -12,8 +12,8 @@ export const normalizeTmdbMedia = (media: any) => {
 
     return {
         ...media,
-        tmdb_id: (media.tmdb_id || media.id),
-        id: media.id,
+        id: (media.tmdb_id || media.id),
+        // id: media.id,
         media_type: mediaType,
         title:
             media.title ||
