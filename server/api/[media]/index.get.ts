@@ -1,4 +1,5 @@
 import {serverSupabaseClient} from "#supabase/server";
+import {login} from "telegraf/typings/button";
 
 export default defineEventHandler(async (event) => {
 
@@ -24,10 +25,12 @@ export default defineEventHandler(async (event) => {
         .eq('id', userId)
         .single()
 
+    console.log('true user', user)
+
     const {data, error} = await supabase
         .from('favorites')
         .select()
-        .eq('user_id', user.id)
+        .eq('user_id', user)
         // .order(sortBy,
         //     {
         //         ascending: false
