@@ -30,5 +30,5 @@ export const searchMedia = async (query: string, page: number = 1) => {
         result.results = sortMediaResults(medias, true)
     }
 
-    return result.results
+    return medias
 }
