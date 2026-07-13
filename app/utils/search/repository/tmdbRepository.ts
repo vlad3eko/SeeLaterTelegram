@@ -3,11 +3,7 @@ import {buildTmdbParams} from "~/utils/media/buildTmdbParams";
 
 export const searchMulti = async (query: NormalizedSearchQuery, page: number) => {
 
-    let media = "multi"
-
-    if (query.filters.mediaTypes.length === 1) {
-        media = query.filters.mediaTypes[0]
-    }
+    const media = query.filters.mediaTypes[0] ?? "multi"
 
     return await $fetch(
         "/api/tmdb/search",
@@ -22,11 +18,8 @@ export const searchMulti = async (query: NormalizedSearchQuery, page: number) =>
 }
 
 export const discoverMovies = async (query: NormalizedSearchQuery, page: number) => {
-    let media = "movie"
 
-    if (query.filters.mediaTypes.length === 1) {
-        media = query.filters.mediaTypes[0]
-    }
+    const media = query.filters.mediaTypes[0] ?? 'movie'
 
     return await $fetch(
         "/api/tmdb/discover",
@@ -41,11 +34,7 @@ export const discoverMovies = async (query: NormalizedSearchQuery, page: number)
 
 export const getPopularMovies = async (query: NormalizedSearchQuery, page: number) => {
 
-    let media = "movie"
-
-    if (query.filters.mediaTypes.length === 1) {
-        media = query.filters.mediaTypes[0]
-    }
+    const media = query.filters.mediaTypes[0] ?? 'movie'
 
     return await $fetch(
         "/api/tmdb/search",
