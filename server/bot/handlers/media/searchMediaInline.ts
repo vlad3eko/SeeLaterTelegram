@@ -11,7 +11,6 @@ export const searchMediaInline = async (ctx: any) => {
         console.log('1 , page', page)
 
         const medias = await searchMedia(ctx.inlineQuery.query, page, ctx.from.id)
-        console.log('10 before processSearchMediaInline ', medias[0])
 
         if (!medias.results?.length) return ctx.answerInlineQuery([])
         await processSearchMediaInline(ctx, medias)

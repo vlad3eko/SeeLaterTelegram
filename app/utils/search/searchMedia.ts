@@ -14,16 +14,12 @@ export const searchMedia = async (query: string, page: number = 1, userId: numbe
     console.log('2 searchMedia', query, page, userId)
 
     const parsed = parseSearchQuery(query, userId)
-    console.log('3 parsed', parsed)
 
     const normalized = normalizeSearchQuery(parsed, page)
-    console.log('4 normalized', normalized)
 
     const strategy = resolveSearchStrategy(normalized)
-    console.log('5 strategy', strategy)
 
     const result = await executeSearchStrategy(strategy, normalized, page)
-    console.log('6 result', result.results[0])
 
     console.log('7 before result', result.results[0])
     const medias = result.results
