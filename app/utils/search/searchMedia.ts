@@ -21,12 +21,12 @@ export const searchMedia = async (query: string, page: number = 1, userId: numbe
 
     const result = await executeSearchStrategy(strategy, normalized, page)
 
-    console.log('7 before result', result.results)
+    console.log('7 before result[0]', result.results[0])
     const medias = result.results
         .map(normalizeTmdbMedia)
         .filter((media: any) => filterTmdbMediaResults(media, userId))
         .map(normalizeMediaGenres)
-    console.log('8 after result', medias)
+    console.log('8 after result[0]', medias[0])
 
     if (page === 1) {
         result.results = sortMediaResults(medias)
