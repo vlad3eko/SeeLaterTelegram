@@ -4,7 +4,7 @@ import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBo
 export const processSearchMediaInline = async (ctx: any, medias: any) => {
 
     try {
-
+        console.log('11/1 after processSearchMediaInline', medias)
         const results = medias.results.map(
             (media: any) => ({
                 type: 'article',
