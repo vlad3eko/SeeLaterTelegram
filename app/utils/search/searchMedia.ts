@@ -35,5 +35,5 @@ export const searchMedia = async (query: string, page: number = 1, userId: numbe
     }
     console.log('9 medias', medias[0])
 
-    return medias
+    return result
 }

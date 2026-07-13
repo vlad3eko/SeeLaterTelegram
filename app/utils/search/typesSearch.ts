@@ -7,7 +7,6 @@ export interface SearchFilters {
     mediaTypes: ('movie' | 'tv')[]
     sort?: string
     vote?: number
-    bookmarks: boolean
 }
 
 export interface SearchQuery {
@@ -25,7 +24,6 @@ export interface NormalizedSearchFilters {
     mediaTypes: ('movie' | 'tv')[]
     sort?: string
     vote?: number
-    bookmarks: boolean
 }
 
 export interface NormalizedSearchQuery {
