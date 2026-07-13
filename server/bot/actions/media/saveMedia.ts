@@ -88,7 +88,7 @@ export const saveMedia = async (ctx: any) => {
         ),
         {
             parse_mode:'HTML',
-            reply_markup: keyboardSendMediaCardInline(mediaId, mediaType)
+            reply_markup: keyboardSendMediaCardInline(mediaId, mediaType, userId)
         }
     )
 

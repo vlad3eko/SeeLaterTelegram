@@ -25,7 +25,8 @@ export const deleteMedia = async (ctx: any) => {
             parse_mode: 'HTML',
             reply_markup: keyboardSendMediaCardInline(
                 media.id,
-                mediaType
+                mediaType,
+                telegramId
             )
         }
     )
