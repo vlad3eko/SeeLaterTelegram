@@ -9,7 +9,7 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
                 type: 'article',
                 button: {
                     text: 'Кнопка',
-                    started_parameter: '',
+                    start_parameter: '',
                 },
                 id: `${medias.page}_${media.media_type}_${media.id}`,
                 title: (media.title || media.name),
