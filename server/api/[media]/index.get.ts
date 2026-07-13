@@ -43,7 +43,7 @@ export default defineEventHandler(async (event) => {
 
     return {
         page,
-        results: data || [],
+        data,
         total_pages // Возвращаем nextPage вместо nextOffset для фронтенда/бота
     }
 })
