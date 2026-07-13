@@ -30,5 +30,15 @@ export const searchMedia = async (query: string, page: number = 1, userId: numbe
         result.results = sortMediaResults(medias, true)
     }
 
+    console.log(
+        'medias[0].id =',
+        medias[0]?.id
+    )
+
+    console.log(
+        'result.results[0].id =',
+        result.results[0]?.id
+    )
+
     return result
 }
