@@ -8,7 +8,7 @@ import {normalizeMediaGenres} from "#server/bot/consts/media/normalizeMediaGenre
 import {sortMediaResults} from "~/utils/media/sortMediaResults";
 import {loadGenres} from "#server/bot/consts/media/genresConvert";
 
-export const searchMedia = async (query: string, page: number = 1, userId: number = null) => {
+export const searchMedia = async (query: string, page: number = 1, userId: number | null = null) => {
     await loadGenres()
 
     console.log('2 searchMedia', query, page, userId)
@@ -17,7 +17,7 @@ export const searchMedia = async (query: string, page: number = 1, userId: numbe
     console.log('3 parsed', parsed)
 
     const normalized = normalizeSearchQuery(parsed, page)
-    console.log('4 normalized', normalized[0])
+    console.log('4 normalized', normalized)
 
     const strategy = resolveSearchStrategy(normalized)
     console.log('5 strategy', strategy)
@@ -28,7 +28,7 @@ export const searchMedia = async (query: string, page: number = 1, userId: numbe
     console.log('7 before result', result.results[0])
     const medias = result.results
         .map(normalizeTmdbMedia)
-        .filter(media => filterTmdbMediaResults(media, userId))
+        .filter((media: any) => filterTmdbMediaResults(media, userId))
         .map(normalizeMediaGenres)
     console.log('8 after result', medias[0])
 

@@ -30,7 +30,8 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
                 reply_markup:
                     keyboardSendMediaCardInline(
                         media.id,
-                        media.media_type
+                        media.media_type,
+                        ctx.from.id
                     )
             })
         )
