@@ -24,10 +24,12 @@ export const searchMedia = async (query: string, page: number = 1, userId: numbe
         .filter((media: any) => filterTmdbMediaResults(media, userId))
         .map(normalizeMediaGenres)
 
+    result.results = medias
+
     if (page === 1) {
-        result.results = sortMediaResults(medias)
+        result.results = sortMediaResults(result.results)
     } else if (!userId) {
-        result.results = sortMediaResults(medias, true)
+        result.results = sortMediaResults(result.results, true)
     }
 
     console.log(
