@@ -7,6 +7,10 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
         const results = medias.results.map(
             (media: any) => ({
                 type: 'article',
+                button: {
+                    text: 'Кнопка',
+                    started_parameter: '',
+                },
                 id: `${medias.page}_${media.media_type}_${media.id}`,
                 title: (media.title || media.name),
 
