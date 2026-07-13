@@ -7,10 +7,6 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
         const results = medias.results.map(
             (media: any) => ({
                 type: 'article',
-                button: {
-                    text: '⚙️ Настроить фильтры',
-                    start_parameter: 'inline_settings'
-                },
                 id: `${medias.page}_${media.media_type}_${media.id}`,
                 title: (media.title || media.name),
 
@@ -41,6 +37,10 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
         await ctx.answerInlineQuery(
             results,
             {
+                button: {
+                    text: '⚙️ Настроить фильтры',
+                    start_parameter: 'inline_settings'
+                },
                 cache_time: 0,
                 is_personal: true,
                 next_offset:
