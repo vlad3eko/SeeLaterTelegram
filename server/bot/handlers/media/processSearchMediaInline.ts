@@ -4,7 +4,7 @@ import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBo
 export const processSearchMediaInline = async (ctx: any, medias: any) => {
 
     try {
-        console.log('11/1 after processSearchMediaInline', medias)
+        console.log('11/1 before processSearchMediaInline', medias)
         const results = medias.results.map(
             (media: any) => ({
                 type: 'article',
@@ -34,7 +34,7 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
                     )
             })
         )
-        console.log('11/1 after processSearchMediaInline', results)
+        console.log('11/2 after processSearchMediaInline', results)
 
         await ctx.answerInlineQuery(
             results,
