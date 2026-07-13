@@ -6,7 +6,6 @@ export const chosenInlineMedia = async (ctx: any) => {
 
     try {
         const result = ctx.chosenInlineResult
-        console.log('12 chosenInlineMedia result', result)
         const user = ctx.from.id
 
 
@@ -15,7 +14,7 @@ export const chosenInlineMedia = async (ctx: any) => {
         if (!inlineMessageId) return
 
         const [_, mediaType, mediaId] = result.result_id.split('_')
-
+        console.log('_, mediaType, mediaId', _, mediaType, mediaId)
         const media = await $fetch(
             '/api/bot/getMediaBot',
             {
