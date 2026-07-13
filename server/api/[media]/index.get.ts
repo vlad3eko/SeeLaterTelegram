@@ -34,7 +34,7 @@ export default defineEventHandler(async (event) => {
         .order(sortBy, {ascending: false})
         .range(from, to) // Теперь передаем корректный срез
 
-    console.log('data fetch', data[0])
+    console.log('data fetch', data)
 
     const totalItems = count || 0
     const total_pages = Math.ceil(totalItems / limit)
