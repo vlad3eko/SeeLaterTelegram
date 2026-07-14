@@ -24,12 +24,17 @@ export const searchMedia = async (query: string, page: number = 1, userId: numbe
         .filter((media: any) => filterTmdbMediaResults(media, userId))
         .map(normalizeMediaGenres)
 
-    console.log('parsed.filters.genres[0] !== \'collection\'', parsed.filters.genres[0] !== 'collection')
-    console.log('startsWith', parsed.filters.genres[0]?.startsWith('collection'))
-    console.log('!startsWith', !(parsed.filters.genres[0]?.startsWith('collection')))
+
+
+    console.log('parsed.filters.genres[0] !== \'collection\'', (parsed.filters.genres[0] !== 'collection'))
+    console.log('startsWith', (parsed.filters.genres[0]?.startsWith('collection')))
+    console.log('!startsWith', !(parsed.filters.genres[0]?.includes('collection')))
     if (page === 1 && (parsed.filters.genres[0] !== 'collection')) {
         console.log('only !collection')
         result.results = sortMediaResults(result.results)
+    } else {
+        console.log('second page && !collection')
+        result.results = sortMediaResults(result.results, true)
     }
 
     return result
