@@ -25,7 +25,7 @@ export const searchMedia = async (query: string, page: number = 1, userId: numbe
         .map(normalizeMediaGenres)
 
 
-    if (page === 1 && !(parsed.filters.genres[0]?.includes('collection'))) {
+    if (page === 1 && !(parsed.filters.genres[0]?.startsWith('collection'))) {
         console.log('only !collection')
         result.results = sortMediaResults(result.results)
     }
