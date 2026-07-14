@@ -29,6 +29,8 @@ export const deleteMediaButtonBot = (mediaId: number, mediaType: string) => {
 
 export const recommendationButtonBot = (genres?: any | undefined) => {
 
+    if (!genres) return
+
     const genresList = genres.map(
         (genre: any) => {
             genre
