@@ -40,7 +40,7 @@ export const chosenInlineMedia = async (ctx: any) => {
                 parse_mode: 'HTML',
             },
             {
-                reply_markup: keyboardSendMediaCardInline(mediaId, mediaType, user, genresContent)
+                reply_markup: keyboardSendMediaCardInline(mediaId, mediaType, genresContent)
             }
         )
 
