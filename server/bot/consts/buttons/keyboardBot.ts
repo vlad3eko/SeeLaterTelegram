@@ -33,11 +33,11 @@ export const keyboardSendMediaCard = (mediaId: number, mediaType: string) => {
     ]).reply_markup
 }
 
-export const keyboardSendMediaCardInline = async (mediaId: number, mediaType: string, user: number, genres: any) => {
+export const keyboardSendMediaCardInline = async (mediaId: number, mediaType: string, user: number, genres?: any) => {
 
     return Markup.inlineKeyboard([
         [SearchButtonBot('Искать другое')],
-        [recommendationButtonBot(mediaId, mediaType, genres)],
+        [recommendationButtonBot(genres)],
         [checkBookmarksMedias()],
         [deleteMediaButtonBot(mediaId, mediaType), SaveMediaButtonBot(mediaId, mediaType)]
     ]).reply_markup

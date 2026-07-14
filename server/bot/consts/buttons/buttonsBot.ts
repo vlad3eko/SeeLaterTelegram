@@ -27,16 +27,13 @@ export const deleteMediaButtonBot = (mediaId: number, mediaType: string) => {
         `delete_media_${mediaId}_${mediaType}`)
 }
 
-export const recommendationButtonBot = (mediaId: number, mediaType: string, genres: any) => {
+export const recommendationButtonBot = (genres: any) => {
 
-    console.log('mediaId', mediaId)
-    console.log('mediaType', mediaType)
     console.log('genres', genres)
-
 
     return Markup.button.switchToCurrentChat(
         `📋 Похожие`,
-        '#collection'
+        `#${genres}`
     )
 }
 

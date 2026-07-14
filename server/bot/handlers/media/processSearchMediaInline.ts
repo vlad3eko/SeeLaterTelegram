@@ -30,7 +30,6 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
                         media.id,
                         media.media_type,
                         ctx.from.id,
-                        media.genres
                     )
             })
         )
