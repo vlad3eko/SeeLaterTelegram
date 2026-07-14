@@ -26,8 +26,7 @@ export const chosenInlineMedia = async (ctx: any) => {
             }
         )
         const genresContent = genresConvert(media.genres)
-        console.log('media chosen', media)
-        console.log('media chosen', media.genres)
+        console.log('media chosen', genresContent)
 
         await new Promise(resolve =>
             setTimeout(resolve, 300)
