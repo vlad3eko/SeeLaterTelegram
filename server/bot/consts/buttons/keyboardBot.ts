@@ -1,7 +1,7 @@
 import {Markup} from "telegraf";
 import {
     checkBookmarksMedias,
-    deleteMediaButtonBot,
+    deleteMediaButtonBot, recommendationButtonBot,
     SaveMediaButtonBot,
     SearchButtonBot
 } from "#server/bot/consts/buttons/buttonsBot";
@@ -37,7 +37,8 @@ export const keyboardSendMediaCardInline = (mediaId: number, mediaType: string, 
 
     return Markup.inlineKeyboard([
         [SearchButtonBot('Искать другое')],
-        [checkBookmarksMedias(user)],
+        [recommendationButtonBot(mediaId, mediaType)],
+        [checkBookmarksMedias()],
         [deleteMediaButtonBot(mediaId, mediaType), SaveMediaButtonBot(mediaId, mediaType)]
     ]).reply_markup
 }

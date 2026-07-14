@@ -27,7 +27,28 @@ export const deleteMediaButtonBot = (mediaId: number, mediaType: string) => {
         `delete_media_${mediaId}_${mediaType}`)
 }
 
-export const checkBookmarksMedias = (user: number) => {
+export const recommendationButtonBot = async (mediaId: number, mediaType: string) => {
+
+    const media = await $fetch(
+        '/api/bot/getMediaBot',
+        {
+            query:{
+                id: mediaId,
+                media: mediaType
+            }
+        }
+    )
+
+    console.log('media button', media)
+
+    return Markup.button.switchToCurrentChat(
+        `📋 Похожие`,
+        '#collection'
+    )
+}
+
+
+export const checkBookmarksMedias = () => {
     return Markup.button.switchToCurrentChat(
         '📦 Коллекция',
         '#collection'
