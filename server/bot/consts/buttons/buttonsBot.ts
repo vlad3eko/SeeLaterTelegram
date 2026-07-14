@@ -29,15 +29,13 @@ export const deleteMediaButtonBot = (mediaId: number, mediaType: string) => {
 
 export const recommendationButtonBot = (genres?: any | undefined) => {
 
-    if (!genres) return
-
-    genres = genres.map(
-        (genre: string) => {
-            genre
-                .split(' • ')
-                .join(' ')
-        }
-    )
+    // genres = genres.map(
+    //     (genre: any) => {
+    //         genre
+    //             .split(' • ')
+    //             .join(' ')
+    //     }
+    // )
 
     console.log('genres button', genres)
 

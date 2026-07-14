@@ -33,7 +33,7 @@ export const keyboardSendMediaCard = (mediaId: number, mediaType: string) => {
     ]).reply_markup
 }
 
-export const keyboardSendMediaCardInline = (mediaId: number, mediaType: string, genres?: any | undefined) => {
+export const keyboardSendMediaCardInline = (mediaId: number, mediaType: string, genres?: any) => {
 
     return Markup.inlineKeyboard([
         [SearchButtonBot('Искать другое')],
