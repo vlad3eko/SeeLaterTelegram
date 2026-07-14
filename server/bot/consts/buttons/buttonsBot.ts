@@ -29,22 +29,9 @@ export const deleteMediaButtonBot = (mediaId: number, mediaType: string) => {
 
 export const recommendationButtonBot = (genres?: any | undefined) => {
 
-    if (!genres) return
-
-    const genresList = genres.map(
-        (genre: any) => {
-            genre
-                .split(' • ')
-                .join(' ')
-        }
-    )
-
-    console.log('genres button', genres)
-    console.log('genre map ', genresList)
-
     return Markup.button.switchToCurrentChat(
         `📋 Похожие`,
-        `${genresList}`
+        `${genres}`
     )
 }
 
