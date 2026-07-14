@@ -38,6 +38,6 @@ export const keyboardSendMediaCardInline = (mediaId: number, mediaType: string, 
     return Markup.inlineKeyboard([
         [SearchButtonBot('Искать другое')],
         [checkFavoritesMedias(user)],
-        [SaveMediaButtonBot(mediaId, mediaType)]
+        [deleteMediaButtonBot(mediaId, mediaType), SaveMediaButtonBot(mediaId, mediaType)]
     ]).reply_markup
 }

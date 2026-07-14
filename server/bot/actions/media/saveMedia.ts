@@ -11,7 +11,7 @@ export const saveMedia = async (ctx: any) => {
     if (isUserBot) {
         await ctx.answerCbQuery('✅ Добавлено в вашу коллекцию')
     } else {
-        await ctx.answerCbQuery('❌ Только для пользователей бота')
+        await ctx.answerCbQuery('❌ Подпишитесь на 🏷Киноманов BOT')
         return
     }
 
