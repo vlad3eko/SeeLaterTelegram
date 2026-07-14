@@ -17,13 +17,13 @@ export const SearchButtonBot = (text: string | undefined, mediaSearch?: string, 
 
 export const SaveMediaButtonBot = (mediaId: number, mediaType: string) => {
     return Markup.button.callback(
-        '💾 Сохранить в коллекцию',
+        '💾 Сохранить',
         `save_media_${mediaId}_${mediaType}`)
 }
 
 export const deleteMediaButtonBot = (mediaId: number, mediaType: string) => {
     return Markup.button.callback(
-        '🗑 Удалить из коллекции',
+        '🗑 Удалить',
         `delete_media_${mediaId}_${mediaType}`)
 }
 
