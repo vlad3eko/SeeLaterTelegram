@@ -38,6 +38,13 @@ export const recommendationButtonBot = (genres?: any | undefined) => {
     // )
 
     console.log('genres button', genres)
+    console.log('genre map ', genres.map(
+        (genre: any) => {
+            genre
+                .split(' • ')
+                .join(' ')
+        }
+    ))
 
     return Markup.button.switchToCurrentChat(
         `📋 Похожие`,
