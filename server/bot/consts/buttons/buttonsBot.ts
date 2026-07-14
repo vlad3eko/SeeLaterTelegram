@@ -27,7 +27,7 @@ export const deleteMediaButtonBot = (mediaId: number, mediaType: string) => {
         `delete_media_${mediaId}_${mediaType}`)
 }
 
-export const recommendationButtonBot = (genres: any) => {
+export const recommendationButtonBot = (genres?: any | undefined) => {
 
     if (!genres) return
 
