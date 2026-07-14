@@ -11,7 +11,7 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
                 title: (media.title || media.name),
 
                 description:
-                    `${media.media_type === 'movie' ? 'Фильм' : 'Сериал'} | ${media.vote_average} | ${media.vote_count} | ${FormatDate(media.release_date)}`,
+                    `${media.media_type === 'movie' ? 'Фильм' : 'Сериал'} | ${media.vote_average ? '💎' + FormatRating(media?.vote_average) + ' | ' : ''}${media.vote_count ? '🍿' + media.vote_count + ' | ' : ''}${FormatDate(media.release_date)}`,
 
                 thumb_url:
                     media.poster_path

@@ -1,6 +1,6 @@
 export const FormatRating = (rating?: number, fractionDigits: number = 1) => {
 
-    if (!rating) return '0'
+    if (!rating) return
 
     return String(rating).length > fractionDigits ? + rating.toFixed(fractionDigits) : rating
 }
