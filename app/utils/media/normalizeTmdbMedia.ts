@@ -1,4 +1,4 @@
-import {FormatRating} from "~/utils/formatMoviesData";
+import {FormatDate, FormatRating} from "~/utils/formatMoviesData";
 
 export const normalizeTmdbMedia = (media: any) => {
 
@@ -22,9 +22,8 @@ export const normalizeTmdbMedia = (media: any) => {
             media.title ||
             media.name,
         release_date:
-            media.release_date ||
-            media.first_air_date ||
-            null,
+            FormatDate(media.release_date ||
+                media.first_air_date),
         poster_path:
             media.poster_path ||
             media.backdrop_path ||
