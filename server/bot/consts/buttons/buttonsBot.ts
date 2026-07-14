@@ -33,6 +33,7 @@ export const recommendationButtonBot = (mediaId: number, mediaType: string, genr
     console.log('mediaType', mediaType)
     console.log('genres', genres)
 
+
     return Markup.button.switchToCurrentChat(
         `📋 Похожие`,
         '#collection'
