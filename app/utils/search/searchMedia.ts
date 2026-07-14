@@ -9,6 +9,9 @@ import {sortMediaResults} from "~/utils/media/sortMediaResults";
 import {loadGenres} from "#server/bot/consts/media/genresConvert";
 
 export const searchMedia = async (query: string, page: number = 1, userId: number | null = null) => {
+
+    console.log('userId start use: ', userId)
+
     await loadGenres()
 
     const parsed = parseSearchQuery(query, userId)
@@ -26,7 +29,6 @@ export const searchMedia = async (query: string, page: number = 1, userId: numbe
 
 
     if (page === 1 && !(parsed.filters.genres[0]?.startsWith('collection'))) {
-        console.log('only !collection')
         result.results = sortMediaResults(result.results)
     }
 
