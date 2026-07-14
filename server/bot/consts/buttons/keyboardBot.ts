@@ -37,7 +37,7 @@ export const keyboardSendMediaCardInline = async (mediaId: number, mediaType: st
 
     return Markup.inlineKeyboard([
         [SearchButtonBot('Искать другое')],
-        [await recommendationButtonBot(mediaId, mediaType)],
+        [recommendationButtonBot(mediaId, mediaType)],
         [checkBookmarksMedias()],
         [deleteMediaButtonBot(mediaId, mediaType), SaveMediaButtonBot(mediaId, mediaType)]
     ]).reply_markup

@@ -27,9 +27,9 @@ export const deleteMediaButtonBot = (mediaId: number, mediaType: string) => {
         `delete_media_${mediaId}_${mediaType}`)
 }
 
-export const recommendationButtonBot = async (mediaId: number, mediaType: string) => {
+export const recommendationButtonBot = (mediaId: number, mediaType: string) => {
 
-    const media = await $fetch(
+    const media = $fetch(
         '/api/bot/getMediaBot',
         {
             query:{

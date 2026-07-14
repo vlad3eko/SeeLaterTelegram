@@ -37,7 +37,7 @@ export const chosenInlineMedia = async (ctx: any) => {
                 parse_mode: 'HTML',
             },
             {
-                reply_markup: await keyboardSendMediaCardInline(mediaId, mediaType, user)
+                reply_markup: keyboardSendMediaCardInline(mediaId, mediaType, user)
             }
         )
 
