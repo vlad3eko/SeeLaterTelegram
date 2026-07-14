@@ -1,5 +1,6 @@
 import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBot";
 import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
+import {genresConvert} from "~/utils/convert/genresConvert";
 
 
 export const chosenInlineMedia = async (ctx: any) => {
@@ -24,7 +25,7 @@ export const chosenInlineMedia = async (ctx: any) => {
                 }
             }
         )
-
+        const genresContent = genresConvert(media.genres)
         console.log('media chosen', media)
         console.log('media chosen', media.genres)
 
@@ -40,7 +41,7 @@ export const chosenInlineMedia = async (ctx: any) => {
                 parse_mode: 'HTML',
             },
             {
-                reply_markup: keyboardSendMediaCardInline(mediaId, mediaType, user, media.genres.name)
+                reply_markup: keyboardSendMediaCardInline(mediaId, mediaType, user, genresContent)
             }
         )
 
