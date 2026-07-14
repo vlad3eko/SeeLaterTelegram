@@ -29,18 +29,6 @@ export const deleteMediaButtonBot = (mediaId: number, mediaType: string) => {
 
 export const recommendationButtonBot = (mediaId: number, mediaType: string) => {
 
-    const media = $fetch(
-        '/api/bot/getMediaBot',
-        {
-            query:{
-                id: mediaId,
-                media: mediaType
-            }
-        }
-    )
-
-    console.log('media button', media)
-
     return Markup.button.switchToCurrentChat(
         `📋 Похожие`,
         '#collection'
