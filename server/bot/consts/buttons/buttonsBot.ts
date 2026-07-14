@@ -29,11 +29,19 @@ export const deleteMediaButtonBot = (mediaId: number, mediaType: string) => {
 
 export const recommendationButtonBot = (genres: any) => {
 
-    console.log('genres', genres)
+    genres = genres.map(
+        (genre: string) => {
+            genre
+                .split(' • ')
+                .join(' ')
+        }
+    )
+
+    console.log('genres button', genres)
 
     return Markup.button.switchToCurrentChat(
         `📋 Похожие`,
-        `#${genres}`
+        `${genres}`
     )
 }
 
