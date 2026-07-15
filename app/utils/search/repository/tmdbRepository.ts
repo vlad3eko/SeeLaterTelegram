@@ -116,7 +116,7 @@ export const saveLastSearchQuery = async (query: string[], mediaType: string | u
 }
 
 export const getLastSearchQuery = async (userId: number) => {
-    await $fetch('/api/bot/search/getSearchQuery', {
+    return await $fetch('/api/bot/search/getSearchQuery', {
         method: 'GET',
         query: {
             user_id: userId
