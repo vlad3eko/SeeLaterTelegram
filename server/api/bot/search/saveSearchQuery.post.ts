@@ -20,8 +20,9 @@ export default defineEventHandler(async (event) => {
 
     await supabase
         .from('last_inline_search')
-        .update({
+        .upsert({
             telegram_id: telegramId,
             last_search_query: searchQuery
         })
+        .select()
 })
