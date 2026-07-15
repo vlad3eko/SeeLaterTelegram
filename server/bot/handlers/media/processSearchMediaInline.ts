@@ -37,7 +37,7 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
             results,
             {
                 button: {
-                    text: '⚙️ Настроить фильтры',
+                    text: '⚙️ Расширенный поиск',
                     start_parameter: 'inline_settings'
                 },
                 cache_time: 0,
