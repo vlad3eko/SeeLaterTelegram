@@ -9,11 +9,14 @@ export default defineEventHandler(async (event) => {
 
     const supabase = await serverSupabaseClient(event)
 
-    const searchQuery = []
     const mediaType = query.media_type === 'movie' ? 'фильм' : 'сериал'
-    const filters = searchQuery.push(query.q, mediaType)
-    console.log('filters', filters)
     const telegramId = query.user_id
+
+    const searchQuery = [
+        mediaType,
+        ...(Array.isArray(query.q) ? query.q : [query.q])
+    ]
+    console.log('filters', searchQuery)
 
     await supabase
         .from('last_inline_search')
