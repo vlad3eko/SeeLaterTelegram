@@ -16,6 +16,14 @@ export function registerCommands(bot: Telegraf) {
 
         if (ctx.text.includes('inline_settings')) {
 
+            const messageStart = ctx.message.message_id
+            await addMessageSession(
+                ctx.from.id,
+                SessionMessageType.Command, {
+                    messageId: messageStart
+                }
+            )
+
             await processTelegramAuth(ctx)
 
             const tagGet = (await getLastSearchQuery(ctx.from.id))
@@ -24,9 +32,16 @@ export function registerCommands(bot: Telegraf) {
 
 
             console.log('tagQuery', tagGet)
-            await ctx.reply(
+            const messageContinue = await ctx.reply(
                 `🔍 Искать «${tagGet}» через быстрый поиск?`, {
                     reply_markup: keyboardSearchBot('Продолжить искать', tagGet, tagGet)
+                }
+            )
+
+            await addMessageSession(
+                ctx.from.id,
+                SessionMessageType.SearchInline, {
+                    messageId: messageContinue
                 }
             )
 
