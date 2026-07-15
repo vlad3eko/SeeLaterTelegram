@@ -23,5 +23,5 @@ export default defineEventHandler(async (event) => {
 
     console.log('res', res)
 
-    const result = await res.json()
+    return await res.json()
 })
