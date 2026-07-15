@@ -21,9 +21,16 @@ export function registerCommands(bot: Telegraf) {
             await commandStart(ctx, authRequests)
 
             console.log('tagQuery', tagGet)
-            await ctx.reply('Переход по настройке', {
+            const message = await ctx.reply('Переход по настройке', {
                 reply_markup: keyboardSearchBot('Расширенный поиск: ', tagGet, 'Продолжить')
             })
+
+            await addMessageSession(
+                ctx.from.id,
+                SessionMessageType.Command, {
+                    messageId: message
+                }
+            )
             return
         }
 
