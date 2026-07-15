@@ -9,11 +9,15 @@ import {getLastSearchQuery} from "~/utils/search/repository/tmdbRepository";
 
 const authRequests = new Map()
 
-export function registerCommands(bot:Telegraf) {
+export function registerCommands(bot: Telegraf) {
     bot.start(async (ctx: any) => {
 
         if (ctx.text.includes('inline_settings')) {
-            const tagQuery = await getLastSearchQuery(ctx.from.id)
+            const tagGet = await getLastSearchQuery(ctx.from.id)
+            const tagsLastSearch = tagGet
+                .map(tag => `#${tag}`)
+                .join(' ')
+
             console.log('tagQuery', tagQuery)
             await ctx.reply('Переход по настройке')
             return
