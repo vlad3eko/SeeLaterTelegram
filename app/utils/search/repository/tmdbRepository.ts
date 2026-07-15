@@ -37,8 +37,9 @@ export const getPopularMovies = async (query: NormalizedSearchQuery, page: numbe
     const media = query.filters.mediaTypes[0] ?? 'movie'
 
     return await $fetch(
-        "/api/tmdb/search",
+        "/api/tmdb/popular",
         {
+            method: "GET",
             query: {
                 q: query.text,
                 page,
