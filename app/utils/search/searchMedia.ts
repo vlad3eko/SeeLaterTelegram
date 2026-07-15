@@ -10,8 +10,6 @@ import {loadGenres} from "#server/bot/consts/media/genresConvert";
 
 export const searchMedia = async (query: string, page: number = 1, userId: number | null = null) => {
 
-    console.log('userId start use: ', userId)
-
     await loadGenres()
 
     const parsed = parseSearchQuery(query, userId)
