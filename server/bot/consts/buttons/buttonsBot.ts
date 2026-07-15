@@ -1,10 +1,11 @@
 import {Markup} from "telegraf";
 
 // Возвращаем чистый объект кнопки, без [ ]
-export const SearchButtonBot = (text: string | undefined, buttonCommand?: string) => {
+export const SearchButtonBot = (text: string | undefined, query?: string) => {
     return Markup.button.switchToCurrentChat(
-        `🔍 ${text}`,
-        `${buttonCommand}`)
+        `${text ? "🔍" + text : 'Поиск'}`,
+        query || ''
+    )
 }
 
 export const SaveMediaButtonBot = (mediaId: number, mediaType: string) => {
