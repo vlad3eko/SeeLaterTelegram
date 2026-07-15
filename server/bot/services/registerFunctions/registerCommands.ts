@@ -32,9 +32,7 @@ export function registerCommands(bot: Telegraf) {
                 .map(tag => `#${tag}`)
                 .join(' ')
 
-
-            console.log('tagQuery', tagGet)
-            const messageContinue = await ctx.reply({
+            const messageContinue = await ctx.reply('',{
                     reply_markup: keyboardSearchBot('Продолжить искать', undefined, tagGet)
                 }
             )
