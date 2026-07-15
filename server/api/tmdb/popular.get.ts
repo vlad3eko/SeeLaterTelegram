@@ -21,9 +21,8 @@ export default defineEventHandler(async (event) => {
         { headers }
     )
 
-    console.log('res', res)
-
     const answer = await res.json()
+    console.log('answer', answer.data)
 
     return {
         results: answer.data
