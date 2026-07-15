@@ -8,6 +8,7 @@ import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
 import {getLastSearchQuery} from "~/utils/search/repository/tmdbRepository";
 import {keyboardSearchBot} from "#server/bot/consts/buttons/keyboardBot";
 import {processTelegramAuth} from "#server/bot/services/auth/processTelegramAuth";
+import {isSubscriber} from "#server/bot/handlers/channel/isSubscriber";
 
 const authRequests = new Map()
 
@@ -24,7 +25,8 @@ export function registerCommands(bot: Telegraf) {
                 }
             )
 
-            await processTelegramAuth(ctx)
+            const checkSub = await isSubscriber(ctx)
+            if (!checkSub) return
 
             const tagGet = (await getLastSearchQuery(ctx.from.id))
                 .map(tag => `#${tag}`)
