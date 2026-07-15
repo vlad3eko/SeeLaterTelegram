@@ -9,7 +9,7 @@ export default defineEventHandler(async (event) => {
         Authorization: `Bearer ${config.tmdbApiKey}`
     }
 
-    const media = query.media || 'multi'
+    const media = query.media || 'movie'
 
     const params = new URLSearchParams({
         language: 'ru-RU',
@@ -20,6 +20,8 @@ export default defineEventHandler(async (event) => {
         `https://api.themoviedb.org/3/${media}/popular?${params}`,
         { headers }
     )
+
+    console.log('res', res)
 
     return await res.json()
 })
