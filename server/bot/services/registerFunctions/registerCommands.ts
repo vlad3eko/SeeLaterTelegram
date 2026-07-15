@@ -14,7 +14,7 @@ export function registerCommands(bot: Telegraf) {
 
         if (ctx.text.includes('inline_settings')) {
             const tagGet = (await getLastSearchQuery(ctx.from.id))
-                .map((tag: string) => `#${tag}`)
+                .map(tag => `#${tag}`)
                 .join(' ')
 
             console.log('tagQuery', tagGet)

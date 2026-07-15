@@ -16,7 +16,5 @@ export default defineEventHandler(async (event) => {
 
    const results = JSON.parse(data.last_search_query)
 
-    return {
-        results
-    }
+    return results
 })
