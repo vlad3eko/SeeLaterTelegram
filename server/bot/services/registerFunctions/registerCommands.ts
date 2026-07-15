@@ -25,15 +25,9 @@ export function registerCommands(bot: Telegraf) {
 
             console.log('tagQuery', tagGet)
             await ctx.reply(
-                {
-                    parse_mode: "HTML",
-                    reply_markup: keyboardSearchBot(`Привет ${ctx.from.first_name || ctx.from.username}
-🔍 Для поиска используй кнопки ниже или отправь в сообщении название кино\n
-Связь: <a href="https://t.me/kinomanovnet?direct">написать</a>`, tagGet, tagGet),
-                    link_preview_options: {
-                        is_disabled: true
-                    }
-                },
+                `🔍 Искать «${tagGet}» через быстрый поиск?`, {
+                    reply_markup: keyboardSearchBot('Продолжить искать', tagGet, tagGet)
+                }
             )
 
             return
