@@ -14,10 +14,10 @@ export default defineEventHandler(async (event) => {
         .eq('telegram_id', telegramId)
         .single()
 
-    console.log('get data', data)
+   const result = await data.json()
 
     return {
-        data,
-        error: !data
+        result,
+        error: !result
     }
 })
