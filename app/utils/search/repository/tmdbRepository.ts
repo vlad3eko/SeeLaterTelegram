@@ -106,6 +106,7 @@ export const getBookmarks = async (query: NormalizedSearchQuery, page: number) =
 
 export const saveLastSearchQuery = async (query: string[], userId: number) => {
     await $fetch('/api/bot/search/saveSearchQuery', {
+        method: 'POST',
         query: {
             q: query,
             user_id: userId
