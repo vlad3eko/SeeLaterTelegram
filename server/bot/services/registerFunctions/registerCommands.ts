@@ -6,6 +6,7 @@ import {addMessageSession} from "#server/bot/services/session/addMessageSession"
 import {commandClear} from "#server/bot/commands/commandClear";
 import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
 import {getLastSearchQuery} from "~/utils/search/repository/tmdbRepository";
+import {keyboardSearchBot} from "#server/bot/consts/buttons/keyboardBot";
 
 const authRequests = new Map()
 
@@ -17,8 +18,12 @@ export function registerCommands(bot: Telegraf) {
                 .map(tag => `#${tag}`)
                 .join(' ')
 
+            await commandStart(ctx, authRequests)
+
             console.log('tagQuery', tagGet)
-            await ctx.reply('Переход по настройке')
+            await ctx.reply('Переход по настройке', {
+                reply_markup: keyboardSearchBot('Продолжить поиск:', tagGet)
+            })
             return
         }
 
