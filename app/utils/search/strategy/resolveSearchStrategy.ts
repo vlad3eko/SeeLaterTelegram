@@ -18,6 +18,7 @@ export const resolveSearchStrategy = (
 
     if (!hasText || !hasFilters) {
         console.log('empty result')
+        return SearchStrategy.POPULAR
     }
 
     const hasFromUserId =
