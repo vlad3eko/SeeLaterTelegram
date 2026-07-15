@@ -7,6 +7,7 @@ import {commandClear} from "#server/bot/commands/commandClear";
 import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
 import {getLastSearchQuery} from "~/utils/search/repository/tmdbRepository";
 import {keyboardSearchBot} from "#server/bot/consts/buttons/keyboardBot";
+import {processTelegramAuth} from "#server/bot/services/auth/processTelegramAuth";
 
 const authRequests = new Map()
 
@@ -14,11 +15,13 @@ export function registerCommands(bot: Telegraf) {
     bot.start(async (ctx: any) => {
 
         if (ctx.text.includes('inline_settings')) {
+
+            await processTelegramAuth(ctx)
+
             const tagGet = (await getLastSearchQuery(ctx.from.id))
                 .map(tag => `#${tag}`)
                 .join(' ')
 
-            await commandStart(ctx, authRequests)
 
             console.log('tagQuery', tagGet)
             const message = await ctx.reply(
