@@ -6,7 +6,7 @@ import {
     SearchButtonBot
 } from "#server/bot/consts/buttons/buttonsBot";
 
-export const keyboardSearchBot = (text: string, query?: string) => {
+export const keyboardSearchBot = (text?: string, query?: string) => {
     return Markup.inlineKeyboard([
         [SearchButtonBot(text, query)]
     ]).reply_markup
