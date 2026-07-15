@@ -5,6 +5,7 @@ import {commandHelp} from "#server/bot/commands/commandHelp";
 import {addMessageSession} from "#server/bot/services/session/addMessageSession";
 import {commandClear} from "#server/bot/commands/commandClear";
 import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
+import {getLastSearchQuery} from "~/utils/search/repository/tmdbRepository";
 
 const authRequests = new Map()
 
@@ -12,7 +13,8 @@ export function registerCommands(bot:Telegraf) {
     bot.start(async (ctx: any) => {
 
         if (ctx.text.includes('inline_settings')) {
-            console.log('ctx binding', ctx)
+            const tagQuery = await getLastSearchQuery(ctx.from.id)
+            console.log('tagQuery', tagQuery)
             await ctx.reply('Переход по настройке')
             return
         }
