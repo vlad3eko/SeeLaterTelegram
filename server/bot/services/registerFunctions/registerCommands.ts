@@ -33,7 +33,7 @@ export function registerCommands(bot: Telegraf) {
                 .join(' ')
 
             const messageContinue = await ctx.reply('Вы перешли в расширенный поиск, нажмите кнопку ниже чтобы продолжить с места где остановились',{
-                    reply_markup: keyboardSearchBot('Продолжить искать', undefined, tagGet)
+                    reply_markup: keyboardSearchBot('Продолжить искать', tagGet)
                 }
             )
 

@@ -6,17 +6,13 @@ import {
     SearchButtonBot
 } from "#server/bot/consts/buttons/buttonsBot";
 
-export const keyboardSearchBot = (text?: string, mediaSearch?: string, buttonCommand?: string) => {
-
-    if (buttonCommand) {
-        return Markup.inlineKeyboard([
-            [SearchButtonBot(text, buttonCommand)]
-        ]).reply_markup
-    } else {
-        return Markup.inlineKeyboard([
-            [SearchButtonBot('Поиск')]
-        ]).reply_markup
-    }
+export const keyboardSearchBot = (text: string, query?: string) => {
+    return Markup.inlineKeyboard([
+        [Markup.button.switchToCurrentChat(
+            `${text ? "🔍" + text : 'Поиск'}`,
+            query ?? ''
+        )]
+    ]).reply_markup
 }
 
 export const keyboardSavedMediaCardBot = (mediaId: number, mediaType: string) => {
