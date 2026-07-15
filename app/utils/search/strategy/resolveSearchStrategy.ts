@@ -40,7 +40,6 @@ export const resolveSearchStrategy = (
         return SearchStrategy.BOOKMARKS
     }
 
-
     console.log('none')
     return SearchStrategy.POPULAR
 

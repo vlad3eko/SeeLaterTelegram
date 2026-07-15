@@ -11,7 +11,7 @@ export default defineEventHandler(async (event) => {
 
     const type = query.media || 'multi'
     const params = new URLSearchParams({
-        query: String(query.q || ''),
+        query: String(query.q || 'человек'),
         language: 'ru-RU',
         page: String(query.page || 1)
     })
