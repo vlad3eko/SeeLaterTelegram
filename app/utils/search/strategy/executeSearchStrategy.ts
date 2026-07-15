@@ -24,7 +24,6 @@ export const executeSearchStrategy = async (strategy: SearchStrategy, query: Nor
             return await searchMixed(query, page)
 
         case SearchStrategy.POPULAR:
-            console.log('strategy', strategy)
             return await getPopularMovies(query, page)
 
         case SearchStrategy.BOOKMARKS:
