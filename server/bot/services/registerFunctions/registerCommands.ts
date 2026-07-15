@@ -32,7 +32,7 @@ export function registerCommands(bot: Telegraf) {
                 .map(tag => `#${tag}`)
                 .join(' ')
 
-            const messageContinue = await ctx.reply('Вы перешли в быстрый поиск, нажмите кнопку ниже чтобы продолжить с места где остановились',{
+            const messageContinue = await ctx.reply('Вы перешли в расширенный поиск, нажмите кнопку ниже чтобы продолжить с места где остановились',{
                     reply_markup: keyboardSearchBot('Продолжить искать', undefined, tagGet)
                 }
             )
