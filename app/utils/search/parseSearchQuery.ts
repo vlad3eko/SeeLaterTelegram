@@ -68,7 +68,7 @@ export const parseSearchQuery = (
                 continue
             }
 
-            if (["collection", "collections", "коллекция", "избранные", "избранное", "сохранённые", "сохранённое"].includes(tag)) {
+            if (["collection"].includes(tag)) {
                 bookmarksOfUserId = userId
             }
 
