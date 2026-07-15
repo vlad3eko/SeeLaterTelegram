@@ -13,12 +13,11 @@ export function registerCommands(bot: Telegraf) {
     bot.start(async (ctx: any) => {
 
         if (ctx.text.includes('inline_settings')) {
-            const tagGet = await getLastSearchQuery(ctx.from.id)
-            const tagsLastSearch = tagGet
-                .map(tag => `#${tag}`)
+            const tagGet = (await getLastSearchQuery(ctx.from.id))
+                .map((tag: string) => `#${tag}`)
                 .join(' ')
 
-            console.log('tagQuery', tagQuery)
+            console.log('tagQuery', tagGet)
             await ctx.reply('Переход по настройке')
             return
         }

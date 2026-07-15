@@ -115,7 +115,7 @@ export const saveLastSearchQuery = async (query: string[], mediaType: string | u
     })
 }
 
-export const getLastSearchQuery = async (userId: number) => {
+export const getLastSearchQuery = async (userId: number): Promise<string[]> => {
     return await $fetch('/api/bot/search/getSearchQuery', {
         method: 'GET',
         query: {
