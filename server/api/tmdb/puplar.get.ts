@@ -9,7 +9,7 @@ export default defineEventHandler(async (event) => {
         Authorization: `Bearer ${config.tmdbApiKey}`
     }
 
-    const media = query.media || 'movie'
+    const media = query.media || 'multi'
 
     const params = new URLSearchParams({
         language: 'ru-RU',
