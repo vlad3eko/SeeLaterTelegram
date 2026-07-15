@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
         .eq('telegram_id', telegramId)
         .single()
 
-    console.log('get data')
+    console.log('get data', data)
 
     return {
         data,
