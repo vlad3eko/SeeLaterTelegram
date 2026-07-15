@@ -104,11 +104,12 @@ export const getBookmarks = async (query: NormalizedSearchQuery, page: number) =
     })
 }
 
-export const saveLastSearchQuery = async (query: string[], userId: number) => {
+export const saveLastSearchQuery = async (query: string[], mediaType: string | undefined, userId: number) => {
     await $fetch('/api/bot/search/saveSearchQuery', {
         method: 'POST',
         query: {
             q: query,
+            media_type: mediaType,
             user_id: userId
         }
     })
