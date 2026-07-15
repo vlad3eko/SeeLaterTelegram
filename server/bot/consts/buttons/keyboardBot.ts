@@ -10,7 +10,7 @@ export const keyboardSearchBot = (text: string, query?: string) => {
     return Markup.inlineKeyboard([
         [Markup.button.switchToCurrentChat(
             `${text ? "🔍" + text : 'Поиск'}`,
-            query ?? ''
+            query || ' '
         )]
     ]).reply_markup
 }
