@@ -14,9 +14,9 @@ export default defineEventHandler(async (event) => {
         .eq('telegram_id', telegramId)
         .single()
 
-   const result = JSON.parse(data.last_search_query)
+   const results = JSON.parse(data.last_search_query)
 
     return {
-        result
+        ...results.result
     }
 })
