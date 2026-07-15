@@ -1,30 +1,25 @@
 export default defineEventHandler(async (event) => {
-
     const query = getQuery(event)
-
     const config = useRuntimeConfig()
 
-    const headers = {
-        accept: 'application/json',
-        Authorization: `Bearer ${config.tmdbApiKey}`
-    }
-
-    const media = query.media || 'movie'
-
-    const params = new URLSearchParams({
-        language: 'ru-RU',
-        page: String(query.page || 1)
-    })
-
+    const media = query.media === "tv" ? "tv" : "movie"
+    console.log('query', query)
     const res = await fetch(
-        `https://api.themoviedb.org/3/${media}/popular?${params}`,
-        { headers }
+        `https://api.themoviedb.org/3/${media}/popular?language=ru-RU&page=${query.page ?? 1}`,
+        {
+            headers: {
+                accept: "application/json",
+                Authorization: `Bearer ${config.tmdbApiKey}`
+            }
+        }
     )
 
-    const answer = await res.json()
-    console.log('answer', answer.data)
-
-    return {
-        results: answer.data
+    if (!res.ok) {
+        throw createError({
+            statusCode: res.status,
+            statusMessage: await res.text()
+        })
     }
+
+    return res.json()
 })
