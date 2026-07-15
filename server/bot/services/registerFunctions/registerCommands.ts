@@ -36,6 +36,7 @@ export function registerCommands(bot: Telegraf) {
 
 
         const message = ctx.message.message_id
+        if (!message) return
 
         await commandStart(ctx, authRequests)
 
