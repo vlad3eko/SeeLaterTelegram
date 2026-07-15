@@ -16,7 +16,7 @@ export const resolveSearchStrategy = (
         query.filters.companies.length > 0 ||
         query.filters.mediaTypes.length > 0
 
-
+    console.log('query', query)
     const hasFromUserId =
         query.from
 
@@ -39,6 +39,7 @@ export const resolveSearchStrategy = (
         console.log('hasFromUserId')
         return SearchStrategy.BOOKMARKS
     }
+
 
     console.log('none')
     return SearchStrategy.POPULAR
