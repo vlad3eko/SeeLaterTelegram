@@ -11,6 +11,8 @@ const authRequests = new Map()
 export function registerCommands(bot:Telegraf) {
     bot.start(async (ctx: any) => {
 
+        console.log('ctx button', ctx)
+
         const message = ctx.message.message_id
 
         await commandStart(ctx, authRequests)

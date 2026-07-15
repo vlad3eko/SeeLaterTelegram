@@ -36,10 +36,10 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
         await ctx.answerInlineQuery(
             results,
             {
-                // button: {
-                //     text: '⚙️ Настроить фильтры',
-                //     start_parameter: 'inline_settings'
-                // },
+                button: {
+                    text: '⚙️ Настроить фильтры',
+                    start_parameter: 'inline_settings'
+                },
                 cache_time: 0,
                 is_personal: true,
                 next_offset:
