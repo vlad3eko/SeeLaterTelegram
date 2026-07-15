@@ -1,6 +1,6 @@
 export const filterTmdbMediaResults = (
     media: any,
-    userId: number | null
+    userId: number
 ) => {
 
     // только фильмы и сериалы

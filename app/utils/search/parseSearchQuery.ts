@@ -2,7 +2,7 @@ import type {SearchQuery} from "~/utils/search/typesSearch";
 
 export const parseSearchQuery = (
     query: string,
-    userId: number | null
+    userId: number
 ): SearchQuery => {
 
     const words = query
