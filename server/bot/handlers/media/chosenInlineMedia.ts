@@ -26,10 +26,6 @@ export const chosenInlineMedia = async (ctx: any) => {
         )
         const genresContent = genresConvert(media.genres)
 
-        await new Promise(resolve =>
-            setTimeout(resolve, 300)
-        )
-
         await ctx.telegram.editMessageMedia(undefined, undefined, inlineMessageId,
             {
                 type: 'photo',

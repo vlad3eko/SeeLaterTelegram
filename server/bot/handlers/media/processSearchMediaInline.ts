@@ -40,7 +40,7 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
                     text: '🔍 Расширенный поиск',
                     start_parameter: 'inline_settings'
                 },
-                cache_time: 0,
+                cache_time: 5,
                 is_personal: true,
                 next_offset:
                     medias.page < medias.total_pages
