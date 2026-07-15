@@ -11,9 +11,12 @@ const authRequests = new Map()
 export function registerCommands(bot:Telegraf) {
     bot.start(async (ctx: any) => {
 
-        console.log('ctx button', ctx.text.includes('inline_settings'))
-        console.log('ctx resource', ctx.entries.resource)
-        console.log('ctx binding', ctx.entries.binding)
+        if (ctx.text.includes('inline_settings')) {
+            console.log('ctx binding', ctx)
+            await ctx.reply('Переход по настройке')
+            return
+        }
+
 
         const message = ctx.message.message_id
 
