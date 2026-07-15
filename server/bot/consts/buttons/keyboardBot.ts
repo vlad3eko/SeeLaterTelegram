@@ -6,11 +6,11 @@ import {
     SearchButtonBot
 } from "#server/bot/consts/buttons/buttonsBot";
 
-export const keyboardSearchBot = (text?: string, mediaSearch?: string, buttonTitle?: string) => {
+export const keyboardSearchBot = (text?: string, mediaSearch?: string, buttonCommand?: string) => {
 
-    if (buttonTitle) {
+    if (buttonCommand) {
         return Markup.inlineKeyboard([
-            [SearchButtonBot(text, mediaSearch, buttonTitle)]
+            [SearchButtonBot(text, buttonCommand)]
         ]).reply_markup
     } else {
         return Markup.inlineKeyboard([

@@ -32,9 +32,8 @@ export function registerCommands(bot: Telegraf) {
 
 
             console.log('tagQuery', tagGet)
-            const messageContinue = await ctx.reply(
-                `🔍 Искать «${tagGet}» через быстрый поиск?`, {
-                    reply_markup: keyboardSearchBot('Продолжить искать', tagGet, tagGet)
+            const messageContinue = await ctx.reply({
+                    reply_markup: keyboardSearchBot('Продолжить искать', undefined, tagGet)
                 }
             )
 
