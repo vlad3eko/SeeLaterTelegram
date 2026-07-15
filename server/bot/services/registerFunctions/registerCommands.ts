@@ -22,7 +22,7 @@ export function registerCommands(bot: Telegraf) {
 
             console.log('tagQuery', tagGet)
             await ctx.reply('Переход по настройке', {
-                reply_markup: keyboardSearchBot('Продолжить поиск:', tagGet)
+                reply_markup: keyboardSearchBot('Расширенный поиск: ', tagGet, 'Продолжить')
             })
             return
         }
