@@ -27,13 +27,17 @@ export const deleteMediaButtonBot = (mediaId: number, mediaType: string) => {
         `delete_media_${mediaId}_${mediaType}`)
 }
 
-export const recommendationButtonBot = (mediaType: string, genres?: any | undefined, ) => {
+export const recommendationButtonBot = (mediaType: string, genres: any | undefined) => {
 
     const query = genres?.replaceAll(" • ", " ") ?? ""
+    mediaType =
+        mediaType === 'movie'
+            ? 'фильм'
+            : 'сериал'
 
     return Markup.button.switchToCurrentChat(
         `📋 Похожие`,
-        `${mediaType} ${query}`
+        `#${mediaType} ${query}`
     )
 }
 
