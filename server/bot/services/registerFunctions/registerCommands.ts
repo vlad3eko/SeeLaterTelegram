@@ -12,7 +12,8 @@ export function registerCommands(bot:Telegraf) {
     bot.start(async (ctx: any) => {
 
         console.log('ctx button', ctx.text.includes('inline_settings'))
-        console.log('ctx entries', ctx.entries)
+        console.log('ctx resource', ctx.entries.resource)
+        console.log('ctx binding', ctx.entries.binding)
 
         const message = ctx.message.message_id
 
