@@ -22,6 +22,7 @@ export const deleteMediaButtonBot = (mediaId: number, mediaType: string) => {
 
 export const recommendationButtonBot = (mediaType: string, genres: any | undefined) => {
 
+    console.log('genres', genres)
     const query = genres?.replaceAll(" • ", " ") ?? ""
     mediaType =
         mediaType === 'movie'
