@@ -24,7 +24,7 @@ export function registerCommands(bot: Telegraf) {
 
 
             console.log('tagQuery', tagGet)
-            const message = await ctx.reply(
+            await ctx.reply(
                 {
                     parse_mode: "HTML",
                     reply_markup: keyboardSearchBot(`Привет ${ctx.from.first_name || ctx.from.username}
@@ -36,12 +36,6 @@ export function registerCommands(bot: Telegraf) {
                 },
             )
 
-            await addMessageSession(
-                ctx.from.id,
-                SessionMessageType.Command, {
-                    messageId: message
-                }
-            )
             return
         }
 
