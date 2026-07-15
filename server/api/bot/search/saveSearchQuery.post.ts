@@ -10,11 +10,16 @@ export default defineEventHandler(async (event) => {
         mediaType = query.media_type === 'movie' ? 'фильм' : 'сериал'
     }
 
+    let q
+    if (query.q) {
+        q = Array.isArray(query.q) ? query.q : [query.q]
+    }
+
     const telegramId = query.user_id
 
     const searchQuery = [
         mediaType ? mediaType : 'фильм',
-        ...(Array.isArray(query.q) ? query.q : [query.q])
+        ...(q ? q : '')
     ]
 
     await supabase
