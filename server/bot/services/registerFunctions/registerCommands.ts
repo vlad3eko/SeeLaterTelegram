@@ -21,9 +21,18 @@ export function registerCommands(bot: Telegraf) {
             await commandStart(ctx, authRequests)
 
             console.log('tagQuery', tagGet)
-            const message = await ctx.reply('Переход по настройке', {
-                reply_markup: keyboardSearchBot('Расширенный поиск: ', tagGet, 'Продолжить')
-            })
+            const message = await ctx.reply(
+                `Привет ${ctx.from.first_name || ctx.from.username}
+
+🔍 Для поиска используй кнопки ниже или отправь в сообщении название кино\n
+Связь: https://t.me/kinomanovnet?direct`,
+                {
+                    reply_markup: keyboardSearchBot(),
+                    link_preview_options: {
+                        is_disabled: true
+                    }
+                },
+            )
 
             await addMessageSession(
                 ctx.from.id,
