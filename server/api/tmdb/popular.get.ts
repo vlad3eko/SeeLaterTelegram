@@ -26,6 +26,6 @@ export default defineEventHandler(async (event) => {
     const answer = await res.json()
 
     return {
-        result: answer.data
+        results: answer.data
     }
 })
