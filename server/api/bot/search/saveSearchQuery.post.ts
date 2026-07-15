@@ -5,7 +5,11 @@ export default defineEventHandler(async (event) => {
 
     const supabase = await serverSupabaseClient(event)
 
-    const mediaType = query.media_type === 'movie' ? 'фильм' : 'сериал'
+    let mediaType
+    if (query.media_type) {
+        mediaType = query.media_type === 'movie' ? 'фильм' : 'сериал'
+    }
+
     const telegramId = query.user_id
 
     const searchQuery = [

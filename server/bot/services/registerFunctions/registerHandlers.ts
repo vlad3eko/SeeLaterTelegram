@@ -19,7 +19,7 @@ export function registerHandlers(bot: Telegraf) {
         await addMessageSession(ctx.from.id, SessionMessageType.SearchInline, {messageId: textId})
         const message = await ctx.reply(
             `🔍 Искать фильм «${text}» через быстрый поиск?`, {
-                reply_markup: keyboardSearchBot('Искать', text, text)
+                reply_markup: keyboardSearchBot('Искать', text)
             }
         )
         await addMessageSession(ctx.from.id, SessionMessageType.SearchInline, {messageId: message.message_id})

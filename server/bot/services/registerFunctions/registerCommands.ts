@@ -7,7 +7,6 @@ import {commandClear} from "#server/bot/commands/commandClear";
 import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
 import {getLastSearchQuery} from "~/utils/search/repository/tmdbRepository";
 import {keyboardSearchBot} from "#server/bot/consts/buttons/keyboardBot";
-import {processTelegramAuth} from "#server/bot/services/auth/processTelegramAuth";
 import {isSubscriber} from "#server/bot/handlers/channel/isSubscriber";
 
 const authRequests = new Map()
