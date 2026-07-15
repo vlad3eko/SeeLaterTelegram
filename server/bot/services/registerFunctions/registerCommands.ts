@@ -25,12 +25,11 @@ export function registerCommands(bot: Telegraf) {
 
             console.log('tagQuery', tagGet)
             const message = await ctx.reply(
-                `Привет ${ctx.from.first_name || ctx.from.username}
-
-🔍 Для поиска используй кнопки ниже или отправь в сообщении название кино\n
-Связь: https://t.me/kinomanovnet?direct`,
                 {
-                    reply_markup: keyboardSearchBot(),
+                    parse_mode: "HTML",
+                    reply_markup: keyboardSearchBot(`Привет ${ctx.from.first_name || ctx.from.username}
+🔍 Для поиска используй кнопки ниже или отправь в сообщении название кино\n
+Связь: <a href="https://t.me/kinomanovnet?direct">написать</a>`, tagGet, tagGet),
                     link_preview_options: {
                         is_disabled: true
                     }
