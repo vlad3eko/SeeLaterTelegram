@@ -36,17 +36,12 @@ export const getPopularMovies = async (query: NormalizedSearchQuery, page: numbe
 
     const media = query.filters.mediaTypes[0] ?? 'movie'
 
-    return await $fetch(
-        "/api/tmdb/popular",
-        {
-            method: "GET",
-            query: {
-                q: query.text,
-                page,
-                media
-            }
+    return await $fetch("/api/tmdb/popular", {
+        query: {
+            media,
+            page
         }
-    )
+    })
 }
 
 export const searchMixed = async (query: NormalizedSearchQuery, page: number) => {
@@ -116,7 +111,7 @@ export const saveLastSearchQuery = async (query: string[], mediaType: string | u
     })
 }
 
-export const getLastSearchQuery = async (userId: number): Promise<string[]> => {
+export const getLastSearchQuery = async (userId: number) => {
     return await $fetch('/api/bot/search/getSearchQuery', {
         method: 'GET',
         query: {
