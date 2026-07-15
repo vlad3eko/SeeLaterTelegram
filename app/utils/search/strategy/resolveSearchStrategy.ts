@@ -20,21 +20,26 @@ export const resolveSearchStrategy = (
         query.from
 
     if (hasText && hasFilters) {
+        console.log('hasText && hasFilters')
         return SearchStrategy.SEARCH_MIXED
     }
 
     if (hasText) {
+        console.log('hasText')
         return SearchStrategy.SEARCH_BY_TEXT
     }
 
     if (hasFilters) {
+        console.log('hasFilters')
         return SearchStrategy.SEARCH_BY_FILTERS
     }
 
     if (hasFromUserId) {
+        console.log('hasFromUserId')
         return SearchStrategy.BOOKMARKS
     }
 
+    console.log('none')
     return SearchStrategy.POPULAR
 
 }

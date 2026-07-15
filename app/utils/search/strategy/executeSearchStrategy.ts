@@ -31,7 +31,7 @@ export const executeSearchStrategy = async (strategy: SearchStrategy, query: Nor
 
         default:
             return {
-                results: await getPopularMovies(query, page)
+                results:[]
             }
     }
 }
