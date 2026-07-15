@@ -16,7 +16,7 @@ export const resolveSearchStrategy = (
         query.filters.companies.length > 0 ||
         query.filters.mediaTypes.length > 0
 
-    if (!hasText && !hasFilters) {
+    if (!hasText || !hasFilters) {
         console.log('empty result')
         return SearchStrategy.POPULAR
     }
