@@ -65,16 +65,12 @@ export const getCache = async (
     if (!data)
         return null
 
-    await supabase
-
-        .from("tmdb_cache")
-
-        .update({
-            hits: data.hits + 1,
-            last_hit_at: now
-        })
-
-        .eq("id", data.id)
+    await supabase.rpc(
+        'increment_tmdb_cache_hit',
+        {
+            cache_id: data.id
+        }
+    )
 
     console.log(
         "[TMDB CACHE] HIT",

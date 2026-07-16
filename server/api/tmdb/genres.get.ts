@@ -17,12 +17,19 @@ export default defineEventHandler(async (event) => {
     const cache = await getCache(event, cacheKey)
     if (cache) return cache
 
-    const genres = await $fetch(
+    const genres = await fetch(
         `https://api.themoviedb.org/3/genre/${query.media}/list?language=ru-RU`,
         {
             headers
         }
     )
+
+    if (!genres.ok) {
+        throw createError({
+            statusCode: genres.status,
+            statusMessage: await genres.text()
+        })
+    }
 
     await saveCache(event, endpoint, cacheKey, genres, 365)
 

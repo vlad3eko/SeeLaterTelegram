@@ -54,6 +54,13 @@ export default defineEventHandler(async (event) => {
         }
     )
 
+    if (!res.ok) {
+        throw createError({
+            statusCode: res.status,
+            statusMessage: await res.text()
+        })
+    }
+
     const response = await res.json()
 
     response.results = response.results.map((item: any) => ({

@@ -22,6 +22,13 @@ export default defineEventHandler(async (event) => {
         headers
     })
 
+    if (!credits.ok) {
+        throw createError({
+            statusCode: credits.status,
+            statusMessage: await credits.text()
+        })
+    }
+
     const response = await credits.json()
 
     await saveCache(event, endpoint, cacheKey, response, 30)
