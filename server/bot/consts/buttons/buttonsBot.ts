@@ -27,8 +27,6 @@ export const recommendationButtonBot = (mediaType: string, genres: any | undefin
         : genres
 
     const query = genreText
-        .replaceAll(' ', '')
-        .replaceAll(',', ' ')
         .replaceAll(' • ', ' ')
 
     mediaType =
