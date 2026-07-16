@@ -17,11 +17,7 @@ export default defineEventHandler(async (event) => {
     })
 
     const cache = await getCache(event, cacheKey)
-
-    if (cache) {
-        return cache
-    }
-
+    if (cache) return cache
 
     const response = await $fetch(
         `https://api.themoviedb.org/3/genre/${query.media}/list?language=ru-RU`,
