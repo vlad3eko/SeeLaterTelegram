@@ -56,7 +56,9 @@ export const getCache = async (
 
     const {data, error} = await supabase
         .from('tmdb_cache')
-        .select('*')
+        .select(
+            'id,response_data'
+        )
         .eq('cache_key', cacheKey)
         .gt(
             'expires_at',
