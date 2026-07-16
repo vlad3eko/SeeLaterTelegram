@@ -1,18 +1,29 @@
+import {buildCacheKey, getCache, saveCache} from "~/utils/search/repository/cacheRepository";
+
 export default defineEventHandler(async (event) => {
     const query = getQuery(event)
     const config = useRuntimeConfig()
+    const headers = {
+        accept: "application/json",
+        Authorization: `Bearer ${config.tmdbApiKey}`
+    }
 
     const media = query.media === "tv" ? "tv" : "movie"
-    console.log('query', query)
+    const endpoint = 'popular'
+    const TTL_TWO_HOURS = 2 / 24
+
+    const cacheKey = buildCacheKey(endpoint, {
+        media,
+        page: query.page
+    })
+    const cache = await getCache(event, cacheKey)
+    if (cache) return cache
+
     const res = await fetch(
         `https://api.themoviedb.org/3/${media}/popular?language=ru-RU&page=${query.page ?? 1}`,
         {
-            headers: {
-                accept: "application/json",
-                Authorization: `Bearer ${config.tmdbApiKey}`
-            }
-        }
-    )
+            headers
+        })
 
     if (!res.ok) {
         throw createError({
@@ -21,5 +32,9 @@ export default defineEventHandler(async (event) => {
         })
     }
 
-    return res.json()
+    const response = await res.json()
+
+    await saveCache(event, endpoint, cacheKey, response, TTL_TWO_HOURS)
+
+    return response
 })

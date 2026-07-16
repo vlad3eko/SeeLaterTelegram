@@ -1,19 +1,29 @@
+import {buildCacheKey, getCache, saveCache} from "~/utils/search/repository/cacheRepository";
+
 export default defineEventHandler(async (event) => {
-
     const query = getQuery(event)
-
     const config = useRuntimeConfig()
-
     const headers = {
         accept: 'application/json',
         Authorization: `Bearer ${config.tmdbApiKey}`
     }
 
-    const res = await fetch(`https://api.themoviedb.org/3/person/${query.id}
-                                   ?append_to_response=combined_credits,images,external_ids
-                                   &language=ru-RU`,
+    const endpoint = 'person'
+
+    const cacheKey = buildCacheKey(endpoint, {
+        id: query.id
+    })
+
+    const cache = await getCache(event, cacheKey)
+    if (cache) return cache
+
+    const res = await fetch(`https://api.themoviedb.org/3/person/${query.id}?append_to_response=combined_credits,images,external_ids&language=ru-RU`,
         { headers  }
     )
 
-    return  await res.json()
+    const response = await res.json()
+
+    await saveCache(event,endpoint,cacheKey, response, 90)
+
+    return response
 })

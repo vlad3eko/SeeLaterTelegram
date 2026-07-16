@@ -1,17 +1,16 @@
+import {buildCacheKey, getCache, saveCache} from "~/utils/search/repository/cacheRepository";
 
 export default defineEventHandler(async (event) => {
-
     const query = getQuery(event)
-    const id = Number(query.id)
-
     const config = useRuntimeConfig()
-
     const headers = {
         accept: 'application/json',
         Authorization: `Bearer ${config.tmdbApiKey}`
     }
 
+    const id = Number(query.id)
     const media = query.media || 'multi'
+    const endpoint = 'media'
 
     if (media !== "movie" && media !== "tv") {
         throw createError({
@@ -29,6 +28,14 @@ export default defineEventHandler(async (event) => {
             statusMessage: "Invalid request"
         })
     }
+
+    const cacheKey = buildCacheKey(endpoint, {
+        media,
+        id
+    })
+
+    const cache = await getCache(event, cacheKey)
+    if (cache) return cache
 
     const [movieRes, trailerRu, trailerEn] = await Promise.all([
 
@@ -59,7 +66,7 @@ export default defineEventHandler(async (event) => {
         ? trailerEng.results
         : []
 
-    return {
+    const response = {
         ...movie,
         media_type: media,
         trailers: [
@@ -68,4 +75,7 @@ export default defineEventHandler(async (event) => {
         ]
     }
 
+    await saveCache(event, endpoint, cacheKey, response, 30)
+
+    return response
 })

@@ -15,7 +15,7 @@ export const searchMedia = async (query: string, page: number = 1, userId: numbe
 
     const parsed = parseSearchQuery(query, userId)
     await saveLastSearchQuery(parsed.filters.genres, parsed.filters?.mediaTypes[0], userId)
-    console.log('parsed', parsed)
+
     const normalized = normalizeSearchQuery(parsed, page)
 
     const strategy = resolveSearchStrategy(normalized)

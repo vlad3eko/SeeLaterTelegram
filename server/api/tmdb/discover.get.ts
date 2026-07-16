@@ -1,18 +1,19 @@
-export default defineEventHandler(async (event) => {
+import {buildCacheKey, getCache, saveCache} from "~/utils/search/repository/cacheRepository";
 
+export default defineEventHandler(async (event) => {
     const query = getQuery(event)
     const config = useRuntimeConfig()
-
     const headers = {
         accept: 'application/json',
         Authorization: `Bearer ${config.tmdbApiKey}`
     }
-
-    const media = query.media || 'movie'
     const params = new URLSearchParams({
         language: 'ru-RU',
         page: String(query.page || 1),
     })
+
+    const media = query.media || 'movie'
+    const endpoint = 'discover'
 
     if(query.with_genres){
         params.append(
@@ -35,6 +36,17 @@ export default defineEventHandler(async (event) => {
         )
     }
 
+    const cacheKey = buildCacheKey(endpoint, {
+        media,
+        page: query.page,
+        with_genres: query.with_genres,
+        primary_release_year: query.primary_release_year,
+        sort_by: query.sort_by,
+    })
+
+    const cache = await getCache(event, cacheKey)
+    if (cache) return cache
+
     const res = await fetch(
         `https://api.themoviedb.org/3/discover/${media}?${params}`,
         {
@@ -42,12 +54,14 @@ export default defineEventHandler(async (event) => {
         }
     )
 
-    const json = await res.json()
+    const response = await res.json()
 
-    json.results = json.results.map((item: any) => ({
+    response.results = response.results.map((item: any) => ({
         ...item,
         media_type: media
     }))
 
-    return json
+    await saveCache(event, endpoint, cacheKey, response, 1)
+
+    return response
 })
