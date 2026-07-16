@@ -35,118 +35,45 @@ export const getCache = async (
 
     const totalStart = performance.now()
 
-
-    // создание клиента Supabase
     const clientStart = performance.now()
-
-    const supabase =
-        await serverSupabaseClient(event)
-
+    const supabase = await serverSupabaseClient(event)
 
     console.log(
-        `[CACHE] CLIENT ${
-            (performance.now() - clientStart)
-                .toFixed(2)
-        }ms`
+        `[CACHE] CLIENT ${(performance.now() - clientStart).toFixed(2)}ms`
     )
 
-
-    // запрос SELECT
-    const selectStart = performance.now()
-
-    const {data, error} = await supabase
-        .from('tmdb_cache')
-        .select(
-            'id,response_data'
-        )
-        .eq('cache_key', cacheKey)
-        .gt(
-            'expires_at',
-            new Date().toISOString()
-        )
-        .maybeSingle()
-
-
-    console.log(
-        `[CACHE] SELECT ${
-            (performance.now() - selectStart)
-                .toFixed(2)
-        }ms`
-    )
-
-
-    if (error) {
-
-        console.error(
-            '[CACHE] ERROR',
-            error
-        )
-
-        return null
-    }
-
-
-    if (!data) {
-
-        console.log(
-            '[CACHE] MISS'
-        )
-
-        console.log(
-            `[CACHE] TOTAL ${
-                (performance.now() - totalStart)
-                    .toFixed(2)
-            }ms`
-        )
-
-        return null
-    }
-
-
-    // увеличение hits
     const rpcStart = performance.now()
 
-    const {error: rpcError} =
-        await supabase.rpc(
-            'increment_tmdb_cache_hit',
-            {
-                cache_id: data.id
-            }
-        )
-
-
-    console.log(
-        `[CACHE] RPC HIT ${
-            (performance.now() - rpcStart)
-                .toFixed(2)
-        }ms`
+    const {data, error} = await supabase.rpc(
+        'get_tmdb_cache',
+        {
+            p_cache_key: cacheKey
+        }
     )
 
+    console.log(
+        `[CACHE] RPC ${(performance.now() - rpcStart).toFixed(2)}ms`
+    )
 
-    if (rpcError) {
-
-        console.error(
-            '[CACHE] RPC ERROR',
-            rpcError
-        )
-
+    if (error) {
+        console.error('[CACHE] ERROR', error)
+        return null
     }
 
+    if (!data) {
+        console.log('[CACHE] MISS')
+        console.log(
+            `[CACHE] TOTAL ${(performance.now() - totalStart).toFixed(2)}ms`
+        )
+        return null
+    }
 
+    console.log('[CACHE] HIT')
     console.log(
-        '[CACHE] HIT'
+        `[CACHE] TOTAL ${(performance.now() - totalStart).toFixed(2)}ms`
     )
 
-
-    console.log(
-        `[CACHE] TOTAL ${
-            (performance.now() - totalStart)
-                .toFixed(2)
-        }ms`
-    )
-
-
-    return data.response_data
+    return data
 }
 
 
