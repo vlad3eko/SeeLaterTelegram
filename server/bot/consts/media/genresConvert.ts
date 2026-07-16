@@ -18,8 +18,15 @@ export async function loadGenres() {
         })
     ])
 
-    movieGenres = new Map(movie.genres.map(g => [g.id, g.name]))
-    tvGenres = new Map(tv.genres.map(g => [g.id, g.name]))
+    movieGenres = new Map(
+        (movie.genres ?? [])
+            .map(g => [g.id, g.name])
+    )
+
+    tvGenres = new Map(
+        (tv.genres ?? [])
+            .map(g => [g.id, g.name])
+    )
 }
 
 export function getGenreNames(ids: number[], mediaType: string) {
