@@ -29,51 +29,45 @@ export const buildCacheKey = (
 }
 
 export const getCache = async (
-    event: any,
-    cacheKey: string
+    event:any,
+    cacheKey:string
 ) => {
 
-    const supabase =
-        await serverSupabaseClient(event)
+    const supabase = await serverSupabaseClient(event)
 
-    const now =
-        new Date().toISOString()
+    const {data,error} = await supabase
+        .from('tmdb_cache')
+        .select('*')
+        .eq('cache_key', cacheKey)
+        .gt('expires_at', new Date().toISOString())
+        .maybeSingle()
 
-    const {data, error} =
-        await supabase
-
-            .from("tmdb_cache")
-
-            .select("*")
-
-            .eq("cache_key", cacheKey)
-
-            .gt("expires_at", now)
-
-            .maybeSingle()
-
-    if (error) {
-
+    if(error){
         console.error(
-            "[TMDB CACHE] READ ERROR",
-            error.message
+            '[CACHE] GET ERROR',
+            error
         )
-
         return null
     }
 
-    if (!data)
+    if(!data){
+
+        console.log(
+            '[CACHE] MISS',
+            cacheKey
+        )
         return null
+    }
 
     await supabase.rpc(
         'increment_tmdb_cache_hit',
         {
-            cache_id: data.id
+            cache_id:data.id
         }
     )
 
     console.log(
-        "[TMDB CACHE] HIT",
+        '[CACHE] HIT',
         cacheKey
     )
 
@@ -81,54 +75,47 @@ export const getCache = async (
 }
 
 export const saveCache = async (
-    event: any,
-    endpoint: string,
-    cacheKey: string,
-    responseData: any,
-    ttlDays: number = DEFAULT_TTL_DAYS
-) => {
+    event:any,
+    endpoint:string,
+    cacheKey:string,
+    response:any,
+    ttl:number
+)=>{
 
-    const supabase =
-        await serverSupabaseClient(event)
+    const supabase = await serverSupabaseClient(event)
 
-    const expiresAt =
+    const expires =
         new Date(
-            Date.now() + ttlDays * 86400000
+            Date.now() +
+            ttl * 24 * 60 * 60 * 1000
         )
 
-    const {error} =
-        await supabase
+    const {error}=await supabase
+        .from('tmdb_cache')
+        .upsert({
+                cache_key:cacheKey,
+                endpoint,
+                response_data:response,
+                expires_at:expires.toISOString(),
+                hits:1,
+                last_hit_at:new Date().toISOString()
+            },
+            {
+                onConflict:'cache_key'
+            })
 
-            .from("tmdb_cache")
-
-            .upsert({
-                    cache_key: cacheKey,
-                    endpoint,
-                    response_data: responseData,
-                    hits: 1,
-                    created_at: new Date(),
-                    last_hit_at: new Date(),
-                    expires_at: expiresAt
-                },
-                {
-                    onConflict: 'cache_key'
-                })
-
-    if (error) {
-
+    if(error){
         console.error(
-            "[TMDB CACHE] SAVE ERROR",
-            error.message
+            '[CACHE] SAVE ERROR',
+            error
         )
-
         return false
     }
 
     console.log(
-        "[TMDB CACHE] SAVED",
+        '[CACHE] SAVED',
         cacheKey
     )
-
     return true
 }
 
