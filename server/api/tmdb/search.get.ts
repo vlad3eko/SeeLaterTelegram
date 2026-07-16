@@ -25,6 +25,9 @@ export default defineEventHandler(async (event) => {
     const cache = await getCache(event, cacheKey)
     if (cache) return cache
 
+    const tmdbStart =
+        performance.now()
+
     const res = await fetch(`https://api.themoviedb.org/3/search/${media}?${params}`, {
             headers
         })
@@ -39,6 +42,10 @@ export default defineEventHandler(async (event) => {
     const response = await res.json()
 
     await saveCache(event, endpoint, cacheKey, response, 7)
+
+    console.log(
+        `[TMDB] SEARCH ${(performance.now()-tmdbStart).toFixed(2)}ms`
+    )
 
     return response
 })

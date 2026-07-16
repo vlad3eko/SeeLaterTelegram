@@ -19,6 +19,9 @@ export default defineEventHandler(async (event) => {
     const cache = await getCache(event, cacheKey)
     if (cache) return cache
 
+    const tmdbStart =
+        performance.now()
+
     const res = await fetch(
         `https://api.themoviedb.org/3/${media}/popular?language=ru-RU&page=${query.page ?? 1}`,
         {
@@ -32,9 +35,14 @@ export default defineEventHandler(async (event) => {
         })
     }
 
+
     const response = await res.json()
 
     await saveCache(event, endpoint, cacheKey, response, TTL_TWO_HOURS)
+
+    console.log(
+        `[TMDB] POPULAR ${(performance.now()-tmdbStart).toFixed(2)}ms`
+    )
 
     return response
 })

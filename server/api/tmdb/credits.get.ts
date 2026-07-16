@@ -18,6 +18,9 @@ export default defineEventHandler(async (event) => {
     const cache = await getCache(event, cacheKey)
     if (cache) return cache
 
+    const tmdbStart =
+        performance.now()
+
     const credits = await fetch(`https://api.themoviedb.org/3/${query.media}/${query.id}/credits?language=ru-RU`, {
         headers
     })
@@ -33,6 +36,9 @@ export default defineEventHandler(async (event) => {
 
     await saveCache(event, endpoint, cacheKey, response, 30)
 
-    return response
+    console.log(
+        `[TMDB] CREDITS ${(performance.now()-tmdbStart).toFixed(2)}ms`
+    )
 
+    return response
 })

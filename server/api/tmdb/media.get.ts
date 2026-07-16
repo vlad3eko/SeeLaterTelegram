@@ -37,6 +37,9 @@ export default defineEventHandler(async (event) => {
     const cache = await getCache(event, cacheKey)
     if (cache) return cache
 
+    const tmdbStart =
+        performance.now()
+
     const [movieRes, trailerRu, trailerEn] = await Promise.all([
 
         fetch(`https://api.themoviedb.org/3/${media}/${query.id}?external_source=imdb_id&language=ru-RU`, {
@@ -52,7 +55,6 @@ export default defineEventHandler(async (event) => {
             headers
         })
     ])
-
 
     const movie = await movieRes.json()
     const trailerRus = await trailerRu.json()
@@ -76,6 +78,10 @@ export default defineEventHandler(async (event) => {
     }
 
     await saveCache(event, endpoint, cacheKey, response, 30)
+
+    console.log(
+        `[TMDB] MEDIA ${(performance.now()-tmdbStart).toFixed(2)}ms`
+    )
 
     return response
 })
