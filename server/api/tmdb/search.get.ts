@@ -42,7 +42,7 @@ export default defineEventHandler(async (event) => {
 
     const response = await res.json()
 
-    await saveCache(event, endpoint, cacheKey, response, 7)
+    saveCache(event, endpoint, cacheKey, response, 7)
 
     console.log(
         `[TMDB] SEARCH ${(performance.now()-tmdbStart).toFixed(2)}ms`

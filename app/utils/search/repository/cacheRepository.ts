@@ -1,4 +1,4 @@
-import {serverSupabaseClient} from "#supabase/server"
+import {serverSupabaseClient, serverSupabaseServiceRole} from "#supabase/server"
 
 const DEFAULT_TTL_DAYS = 7
 
@@ -36,7 +36,7 @@ export const getCache = async (
     const totalStart = performance.now()
 
     const clientStart = performance.now()
-    const supabase = await serverSupabaseClient(event)
+    const supabase = serverSupabaseServiceRole(event)
 
     console.log(
         `[CACHE] CLIENT ${(performance.now() - clientStart).toFixed(2)}ms`
@@ -93,8 +93,7 @@ export const saveCache = async (
     // создание клиента Supabase
     const clientStart = performance.now()
 
-    const supabase =
-        await serverSupabaseClient(event)
+    const supabase = serverSupabaseServiceRole(event)
 
 
     console.log(
