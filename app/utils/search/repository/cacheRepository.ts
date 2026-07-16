@@ -33,11 +33,26 @@ export const getCache = async (
     cacheKey: string
 ) => {
 
-    const start = performance.now()
+    const totalStart = performance.now()
+
+
+    // создание клиента Supabase
+    const clientStart = performance.now()
 
     const supabase =
         await serverSupabaseClient(event)
 
+
+    console.log(
+        `[CACHE] CLIENT ${
+            (performance.now() - clientStart)
+                .toFixed(2)
+        }ms`
+    )
+
+
+    // запрос SELECT
+    const selectStart = performance.now()
 
     const {data, error} = await supabase
         .from('tmdb_cache')
@@ -49,14 +64,17 @@ export const getCache = async (
         )
         .maybeSingle()
 
-    const time = performance.now() - start
 
     console.log(
-        `[CACHE] GET ${time.toFixed(2)}ms`,
-        cacheKey
+        `[CACHE] SELECT ${
+            (performance.now() - selectStart)
+                .toFixed(2)
+        }ms`
     )
 
+
     if (error) {
+
         console.error(
             '[CACHE] ERROR',
             error
@@ -65,24 +83,71 @@ export const getCache = async (
         return null
     }
 
+
     if (!data) {
+
         console.log(
             '[CACHE] MISS'
         )
+
+        console.log(
+            `[CACHE] TOTAL ${
+                (performance.now() - totalStart)
+                    .toFixed(2)
+            }ms`
+        )
+
         return null
     }
 
-    await supabase.rpc(
-        'increment_tmdb_cache_hit',
-        {
-            cache_id: data.id
-        }
+
+    // увеличение hits
+    const rpcStart = performance.now()
+
+    const {error: rpcError} =
+        await supabase.rpc(
+            'increment_tmdb_cache_hit',
+            {
+                cache_id: data.id
+            }
+        )
+
+
+    console.log(
+        `[CACHE] RPC HIT ${
+            (performance.now() - rpcStart)
+                .toFixed(2)
+        }ms`
     )
 
-    console.log(`[CACHE] HIT ${time.toFixed(2)}ms`)
+
+    if (rpcError) {
+
+        console.error(
+            '[CACHE] RPC ERROR',
+            rpcError
+        )
+
+    }
+
+
+    console.log(
+        '[CACHE] HIT'
+    )
+
+
+    console.log(
+        `[CACHE] TOTAL ${
+            (performance.now() - totalStart)
+                .toFixed(2)
+        }ms`
+    )
+
 
     return data.response_data
 }
+
+
 
 export const saveCache = async (
     event: any,
@@ -92,9 +157,24 @@ export const saveCache = async (
     ttl: number
 ) => {
 
-    const supabase = await serverSupabaseClient(event)
 
-    const start = performance.now()
+    const totalStart = performance.now()
+
+
+    // создание клиента Supabase
+    const clientStart = performance.now()
+
+    const supabase =
+        await serverSupabaseClient(event)
+
+
+    console.log(
+        `[CACHE] CLIENT ${
+            (performance.now() - clientStart)
+                .toFixed(2)
+        }ms`
+    )
+
 
     const expires =
         new Date(
@@ -102,9 +182,14 @@ export const saveCache = async (
             ttl * 24 * 60 * 60 * 1000
         )
 
+
+    const saveStart = performance.now()
+
+
     const {error} = await supabase
         .from('tmdb_cache')
-        .upsert({
+        .upsert(
+            {
                 cache_key: cacheKey,
                 endpoint,
                 response_data: response,
@@ -113,20 +198,38 @@ export const saveCache = async (
                 last_hit_at: new Date().toISOString()
             },
             {
-                onConflict: 'cache_key'
-            })
+                onConflict:'cache_key'
+            }
+        )
 
-    if (error) {
+
+    console.log(
+        `[CACHE] SAVE QUERY ${
+            (performance.now() - saveStart)
+                .toFixed(2)
+        }ms`
+    )
+
+
+    if(error){
+
         console.error(
             '[CACHE] SAVE ERROR',
             error
         )
+
         return false
     }
 
+
     console.log(
-        `[CACHE] SAVE ${(performance.now()-start).toFixed(2)}ms`
+        `[CACHE] SAVE TOTAL ${
+            (performance.now() - totalStart)
+                .toFixed(2)
+        }ms`
     )
+
+
     return true
 }
 

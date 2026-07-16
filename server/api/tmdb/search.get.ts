@@ -39,6 +39,7 @@ export default defineEventHandler(async (event) => {
         })
     }
 
+
     const response = await res.json()
 
     await saveCache(event, endpoint, cacheKey, response, 7)
