@@ -1,8 +1,10 @@
 import {buildCacheKey, getCache, saveCache} from "~/utils/search/repository/cacheRepository";
 
 export default defineEventHandler(async (event) => {
+
     const query = getQuery(event)
     const config = useRuntimeConfig()
+
     const headers = {
         accept: 'application/json',
         Authorization: `Bearer ${config.tmdbApiKey}`
@@ -15,30 +17,30 @@ export default defineEventHandler(async (event) => {
     })
 
     const cache = await getCache(event, cacheKey)
-    if (cache) return cache
 
-    const tmdbStart =
-        performance.now()
+    if (cache) {
+        return cache
+    }
 
-    const genres = await fetch(
+
+    const response = await $fetch(
         `https://api.themoviedb.org/3/genre/${query.media}/list?language=ru-RU`,
         {
             headers
         }
     )
 
-    if (!genres.ok) {
-        throw createError({
-            statusCode: genres.status,
-            statusMessage: await genres.text()
-        })
-    }
+    console.log('[GENRES RESPONSE]', response)
 
-    await saveCache(event, endpoint, cacheKey, genres, 365)
 
-    console.log(
-        `[TMDB] GENRES ${(performance.now()-tmdbStart).toFixed(2)}ms`
+    await saveCache(
+        event,
+        endpoint,
+        cacheKey,
+        response,
+        365
     )
 
-    return genres
+
+    return response
 })
