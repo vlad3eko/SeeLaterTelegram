@@ -76,8 +76,6 @@ export const getCache = async (
     return data
 }
 
-
-
 export const saveCache = async (
     event: any,
     endpoint: string,
@@ -170,11 +168,8 @@ export const deleteExpired = async (
 
     const {error} =
         await supabase
-
             .from("tmdb_cache")
-
             .delete()
-
             .lt(
                 "expires_at",
                 new Date().toISOString()
@@ -205,18 +200,14 @@ export const getPopular = async (
 
     const {data, error} =
         await supabase
-
             .from("tmdb_cache")
-
             .select("*")
-
             .order(
                 "hits",
                 {
                     ascending: false
                 }
             )
-
             .limit(limit)
 
     if (error) {
