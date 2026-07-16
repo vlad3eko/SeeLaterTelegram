@@ -20,7 +20,7 @@ export function registerCommands(bot: Telegraf) {
             await addMessageSession(
                 ctx.from.id,
                 SessionMessageType.Command, {
-                    messageId: messageStart
+                    messageId: messageStart.message_id
                 }
             )
 
@@ -39,7 +39,7 @@ export function registerCommands(bot: Telegraf) {
             await addMessageSession(
                 ctx.from.id,
                 SessionMessageType.SearchInline, {
-                    messageId: messageContinue
+                    messageId: messageContinue.message_id
                 }
             )
 
@@ -55,7 +55,7 @@ export function registerCommands(bot: Telegraf) {
         await addMessageSession(
             ctx.from.id,
             SessionMessageType.Command, {
-                messageId: message
+                messageId: message.message_id
             }
         )
     })
