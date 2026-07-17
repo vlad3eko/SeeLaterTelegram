@@ -26,7 +26,7 @@ export const searchMedia = async (query: string, page: number = 1, userId: numbe
     console.log('result before', result[0])
     result.results = result.results
         .map(normalizeTmdbMedia)
-        .filter((media: any) => filterTmdbMediaResults(media, userId))
+        .filter((media: any) => filterTmdbMediaResults(media, userId, parsed))
         .map(normalizeMediaGenres)
     if (page === 1 && !(parsed.filters.genres[0]?.startsWith('collection'))) {
         result.results = sortMediaResults(result.results)

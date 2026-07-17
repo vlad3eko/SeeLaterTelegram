@@ -1,6 +1,9 @@
+import type {SearchQuery} from "~/utils/search/typesSearch";
+
 export const filterTmdbMediaResults = (
     media: any,
-    userId: number
+    userId: number,
+    query: SearchQuery
 ) => {
 
     const ANIMATION_GENRE = 16
@@ -12,11 +15,6 @@ export const filterTmdbMediaResults = (
     ) {
         return false
     }
-
-    media = media.results.genres.filter((gen) => {
-        // if (gen.include(ANIMATION_GENRE)) return false
-        console.log('genres media', gen)
-    })
 
     // должно быть описание
     if (!userId) {
