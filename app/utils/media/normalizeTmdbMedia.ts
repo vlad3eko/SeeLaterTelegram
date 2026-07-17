@@ -18,8 +18,10 @@ export const normalizeTmdbMedia = (media: any) => {
         genreIds.includes(ANIMATION_GENRE)
 
     const isJapanese =
-        media.original_language === "ja" ||
-        (media.origin_country ?? []).includes("JP")
+        media.original_language === "ja"
+        || media.original_language === "zh"
+        || (media.origin_country ?? []).includes("JP")
+        || (media.origin_country ?? []).includes("ZH")
 
     let contentType: ContentType
 
