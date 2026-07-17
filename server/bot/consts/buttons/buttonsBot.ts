@@ -1,4 +1,5 @@
 import {Markup} from "telegraf";
+import type {TmdbGenre} from "~/types/tmdb.types";
 
 // Возвращаем чистый объект кнопки, без [ ]
 export const SearchButtonBot = (text: string | undefined, query?: string) => {
@@ -20,12 +21,11 @@ export const deleteMediaButtonBot = (mediaId: number, mediaType: string) => {
         `delete_media_${mediaId}_${mediaType}`)
 }
 
-export const recommendationButtonBot = (mediaType: string, genres: any | undefined) => {
+export const recommendationButtonBot = (mediaType: string, genres: TmdbGenre[] | string) => {
 
-    const query = Array.isArray(genres)
-        ? genres.filter(g => g.name !== '#мультфильм')
-            .map(g => g.name).join(" ")
-        : genres?.replaceAll(" • ", " ") ?? ""
+    const query = typeof genres === 'string'
+        ? genres.split(' • ').filter(g => g !== '#мультфильм').join(' ')
+        : genres?.filter(g => g.name !== '#мультфильм').map(g => g.name).join(' ') ?? ''
 
     console.log('q', query)
 
