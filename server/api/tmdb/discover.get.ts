@@ -24,11 +24,24 @@ export default defineEventHandler(async (event) => {
         )
     }
 
-    if(query.primary_release_year){
-        params.append(
-            'primary_release_year',
-            String(query.primary_release_year)
-        )
+    if (query.primary_release_year) {
+
+        if (media === 'movie') {
+
+            params.append(
+                'primary_release_year',
+                String(query.primary_release_year)
+            )
+
+        } else {
+
+            params.append(
+                'first_air_date_year',
+                String(query.primary_release_year)
+            )
+
+        }
+
     }
 
     if(query.sort_by){
