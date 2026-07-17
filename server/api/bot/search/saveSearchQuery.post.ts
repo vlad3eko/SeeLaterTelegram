@@ -8,9 +8,7 @@ export default defineEventHandler(async (event) => {
     let mediaType
     if (query.content_type) {
         mediaType = query.content_type
-    } else if (query.media_type) {
-            mediaType = query.media_type
-        }
+    } else if (query.media_type) mediaType = query.media_type
 
     let q
     if (query.q) {
