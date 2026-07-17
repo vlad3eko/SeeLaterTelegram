@@ -23,9 +23,17 @@ export const deleteMediaButtonBot = (mediaId: number, mediaType: string) => {
 
 export const recommendationButtonBot = (mediaType: string, genres: TmdbGenre[] | string) => {
 
-    const query = typeof genres === 'string'
-        ? genres.split(' • ').filter(g => g !== '#мультфильм').join(' ')
-        : genres?.filter(g => g.name !== '#мультфильм').map(g => g.name).join(' ') ?? ''
+    let query
+
+    if (mediaType !== 'фильм' && mediaType !== 'сериал') {
+        query = typeof genres === 'string'
+            ? genres.split(' • ').filter(g => g !== '#мультфильм').join(' ')
+            : genres?.filter(g => g.name !== '#мультфильм').map(g => g.name).join(' ') ?? ''
+    } else query = typeof genres === 'string'
+        ? genres.split(' • ').join(' ')
+        : genres?.map(g => g.name).join(' ') ?? ''
+
+
 
     return Markup.button.switchToCurrentChat(
         `📋 Похожие`,
