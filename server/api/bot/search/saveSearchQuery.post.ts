@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
     const telegramId = query.user_id
 
     const searchQuery = [
-        mediaType ? mediaType : 'фильм',
+        mediaType ? mediaType : '',
         ...(q ? q : '')
     ]
 
