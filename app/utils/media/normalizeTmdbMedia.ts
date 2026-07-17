@@ -24,21 +24,13 @@ export const normalizeTmdbMedia = (media: any) => {
     let contentType: ContentType
 
     if (mediaType === "movie") {
-
         contentType = ContentType.MOVIE
-
     } else if (!isAnimation) {
-
         contentType = ContentType.SERIES
-
     } else if (isJapanese) {
-
         contentType = ContentType.ANIME
-
     } else {
-
         contentType = ContentType.CARTOON
-
     }
 
     return {
