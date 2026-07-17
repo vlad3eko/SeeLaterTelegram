@@ -8,6 +8,7 @@ import {normalizeMediaGenres} from "#server/bot/consts/media/normalizeMediaGenre
 import {sortMediaResults} from "~/utils/media/sortMediaResults";
 import {loadGenres} from "#server/bot/consts/media/genresConvert";
 import {saveLastSearchQuery} from "~/utils/search/repository/tmdbRepository";
+import {filterContentType} from "~/utils/search/filterContentType";
 
 export const searchMedia = async (query: string, page: number = 1, userId: number) => {
 
@@ -26,8 +27,9 @@ export const searchMedia = async (query: string, page: number = 1, userId: numbe
     console.log('result before', result[0])
     result.results = result.results
         .map(normalizeTmdbMedia)
-        .filter((media: any) => filterTmdbMediaResults(media, userId, parsed))
+        .filter((media: any) => filterTmdbMediaResults(media, userId))
         .map(normalizeMediaGenres)
+        .filter((media: any) => filterContentType(media, normalized.filters.contentType))
     if (page === 1 && !(parsed.filters.genres[0]?.startsWith('collection'))) {
         result.results = sortMediaResults(result.results)
     }

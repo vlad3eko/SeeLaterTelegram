@@ -3,10 +3,7 @@ import type {SearchQuery} from "~/utils/search/typesSearch";
 export const filterTmdbMediaResults = (
     media: any,
     userId: number,
-    query: SearchQuery
 ) => {
-
-    const ANIMATION_GENRE = 16
 
     // только фильмы и сериалы
     if (

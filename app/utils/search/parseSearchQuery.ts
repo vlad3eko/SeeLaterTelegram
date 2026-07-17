@@ -1,9 +1,13 @@
 import type {SearchQuery} from "~/utils/search/typesSearch";
+import {ContentType} from "~/utils/search/strategy/enums";
 
 export const parseSearchQuery = (
     query: string,
     userId: number
 ): SearchQuery => {
+
+
+    let contentType: ContentType | undefined;
 
     const words = query
         .trim()
@@ -37,13 +41,27 @@ export const parseSearchQuery = (
                 .toLowerCase()
 
             // тип медиа
-            if (["movie", "movies", "фильм", "фильмы"].includes(tag)) {
+            if (["movie","movies","фильм","фильмы"].includes(tag)) {
                 mediaTypes.push("movie")
+                contentType = ContentType.MOVIE
                 continue
             }
 
-            if (["tv", "series", "serial", "сериал", "сериалы"].includes(tag)) {
+            if (["tv","series","serial","сериал","сериалы"].includes(tag)) {
                 mediaTypes.push("tv")
+                contentType = ContentType.SERIES
+                continue
+            }
+
+            if (["cartoon","мультфильм","мультфильмы"].includes(tag)) {
+                mediaTypes.push("tv")
+                contentType = ContentType.CARTOON
+                continue
+            }
+
+            if (["anime","аниме"].includes(tag)) {
+                mediaTypes.push("tv")
+                contentType = ContentType.ANIME
                 continue
             }
 
@@ -104,6 +122,7 @@ export const parseSearchQuery = (
             countries,
             companies,
             mediaTypes,
+            contentType,
             sort,
             vote,
         }

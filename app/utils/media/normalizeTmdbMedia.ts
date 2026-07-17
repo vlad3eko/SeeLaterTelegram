@@ -1,21 +1,52 @@
+import {ContentType} from "~/utils/search/strategy/enums";
+
 export const normalizeTmdbMedia = (media: any) => {
 
-    console.log('media[0] normalizeTmdbMedia', media)
+    const ANIMATION_GENRE = 16;
+
     const mediaType =
         media.media_type ||
         (
             media.title
                 ? 'movie'
-                : media.name
-                    ? 'tv'
-                    : undefined
+                : 'tv'
         )
+
+    const genresIds = media.genre_ids ?? []
+
+    const isAnimation =
+        genresIds.includes(ANIMATION_GENRE)
+
+    const isJapanese =
+        media.original_language === 'ja'
+    || (media.origin_country ?? []).includes('JP')
+
+    let contentType: ContentType
+
+    if (mediaType === 'movie') {
+        contentType = ContentType.MOVIE
+    } else if ((!isAnimation)) {
+         contentType = ContentType.SERIES
+    } else if (isJapanese) {
+        contentType = ContentType.ANIME
+    } else {
+        contentType = ContentType.CARTOON
+    }
+
 
     return {
         ...media,
+
         id: (media.tmdb_id || media.id),
-        // id: media.id,
+
         media_type: mediaType,
+
+        content_type: ContentType,
+        is_movie: contentType === ContentType.MOVIE,
+        is_series: contentType === ContentType.SERIES,
+        is_cartoon: contentType === ContentType.CARTOON,
+        is_anime: contentType === ContentType.ANIME,
+
         title:
             media.title ||
             media.name,

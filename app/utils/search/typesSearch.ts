@@ -1,3 +1,5 @@
+import {ContentType} from "~/utils/search/strategy/enums";
+
 export interface SearchFilters {
     genres: string[]
     years: number[]
@@ -5,6 +7,7 @@ export interface SearchFilters {
     countries: string[]
     companies: string[]
     mediaTypes: ('movie' | 'tv')[]
+    contentType?: ContentType
     sort?: string
     vote?: number
 }
@@ -22,6 +25,7 @@ export interface NormalizedSearchFilters {
     countries: string[]
     companies: number[]
     mediaTypes: ('movie' | 'tv')[]
+    contentType?: ContentType
     sort?: string
     vote?: number
 }

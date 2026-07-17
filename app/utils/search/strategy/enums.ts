@@ -5,3 +5,10 @@ export enum SearchStrategy {
     POPULAR = "POPULAR",
     BOOKMARKS = "BOOKMARKS"
 }
+
+export enum ContentType {
+    MOVIE = 'movie',
+    SERIES = 'series',
+    CARTOON = 'cartoon',
+    ANIME = 'anime'
+}
