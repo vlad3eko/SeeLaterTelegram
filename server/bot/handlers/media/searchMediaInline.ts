@@ -19,15 +19,7 @@ export const searchMediaInline = async (ctx: any) => {
         parsed.text.length >= 3
 
     if (!hasTags && !hasText) {
-
-        return await ctx.answerInlineQuery(
-            [],
-            {
-                cache_time: 1,
-                is_personal: true
-            }
-        )
-
+        return await ctx.answerInlineQuery([])
     }
 
     try {

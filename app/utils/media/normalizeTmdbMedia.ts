@@ -1,8 +1,8 @@
 import {ContentType} from "~/utils/search/strategy/enums";
 
-export const normalizeTmdbMedia = (media: any) => {
+const ANIMATION_GENRE = 16;
 
-    const ANIMATION_GENRE = 16;
+export const normalizeTmdbMedia = (media: any) => {
 
     const mediaType =
         media.media_type ||
@@ -10,38 +10,46 @@ export const normalizeTmdbMedia = (media: any) => {
             media.title
                 ? 'movie'
                 : 'tv'
-        )
+        );
 
-    const genresIds = media.genre_ids ?? []
+    const genreIds = media.genre_ids ?? [];
 
     const isAnimation =
-        genresIds.includes(ANIMATION_GENRE)
+        genreIds.includes(ANIMATION_GENRE);
 
     const isJapanese =
-        media.original_language === 'ja'
-    || (media.origin_country ?? []).includes('JP')
+        media.original_language === "ja" ||
+        (media.origin_country ?? []).includes("JP");
 
-    let contentType: ContentType
+    let contentType: ContentType;
 
-    if (mediaType === 'movie') {
-        contentType = ContentType.MOVIE
-    } else if ((!isAnimation)) {
-         contentType = ContentType.SERIES
+    if (mediaType === "movie") {
+
+        contentType = ContentType.MOVIE;
+
+    } else if (!isAnimation) {
+
+        contentType = ContentType.SERIES;
+
     } else if (isJapanese) {
-        contentType = ContentType.ANIME
-    } else {
-        contentType = ContentType.CARTOON
-    }
 
+        contentType = ContentType.CARTOON;
+
+    } else {
+
+        contentType = ContentType.ANIME;
+
+    }
 
     return {
         ...media,
 
-        id: (media.tmdb_id || media.id),
+        id: media.tmdb_id || media.id,
 
         media_type: mediaType,
 
-        content_type: ContentType,
+        content_type: contentType,
+
         is_movie: contentType === ContentType.MOVIE,
         is_series: contentType === ContentType.SERIES,
         is_cartoon: contentType === ContentType.CARTOON,
@@ -50,13 +58,15 @@ export const normalizeTmdbMedia = (media: any) => {
         title:
             media.title ||
             media.name,
+
         release_date:
             media.release_date ||
             media.first_air_date ||
             null,
+
         poster_path:
             media.poster_path ||
             media.backdrop_path ||
             null
-    }
-}
+    };
+};
