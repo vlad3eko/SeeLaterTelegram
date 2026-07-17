@@ -8,11 +8,11 @@ export const contentTypeConvert = (mediaType: any, contentType: any) => {
 
         if (contentType) {
             if (contentType === 'cartoon') {
-                convert = 'мультфильмы'
+                convert = 'мультфильм'
             } else if (contentType === 'movie') {
-                convert = 'фильмы'
+                convert = 'фильм'
             } else if (contentType === 'series') {
-                convert = 'сериалы'
+                convert = 'сериал'
             } else if (contentType === 'anime') {
                 convert = 'аниме'
             }
