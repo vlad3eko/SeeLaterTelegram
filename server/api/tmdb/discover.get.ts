@@ -58,6 +58,10 @@ export default defineEventHandler(async (event) => {
         }
     )
 
+    console.log('media fetch', media)
+    console.log('params fetch', params)
+    console.log('res fetch', res)
+
     if (!res.ok) {
         throw createError({
             statusCode: res.status,
