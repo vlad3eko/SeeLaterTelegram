@@ -22,6 +22,12 @@ export default defineEventHandler(async (event) => {
         ...(q ? q : '')
     ]
 
+    console.log('[SAVE SEARCH QUERY] query', query, )
+    console.log('[SAVE SEARCH QUERY] mediaType', mediaType, )
+    console.log('[SAVE SEARCH QUERY] q', q, )
+    console.log('[SAVE SEARCH QUERY] telegramId', telegramId, )
+    console.log('[SAVE SEARCH QUERY] searchQuery', searchQuery, )
+
     await supabase
         .from('last_inline_search')
         .upsert({
