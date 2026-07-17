@@ -94,6 +94,6 @@ export default defineEventHandler(async (event) => {
         `[TMDB] DISCOVER ${(performance.now()-tmdbStart).toFixed(2)}ms`
     )
 
-    console.log('response fetch', response.results[0])
+    console.log('response fetch', response.results)
     return response
 })

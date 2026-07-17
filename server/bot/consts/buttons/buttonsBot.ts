@@ -27,8 +27,6 @@ export const recommendationButtonBot = (mediaType: string, genres: TmdbGenre[] |
         ? genres.split(' • ').filter(g => g !== '#мультфильм').join(' ')
         : genres?.filter(g => g.name !== '#мультфильм').map(g => g.name).join(' ') ?? ''
 
-    console.log('q', query)
-
     return Markup.button.switchToCurrentChat(
         `📋 Похожие`,
         `#${mediaType} ${query}`
