@@ -1,5 +1,6 @@
 import {FormatDate, FormatRating} from "~/utils/formatMoviesData";
 import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBot";
+import {contentTypeConvert} from "~/utils/convert/contentTypeConvert";
 
 export const processSearchMediaInline = async (ctx: any, medias: any) => {
 
@@ -13,7 +14,7 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
                 title: (media.title || media.name),
 
                 description:
-                    `${media.media_type === 'movie' ? 'Фильм' : 'Сериал'} | ${media.vote_average ? '💎' + FormatRating(media?.vote_average) + ' | ' : ''}${media.vote_count ? '🍿' + media.vote_count + ' | ' : ''}${FormatDate(media.release_date)}`,
+                    `${contentTypeConvert(media.media_type, media.content_type)} | ${media.vote_average ? '💎' + FormatRating(media?.vote_average) + ' | ' : ''}${media.vote_count ? '🍿' + media.vote_count + ' | ' : ''}${FormatDate(media.release_date)}`,
 
                 thumb_url:
                     media.poster_path
