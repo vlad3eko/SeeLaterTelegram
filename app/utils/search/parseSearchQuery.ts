@@ -54,7 +54,7 @@ export const parseSearchQuery = (
             }
 
             if (["мультфильм","cartoon","мультфильмы"].includes(tag)) {
-                mediaTypes.push("tv")
+                mediaTypes.push("movie")
                 contentType = ContentType.CARTOON
                 continue
             }

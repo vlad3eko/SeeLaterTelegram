@@ -9,12 +9,13 @@ export const resolveSearchStrategy = (
         query.text.length > 0
 
     const hasFilters =
-        query.filters.genres.length > 0 ||
-        query.filters.years.length > 0 ||
-        query.filters.providers.length > 0 ||
-        query.filters.countries.length > 0 ||
-        query.filters.companies.length > 0 ||
-        query.filters.mediaTypes.length > 0
+        query.filters.genres.length > 0
+        || query.filters.years.length > 0
+        || query.filters.providers.length > 0
+        || query.filters.countries.length > 0
+        || query.filters.companies.length > 0
+        || query.filters.mediaTypes.length > 0
+        || query.filters.contentType
 
     const hasFromUserId =
         query.from
