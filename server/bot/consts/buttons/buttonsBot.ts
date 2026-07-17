@@ -24,7 +24,7 @@ export const recommendationButtonBot = (mediaType: string, genres: any | undefin
 
     const query = Array.isArray(genres)
         ? genres.filter(g => g.name !== '#мультфильм')
-            .map(g => g.name != '#мультфильм').join(" ")
+            .map(g => g.name).join(" ")
         : genres?.replaceAll(" • ", " ") ?? ""
 
     console.log('q', query)
