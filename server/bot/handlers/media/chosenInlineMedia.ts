@@ -13,13 +13,16 @@ export const chosenInlineMedia = async (ctx: any) => {
         if (!inlineMessageId) return
 
         const [_, mediaType, mediaId] = result.result_id.split('_')
+        const trueType = mediaType === 'фильм' ? 'movie' : 'tv'
+
         console.log('_, mediaType, mediaId', _, mediaType, mediaId)
+        console.log('trueType', trueType)
 
         const media = await $fetch(
             '/api/bot/getMediaBot',
             {
                 query: {
-                    media: mediaType,
+                    media: trueType,
                     id: mediaId
                 }
             }
