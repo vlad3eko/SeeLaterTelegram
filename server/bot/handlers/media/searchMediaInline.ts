@@ -16,7 +16,7 @@ export const searchMediaInline = async (ctx: any) => {
         parsed.filters.mediaTypes.length > 0
 
     const hasText =
-        parsed.text.length === 0 || 3
+        parsed.text.length === 0 || parsed.text.length >= 3
 
     if (!hasTags && !hasText) {
         return await ctx.answerInlineQuery([])
