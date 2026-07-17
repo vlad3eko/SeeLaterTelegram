@@ -28,7 +28,7 @@ export function registerCommands(bot: Telegraf) {
             if (!checkSub) return
 
             const tagGet = (await getLastSearchQuery(ctx.from.id))
-                .map(tag => `#${tag}`)
+                .map((tag: any) => `#${tag}`)
                 .join(' ')
 
             const messageContinue = await ctx.reply('Вы перешли в расширенный поиск, нажмите кнопку ниже чтобы продолжить с места где остановились',{

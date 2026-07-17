@@ -6,9 +6,11 @@ export default defineEventHandler(async (event) => {
     const supabase = await serverSupabaseClient(event)
 
     let mediaType
-    if (query.media_type) {
-        mediaType = query.media_type === 'movie' ? 'фильм' : 'сериал'
-    }
+    if (query.content_type) {
+        mediaType = query.content_type
+    } else if (query.media_type) {
+            mediaType = query.media_type
+        }
 
     let q
     if (query.q) {
