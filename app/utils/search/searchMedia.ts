@@ -22,7 +22,7 @@ export const searchMedia = async (query: string, page: number = 1, userId: numbe
     const strategy = resolveSearchStrategy(normalized)
     console.log('strategy', strategy)
     const result = await executeSearchStrategy(strategy, normalized, page)
-    console.log('result', result)
+    console.log(' result before', result)
     result.results = result.results
         .map(normalizeTmdbMedia)
         .filter((media: any) => filterTmdbMediaResults(media, userId))
@@ -30,7 +30,7 @@ export const searchMedia = async (query: string, page: number = 1, userId: numbe
     if (page === 1 && !(parsed.filters.genres[0]?.startsWith('collection'))) {
         result.results = sortMediaResults(result.results)
     }
-    console.log('result', result)
+    console.log('result after', result)
 
     return result
 }
