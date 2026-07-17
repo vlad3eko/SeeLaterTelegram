@@ -1,8 +1,34 @@
 import {processSearchMediaInline} from "#server/bot/handlers/media/processSearchMediaInline";
 import {searchMedia} from "~/utils/search/searchMedia";
-
+import {parseSearchQuery} from "~/utils/search/parseSearchQuery";
 
 export const searchMediaInline = async (ctx: any) => {
+
+    const query = ctx.inlineQuery.query.trim()
+
+    const parsed = parseSearchQuery(
+        query,
+        ctx.from.id
+    )
+
+    const hasTags =
+        parsed.filters.genres.length > 0 ||
+        parsed.filters.mediaTypes.length > 0
+
+    const hasText =
+        parsed.text.length >= 3
+
+    if (!hasTags && !hasText) {
+
+        return await ctx.answerInlineQuery(
+            [],
+            {
+                cache_time: 1,
+                is_personal: true
+            }
+        )
+
+    }
 
     try {
         const page = Number(ctx.inlineQuery.offset) || 1
