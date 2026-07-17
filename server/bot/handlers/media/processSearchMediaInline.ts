@@ -8,7 +8,7 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
         const results = medias.results.map(
             (media: any) => ({
                 type: 'article',
-                id: `${medias.page}_${contentTypeConvert(media.media_type, media.content_type)}_${media.id}`,
+                id: `${medias.page}_${media.media_type}_${media.id}`,
                 title: (media.title || media.name),
 
                 description:
