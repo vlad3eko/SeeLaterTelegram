@@ -23,7 +23,8 @@ export const deleteMediaButtonBot = (mediaId: number, mediaType: string) => {
 export const recommendationButtonBot = (mediaType: string, genres: any | undefined) => {
 
     const query = Array.isArray(genres)
-        ? genres.map(g => g.name != '#мультфильм').join(" ")
+        ? genres.filter(g => g.name !== '#мультфильм')
+            .map(g => g.name != '#мультфильм').join(" ")
         : genres?.replaceAll(" • ", " ") ?? ""
 
     console.log('q', query)
