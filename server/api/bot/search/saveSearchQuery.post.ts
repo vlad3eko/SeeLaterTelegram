@@ -7,7 +7,15 @@ export default defineEventHandler(async (event) => {
 
     let mediaType
     if (query.content_type) {
-        mediaType = query.content_type
+        if (query.content_type === 'cartoon') {
+            mediaType = 'мультфильмы'
+        } else if (query.content_type === 'movie') {
+            mediaType = 'фильмы'
+        } else if (query.content_type === 'series') {
+            mediaType = 'сериалы'
+        } else if (query.content_type === 'anime') {
+            mediaType = 'аниме'
+        }
     } else if (query.media_type) mediaType = query.media_type
 
     let q
@@ -22,11 +30,11 @@ export default defineEventHandler(async (event) => {
         ...(q ? q : '')
     ]
 
-    console.log('[SAVE SEARCH QUERY] query', query, )
-    console.log('[SAVE SEARCH QUERY] mediaType', mediaType, )
-    console.log('[SAVE SEARCH QUERY] q', q, )
-    console.log('[SAVE SEARCH QUERY] telegramId', telegramId, )
-    console.log('[SAVE SEARCH QUERY] searchQuery', searchQuery, )
+    console.log('[SAVE SEARCH QUERY] query', query,)
+    console.log('[SAVE SEARCH QUERY] mediaType', mediaType,)
+    console.log('[SAVE SEARCH QUERY] q', q,)
+    console.log('[SAVE SEARCH QUERY] telegramId', telegramId,)
+    console.log('[SAVE SEARCH QUERY] searchQuery', searchQuery,)
 
     await supabase
         .from('last_inline_search')

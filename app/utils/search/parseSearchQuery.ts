@@ -41,25 +41,25 @@ export const parseSearchQuery = (
                 .toLowerCase()
 
             // тип медиа
-            if (["movie","movies","фильм","фильмы"].includes(tag)) {
+            if (["фильм","movie","movies","фильмы"].includes(tag)) {
                 mediaTypes.push("movie")
                 contentType = ContentType.MOVIE
                 continue
             }
 
-            if (["tv","series","serial","сериал","сериалы"].includes(tag)) {
+            if (["сериал","tv","series","serial","сериалы"].includes(tag)) {
                 mediaTypes.push("tv")
                 contentType = ContentType.SERIES
                 continue
             }
 
-            if (["cartoon","мультфильм","мультфильмы"].includes(tag)) {
+            if (["мультфильм","cartoon","мультфильмы"].includes(tag)) {
                 mediaTypes.push("tv")
                 contentType = ContentType.CARTOON
                 continue
             }
 
-            if (["anime","аниме"].includes(tag)) {
+            if (["аниме", "anime"].includes(tag)) {
                 mediaTypes.push("tv")
                 contentType = ContentType.ANIME
                 continue
