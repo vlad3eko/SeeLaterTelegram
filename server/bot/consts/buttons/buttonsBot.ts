@@ -26,11 +26,6 @@ export const recommendationButtonBot = (mediaType: string, genres: any | undefin
         ? genres.map(g => g.name).join(" ")
         : genres?.replaceAll(" • ", " ") ?? ""
 
-    mediaType =
-        mediaType === 'movie'
-            ? 'фильм'
-            : 'сериал'
-
     return Markup.button.switchToCurrentChat(
         `📋 Похожие`,
         `#${mediaType} ${query}`
