@@ -19,7 +19,7 @@ export const searchMulti = async (query: NormalizedSearchQuery, page: number) =>
 
 export const discoverMovies = async (query: NormalizedSearchQuery, page: number) => {
 
-    console.log('query', query)
+    console.log('query', query.filters.mediaTypes)
     const media = query.filters.mediaTypes[0] ?? 'movie'
 
     return await $fetch(

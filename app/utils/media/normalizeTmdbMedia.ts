@@ -1,5 +1,6 @@
 export const normalizeTmdbMedia = (media: any) => {
 
+    console.log('media[0] normalizeTmdbMedia', media[0])
     const mediaType =
         media.media_type ||
         (
