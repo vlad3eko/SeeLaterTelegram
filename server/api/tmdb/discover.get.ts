@@ -13,8 +13,6 @@ export default defineEventHandler(async (event) => {
     })
 
     const media = query.media || 'movie'
-    console.log('media inside', media)
-    console.log('q inside', query)
     const endpoint = 'discover'
 
     if(query.with_genres){

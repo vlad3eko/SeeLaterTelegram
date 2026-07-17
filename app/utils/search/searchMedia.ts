@@ -16,7 +16,6 @@ export const searchMedia = async (query: string, page: number = 1, userId: numbe
 
     const parsed = parseSearchQuery(query, userId)
     await saveLastSearchQuery(parsed.filters.genres, parsed.filters?.mediaTypes[0], userId, parsed.filters.contentType)
-    console.log('parsed', parsed)
 
     const normalized = normalizeSearchQuery(parsed, page)
 
@@ -24,7 +23,6 @@ export const searchMedia = async (query: string, page: number = 1, userId: numbe
 
     const result = await executeSearchStrategy(strategy, normalized, page)
 
-    console.log('result before', result[0])
     result.results = result.results
         .map(normalizeTmdbMedia)
         .filter((media: any) => filterTmdbMediaResults(media, userId))
@@ -33,7 +31,6 @@ export const searchMedia = async (query: string, page: number = 1, userId: numbe
     if (page === 1 && !(parsed.filters.genres[0]?.startsWith('collection'))) {
         result.results = sortMediaResults(result.results)
     }
-    console.log('result after', result[0])
 
     return result
 }
