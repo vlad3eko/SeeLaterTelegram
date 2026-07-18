@@ -5,7 +5,7 @@ import {CONTENT_TYPE_LABELS} from "~/utils/convert/library/enumsLibrary";
 import type {ContentType} from "~/utils/search/strategy/enums";
 
 export const processSearchMediaInline = async (ctx: any, medias: any) => {
-
+    console.log('CHOSEN WORK')
     console.log('medias', medias[0])
 
     try {
@@ -27,7 +27,7 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
 
                 input_message_content: {
                     message_text:
-                        'bot: Загрузка карточки...'
+                        'bot: ⏳ Загружаю карточку...'
                 },
 
                 reply_markup:

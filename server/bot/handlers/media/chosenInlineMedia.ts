@@ -5,8 +5,13 @@ import {genresConvert} from "~/utils/convert/genresConvert";
 
 export const chosenInlineMedia = async (ctx: any) => {
 
+    console.log(
+        '🔥 CHOSEN INLINE',
+        ctx.update.chosen_inline_result
+    )
+
     try {
-        const result = ctx.chosenInlineResult
+        const result = ctx.update.chosen_inline_result
         console.log('result', result)
         let inlineMessageId
         console.log('inlineMessageId before', inlineMessageId)
