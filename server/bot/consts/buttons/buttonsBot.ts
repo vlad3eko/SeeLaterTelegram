@@ -27,7 +27,6 @@ export const deleteMediaButtonBot = (mediaId: number, mediaType: string) => {
 
 export const recommendationButtonBot = (contentType: ContentType | undefined, genres: TmdbGenre[] | undefined) => {
 
-
     const tag = CONTENT_TYPE_LABELS[contentType ?? ContentType.MOVIE];
 
     let query = genresConvert(genres);
@@ -40,9 +39,14 @@ export const recommendationButtonBot = (contentType: ContentType | undefined, ge
         query = query.replaceAll("#мультфильм", "").trim();
     }
 
+    query = query
+        .replaceAll("•", " ")
+        .replace(/\s+/g, " ")
+        .trim()
+
     return Markup.button.switchToCurrentChat(
         "📋 Похожие",
-        `#${tag} ${query}`.trim()
+        `#${tag} ${query}`
     );
 
 }
