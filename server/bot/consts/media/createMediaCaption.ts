@@ -1,6 +1,8 @@
 import {FormatDate, FormatRating} from "~/utils/formatMoviesData";
 import {mediaReleaseConvert, mediaTypeConvert} from "~/utils/convert/mediaConvert";
 import {genresConvert} from "~/utils/convert/genresConvert";
+import {CONTENT_TYPE_LABELS} from "~/utils/convert/library/enumsLibrary";
+import type {ContentType} from "~/utils/search/strategy/enums";
 
 export const createMediaCaption = (media: any, contentType: string) => {
 
@@ -17,7 +19,7 @@ export const createMediaCaption = (media: any, contentType: string) => {
 ${population}
 <blockquote expandable>${mediaOverview}</blockquote>\n
 <b>Жанр: </b><i>${genresContent || 'нет жанров'}</i>
-<b>Тип: </b><i>#${contentType}</i>
+<b>Тип: </b><i>#${CONTENT_TYPE_LABELS[contentType as ContentType]}</i>
 <b>Дата выхода: </b><i>${mediaReleaseConvert(media)}</i>\n
 <b><i>${channelLink}</i></b>`
 }
