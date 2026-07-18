@@ -2,7 +2,6 @@ import {Markup} from "telegraf";
 import type {TmdbGenre} from "~/types/tmdb.types";
 import {ContentType, SearchStrategy} from "~/utils/search/strategy/enums";
 import {genresConvert} from "~/utils/convert/genresConvert";
-import {un} from "vue-router/dist/index-D_VEAp3P";
 import {CONTENT_TYPE_LABELS} from "~/utils/convert/library/enumsLibrary";
 
 
