@@ -1,8 +1,8 @@
-import {Markup} from "telegraf";
-import type {TmdbGenre} from "~/types/tmdb.types";
-import {ContentType, SearchStrategy} from "~/utils/search/strategy/enums";
-import {genresConvert} from "~/utils/convert/genresConvert";
-import {CONTENT_TYPE_LABELS} from "~/utils/convert/library/enumsLibrary";
+import {Markup} from "telegraf"
+import type {TmdbGenre} from "~/types/tmdb.types"
+import {ContentType, SearchStrategy} from "~/utils/search/strategy/enums"
+import {genresConvert} from "~/utils/convert/genresConvert"
+import {CONTENT_TYPE_LABELS} from "~/utils/convert/library/enumsLibrary"
 
 
 // Возвращаем чистый объект кнопки, без [ ]
@@ -27,16 +27,16 @@ export const deleteMediaButtonBot = (mediaId: number, mediaType: string) => {
 
 export const recommendationButtonBot = (contentType: ContentType | undefined, genres: TmdbGenre[] | undefined) => {
 
-    const tag = CONTENT_TYPE_LABELS[contentType ?? ContentType.MOVIE];
+    const tag = CONTENT_TYPE_LABELS[contentType ?? ContentType.MOVIE]
 
-    let query = genresConvert(genres);
+    let query = genresConvert(genres)
 
     if (
         contentType === ContentType.CARTOON
         || contentType === ContentType.CARTOON_SERIES
         || contentType === ContentType.ANIME
     ) {
-        query = query.replaceAll("#мультфильм", "").trim();
+        query = query.replaceAll("#мультфильм", "").trim()
     }
 
     query = query
@@ -47,7 +47,7 @@ export const recommendationButtonBot = (contentType: ContentType | undefined, ge
     return Markup.button.switchToCurrentChat(
         "📋 Похожие",
         `#${tag} ${query}`
-    );
+    )
 
 }
 
