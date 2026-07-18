@@ -6,6 +6,8 @@ import type {ContentType} from "~/utils/search/strategy/enums";
 
 export const processSearchMediaInline = async (ctx: any, medias: any) => {
 
+    console.log('medias', medias)
+
     try {
         const results = medias.results.map(
             (media: any) => ({
