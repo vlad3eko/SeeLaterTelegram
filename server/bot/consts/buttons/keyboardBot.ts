@@ -31,7 +31,7 @@ export const keyboardSendMediaCard = (mediaId: number, mediaType: string) => {
 export const keyboardSendMediaCardInline = (
     mediaId: number,
     mediaType: "movie" | "tv",
-    contentType: ContentType,
+    contentType?: ContentType,
     genres?: TmdbGenre[]
 ) => {
 
