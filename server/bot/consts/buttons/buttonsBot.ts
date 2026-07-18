@@ -3,6 +3,7 @@ import type {TmdbGenre} from "~/types/tmdb.types";
 import {ContentType, SearchStrategy} from "~/utils/search/strategy/enums";
 import {genresConvert} from "~/utils/convert/genresConvert";
 import {un} from "vue-router/dist/index-D_VEAp3P";
+import {CONTENT_TYPE_LABELS} from "~/utils/convert/library/enumsLibrary";
 
 
 // Возвращаем чистый объект кнопки, без [ ]
@@ -28,56 +29,23 @@ export const deleteMediaButtonBot = (mediaId: number, mediaType: string) => {
 export const recommendationButtonBot = (contentType: ContentType | undefined, genres: TmdbGenre[] | undefined) => {
 
 
-    const genresContent = genresConvert(genres)
+    const tag = CONTENT_TYPE_LABELS[contentType ?? ContentType.MOVIE];
 
-    let tag = ''
-
-    switch (contentType) {
-
-        case ContentType.MOVIE:
-            tag = 'фильм'
-            break
-
-        case ContentType.CARTOON:
-            tag = 'мультфильм'
-            break
-
-        case ContentType.SERIES:
-            tag = 'сериал'
-            break
-
-        case ContentType.CARTOON_SERIES:
-            tag = 'мультсериал'
-            break
-
-        case ContentType.ANIME:
-            tag = 'аниме'
-            break
-
-    }
-
-    let query =
-        typeof genres === 'string'
-            ? genres
-            : genres
-            ?.map(g => g.name)
-            .join(' ') ?? ''
+    let query = genresConvert(genres);
 
     if (
-        contentType === ContentType.CARTOON ||
-        contentType === ContentType.CARTOON_SERIES
+        contentType === ContentType.CARTOON
+        || contentType === ContentType.CARTOON_SERIES
+        || contentType === ContentType.ANIME
     ) {
-        query = query.replaceAll('#мультфильм', '')
-    }
-
-    if (contentType === ContentType.ANIME) {
-        query = query.replaceAll('#мультфильм', '')
+        query = query.replaceAll("#мультфильм", "").trim();
     }
 
     return Markup.button.switchToCurrentChat(
-        '📋 Похожие',
-        `#${tag} ${query.trim()}`
-    )
+        "📋 Похожие",
+        `#${tag} ${query}`.trim()
+    );
+
 }
 
 
