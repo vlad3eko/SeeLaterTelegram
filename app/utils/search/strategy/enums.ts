@@ -7,8 +7,10 @@ export enum SearchStrategy {
 }
 
 export enum ContentType {
-    MOVIE = 'movie',
-    SERIES = 'series',
-    CARTOON = 'cartoon',
-    ANIME = 'anime'
+    MOVIE = "movie",
+    CARTOON = "cartoon",
+
+    SERIES = "series",
+    CARTOON_SERIES = "cartoonSeries",
+    ANIME = "anime",
 }

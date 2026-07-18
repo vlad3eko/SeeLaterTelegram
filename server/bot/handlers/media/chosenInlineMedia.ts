@@ -12,32 +12,32 @@ export const chosenInlineMedia = async (ctx: any) => {
 
         if (!inlineMessageId) return
 
-        const [_, mediaType, mediaId] = result.result_id.split('_')
-        const trueType = mediaType === 'фильм' ? 'movie' : 'tv'
-
-        console.log('_, mediaType, mediaId', _, mediaType, mediaId)
-        console.log('trueType', trueType)
+        const [
+            _,
+            mediaType,
+            contentType,
+            mediaId
+        ] = result.result_id.split('_')
 
         const media = await $fetch(
             '/api/bot/getMediaBot',
             {
                 query: {
-                    media: trueType,
+                    media: mediaType,
                     id: mediaId
                 }
             }
         )
-        const genresContent = genresConvert(media.genres)
 
         await ctx.telegram.editMessageMedia(undefined, undefined, inlineMessageId,
             {
                 type: 'photo',
                 media: `https://image.tmdb.org/t/p/w500${media.poster_path || media.backdrop_path}`,
-                caption: createMediaCaption(media, mediaType),
+                caption: createMediaCaption(media, contentType),
                 parse_mode: 'HTML',
             },
             {
-                reply_markup: keyboardSendMediaCardInline(mediaId, mediaType, genresContent)
+                reply_markup: keyboardSendMediaCardInline(mediaId, mediaType, contentType, media.genres)
             }
         )
 

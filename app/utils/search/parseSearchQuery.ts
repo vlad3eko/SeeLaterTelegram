@@ -42,25 +42,26 @@ export const parseSearchQuery = (
 
             // тип медиа
             if (["фильм","movie","movies","фильмы"].includes(tag)) {
-                mediaTypes.push("movie")
                 contentType = ContentType.MOVIE
                 continue
             }
 
-            if (["сериал","tv","series","serial","сериалы"].includes(tag)) {
-                mediaTypes.push("tv")
-                contentType = ContentType.SERIES
-                continue
-            }
-
             if (["мультфильм","cartoon","мультфильмы"].includes(tag)) {
-                mediaTypes.push("movie")
                 contentType = ContentType.CARTOON
                 continue
             }
 
+            if (["сериал","tv","series","serial","сериалы"].includes(tag)) {
+                contentType = ContentType.SERIES
+                continue
+            }
+
+            if (["мультсериал","мультсериалы"].includes(tag)) {
+                contentType = ContentType.CARTOON_SERIES
+                continue
+            }
+
             if (["аниме", "anime"].includes(tag)) {
-                mediaTypes.push("tv")
                 contentType = ContentType.ANIME
                 continue
             }

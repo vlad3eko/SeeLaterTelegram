@@ -1,6 +1,8 @@
 import {FormatDate, FormatRating} from "~/utils/formatMoviesData";
 import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBot";
 import {contentTypeConvert} from "~/utils/convert/contentTypeConvert";
+import {CONTENT_TYPE_LABELS} from "~/utils/convert/library/enumsLibrary";
+import type {ContentType} from "~/utils/search/strategy/enums";
 
 export const processSearchMediaInline = async (ctx: any, medias: any) => {
 
@@ -8,11 +10,11 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
         const results = medias.results.map(
             (media: any) => ({
                 type: 'article',
-                id: `${medias.page}_${contentTypeConvert(media.media_type, media.content_type)}_${media.id}`,
+                id: `${medias.page}_${media.media_type}_${media.content_type}_${media.id}`,
                 title: (media.title || media.name),
 
                 description:
-                    `${contentTypeConvert(media.media_type, media.content_type)} | ${media.vote_average ? '💎' + FormatRating(media?.vote_average) + ' | ' : ''}${media.vote_count ? '🍿' + media.vote_count + ' | ' : ''}${FormatDate(media.release_date)}`,
+                    `${CONTENT_TYPE_LABELS[media.content_type as ContentType]} | ${media.vote_average ? '💎' + FormatRating(media?.vote_average) + ' | ' : ''}${media.vote_count ? '🍿' + media.vote_count + ' | ' : ''}${FormatDate(media.release_date)}`,
 
                 thumb_url:
                     media.poster_path

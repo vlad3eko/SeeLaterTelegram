@@ -2,7 +2,7 @@ import {FormatDate, FormatRating} from "~/utils/formatMoviesData";
 import {mediaReleaseConvert, mediaTypeConvert} from "~/utils/convert/mediaConvert";
 import {genresConvert} from "~/utils/convert/genresConvert";
 
-export const createMediaCaption = (media: any, mediaType: string) => {
+export const createMediaCaption = (media: any, contentType: string) => {
 
     const genresContent = genresConvert(media.genres)
 
@@ -17,7 +17,7 @@ export const createMediaCaption = (media: any, mediaType: string) => {
 ${population}
 <blockquote expandable>${mediaOverview}</blockquote>\n
 <b>Жанр: </b><i>${genresContent || 'нет жанров'}</i>
-<b>Тип: </b><i>#${mediaType}</i>
+<b>Тип: </b><i>#${contentType}</i>
 <b>Дата выхода: </b><i>${mediaReleaseConvert(media)}</i>\n
 <b><i>${channelLink}</i></b>`
 }

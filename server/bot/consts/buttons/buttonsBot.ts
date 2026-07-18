@@ -1,5 +1,9 @@
 import {Markup} from "telegraf";
 import type {TmdbGenre} from "~/types/tmdb.types";
+import {ContentType, SearchStrategy} from "~/utils/search/strategy/enums";
+import {genresConvert} from "~/utils/convert/genresConvert";
+import {un} from "vue-router/dist/index-D_VEAp3P";
+
 
 // Возвращаем чистый объект кнопки, без [ ]
 export const SearchButtonBot = (text: string | undefined, query?: string) => {
@@ -21,23 +25,58 @@ export const deleteMediaButtonBot = (mediaId: number, mediaType: string) => {
         `delete_media_${mediaId}_${mediaType}`)
 }
 
-export const recommendationButtonBot = (mediaType: string, genres: TmdbGenre[] | string) => {
-
-    let query
-
-    if (mediaType !== 'фильм' && mediaType !== 'сериал') {
-        query = typeof genres === 'string'
-            ? genres.split(' • ').filter(g => g !== '#мультфильм').join(' ')
-            : genres?.filter(g => g.name !== '#мультфильм').map(g => g.name).join(' ') ?? ''
-    } else query = typeof genres === 'string'
-        ? genres.split(' • ').join(' ')
-        : genres?.map(g => g.name).join(' ') ?? ''
+export const recommendationButtonBot = (contentType: ContentType | undefined, genres: TmdbGenre[] | undefined) => {
 
 
+    const genresContent = genresConvert(genres)
+
+    let tag = ''
+
+    switch (contentType) {
+
+        case ContentType.MOVIE:
+            tag = 'фильм'
+            break
+
+        case ContentType.CARTOON:
+            tag = 'мультфильм'
+            break
+
+        case ContentType.SERIES:
+            tag = 'сериал'
+            break
+
+        case ContentType.CARTOON_SERIES:
+            tag = 'мультсериал'
+            break
+
+        case ContentType.ANIME:
+            tag = 'аниме'
+            break
+
+    }
+
+    let query =
+        typeof genres === 'string'
+            ? genres
+            : genres
+            ?.map(g => g.name)
+            .join(' ') ?? ''
+
+    if (
+        contentType === ContentType.CARTOON ||
+        contentType === ContentType.CARTOON_SERIES
+    ) {
+        query = query.replaceAll('#мультфильм', '')
+    }
+
+    if (contentType === ContentType.ANIME) {
+        query = query.replaceAll('#мультфильм', '')
+    }
 
     return Markup.button.switchToCurrentChat(
-        `📋 Похожие`,
-        `#${mediaType} ${query}`
+        '📋 Похожие',
+        `#${tag} ${query.trim()}`
     )
 }
 
