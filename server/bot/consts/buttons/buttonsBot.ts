@@ -42,7 +42,7 @@ export const recommendationButtonBot = (contentType: ContentType | undefined, ge
     query = query
         .replaceAll("•", " ")
         .replace(/\s+/g, " ")
-        .trim()
+        .trim().toLowerCase()
 
     return Markup.button.switchToCurrentChat(
         "📋 Похожие",
