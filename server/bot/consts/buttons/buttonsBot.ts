@@ -5,6 +5,22 @@ import {genresConvert} from "~/utils/convert/genresConvert"
 import {CONTENT_TYPE_LABELS} from "~/utils/convert/library/enumsLibrary"
 
 
+//ADMIN..
+export const adminEditInlineCard = (mediaId: number, mediaType: string) => {
+    return Markup.button.callback(
+        "✏️ РЕДАКТИРОВАТЬ",
+        `edit_media_${mediaId}_${mediaType}`
+    )
+}
+
+export const adminPublishInlineCard = (mediaId: number, mediaType: string) => {
+    return Markup.button.callback(
+        "🚀 ОПУБЛИКОВАТЬ",
+        `publish_media_${mediaId}_${mediaType}`
+    )
+}
+//..ADMIN
+
 // Возвращаем чистый объект кнопки, без [ ]
 export const SearchButtonBot = (text: string | undefined, query?: string) => {
     return Markup.button.switchToCurrentChat(
@@ -50,7 +66,6 @@ export const recommendationButtonBot = (contentType: ContentType | undefined, ge
     )
 
 }
-
 
 export const checkBookmarksMedias = () => {
     return Markup.button.switchToCurrentChat(

@@ -1,6 +1,7 @@
 import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBot";
 import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
 import {genresConvert} from "~/utils/convert/genresConvert";
+import {isAdmin} from "#server/bot/consts/admins";
 
 
 export const chosenInlineMedia = async (ctx: any) => {
@@ -42,6 +43,8 @@ export const chosenInlineMedia = async (ctx: any) => {
             }
         )
 
+        const admin = isAdmin(result.from.id)
+
         await ctx.telegram.editMessageMedia(undefined, undefined, inlineMessageId,
             {
                 type: 'photo',
@@ -50,7 +53,7 @@ export const chosenInlineMedia = async (ctx: any) => {
                 parse_mode: 'HTML',
             },
             {
-                reply_markup: keyboardSendMediaCardInline(mediaId, mediaType, contentType, media.genres)
+                reply_markup: keyboardSendMediaCardInline(mediaId, mediaType, contentType, media.genres, admin)
             }
         )
 

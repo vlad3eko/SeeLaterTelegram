@@ -1,5 +1,6 @@
 import {Markup} from "telegraf";
 import {
+    adminEditInlineCard, adminPublishInlineCard,
     checkBookmarksMedias,
     deleteMediaButtonBot, recommendationButtonBot,
     SaveMediaButtonBot,
@@ -32,10 +33,11 @@ export const keyboardSendMediaCardInline = (
     mediaId: number,
     mediaType: "movie" | "tv",
     contentType: ContentType,
-    genres?: TmdbGenre[]
+    genres?: TmdbGenre[],
+    admin: boolean = false
 ) => {
 
-    return Markup.inlineKeyboard([
+    const keyboard = [
         [
             SearchButtonBot('Искать другое'),
             recommendationButtonBot(contentType, genres)
@@ -45,5 +47,14 @@ export const keyboardSendMediaCardInline = (
             deleteMediaButtonBot(mediaId, mediaType),
             SaveMediaButtonBot(mediaId, mediaType)
         ]
-    ]).reply_markup
+    ]
+
+    if (admin) {
+        keyboard.push([
+            adminEditInlineCard(mediaId, mediaType), adminPublishInlineCard(mediaId, mediaType)
+        ])
+    }
+
+
+    return Markup.inlineKeyboard(keyboard).reply_markup
 }
