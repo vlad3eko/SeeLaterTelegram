@@ -1,6 +1,6 @@
 import {Markup} from "telegraf";
 import {
-    adminEditInlineCard, adminPublishInlineCard,
+    adminEditInlineCard, adminEditMediaInlineCard, adminEditMessageInlineCard, adminPublishInlineCard,
     checkBookmarksMedias,
     deleteMediaButtonBot, recommendationButtonBot,
     SaveMediaButtonBot,
@@ -8,6 +8,18 @@ import {
 } from "#server/bot/consts/buttons/buttonsBot";
 import type {TmdbGenre} from "~/types/tmdb.types";
 import type {ContentType} from "~/utils/search/strategy/enums";
+
+//Admin..
+
+export const editMediaChoiceKeyboard = () => {
+
+    return Markup.inlineKeyboard([
+        [adminEditMediaInlineCard(), adminEditMessageInlineCard()]
+    ]).reply_markup
+}
+
+//..Admin
+
 
 export const keyboardSearchBot = (text?: string, query?: string) => {
     return Markup.inlineKeyboard([
@@ -49,12 +61,8 @@ export const keyboardSendMediaCardInline = (
         ]
     ]
 
-    if (admin) {
-        keyboard.push([
-            adminEditInlineCard(mediaId, mediaType), adminPublishInlineCard(mediaId, mediaType)
-        ])
-    }
-
+    if (admin)
+        keyboard.push([adminEditInlineCard(mediaId, mediaType), adminPublishInlineCard(mediaId, mediaType)])
 
     return Markup.inlineKeyboard(keyboard).reply_markup
 }

@@ -19,6 +19,21 @@ export const adminPublishInlineCard = (mediaId: number, mediaType: string) => {
         `publish_media_${mediaId}_${mediaType}`
     )
 }
+
+export const adminEditMediaInlineCard = () => {
+    return Markup.button.callback(
+        "🖼 Медиа",
+        `admin_edit_media`
+    )
+}
+
+export const adminEditMessageInlineCard = () => {
+    return Markup.button.callback(
+        "📝 Текст",
+        `admin_edit_text`
+    )
+}
+
 //..ADMIN
 
 // Возвращаем чистый объект кнопки, без [ ]
