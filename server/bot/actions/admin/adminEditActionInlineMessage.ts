@@ -10,6 +10,11 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
 
     if (session.mode === 'media') {
 
+        console.log(
+            'COMMENT BEFORE MEDIA CHANGE:',
+            session.comment
+        )
+
         const photo =
             ctx.message.photo?.at(-1)
 
@@ -39,8 +44,6 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
                 session.comment
             )
 
-
-
         await ctx.telegram.editMessageMedia(
             undefined,
             undefined,
@@ -65,9 +68,14 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
             }
         )
 
-        session.currentMedia = newMedia
-        session.currentCaption = caption
-        session.mode = undefined
+        session.currentMedia =
+            newMedia
+
+        session.currentCaption =
+            caption
+
+        session.mode =
+            undefined
 
         return
     }
@@ -79,6 +87,11 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
 
     if (session.mode === 'text') {
 
+        console.log(
+            'COMMENT BEFORE TEXT CHANGE:',
+            session.comment
+        )
+
         const text =
             ctx.message.text
 
@@ -87,9 +100,7 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
             return
 
 
-        session.comment =
-            text
-
+        session.comment = text
 
         const caption =
             createMediaCaption(
@@ -119,9 +130,11 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
             }
         )
 
-        session.comment = text
-        session.currentCaption = caption
-        session.mode = undefined
+        session.currentCaption =
+            caption
+
+        session.mode =
+            undefined
 
         return
     }

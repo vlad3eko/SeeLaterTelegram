@@ -1,4 +1,4 @@
-import {setAdminEditSession} from "#server/bot/actions/admin/adminEditSession";
+import {getAdminEditSession, setAdminEditSession} from "#server/bot/actions/admin/adminEditSession";
 import {editMediaChoiceKeyboard} from "#server/bot/consts/buttons/keyboardBot";
 import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
 
@@ -31,35 +31,49 @@ export const editAdminInlineMedia = async (ctx: any) => {
         }
     )
 
-    setAdminEditSession(
-        ctx.from.id,
-        {
-            inlineMessageId,
+    const existingSession =
+        getAdminEditSession(
+            ctx.from.id
+        )
 
-            mediaId: Number(mediaId),
-            mediaType,
+    if (existingSession) {
 
-            media,
+        existingSession.mode =
+            undefined
 
-            contentType,
+    } else {
 
-            comment: undefined,
+        setAdminEditSession(
+            ctx.from.id,
+            {
+                inlineMessageId,
 
-            mode: undefined,
+                mediaId: Number(mediaId),
+                mediaType,
 
-            currentMedia: {
-                type: 'photo',
-                fileId: `https://image.tmdb.org/t/p/w500${
-                    media.poster_path || media.backdrop_path
-                }`
-            },
-
-            currentCaption: createMediaCaption(
                 media,
-                contentType
-            )
-        }
-    )
+
+                contentType,
+
+                comment: undefined,
+
+                mode: undefined,
+
+                currentMedia: {
+                    type: 'photo',
+                    fileId: `https://image.tmdb.org/t/p/w500${
+                        media.poster_path || media.backdrop_path
+                    }`
+                },
+
+                currentCaption: createMediaCaption(
+                    media,
+                    contentType
+                )
+            }
+        )
+    }
+
 
     await ctx.editMessageReplyMarkup(
         editMediaChoiceKeyboard()
