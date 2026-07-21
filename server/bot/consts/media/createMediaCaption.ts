@@ -3,17 +3,17 @@ import {mediaReleaseConvert, mediaTypeConvert} from "~/utils/convert/mediaConver
 import {genresConvert} from "~/utils/convert/genresConvert";
 import {CONTENT_TYPE_LABELS} from "~/utils/convert/library/enumsLibrary";
 import type {ContentType} from "~/utils/search/strategy/enums";
+import {formatMediaOverview} from "~/utils/convert/formatMediaOverview";
 
 export const createMediaCaption = (media: any, contentType: string, comment?: string) => {
 
     const genresContent = genresConvert(media.genres)
+    const mediaOverview =
+        formatMediaOverview(media.overview)
 
     const mediaTitle = `<code>${media.title || media.name} (${FormatDate(media.release_date || media.first_air_date) || '-'})</code>`
     comment = `${comment ? `<i>${comment}</i>\n` : ''}`
     const population = `${media.vote_average ? '💎' + FormatRating(media?.vote_average): ''}`
-    const mediaOverview = media.overview?.length > 350
-        ? media.overview.slice(0, 350) + '...'
-        : media.overview || 'Описание отсутствует'
     const channelLink = `🏷 <a href="https://t.me/kinomanovNet_bot">Киноманов BOT | Ищи и Сохраняй</a>`
 
     return `${mediaTitle} ${population}\n
