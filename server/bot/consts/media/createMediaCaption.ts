@@ -14,8 +14,8 @@ export const createMediaCaption = (media: any, contentType: string, comment?: st
     const mediaTitle = `<code>${media.title || media.name} (${FormatDate(media.release_date || media.first_air_date) || '-'})</code>`
     comment = `${comment ? `\n<i>${comment}</i>\n` : ''}`
     const population = `${media.vote_average ? '💎' + FormatRating(media?.vote_average): ''}`
-    const botLink = `🏷 <a href="https://t.me/kinomanovNet_bot">Киноманов BOT | Ищи и Сохраняй</a>`
-    const channelLink = `🏷 <a href="https://t.me/kinomanovnet">Киноманов NET | Фильмы и сериалы</a>`
+    const botLink = `🤖 <a href="https://t.me/kinomanovNet_bot">Киноманов BOT | Ищи и Сохраняй</a>`
+    const channelLink = `📢 <a href="https://t.me/kinomanovnet">Киноманов NET | Фильмы и сериалы</a>`
 
     return `${mediaTitle} ${population}\n${comment}
 <blockquote expandable>${mediaOverview}</blockquote>\n
