@@ -106,7 +106,7 @@ export const recommendationButtonBot = (
 
         return Markup.button.url(
             '📋 Похожие',
-            `https://t.me/kinomanovNet_bot?start=similar_${mediaType}_${mediaId}`
+            `https://t.me/kinomanovNet_bot?start=similar_${mediaId}_${mediaType}_${contentType}`
         )
     }
 

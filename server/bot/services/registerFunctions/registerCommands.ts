@@ -97,8 +97,7 @@ export function registerCommands(bot: Telegraf) {
 
         if (payload === 'collection') {
 
-            await openInlineSearch(ctx, '#collection')
-
+            await openInlineSearch(ctx, ' #collection')
             return
         }
 
