@@ -13,9 +13,15 @@ export const registerAdminActions = (bot: Telegraf) => {
     bot.action("admin_edit_text", adminEditText)
     bot.on('message', async (ctx: any, next) => {
 
+
         const session =
             getAdminEditSession(ctx.from.id)
-        if (!session) return next()
+
+
+        if (!session || !session.mode) {
+            return next()
+        }
+
 
         return adminEditActionInlineMessage(ctx, session)
     })

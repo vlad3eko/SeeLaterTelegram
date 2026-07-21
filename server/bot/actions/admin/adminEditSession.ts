@@ -1,5 +1,4 @@
 import type {ContentType} from "~/utils/search/strategy/enums";
-import type {TmdbGenre} from "~/types/tmdb.types";
 
 export type AdminEditSession = {
     inlineMessageId: string

@@ -40,13 +40,6 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
             )
 
 
-        session.currentMedia =
-            newMedia
-
-
-        session.currentCaption =
-            caption
-
 
         await ctx.telegram.editMessageMedia(
             undefined,
@@ -72,7 +65,8 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
             }
         )
 
-
+        session.currentMedia = newMedia
+        session.currentCaption = caption
         session.mode = undefined
 
         return
@@ -104,11 +98,6 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
                 session.comment
             )
 
-
-        session.currentCaption =
-            caption
-
-
         await ctx.telegram.editMessageCaption(
             undefined,
             undefined,
@@ -130,7 +119,8 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
             }
         )
 
-
+        session.comment = text
+        session.currentCaption = caption
         session.mode = undefined
 
         return
