@@ -55,7 +55,7 @@ export const keyboardSendMediaCardInline = (
 
     const keyboard = [
         [
-            SearchButtonBot('Искать другое', ButtonContext),
+            SearchButtonBot('Искать другое', undefined, ButtonContext),
             recommendationButtonBot(contentType, genres, ButtonContext)
         ],
         [checkBookmarksMedias(ButtonContext)],

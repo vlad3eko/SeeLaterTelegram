@@ -38,17 +38,17 @@ export const adminEditMessageInlineCard = () => {
 //..ADMIN
 
 // Возвращаем чистый объект кнопки, без [ ]
-export const SearchButtonBot = (text: string | undefined, query?: string, ButtonContext?: TypeButtonContext) => {
+export const SearchButtonBot = (text: string | undefined, query: string = '', ButtonContext: TypeButtonContext = 'inline') => {
 
     if (ButtonContext === 'channel') {
         return Markup.button.switchToChat(
             `${text ? "🔍" + text : 'Поиск'}`,
-            query || ''
+            query
         )
     } else {
         return Markup.button.switchToCurrentChat(
             `${text ? "🔍" + text : 'Поиск'}`,
-            query || ''
+            query
         )
     }
 }
