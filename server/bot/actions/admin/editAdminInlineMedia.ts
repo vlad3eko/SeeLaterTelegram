@@ -31,18 +31,6 @@ export const editAdminInlineMedia = async (ctx: any) => {
         }
     )
 
-    const existingSession =
-        getAdminEditSession(
-            ctx.from.id
-        )
-
-    if (existingSession) {
-
-        existingSession.mode =
-            undefined
-
-    } else {
-
         setAdminEditSession(
             ctx.from.id,
             {
@@ -72,8 +60,6 @@ export const editAdminInlineMedia = async (ctx: any) => {
                 )
             }
         )
-    }
-
 
     await ctx.editMessageReplyMarkup(
         editMediaChoiceKeyboard()
