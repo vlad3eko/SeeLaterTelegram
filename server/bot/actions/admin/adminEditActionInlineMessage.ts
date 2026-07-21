@@ -85,17 +85,15 @@ export const adminEditActionInlineMessage = async (ctx: any) => {
             undefined,
             session.inlineMessageId,
 
-            {
-                caption: createMediaCaption(
-                    session.media,
-                    session.contentType,
-                    session.comment
-                ),
-
-                parse_mode: 'HTML'
-            },
+            createMediaCaption(
+                session.media,
+                session.contentType,
+                session.comment
+            ),
 
             {
+                parse_mode: 'HTML',
+
                 reply_markup:
                     keyboardSendMediaCardInline(
                         session.mediaId,
