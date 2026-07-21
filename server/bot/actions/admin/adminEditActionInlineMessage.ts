@@ -46,7 +46,8 @@ export const adminEditActionInlineMessage = async (ctx: any) => {
 
                 caption: createMediaCaption(
                     session.media,
-                    session.contentType
+                    session.contentType,
+                    session.comment
                 ),
 
                 parse_mode: 'HTML'
@@ -65,7 +66,7 @@ export const adminEditActionInlineMessage = async (ctx: any) => {
         )
 
 
-        clearAdminEditSession(ctx.from.id)
+        session.mode = undefined
 
         return
     }
@@ -77,12 +78,13 @@ export const adminEditActionInlineMessage = async (ctx: any) => {
 
     if (session.mode === 'text') {
 
-        const text =
-            ctx.message.text
-
+        const text = ctx.message.text
 
         if (!text)
             return
+
+
+        session.comment = text
 
 
         await ctx.telegram.editMessageCaption(
@@ -94,13 +96,13 @@ export const adminEditActionInlineMessage = async (ctx: any) => {
                 caption: createMediaCaption(
                     session.media,
                     session.contentType,
-                    text
+                    session.comment
                 ),
-                parse_mode: 'HTML',
+
+                parse_mode: 'HTML'
             },
 
             {
-
                 reply_markup:
                     keyboardSendMediaCardInline(
                         session.mediaId,
@@ -113,7 +115,7 @@ export const adminEditActionInlineMessage = async (ctx: any) => {
         )
 
 
-        clearAdminEditSession(ctx.from.id)
+        session.mode = undefined
 
         return
     }

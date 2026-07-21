@@ -2,16 +2,18 @@ import type {ContentType} from "~/utils/search/strategy/enums";
 import type {TmdbGenre} from "~/types/tmdb.types";
 
 type AdminEditSession = {
-    inlineMessageId: string,
+    inlineMessageId: string
 
-    mediaId: number,
-    mediaType: 'movie' | 'tv',
+    mediaId: number
+    mediaType: 'movie' | 'tv'
 
-    media: any,
+    media: any
 
-    contentType: ContentType,
+    contentType: ContentType
 
-    mode: 'media' | 'text'
+    comment?: string
+
+    mode: 'media' | 'text' | undefined
 }
 
 
