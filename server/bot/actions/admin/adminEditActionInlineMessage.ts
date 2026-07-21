@@ -1,15 +1,6 @@
-import {
-    clearAdminEditSession,
-    getAdminEditSession
-} from "#server/bot/actions/admin/adminEditSession";
-
-import {createMediaCaption}
-    from "#server/bot/consts/media/createMediaCaption";
-
-import {
-    keyboardSendMediaCardInline
-} from "#server/bot/consts/buttons/keyboardBot";
-
+import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBot";
+import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
+import {getAdminEditSession} from "#server/bot/actions/admin/adminEditSession";
 
 export const adminEditActionInlineMessage = async (ctx: any) => {
 
@@ -78,7 +69,9 @@ export const adminEditActionInlineMessage = async (ctx: any) => {
 
     if (session.mode === 'text') {
 
-        const text = ctx.message.text
+        const text =
+            ctx.message.text
+
 
         if (!text)
             return
@@ -119,7 +112,4 @@ export const adminEditActionInlineMessage = async (ctx: any) => {
 
         return
     }
-
-
-    clearAdminEditSession(ctx.from.id)
 }

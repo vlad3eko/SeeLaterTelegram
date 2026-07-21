@@ -16,7 +16,7 @@ export const createMediaCaption = (media: any, contentType: string, comment?: st
         : media.overview || 'Описание отсутствует'
     const channelLink = `🏷 <a href="https://t.me/kinomanovNet_bot">Киноманов BOT | Ищи и Сохраняй</a>`
 
-    return `${population} ${mediaTitle}\n
+    return `${mediaTitle} ${population}\n
 ${comment}
 <blockquote expandable>${mediaOverview}</blockquote>\n
 <b>Жанр: </b><i>${genresContent || 'нет жанров'}</i>
