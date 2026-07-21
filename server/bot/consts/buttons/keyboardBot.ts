@@ -26,7 +26,7 @@ export const editMediaChoiceKeyboard = () => {
 
 export const keyboardSearchBot = (text?: string, query?: string) => {
     return Markup.inlineKeyboard([
-        [SearchButtonBot(text, undefined, query)]
+        [SearchButtonBot(text, 'inline', query)]
     ]).reply_markup
 }
 

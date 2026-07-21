@@ -30,10 +30,7 @@ export function registerCommands(bot: Telegraf) {
         // РАСШИРЕННЫЙ ПОИСК
         // ========================================
 
-        if (
-            text.includes('inline_settings') ||
-            payload === 'inline_settings'
-        ) {
+        if (text.includes('inline_settings') || payload === 'inline_settings') {
 
             const messageStart =
                 ctx.message.message_id
@@ -46,13 +43,11 @@ export function registerCommands(bot: Telegraf) {
                 }
             )
 
-
             const checkSub =
                 await isSubscriber(ctx)
 
             if (!checkSub)
                 return
-
 
             const tagGet =
                 (await getLastSearchQuery(ctx.from.id))
@@ -61,7 +56,6 @@ export function registerCommands(bot: Telegraf) {
                             `${tag ? '#' + tag : ''}`
                     )
                     .join(' ')
-
 
             const messageContinue =
                 await ctx.reply(
@@ -75,7 +69,6 @@ export function registerCommands(bot: Telegraf) {
                     }
                 )
 
-
             await addMessageSession(
                 ctx.from.id,
                 SessionMessageType.SearchInline,
@@ -85,10 +78,8 @@ export function registerCommands(bot: Telegraf) {
                 }
             )
 
-
             return
         }
-
 
         // ========================================
         // ИСКАТЬ ДРУГОЕ
@@ -96,14 +87,9 @@ export function registerCommands(bot: Telegraf) {
 
         if (payload === 'search') {
 
-            await openInlineSearch(
-                ctx,
-                ''
-            )
-
+            await openInlineSearch(ctx, '')
             return
         }
-
 
         // ========================================
         // КОЛЛЕКЦИЯ
@@ -111,10 +97,7 @@ export function registerCommands(bot: Telegraf) {
 
         if (payload === 'collection') {
 
-            await openInlineSearch(
-                ctx,
-                '#collection'
-            )
+            await openInlineSearch(ctx, '#collection')
 
             return
         }
@@ -124,17 +107,9 @@ export function registerCommands(bot: Telegraf) {
         // ПОХОЖИЕ
         // ========================================
 
-        if (
-            payload?.startsWith('similar_')
-        ) {
+        if (payload?.startsWith('similar_')) {
 
-            const [
-                ,
-                mediaType,
-                mediaId
-            ] =
-                payload.split('_')
-
+            const [, mediaType, mediaId] = payload.split('_')
 
             const media =
                 await $fetch(
@@ -149,16 +124,11 @@ export function registerCommands(bot: Telegraf) {
 
 
             const tag =
-                CONTENT_TYPE_LABELS[
-                    media.content_type as ContentType
-                    ]
+                CONTENT_TYPE_LABELS[media.content_type as ContentType]
 
 
             const genres =
-                genresConvert(
-                    media.genres
-                )
-
+                genresConvert(media.genres)
 
             const query =
                 `#${tag} ${
@@ -169,16 +139,9 @@ export function registerCommands(bot: Telegraf) {
                         .toLowerCase()
                 }`
 
-
-            await openInlineSearch(
-                ctx,
-                query
-            )
-
-
+            await openInlineSearch(ctx, query)
             return
         }
-
 
         // ========================================
         // ОБЫЧНЫЙ /START
@@ -190,12 +153,7 @@ export function registerCommands(bot: Telegraf) {
         if (!message)
             return
 
-
-        await commandStart(
-            ctx,
-            authRequests
-        )
-
+        await commandStart(ctx, authRequests)
 
         await addMessageSession(
             ctx.from.id,
@@ -206,21 +164,9 @@ export function registerCommands(bot: Telegraf) {
         )
     })
 
+    bot.command('help', commandHelp)
 
-    bot.command(
-        'help',
-        commandHelp
-    )
+    bot.command('clear', commandClear)
 
-
-    bot.command(
-        'clear',
-        commandClear
-    )
-
-
-    bot.action(
-        'menu_bot',
-        menuBot
-    )
+    bot.action('menu_bot', menuBot)
 }
