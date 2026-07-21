@@ -4,13 +4,11 @@ import type {AdminEditSession} from "#server/bot/actions/admin/adminEditSession"
 
 export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditSession) => {
     console.log(
-        'EDIT ACTION:',
+        'EDIT ACTION START',
         {
             mode: session.mode,
             text: ctx.message?.text,
-            photo: Boolean(ctx.message?.photo),
-            video: Boolean(ctx.message?.video),
-            comment: session.comment
+            messageId: ctx.message?.message_id
         }
     )
     // =========================
@@ -82,7 +80,9 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
 
         session.currentCaption =
             caption
-
+        console.log(
+            'RESET ADMIN MODE'
+        )
         session.mode =
             undefined
 
@@ -141,7 +141,9 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
 
             session.currentCaption =
                 caption
-
+            console.log(
+                'RESET ADMIN MODE'
+            )
             session.mode =
                 undefined
 
