@@ -108,9 +108,6 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
         if (!text)
             return
 
-
-        session.comment = text
-
         const caption =
             createMediaCaption(
                 session.media,
@@ -138,6 +135,9 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
                     )
             }
         )
+
+        session.comment =
+            text
 
         session.currentCaption =
             caption
