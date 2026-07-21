@@ -7,22 +7,6 @@ import {adminEditActionInlineMessage} from "#server/bot/actions/admin/adminEditA
 import {Telegraf} from "telegraf";
 
 export const registerAdminActions = (bot: Telegraf) => {
-
-    console.log(
-        '🔥 REGISTER ADMIN ACTIONS'
-    )
-
-
-    bot.on('callback_query', async (ctx: any, next) => {
-
-        console.log(
-            '🔥 CALLBACK QUERY:',
-            ctx.callbackQuery?.data
-        )
-
-        return next()
-    })
-
     bot.action(/^edit_media_(\d+)_(movie|tv)_(.+)$/, editAdminInlineMedia)
     bot.action(/^publish_media_(\d+)_(movie|tv)$/, publishAdminInlineMedia)
     bot.action(/^admin_edit_media$/, async (ctx) => {

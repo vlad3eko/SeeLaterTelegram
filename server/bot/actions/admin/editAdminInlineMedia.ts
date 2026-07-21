@@ -35,25 +35,18 @@ export const editAdminInlineMedia = async (ctx: any) => {
             ctx.from.id,
             {
                 inlineMessageId,
-
                 mediaId: Number(mediaId),
                 mediaType,
-
                 media,
-
                 contentType,
-
                 comment: undefined,
-
                 mode: undefined,
-
                 currentMedia: {
                     type: 'photo',
                     fileId: `https://image.tmdb.org/t/p/w500${
                         media.poster_path || media.backdrop_path
                     }`
                 },
-
                 currentCaption: createMediaCaption(
                     media,
                     contentType
