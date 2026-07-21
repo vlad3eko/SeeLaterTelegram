@@ -23,6 +23,15 @@ export const publishAdminInlineMedia = async (ctx: any) => {
         fileId
     } = session.currentMedia
 
+    const replyMarkup =
+        keyboardSendMediaCardInline(
+            session.mediaId,
+            session.mediaType,
+            session.contentType,
+            session.media.genres,
+            false
+        )
+
     if (type === 'photo') {
 
         await ctx.telegram.sendPhoto(
@@ -30,7 +39,8 @@ export const publishAdminInlineMedia = async (ctx: any) => {
             fileId,
             {
                 caption: session.currentCaption,
-                parse_mode: 'HTML'
+                parse_mode: 'HTML',
+                reply_markup: replyMarkup
             }
         )
     }
@@ -42,7 +52,8 @@ export const publishAdminInlineMedia = async (ctx: any) => {
             fileId,
             {
                 caption: session.currentCaption,
-                parse_mode: 'HTML'
+                parse_mode: 'HTML',
+                reply_markup: replyMarkup
             }
         )
     }
@@ -56,14 +67,7 @@ export const publishAdminInlineMedia = async (ctx: any) => {
         session.inlineMessageId,
 
         {
-            reply_markup:
-                keyboardSendMediaCardInline(
-                    session.mediaId,
-                    session.mediaType,
-                    session.contentType,
-                    session.media.genres,
-                    false
-                )
+            reply_markup: replyMarkup
         }
     )
     clearAdminEditSession(ctx.from.id)
