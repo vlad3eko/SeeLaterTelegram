@@ -96,54 +96,64 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
 
     if (session.mode === 'text') {
 
-        console.log(
-            'COMMENT BEFORE TEXT CHANGE:',
-            session.comment
-        )
-
         const text =
             ctx.message.text
 
-
         if (!text)
             return
+
+        console.log('TEXT:', text)
 
         const caption =
             createMediaCaption(
                 session.media,
                 session.contentType,
-                session.comment
+                text
             )
 
-        await ctx.telegram.editMessageCaption(
-            undefined,
-            undefined,
-            session.inlineMessageId,
+        console.log('CAPTION CREATED')
 
-            caption,
+        try {
 
-            {
-                parse_mode: 'HTML',
+            await ctx.telegram.editMessageCaption(
+                undefined,
+                undefined,
+                session.inlineMessageId,
+                caption,
+                {
+                    parse_mode: 'HTML',
 
-                reply_markup:
-                    keyboardSendMediaCardInline(
-                        session.mediaId,
-                        session.mediaType,
-                        session.contentType,
-                        session.media.genres,
-                        true
-                    )
-            }
-        )
+                    reply_markup:
+                        keyboardSendMediaCardInline(
+                            session.mediaId,
+                            session.mediaType,
+                            session.contentType,
+                            session.media.genres,
+                            true
+                        )
+                }
+            )
 
-        session.comment =
-            text
+            console.log('CAPTION EDITED SUCCESSFULLY')
 
-        session.currentCaption =
-            caption
+            session.comment =
+                text
 
-        session.mode =
-            undefined
+            session.currentCaption =
+                caption
+
+            session.mode =
+                undefined
+
+            console.log('SESSION UPDATED')
+
+        } catch (error) {
+
+            console.error(
+                'EDIT CAPTION ERROR:',
+                error
+            )
+        }
 
         return
     }
