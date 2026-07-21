@@ -36,7 +36,6 @@ export const adminEditActionInlineMessage = async (ctx: any) => {
 
 
         await ctx.telegram.editMessageMedia(
-
             undefined,
             undefined,
             session.inlineMessageId,
@@ -87,15 +86,20 @@ export const adminEditActionInlineMessage = async (ctx: any) => {
 
 
         await ctx.telegram.editMessageCaption(
-
             undefined,
             undefined,
             session.inlineMessageId,
 
-            text,
+            {
+                caption: createMediaCaption(
+                    session.media,
+                    session.contentType,
+                    text
+                ),
+                parse_mode: 'HTML',
+            },
 
             {
-                parse_mode: 'HTML',
 
                 reply_markup:
                     keyboardSendMediaCardInline(
