@@ -1,16 +1,8 @@
 import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBot";
 import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
-import {getAdminEditSession} from "#server/bot/actions/admin/adminEditSession";
+import type {AdminEditSession} from "#server/bot/actions/admin/adminEditSession";
 
-export const adminEditActionInlineMessage = async (ctx: any) => {
-
-    const session =
-        getAdminEditSession(ctx.from.id)
-
-
-    if (!session)
-        return
-
+export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditSession) => {
 
     // =========================
     // НОВОЕ МЕДИА
