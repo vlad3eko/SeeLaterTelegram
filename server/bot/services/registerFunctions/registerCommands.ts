@@ -108,7 +108,7 @@ export function registerCommands(bot: Telegraf) {
 
         if (payload?.startsWith('similar_')) {
 
-            const [, mediaType, mediaId] = payload.split('_')
+            const [, mediaType, mediaId, contentType] = payload.split('_')
 
             const media =
                 await $fetch(
@@ -123,7 +123,7 @@ export function registerCommands(bot: Telegraf) {
 
 
             const tag =
-                CONTENT_TYPE_LABELS[media.content_type as ContentType]
+                CONTENT_TYPE_LABELS[contentType as ContentType]
 
             console.log('[TAG registerCommands]', tag)
             const genres =

@@ -9,18 +9,7 @@ import {Telegraf} from "telegraf";
 export const registerAdminActions = (bot: Telegraf) => {
     bot.action(/^edit_media_(\d+)_(movie|tv)_(.+)$/, editAdminInlineMedia)
     bot.action(/^publish_media_(\d+)_(movie|tv)$/, publishAdminInlineMedia)
-    bot.action(/^admin_edit_media$/, async (ctx) => {
-
-        console.log(
-            'CALLBACK:',
-            'data' in ctx.callbackQuery
-                ? ctx.callbackQuery.data
-                : 'NO DATA'
-        )
-
-        return adminEditMedia(ctx)
-
-    })
+    bot.action(/^admin_edit_media$/, adminEditMedia)
     bot.action(/^admin_edit_text$/, adminEditText)
     bot.on('message', async (ctx: any, next) => {
 

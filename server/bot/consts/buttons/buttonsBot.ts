@@ -77,26 +77,20 @@ export const recommendationButtonBot = (
     mediaType?: 'movie' | 'tv'
 ) => {
 
+
     if (ButtonContext === 'channel') {
 
         return Markup.button.url(
             '📋 Похожие',
-            `https://t.me/kinomanovNet_bot?start=similar_${mediaType}_${mediaId}`
+            `https://t.me/kinomanovNet_bot?start=similar_${mediaType}_${mediaId}_${contentType}`
         )
     }
+
 
     const tag =
         CONTENT_TYPE_LABELS[
         contentType ?? ContentType.MOVIE
             ]
-
-    console.log('log',{
-        contentType,
-        fallback: ContentType.MOVIE,
-        label: CONTENT_TYPE_LABELS[contentType ?? ContentType.MOVIE]
-    })
-
-    console.log('tag', tag)
 
     let query =
         genresConvert(genres)
