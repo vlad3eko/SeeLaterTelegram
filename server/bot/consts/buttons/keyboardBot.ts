@@ -11,6 +11,9 @@ import type {ContentType} from "~/utils/search/strategy/enums";
 
 //Admin..
 
+export type TypeButtonContext =
+    'inline' | 'channel'
+
 export const editMediaChoiceKeyboard = () => {
 
     return Markup.inlineKeyboard([
@@ -46,15 +49,16 @@ export const keyboardSendMediaCardInline = (
     mediaType: "movie" | "tv",
     contentType: ContentType,
     genres?: TmdbGenre[],
-    admin: boolean = false
+    admin: boolean = false,
+    ButtonContext: TypeButtonContext = 'inline'
 ) => {
 
     const keyboard = [
         [
-            SearchButtonBot('Искать другое'),
-            recommendationButtonBot(contentType, genres)
+            SearchButtonBot('Искать другое', ButtonContext),
+            recommendationButtonBot(contentType, genres, ButtonContext)
         ],
-        [checkBookmarksMedias()],
+        [checkBookmarksMedias(ButtonContext)],
         [
             deleteMediaButtonBot(mediaId, mediaType),
             SaveMediaButtonBot(mediaId, mediaType)

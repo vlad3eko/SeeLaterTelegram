@@ -3,6 +3,7 @@ import type {TmdbGenre} from "~/types/tmdb.types"
 import {ContentType, SearchStrategy} from "~/utils/search/strategy/enums"
 import {genresConvert} from "~/utils/convert/genresConvert"
 import {CONTENT_TYPE_LABELS} from "~/utils/convert/library/enumsLibrary"
+import type {TypeButtonContext} from "#server/bot/consts/buttons/keyboardBot";
 
 
 //ADMIN..
@@ -37,11 +38,19 @@ export const adminEditMessageInlineCard = () => {
 //..ADMIN
 
 // Возвращаем чистый объект кнопки, без [ ]
-export const SearchButtonBot = (text: string | undefined, query?: string) => {
-    return Markup.button.switchToCurrentChat(
-        `${text ? "🔍" + text : 'Поиск'}`,
-        query || ''
-    )
+export const SearchButtonBot = (text: string | undefined, query?: string, ButtonContext?: TypeButtonContext) => {
+
+    if (ButtonContext === 'channel') {
+        return Markup.button.switchToChat(
+            `${text ? "🔍" + text : 'Поиск'}`,
+            query || ''
+        )
+    } else {
+        return Markup.button.switchToCurrentChat(
+            `${text ? "🔍" + text : 'Поиск'}`,
+            query || ''
+        )
+    }
 }
 
 export const SaveMediaButtonBot = (mediaId: number, mediaType: string) => {
@@ -56,7 +65,7 @@ export const deleteMediaButtonBot = (mediaId: number, mediaType: string) => {
         `delete_media_${mediaId}_${mediaType}`)
 }
 
-export const recommendationButtonBot = (contentType: ContentType | undefined, genres: TmdbGenre[] | undefined) => {
+export const recommendationButtonBot = (contentType: ContentType | undefined, genres: TmdbGenre[] | undefined, ButtonContext: TypeButtonContext) => {
 
     const tag = CONTENT_TYPE_LABELS[contentType ?? ContentType.MOVIE]
 
@@ -75,16 +84,29 @@ export const recommendationButtonBot = (contentType: ContentType | undefined, ge
         .replace(/\s+/g, " ")
         .trim().toLowerCase()
 
-    return Markup.button.switchToCurrentChat(
-        "📋 Похожие",
-        `#${tag} ${query}`
-    )
-
+    if (ButtonContext === 'channel') {
+        return Markup.button.switchToChat(
+            "📋 Похожие",
+            `#${tag} ${query}`
+        )
+    } else {
+        return Markup.button.switchToCurrentChat(
+            "📋 Похожие",
+            `#${tag} ${query}`
+        )
+    }
 }
 
-export const checkBookmarksMedias = () => {
-    return Markup.button.switchToCurrentChat(
-        '📦 Коллекция',
-        '#collection'
-    )
+export const checkBookmarksMedias = (ButtonContext: TypeButtonContext) => {
+    if (ButtonContext === 'channel') {
+        return Markup.button.switchToChat(
+            '📦 Коллекция',
+            '#collection'
+        )
+    } else {
+        return Markup.button.switchToCurrentChat(
+            '📦 Коллекция',
+            '#collection'
+        )
+    }
 }

@@ -29,7 +29,8 @@ export const publishAdminInlineMedia = async (ctx: any) => {
             session.mediaType,
             session.contentType,
             session.media.genres,
-            false
+            false,
+            'channel'
         )
 
     if (type === 'photo') {
