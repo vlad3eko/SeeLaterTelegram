@@ -11,9 +11,5 @@ export const adminEditText = async (ctx: any) => {
 
         session.mode = 'text'
 
-        await ctx.reply(
-            'Пришли новый текст.'
-        )
-
         await ctx.answerCbQuery()
 }
