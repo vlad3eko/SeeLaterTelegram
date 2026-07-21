@@ -1,19 +1,44 @@
-import {editMediaChoiceKeyboard} from "#server/bot/consts/buttons/keyboardBot";
 import {setAdminEditSession} from "#server/bot/actions/admin/adminEditSession";
+import {editMediaChoiceKeyboard} from "#server/bot/consts/buttons/keyboardBot";
 
 export const editAdminInlineMedia = async (ctx: any) => {
 
     const inlineMessageId =
         ctx.callbackQuery.inline_message_id
 
-    if (!inlineMessageId) return
 
+    if (!inlineMessageId) {
+        await ctx.answerCbQuery()
+        return
+    }
+
+    const [
+        ,
+        mediaId,
+        mediaType,
+        contentType
+    ] = ctx.match
+
+
+    const media = await $fetch(
+        '/api/bot/getMediaBot',
+        {
+            query: {
+                media: mediaType,
+                id: mediaId
+            }
+        }
+    )
 
     setAdminEditSession(
         ctx.from.id,
         {
             inlineMessageId,
-            mode:null as any
+            mediaId: Number(mediaId),
+            mediaType,
+            media,
+            contentType,
+            mode: 'media'
         }
     )
 
@@ -22,5 +47,4 @@ export const editAdminInlineMedia = async (ctx: any) => {
     )
 
     await ctx.answerCbQuery()
-
 }

@@ -4,7 +4,6 @@ import {searchMediaInline} from "#server/bot/handlers/media/searchMediaInline"
 import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
 import {keyboardSearchBot} from "#server/bot/consts/buttons/keyboardBot";
 import {chosenInlineMedia} from "#server/bot/handlers/media/chosenInlineMedia";
-import {adminEditActionInlineMessage} from "#server/bot/actions/admin/adminEditActionInlineMessage";
 
 export function registerHandlers(bot: Telegraf) {
     bot.on("text", async (ctx) => {

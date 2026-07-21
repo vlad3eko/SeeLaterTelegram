@@ -1,16 +1,19 @@
 import {getAdminEditSession} from "#server/bot/actions/admin/adminEditSession";
 
 export const adminEditText = async (ctx: any) => {
+        const session =
+            getAdminEditSession(ctx.from.id)
 
-    const session = getAdminEditSession(ctx.from.id)
+        if (!session) {
+            await ctx.answerCbQuery()
+            return
+        }
 
-    if (!session) return
+        session.mode = 'text'
 
-    session.mode = 'text'
+        await ctx.answerCbQuery()
 
-    await ctx.answerCbQuery()
-
-    await ctx.reply(
-        'Редактирование текста'
-    )
+        await ctx.reply(
+            'Пришли новый текст.'
+        )
 }

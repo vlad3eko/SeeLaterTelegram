@@ -6,10 +6,10 @@ import {CONTENT_TYPE_LABELS} from "~/utils/convert/library/enumsLibrary"
 
 
 //ADMIN..
-export const adminEditInlineCard = (mediaId: number, mediaType: string) => {
+export const adminEditInlineCard = (mediaId: number, mediaType: string, contentType: string) => {
     return Markup.button.callback(
         "✏️ РЕДАКТИРОВАТЬ",
-        `edit_media_${mediaId}_${mediaType}`
+        `edit_media_${mediaId}_${mediaType}_${contentType}`
     )
 }
 
