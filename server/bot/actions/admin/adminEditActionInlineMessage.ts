@@ -3,7 +3,16 @@ import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
 import type {AdminEditSession} from "#server/bot/actions/admin/adminEditSession";
 
 export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditSession) => {
-
+    console.log(
+        'EDIT ACTION:',
+        {
+            mode: session.mode,
+            text: ctx.message?.text,
+            photo: Boolean(ctx.message?.photo),
+            video: Boolean(ctx.message?.video),
+            comment: session.comment
+        }
+    )
     // =========================
     // НОВОЕ МЕДИА
     // =========================

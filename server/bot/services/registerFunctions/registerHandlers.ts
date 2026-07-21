@@ -4,9 +4,17 @@ import {searchMediaInline} from "#server/bot/handlers/media/searchMediaInline"
 import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
 import {keyboardSearchBot} from "#server/bot/consts/buttons/keyboardBot";
 import {chosenInlineMedia} from "#server/bot/handlers/media/chosenInlineMedia";
+import {getAdminEditSession} from "#server/bot/actions/admin/adminEditSession";
 
 export function registerHandlers(bot: Telegraf) {
     bot.on("text", async (ctx) => {
+
+        const session =
+            getAdminEditSession(ctx.from.id)
+
+        if (session?.mode) {
+            return
+        }
 
         const text = ctx.message.text
         const textId = ctx.message.message_id
