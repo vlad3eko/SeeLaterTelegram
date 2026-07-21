@@ -8,55 +8,125 @@ import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
 import {getLastSearchQuery} from "~/utils/search/repository/tmdbRepository";
 import {keyboardSearchBot} from "#server/bot/consts/buttons/keyboardBot";
 import {isSubscriber} from "#server/bot/handlers/channel/isSubscriber";
+import {openInlineSearch} from "#server/bot/actions/admin/helpers/openInlineSearch";
+import {genresConvert} from "~/utils/convert/genresConvert";
+import type {ContentType} from "~/utils/search/strategy/enums";
+import {CONTENT_TYPE_LABELS} from "~/utils/convert/library/enumsLibrary";
 
 const authRequests = new Map()
 
 export function registerCommands(bot: Telegraf) {
     bot.start(async (ctx: any) => {
 
-        if (ctx.text.includes('inline_settings')) {
+        const text =
+            ctx.message.text
 
-            const messageStart = ctx.message.message_id
-            await addMessageSession(
-                ctx.from.id,
-                SessionMessageType.Command, {
-                    messageId: messageStart.message_id
-                }
-            )
+        const payload =
+            ctx.startPayload
 
-            const checkSub = await isSubscriber(ctx)
-            if (!checkSub) return
 
-            const tagGet = (await getLastSearchQuery(ctx.from.id))
-                .map((tag: any) => `${tag ? '#' + tag : ''}`)
-                .join(' ')
+        // =========================
+        // РАСШИРЕННЫЙ ПОИСК
+        // =========================
 
-            const messageContinue = await ctx.reply('Вы перешли в расширенный поиск, нажмите кнопку ниже чтобы продолжить с места где остановились',{
-                    reply_markup: keyboardSearchBot('Продолжить искать', tagGet)
-                }
-            )
+        if (payload === 'inline_settings') {
 
-            await addMessageSession(
-                ctx.from.id,
-                SessionMessageType.SearchInline, {
-                    messageId: messageContinue.message_id
-                }
+            // твоя текущая логика
+            return
+        }
+
+
+        // =========================
+        // ИСКАТЬ ДРУГОЕ
+        // =========================
+
+        if (payload === 'search') {
+
+            await openInlineSearch(
+                ctx,
+                ''
             )
 
             return
         }
 
 
-        const message = ctx.message.message_id
-        if (!message) return
+        // =========================
+        // КОЛЛЕКЦИЯ
+        // =========================
 
-        await commandStart(ctx, authRequests)
+        if (payload === 'collection') {
 
-        await addMessageSession(
-            ctx.from.id,
-            SessionMessageType.Command, {
-                messageId: message.message_id
-            }
+            await openInlineSearch(
+                ctx,
+                '#collection'
+            )
+
+            return
+        }
+
+
+        // =========================
+        // ПОХОЖИЕ
+        // =========================
+
+        if (payload?.startsWith('similar_')) {
+
+            const [
+                ,
+                mediaType,
+                mediaId
+            ] =
+                payload.split('_')
+
+
+            const media =
+                await $fetch(
+                    '/api/bot/getMediaBot',
+                    {
+                        query: {
+                            media: mediaType,
+                            id: mediaId
+                        }
+                    }
+                )
+
+
+            const tag =
+                CONTENT_TYPE_LABELS[
+                    media.content_type as ContentType
+                    ]
+
+
+            const genres =
+                genresConvert(
+                    media.genres
+                )
+
+
+            const query =
+                `#${tag} ${genres
+                    .replaceAll('•', ' ')
+                    .replace(/\s+/g, ' ')
+                    .trim()
+                    .toLowerCase()
+                }`
+
+
+            await openInlineSearch(
+                ctx,
+                query
+            )
+
+
+            return
+        }
+
+
+        // обычный /start
+        await commandStart(
+            ctx,
+            authRequests
         )
     })
     bot.command('help', commandHelp)

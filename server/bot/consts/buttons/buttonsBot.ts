@@ -38,19 +38,23 @@ export const adminEditMessageInlineCard = () => {
 //..ADMIN
 
 // Возвращаем чистый объект кнопки, без [ ]
-export const SearchButtonBot = (text: string | undefined, ButtonContext: TypeButtonContext = 'inline', query: string = '') => {
+export const SearchButtonBot = (
+    text: string | undefined,
+    ButtonContext: TypeButtonContext = 'inline',
+    query: string = ''
+) => {
 
     if (ButtonContext === 'channel') {
-        return Markup.button.switchToChat(
+        return Markup.button.url(
             `${text ? "🔍" + text : 'Поиск'}`,
-            query
-        )
-    } else {
-        return Markup.button.switchToCurrentChat(
-            `${text ? "🔍" + text : 'Поиск'}`,
-            query
+            'https://t.me/kinomanovNet_bot?start=search'
         )
     }
+
+    return Markup.button.switchToCurrentChat(
+        `${text ? "🔍" + text : 'Поиск'}`,
+        query
+    )
 }
 
 export const SaveMediaButtonBot = (mediaId: number, mediaType: string) => {
@@ -65,48 +69,68 @@ export const deleteMediaButtonBot = (mediaId: number, mediaType: string) => {
         `delete_media_${mediaId}_${mediaType}`)
 }
 
-export const recommendationButtonBot = (contentType: ContentType | undefined, genres: TmdbGenre[] | undefined, ButtonContext: TypeButtonContext) => {
+export const recommendationButtonBot = (
+    contentType: ContentType | undefined,
+    genres: TmdbGenre[] | undefined,
+    ButtonContext: TypeButtonContext,
+    mediaId?: number,
+    mediaType?: 'movie' | 'tv'
+) => {
 
-    const tag = CONTENT_TYPE_LABELS[contentType ?? ContentType.MOVIE]
+    const tag =
+        CONTENT_TYPE_LABELS[
+        contentType ?? ContentType.MOVIE
+            ]
 
-    let query = genresConvert(genres)
+    let query =
+        genresConvert(genres)
 
     if (
-        contentType === ContentType.CARTOON
-        || contentType === ContentType.CARTOON_SERIES
-        || contentType === ContentType.ANIME
+        contentType === ContentType.CARTOON ||
+        contentType === ContentType.CARTOON_SERIES ||
+        contentType === ContentType.ANIME
     ) {
-        query = query.replaceAll("#мультфильм", "").trim()
+        query = query
+            .replaceAll('#мультфильм', '')
+            .trim()
     }
 
     query = query
-        .replaceAll("•", " ")
-        .replace(/\s+/g, " ")
-        .trim().toLowerCase()
+        .replaceAll('•', ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase()
+
 
     if (ButtonContext === 'channel') {
-        return Markup.button.switchToChat(
-            "📋 Похожие",
-            `#${tag} ${query}`
-        )
-    } else {
-        return Markup.button.switchToCurrentChat(
-            "📋 Похожие",
-            `#${tag} ${query}`
+
+        return Markup.button.url(
+            '📋 Похожие',
+            `https://t.me/kinomanovNet_bot?start=similar_${mediaType}_${mediaId}`
         )
     }
+
+
+    return Markup.button.switchToCurrentChat(
+        '📋 Похожие',
+        `#${tag} ${query}`
+    )
 }
 
-export const checkBookmarksMedias = (ButtonContext: TypeButtonContext) => {
+export const checkBookmarksMedias = (
+    ButtonContext: TypeButtonContext
+) => {
+
     if (ButtonContext === 'channel') {
-        return Markup.button.switchToChat(
+
+        return Markup.button.url(
             '📦 Коллекция',
-            '#collection'
-        )
-    } else {
-        return Markup.button.switchToCurrentChat(
-            '📦 Коллекция',
-            '#collection'
+            'https://t.me/kinomanovNet_bot?start=collection'
         )
     }
+
+    return Markup.button.switchToCurrentChat(
+        '📦 Коллекция',
+        '#collection'
+    )
 }
