@@ -125,7 +125,7 @@ export function registerCommands(bot: Telegraf) {
             const tag =
                 CONTENT_TYPE_LABELS[media.content_type as ContentType]
 
-
+            console.log('[TAG registerCommands]', tag)
             const genres =
                 genresConvert(media.genres)
 
