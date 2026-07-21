@@ -13,7 +13,14 @@ export type AdminEditSession = {
 
     comment?: string
 
-    mode: 'media' | 'text' | undefined
+    mode?: 'media' | 'text'
+
+    currentMedia: {
+        type: 'photo' | 'video'
+        fileId: string
+    }
+
+    currentCaption: string
 }
 
 

@@ -21,15 +21,31 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
             return
 
 
-        const media = photo
+        const newMedia = photo
             ? {
-                type: 'photo',
-                media: photo.file_id
+                type: 'photo' as const,
+                fileId: photo.file_id
             }
             : {
-                type: 'video',
-                media: video.file_id
+                type: 'video' as const,
+                fileId: video.file_id
             }
+
+
+        const caption =
+            createMediaCaption(
+                session.media,
+                session.contentType,
+                session.comment
+            )
+
+
+        session.currentMedia =
+            newMedia
+
+
+        session.currentCaption =
+            caption
 
 
         await ctx.telegram.editMessageMedia(
@@ -38,14 +54,9 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
             session.inlineMessageId,
 
             {
-                ...media,
-
-                caption: createMediaCaption(
-                    session.media,
-                    session.contentType,
-                    session.comment
-                ),
-
+                type: newMedia.type,
+                media: newMedia.fileId,
+                caption,
                 parse_mode: 'HTML'
             },
 
@@ -82,7 +93,20 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
             return
 
 
-        session.comment = text
+        session.comment =
+            text
+
+
+        const caption =
+            createMediaCaption(
+                session.media,
+                session.contentType,
+                session.comment
+            )
+
+
+        session.currentCaption =
+            caption
 
 
         await ctx.telegram.editMessageCaption(
@@ -90,11 +114,7 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
             undefined,
             session.inlineMessageId,
 
-            createMediaCaption(
-                session.media,
-                session.contentType,
-                session.comment
-            ),
+            caption,
 
             {
                 parse_mode: 'HTML',

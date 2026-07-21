@@ -1,5 +1,6 @@
 import {setAdminEditSession} from "#server/bot/actions/admin/adminEditSession";
 import {editMediaChoiceKeyboard} from "#server/bot/consts/buttons/keyboardBot";
+import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
 
 export const editAdminInlineMedia = async (ctx: any) => {
 
@@ -34,11 +35,29 @@ export const editAdminInlineMedia = async (ctx: any) => {
         ctx.from.id,
         {
             inlineMessageId,
+
             mediaId: Number(mediaId),
             mediaType,
+
             media,
+
             contentType,
-            mode: 'media'
+
+            comment: undefined,
+
+            mode: undefined,
+
+            currentMedia: {
+                type: 'photo',
+                fileId: `https://image.tmdb.org/t/p/w500${
+                    media.poster_path || media.backdrop_path
+                }`
+            },
+
+            currentCaption: createMediaCaption(
+                media,
+                contentType
+            )
         }
     )
 
