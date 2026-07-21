@@ -21,9 +21,23 @@ export const adminEditActionInlineMessage = async (ctx: any) => {
         const photo =
             ctx.message.photo?.at(-1)
 
+        const video =
+            ctx.message.video
 
-        if (!photo)
+
+        if (!photo && !video)
             return
+
+
+        const media = photo
+            ? {
+                type: 'photo',
+                media: photo.file_id
+            }
+            : {
+                type: 'video',
+                media: video.file_id
+            }
 
 
         await ctx.telegram.editMessageMedia(
@@ -32,8 +46,7 @@ export const adminEditActionInlineMessage = async (ctx: any) => {
             session.inlineMessageId,
 
             {
-                type: 'photo',
-                media: photo.file_id,
+                ...media,
 
                 caption: createMediaCaption(
                     session.media,

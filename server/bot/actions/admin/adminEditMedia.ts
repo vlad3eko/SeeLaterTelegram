@@ -11,9 +11,9 @@ export const adminEditMedia = async (ctx:any) => {
 
         session.mode = 'media'
 
-        await ctx.answerCbQuery()
-
         await ctx.reply(
             'Пришли новую фотографию или видео.'
         )
+
+        await ctx.answerCbQuery()
 }
