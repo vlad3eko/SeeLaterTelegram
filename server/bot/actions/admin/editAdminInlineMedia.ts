@@ -20,6 +20,7 @@ export const editAdminInlineMedia = async (ctx: any) => {
         contentType
     ] = ctx.match
 
+
     const media = await $fetch(
         '/api/bot/getMediaBot',
         {
@@ -30,30 +31,53 @@ export const editAdminInlineMedia = async (ctx: any) => {
         }
     )
 
-    setAdminEditSession(
-        ctx.from.id,
-        {
-            inlineMessageId,
-            mediaId: Number(mediaId),
-            mediaType,
-            media,
-            contentType,
-            comment: undefined,
-            mode: undefined,
-            currentMedia: {
-                type: 'photo',
-                fileId: `https://image.tmdb.org/t/p/w500${
-                    media.poster_path || media.backdrop_path
-                }`
-            },
-            currentCaption: createMediaCaption(
-                media,
-                contentType
-            )
-        }
-    )
+    const existingSession =
+        getAdminEditSession(
+            ctx.from.id
+        )
 
-    await ctx.editMessageReplyMarkup(editMediaChoiceKeyboard())
+    if (existingSession) {
+
+        existingSession.mode =
+            undefined
+
+    } else {
+
+        setAdminEditSession(
+            ctx.from.id,
+            {
+                inlineMessageId,
+
+                mediaId: Number(mediaId),
+                mediaType,
+
+                media,
+
+                contentType,
+
+                comment: undefined,
+
+                mode: undefined,
+
+                currentMedia: {
+                    type: 'photo',
+                    fileId: `https://image.tmdb.org/t/p/w500${
+                        media.poster_path || media.backdrop_path
+                    }`
+                },
+
+                currentCaption: createMediaCaption(
+                    media,
+                    contentType
+                )
+            }
+        )
+    }
+
+
+    await ctx.editMessageReplyMarkup(
+        editMediaChoiceKeyboard()
+    )
 
     await ctx.answerCbQuery()
 }
