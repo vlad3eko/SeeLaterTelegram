@@ -26,7 +26,7 @@ export const editMediaChoiceKeyboard = () => {
 
 export const keyboardSearchBot = (text?: string, query?: string) => {
     return Markup.inlineKeyboard([
-        [SearchButtonBot(text, query)]
+        [SearchButtonBot(text, undefined, query)]
     ]).reply_markup
 }
 
@@ -55,7 +55,7 @@ export const keyboardSendMediaCardInline = (
 
     const keyboard = [
         [
-            SearchButtonBot('Искать другое', undefined, ButtonContext),
+            SearchButtonBot('Искать другое', ButtonContext),
             recommendationButtonBot(contentType, genres, ButtonContext)
         ],
         [checkBookmarksMedias(ButtonContext)],
