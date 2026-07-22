@@ -23,7 +23,7 @@ export const checkInlineQuery = async (ctx: any) => {
 
             input_message_content: {
                 message_text:
-                    'Ищите популярные новинки кино и сериалов'
+                    'message: Ищите популярные новинки кино и сериалов'
             },
 
             reply_markup: keyboardSearchBot()

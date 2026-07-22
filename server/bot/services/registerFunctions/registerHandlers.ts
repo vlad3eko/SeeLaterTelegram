@@ -21,7 +21,7 @@ export function registerHandlers(bot: Telegraf) {
 
         if (text.startsWith('/')) return
         if (text.startsWith('bot: ')) return chosenInlineMedia(ctx)
-        if ((text.startsWith('Ищите популярные'))) return
+        if ((text.startsWith('message: '))) return
 
         await addMessageSession(ctx.from.id, SessionMessageType.SearchInline, {messageId: textId})
         const message = await ctx.reply(
