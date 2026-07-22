@@ -4,6 +4,7 @@ import {ContentType, SearchStrategy} from "~/utils/search/strategy/enums"
 import {genresConvert} from "~/utils/convert/genresConvert"
 import {CONTENT_TYPE_LABELS} from "~/utils/convert/library/enumsLibrary"
 import type {TypeButtonContext} from "#server/bot/consts/buttons/keyboardBot";
+import {getContentTypeLabel} from "~/utils/convert/library/getContentTypeLabel";
 
 
 //ADMIN..
@@ -77,6 +78,13 @@ export const recommendationButtonBot = (
     mediaType?: 'movie' | 'tv'
 ) => {
 
+    console.log('[RECOMMENDATION BUTTON]', {
+        contentType,
+        mediaId,
+        mediaType,
+        genres
+    })
+
 
     if (ButtonContext === 'channel') {
 
@@ -88,9 +96,12 @@ export const recommendationButtonBot = (
 
 
     const tag =
-        CONTENT_TYPE_LABELS[
-        contentType ?? ContentType.MOVIE
-            ]
+        getContentTypeLabel(contentType)
+
+    console.log('[RECOMMENDATION TAG]', {
+        contentType,
+        tag
+    })
 
     let query =
         genresConvert(genres)
@@ -110,9 +121,6 @@ export const recommendationButtonBot = (
         .replace(/\s+/g, ' ')
         .trim()
         .toLowerCase()
-
-    console.log('tag', tag)
-    console.log('query', query)
 
     return Markup.button.switchToCurrentChat(
         '📋 Похожие',

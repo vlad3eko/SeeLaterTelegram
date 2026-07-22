@@ -1,5 +1,3 @@
-import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
-import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBot";
 import {checkChannelSubscriber} from "#server/bot/handlers/auth/check/checkChannelSubscriber";
 
 export const deleteMedia = async (ctx: any) => {
