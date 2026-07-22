@@ -26,9 +26,6 @@ export default defineEventHandler(async (event) => {
         }
     )
 
-    console.log('[GENRES RESPONSE]', response)
-
-
     await saveCache(
         event,
         endpoint,

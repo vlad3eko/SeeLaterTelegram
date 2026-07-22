@@ -56,10 +56,6 @@ export default defineEventHandler(async (event) => {
         }
     )
 
-    console.log('media fetch', media)
-    console.log('params fetch', params)
-    console.log('res fetch', res)
-
     if (!res.ok) {
         throw createError({
             statusCode: res.status,
@@ -80,6 +76,5 @@ export default defineEventHandler(async (event) => {
         `[TMDB] DISCOVER ${(performance.now()-tmdbStart).toFixed(2)}ms`
     )
 
-    console.log('response fetch', response.results)
     return response
 })

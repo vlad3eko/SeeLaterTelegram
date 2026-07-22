@@ -78,14 +78,6 @@ export const recommendationButtonBot = (
     mediaType?: 'movie' | 'tv'
 ) => {
 
-    console.log('[RECOMMENDATION BUTTON]', {
-        contentType,
-        mediaId,
-        mediaType,
-        genres
-    })
-
-
     if (ButtonContext === 'channel') {
 
         return Markup.button.url(
@@ -94,14 +86,8 @@ export const recommendationButtonBot = (
         )
     }
 
-
     const tag =
         getContentTypeLabel(contentType)
-
-    console.log('[RECOMMENDATION TAG]', {
-        contentType,
-        tag
-    })
 
     let query =
         genresConvert(genres)

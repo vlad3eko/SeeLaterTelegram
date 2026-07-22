@@ -13,11 +13,8 @@ export const chosenInlineMedia = async (ctx: any) => {
 
     try {
         const result = ctx.update.chosen_inline_result
-        console.log('result', result)
         let inlineMessageId
-        console.log('inlineMessageId before', inlineMessageId)
         if (result) inlineMessageId = result.inline_message_id
-        console.log('inlineMessageId after', inlineMessageId)
 
         if (!inlineMessageId) return
 
@@ -27,11 +24,6 @@ export const chosenInlineMedia = async (ctx: any) => {
             contentType,
             mediaId
         ] = result.result_id.split('_')
-        console.log('mediaType\n' +
-            'contentType\n' +
-            'mediaId', mediaType,
-        contentType,
-        mediaId)
 
         const media = await $fetch(
             '/api/bot/getMediaBot',

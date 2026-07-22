@@ -7,8 +7,6 @@ export const openInlineSearch = async (
     query: string
 ) => {
 
-    console.log('[QUERY openInlineSearch]', query)
-
     const messageContinue =
         await ctx.reply(
             'Выберите действие:',

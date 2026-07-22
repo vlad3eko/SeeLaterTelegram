@@ -102,16 +102,12 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
         if (!text)
             return
 
-        console.log('TEXT:', text)
-
         const caption =
             createMediaCaption(
                 session.media,
                 session.contentType,
                 text
             )
-
-        console.log('CAPTION CREATED')
 
         try {
 
@@ -134,8 +130,6 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
                 }
             )
 
-            console.log('CAPTION EDITED SUCCESSFULLY')
-
             session.comment =
                 text
 
@@ -146,8 +140,6 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
             )
             session.mode =
                 undefined
-
-            console.log('SESSION UPDATED')
 
         } catch (error) {
 

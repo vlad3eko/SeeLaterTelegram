@@ -5,8 +5,6 @@ import {CONTENT_TYPE_LABELS} from "~/utils/convert/library/enumsLibrary";
 import type {ContentType} from "~/utils/search/strategy/enums";
 
 export const processSearchMediaInline = async (ctx: any, medias: any) => {
-    console.log('CHOSEN WORK')
-    console.log('medias', medias.results[0])
 
     try {
         const results = medias.results.map(
@@ -38,8 +36,6 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
                     )
             })
         )
-
-        console.log('result', results[0])
 
         await ctx.answerInlineQuery(
             results,
