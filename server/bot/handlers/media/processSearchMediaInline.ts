@@ -1,6 +1,5 @@
 import {FormatDate, FormatRating} from "~/utils/formatMoviesData";
 import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBot";
-import {contentTypeConvert} from "~/utils/convert/contentTypeConvert";
 import {CONTENT_TYPE_LABELS} from "~/utils/convert/library/enumsLibrary";
 import type {ContentType} from "~/utils/search/strategy/enums";
 
@@ -44,7 +43,7 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
                     text: '🔍 Расширенный поиск',
                     start_parameter: 'inline_settings'
                 },
-                cache_time: 0,
+                cache_time: 3,
                 // is_personal: false,
                 next_offset:
                     medias.page < medias.total_pages
