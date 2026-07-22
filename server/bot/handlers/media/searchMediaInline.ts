@@ -1,6 +1,7 @@
 import {processSearchMediaInline} from "#server/bot/handlers/media/processSearchMediaInline";
 import {searchMedia} from "~/utils/search/searchMedia";
 import {parseSearchQuery} from "~/utils/search/parseSearchQuery";
+import {keyboardSearchBot} from "#server/bot/consts/buttons/keyboardBot";
 
 export const searchMediaInline = async (ctx: any) => {
 
@@ -35,6 +36,7 @@ export const searchMediaInline = async (ctx: any) => {
             return await ctx.answerInlineQuery([
                 {
                     type: 'article',
+
                     id: isCollection
                         ? 'empty_collection'
                         : 'no_search_results',
@@ -48,10 +50,11 @@ export const searchMediaInline = async (ctx: any) => {
                         : 'Попробуйте изменить поисковый запрос',
 
                     input_message_content: {
-                        message_text: isCollection
-                            ? 'В вашей коллекции пока нет сохранённых фильмов и сериалов.'
-                            : 'По вашему запросу ничего не найдено.'
-                    }
+                        message_text:
+                            'Смотрите популярные новинки кино и сериалов'
+                    },
+
+                    reply_markup: keyboardSearchBot('Смотреть', '')
                 }
             ], {
                 cache_time: 0
