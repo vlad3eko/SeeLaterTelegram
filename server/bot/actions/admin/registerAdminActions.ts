@@ -16,23 +16,9 @@ export const registerAdminActions = (bot: Telegraf) => {
         const session =
             getAdminEditSession(ctx.from.id)
 
-        console.log(
-            'MESSAGE ADMIN SESSION:',
-            session
-        )
-
         if (!session?.mode) {
-            console.log(
-                'NO ADMIN MODE -> NEXT'
-            )
-
             return next()
         }
-
-        console.log(
-            'ADMIN MESSAGE HANDLED:',
-            session.mode
-        )
 
         return adminEditActionInlineMessage(
             ctx,

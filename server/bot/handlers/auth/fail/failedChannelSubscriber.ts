@@ -5,7 +5,7 @@ import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
 export const failedChannelSubscriber = async (ctx: any) => {
 
    const message = await ctx.reply(
-        '❌ Подпишитесь на канал \nпосле чего нажмите (Проверить подписку)',
+        '❌ Подпишитесь на канал \nпосле чего нажмите (Проверить подписку) \n\n Это не реклама! Официальный канал бота. \n\nВ канале публикуются только новинки Кино/Сериалов',
         Markup.inlineKeyboard([
             Markup.button.url(
                 'Подписаться',
