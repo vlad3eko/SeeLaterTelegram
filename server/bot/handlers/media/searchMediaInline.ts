@@ -28,9 +28,7 @@ export const searchMediaInline = async (ctx: any) => {
         const page = Number(ctx.inlineQuery.offset) || 1
         const medias = await searchMedia(ctx.inlineQuery.query, page, ctx.from.id)
 
-        if (!medias.results?.length) {
-            return await checkInlineQuery(ctx)
-        }
+        if (!medias.results?.length) return await checkInlineQuery(ctx)
 
         await processSearchMediaInline(ctx, medias)
 
