@@ -25,11 +25,6 @@ export function registerCommands(bot: Telegraf) {
         const payload =
             ctx.startPayload
 
-
-        // ========================================
-        // РАСШИРЕННЫЙ ПОИСК
-        // ========================================
-
         if (text.includes('inline_settings') || payload === 'inline_settings') {
 
             const messageStart =
@@ -81,30 +76,18 @@ export function registerCommands(bot: Telegraf) {
             return
         }
 
-        // ========================================
-        // ИСКАТЬ ДРУГОЕ
-        // ========================================
-
         if (payload === 'search') {
 
             await openInlineSearch(ctx, '')
             return
         }
 
-        // ========================================
-        // КОЛЛЕКЦИЯ
-        // ========================================
 
         if (payload === 'collection') {
 
             await openInlineSearch(ctx, '#collection')
             return
         }
-
-
-        // ========================================
-        // ПОХОЖИЕ
-        // ========================================
 
         if (payload?.startsWith('similar_')) {
 
@@ -142,10 +125,6 @@ export function registerCommands(bot: Telegraf) {
             return
         }
 
-        // ========================================
-        // ОБЫЧНЫЙ /START
-        // ========================================
-
         const message =
             ctx.message.message_id
 
@@ -164,8 +143,6 @@ export function registerCommands(bot: Telegraf) {
     })
 
     bot.command('help', commandHelp)
-
     bot.command('clear', commandClear)
-
     bot.action('menu_bot', menuBot)
 }

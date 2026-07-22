@@ -111,6 +111,9 @@ export const recommendationButtonBot = (
         .trim()
         .toLowerCase()
 
+    console.log('tag', tag)
+    console.log('query', query)
+
     return Markup.button.switchToCurrentChat(
         '📋 Похожие',
         `#${tag} ${query}`
