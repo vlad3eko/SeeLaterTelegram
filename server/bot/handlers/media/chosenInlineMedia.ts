@@ -14,17 +14,7 @@ export const chosenInlineMedia = async (ctx: any) => {
         const inlineMessageId = result?.inline_message_id
 
         if (!inlineMessageId) return
-
-        if (result.result_id === 'no_search_results' || result.result_id === 'empty_collection') {
-            await ctx.telegram.editMessageText(inlineMessageId, undefined, undefined,
-                'Смотрите популярные новинки кино и сериалов',
-                {
-                    reply_markup:
-                        keyboardSearchBot('Смотреть', '')
-                }
-            )
-            return
-        }
+        if (result.result_id === 'no_search_results' || result.result_id === 'empty_collection') return
 
         const [_, mediaType, contentType, mediaId
         ] = result.result_id.split('_')
@@ -40,10 +30,7 @@ export const chosenInlineMedia = async (ctx: any) => {
             }
         )
 
-
         const admin = isAdmin(result.from.id)
-
-
         await ctx.telegram.editMessageMedia(undefined, undefined, inlineMessageId,
             {
                 type: 'photo',
