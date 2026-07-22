@@ -124,7 +124,7 @@ export const recommendationButtonBot = (
 
     return Markup.button.switchToCurrentChat(
         '📋 Похожие',
-        `#${tag} ${query}`
+        `#${tag}${query ? ` ${query}` : ''}`
     )
 }
 
