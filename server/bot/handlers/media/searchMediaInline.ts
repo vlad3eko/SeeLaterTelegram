@@ -26,6 +26,7 @@ export const searchMediaInline = async (ctx: any) => {
         const page = Number(ctx.inlineQuery.offset) || 1
         const medias = await searchMedia(ctx.inlineQuery.query, page, ctx.from.id)
 
+        console.log('medias.results', medias.results[0])
         if (!medias.results?.length) {
 
             const isCollection =
