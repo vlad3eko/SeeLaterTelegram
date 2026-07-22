@@ -2,6 +2,7 @@ import {processSearchMediaInline} from "#server/bot/handlers/media/processSearch
 import {searchMedia} from "~/utils/search/searchMedia";
 import {parseSearchQuery} from "~/utils/search/parseSearchQuery";
 import {keyboardSearchBot} from "#server/bot/consts/buttons/keyboardBot";
+import {checkInlineQuery} from "#server/bot/consts/checkInlineQuery";
 
 export const searchMediaInline = async (ctx: any) => {
 
@@ -27,39 +28,8 @@ export const searchMediaInline = async (ctx: any) => {
         const page = Number(ctx.inlineQuery.offset) || 1
         const medias = await searchMedia(ctx.inlineQuery.query, page, ctx.from.id)
 
-        console.log('medias.results', medias.results[0])
-        if (!medias.results?.length) {
+        if (!medias.results?.length) await checkInlineQuery(ctx)
 
-            const isCollection =
-                ctx.inlineQuery.query.includes('#collection')
-
-            return await ctx.answerInlineQuery([
-                {
-                    type: 'article',
-
-                    id: isCollection
-                        ? 'empty_collection'
-                        : 'no_search_results',
-
-                    title: isCollection
-                        ? 'Сохранённых фильмов пока нет'
-                        : 'Ничего не найдено',
-
-                    description: isCollection
-                        ? 'Добавьте фильм или сериал в свою коллекцию'
-                        : 'Попробуйте изменить поисковый запрос',
-
-                    input_message_content: {
-                        message_text:
-                            'Ищите популярные новинки кино и сериалов'
-                    },
-
-                    reply_markup: keyboardSearchBot()
-                }
-            ], {
-                cache_time: 0
-            })
-        }
         await processSearchMediaInline(ctx, medias)
 
     } catch (error) {
