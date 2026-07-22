@@ -6,11 +6,6 @@ import {isAdmin} from "#server/bot/consts/admins";
 
 export const chosenInlineMedia = async (ctx: any) => {
 
-    console.log(
-        '🔥 CHOSEN INLINE',
-        ctx.update.chosen_inline_result
-    )
-
     try {
         const result = ctx.update.chosen_inline_result
         let inlineMessageId
