@@ -51,10 +51,10 @@ export const searchMediaInline = async (ctx: any) => {
 
                     input_message_content: {
                         message_text:
-                            'Смотрите популярные новинки кино и сериалов'
+                            'Ищите популярные новинки кино и сериалов'
                     },
 
-                    reply_markup: keyboardSearchBot('Смотреть', '')
+                    reply_markup: keyboardSearchBot()
                 }
             ], {
                 cache_time: 0
