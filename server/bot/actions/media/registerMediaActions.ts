@@ -3,6 +3,6 @@ import {saveMedia} from "#server/bot/actions/media/saveMedia";
 import {deleteMedia} from "#server/bot/actions/media/deleteMedia";
 
 export function registerMediaActions(bot: Telegraf) {
-    bot.action(/^save_media_(\d+)_(movie|tv)$/, saveMedia)
+    bot.action(/^save_media_(\d+)_(movie|tv)_([a-z_]+)$/, saveMedia)
     bot.action(/^delete_media_(\d+)_(movie|tv)$/, deleteMedia)
 }
