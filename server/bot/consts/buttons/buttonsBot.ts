@@ -15,15 +15,10 @@ export const adminEditInlineCard = (mediaId: number, mediaType: string, contentT
     )
 }
 
-export const adminPublishInlineCard = (
-    mediaId: number,
-    mediaType: string,
-    contentType: ContentType
-) => {
-
+export const adminPublishInlineCard = (mediaId: number, mediaType: string) => {
     return Markup.button.callback(
         "🚀 ОПУБЛИКОВАТЬ",
-        `publish_media_${mediaId}_${mediaType}_${contentType}`
+        `publish_media_${mediaId}_${mediaType}`
     )
 }
 
@@ -63,8 +58,7 @@ export const SearchButtonBot = (
     )
 }
 
-export const SaveMediaButtonBot = (mediaId: number, mediaType: string, ButtonContext: TypeButtonContext, saveCount = 0) => {
-
+export const SaveMediaButtonBot = (mediaId: number, mediaType: string, contentType: string, ButtonContext: TypeButtonContext, saveCount = 0) => {
     const text =
         ButtonContext === 'channel'
             ? `💾 Сохранить (${saveCount})`
@@ -72,7 +66,7 @@ export const SaveMediaButtonBot = (mediaId: number, mediaType: string, ButtonCon
 
     return Markup.button.callback(
         text,
-        `save_media_${mediaId}_${mediaType}`
+        `save_media_${mediaId}_${mediaType}_${contentType}`
     )
 }
 
