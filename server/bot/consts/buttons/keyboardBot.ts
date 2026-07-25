@@ -51,13 +51,12 @@ export const keyboardSendMediaCardInline = (
     genres?: TmdbGenre[] | undefined,
     admin: boolean = false,
     ButtonContext: TypeButtonContext = 'inline',
-    count?: number | undefined
 ) => {
 
     const keyboard = [
         [SearchButtonBot('Искать другое', ButtonContext), recommendationButtonBot(contentType, genres, ButtonContext, mediaId, mediaType)],
         [checkBookmarksMedias(ButtonContext)],
-        [deleteMediaButtonBot(mediaId, mediaType), SaveMediaButtonBot(mediaId, mediaType, contentType, count)]
+        [deleteMediaButtonBot(mediaId, mediaType), SaveMediaButtonBot(mediaId, mediaType, contentType)]
     ]
 
     if (admin) {

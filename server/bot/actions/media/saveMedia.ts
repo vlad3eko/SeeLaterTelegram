@@ -21,7 +21,6 @@ export const saveMedia = async (ctx: any) => {
     const mediaType = ctx.match[2]
     const contentType = ctx.match[3]
 
-
     const media = await $fetch(
         '/api/bot/getMediaBot',
         {
@@ -73,8 +72,6 @@ export const saveMedia = async (ctx: any) => {
         }
     )
 
-    let count = 0
-
     await ctx.editMessageCaption(
         createMediaCaption(
             media,
@@ -87,9 +84,6 @@ export const saveMedia = async (ctx: any) => {
                 mediaType,
                 contentType,
                 media.genres,
-                false,
-                'inline',
-                ++count,
             )
         }
     )
