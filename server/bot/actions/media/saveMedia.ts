@@ -31,7 +31,7 @@ export const saveMedia = async (ctx: any) => {
     //     }
     // )
 
-    const page = Number(ctx.inlineQuery.offset) || 1
+    const page = 1
     const media = await searchMedia(ctx.inlineQuery.query, page, ctx.from.id)
 
     console.log('[SAVE MEDIA] media', media)
