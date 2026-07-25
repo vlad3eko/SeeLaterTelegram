@@ -3,6 +3,7 @@ import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
 import {commandClear} from "#server/bot/commands/commandClear";
 import {removeMessageSession} from "#server/bot/services/session/removeMessageSession";
 import {checkChannelSubscriber} from "#server/bot/handlers/auth/check/checkChannelSubscriber";
+import {searchMedia} from "~/utils/search/searchMedia";
 
 export const saveMedia = async (ctx: any) => {
 
@@ -20,15 +21,18 @@ export const saveMedia = async (ctx: any) => {
     const mediaType = ctx.match[2]
 
 
-    const media = await $fetch(
-        '/api/bot/getMediaBot',
-        {
-            query: {
-                id: mediaId,
-                media: mediaType
-            }
-        }
-    )
+    // const media = await $fetch(
+    //     '/api/bot/getMediaBot',
+    //     {
+    //         query: {
+    //             id: mediaId,
+    //             media: mediaType
+    //         }
+    //     }
+    // )
+
+    const page = Number(ctx.inlineQuery.offset) || 1
+    const media = await searchMedia(ctx.inlineQuery.query, page, ctx.from.id)
 
     console.log('[SAVE MEDIA] media', media)
 
