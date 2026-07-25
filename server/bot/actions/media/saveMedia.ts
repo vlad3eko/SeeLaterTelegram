@@ -79,16 +79,18 @@ export const saveMedia = async (ctx: any) => {
         }
     )
 
-    await ctx.editMessageCaption(
+    await ctx.telegram.editMessageReplyMarkup(
+        undefined,
+        undefined,
+        ctx.inlineMessageId,
         {
-            parse_mode: 'HTML',
             reply_markup: keyboardSendMediaCardInline(
                 mediaId,
                 mediaType,
                 contentType,
                 media.genres,
                 false,
-                "channel",
+                'channel',
                 saveCount
             )
         }
