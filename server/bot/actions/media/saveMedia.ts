@@ -7,8 +7,6 @@ import {searchMedia} from "~/utils/search/searchMedia";
 
 export const saveMedia = async (ctx: any) => {
 
-    console.log('[SAVE MEDIA CTX]', ctx)
-
     const isUserBot = await checkChannelSubscriber(ctx)
 
     if (isUserBot) {
@@ -32,8 +30,6 @@ export const saveMedia = async (ctx: any) => {
             }
         }
     )
-
-    console.log('[SAVE MEDIA] media', media)
 
     const mediaTitle = media.title || media.name
     const voteAverage = media.vote_average || 0
@@ -84,10 +80,6 @@ export const saveMedia = async (ctx: any) => {
     )
 
     await ctx.editMessageCaption(
-        createMediaCaption(
-            media,
-            mediaType
-        ),
         {
             parse_mode: 'HTML',
             reply_markup: keyboardSendMediaCardInline(
