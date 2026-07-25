@@ -1,32 +1,88 @@
-import {
-    clearAdminEditSession,
-    getAdminEditSession
-} from "#server/bot/actions/admin/adminEditSession";
-
-import {
-    keyboardSendMediaCardInline
-} from "#server/bot/consts/buttons/keyboardBot";
-
-import {
-    CURRENT_KEYBOARD_VERSION
-} from "#server/bot/consts/keyboardVersion/keyboardVersion";
-
+import {clearAdminEditSession, getAdminEditSession} from "#server/bot/actions/admin/adminEditSession"
+import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBot"
+import {CURRENT_KEYBOARD_VERSION} from "#server/bot/consts/keyboardVersion/keyboardVersion"
+import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption"
 
 export const publishAdminInlineMedia = async (ctx: any) => {
 
-    const session =
-        getAdminEditSession(
-            ctx.from.id
-        )
+    const [, mediaId, mediaType, contentType] = ctx.match
+    const parsedMediaId = Number(mediaId)
+
+    const session = getAdminEditSession(ctx.from.id)
+
+    const isCurrentSession =
+        session &&
+
+        session.mediaId ===
+        parsedMediaId &&
+
+        session.mediaType ===
+        mediaType &&
+
+        session.contentType ===
+        contentType
 
 
-    if (!session) {
+    let media
 
-        await ctx.answerCbQuery(
-            'Сессия редактирования не найдена'
-        )
 
-        return
+    let currentMedia
+
+
+    let currentCaption
+
+
+    if (
+        isCurrentSession
+    ) {
+
+        media =
+            session.media
+
+
+        currentMedia =
+            session.currentMedia
+
+
+        currentCaption =
+            session.currentCaption
+
+    } else {
+
+        media =
+            await $fetch(
+                '/api/bot/getMediaBot',
+                {
+                    query: {
+
+                        id:
+                        parsedMediaId,
+
+                        media:
+                        mediaType
+                    }
+                }
+            )
+
+
+        currentMedia = {
+
+            type:
+                'photo' as const,
+
+            fileId:
+                `https://image.tmdb.org/t/p/w500${
+                    media.poster_path ||
+                    media.backdrop_path
+                }`
+        }
+
+
+        currentCaption =
+            createMediaCaption(
+                media,
+                contentType
+            )
     }
 
 
@@ -34,19 +90,12 @@ export const publishAdminInlineMedia = async (ctx: any) => {
         '@kinomanovnet'
 
 
-    const {
-        type,
-        fileId
-    } =
-        session.currentMedia
-
-
     const channelReplyMarkup =
         keyboardSendMediaCardInline(
-            session.mediaId,
-            session.mediaType,
-            session.contentType,
-            session.media.genres,
+            parsedMediaId,
+            mediaType,
+            contentType,
+            media.genres,
             false,
             'channel'
         )
@@ -55,15 +104,19 @@ export const publishAdminInlineMedia = async (ctx: any) => {
     let publishedMessage
 
 
-    if (type === 'photo') {
+    if (
+        currentMedia.type ===
+        'photo'
+    ) {
 
         publishedMessage =
             await ctx.telegram.sendPhoto(
                 channelId,
-                fileId,
+                currentMedia.fileId,
                 {
+
                     caption:
-                    session.currentCaption,
+                    currentCaption,
 
                     parse_mode:
                         'HTML',
@@ -75,15 +128,19 @@ export const publishAdminInlineMedia = async (ctx: any) => {
     }
 
 
-    if (type === 'video') {
+    if (
+        currentMedia.type ===
+        'video'
+    ) {
 
         publishedMessage =
             await ctx.telegram.sendVideo(
                 channelId,
-                fileId,
+                currentMedia.fileId,
                 {
+
                     caption:
-                    session.currentCaption,
+                    currentCaption,
 
                     parse_mode:
                         'HTML',
@@ -95,7 +152,9 @@ export const publishAdminInlineMedia = async (ctx: any) => {
     }
 
 
-    if (!publishedMessage) {
+    if (
+        !publishedMessage
+    ) {
 
         await ctx.answerCbQuery(
             'Не удалось опубликовать'
@@ -105,17 +164,14 @@ export const publishAdminInlineMedia = async (ctx: any) => {
     }
 
 
-    /*
-     * 1. Сохраняем новую публикацию
-     *    с текущей версией клавиатуры
-     */
-
     try {
 
         await $fetch(
             '/api/bot/publishedMedia/create',
             {
-                method: 'POST',
+
+                method:
+                    'POST',
 
                 body: {
 
@@ -126,13 +182,11 @@ export const publishAdminInlineMedia = async (ctx: any) => {
                     publishedMessage.message_id,
 
                     mediaId:
-                    session.mediaId,
+                    parsedMediaId,
 
-                    mediaType:
-                    session.mediaType,
+                    mediaType,
 
-                    contentType:
-                    session.contentType,
+                    contentType,
 
                     keyboardVersion:
                     CURRENT_KEYBOARD_VERSION
@@ -140,38 +194,39 @@ export const publishAdminInlineMedia = async (ctx: any) => {
             }
         )
 
-
-    } catch (error) {
+    } catch (
+        error
+        ) {
 
         console.error(
             '[PUBLISHED MEDIA SAVE ERROR]',
             error
         )
 
+
         await ctx.answerCbQuery(
             'Карточка опубликована, но не сохранена в истории'
         )
 
+
         return
     }
 
-
-    /*
-     * 2. Проверяем старые публикации
-     *    и при необходимости обновляем клавиатуры
-     */
 
     try {
 
         await $fetch(
             '/api/bot/publishedMedia/syncKeyboards',
             {
-                method: 'POST'
+
+                method:
+                    'POST'
             }
         )
 
-
-    } catch (error) {
+    } catch (
+        error
+        ) {
 
         console.error(
             '[KEYBOARD SYNC ERROR]',
@@ -180,22 +235,19 @@ export const publishAdminInlineMedia = async (ctx: any) => {
     }
 
 
-    /*
-     * 3. Возвращаем inline-карточке
-     *    обычную inline-клавиатуру
-     */
-
     await ctx.telegram.editMessageReplyMarkup(
         undefined,
         undefined,
-        session.inlineMessageId,
+        ctx.callbackQuery.inline_message_id,
+
         {
+
             reply_markup:
                 keyboardSendMediaCardInline(
-                    session.mediaId,
-                    session.mediaType,
-                    session.contentType,
-                    session.media.genres,
+                    parsedMediaId,
+                    mediaType,
+                    contentType,
+                    media.genres,
                     false,
                     'inline'
                 )

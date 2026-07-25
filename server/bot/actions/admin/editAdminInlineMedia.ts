@@ -3,19 +3,31 @@ import {
     setAdminEditSession
 } from "#server/bot/actions/admin/adminEditSession"
 
-import {editMediaChoiceKeyboard} from "#server/bot/consts/buttons/keyboardBot"
-import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption"
+import {
+    editMediaChoiceKeyboard
+} from "#server/bot/consts/buttons/keyboardBot"
+
+import {
+    createMediaCaption
+} from "#server/bot/consts/media/createMediaCaption"
 
 
-export const editAdminInlineMedia = async (ctx: any) => {
+export const editAdminInlineMedia = async (
+    ctx:
+    any
+) => {
 
     const inlineMessageId =
         ctx.callbackQuery.inline_message_id
 
+
     if (!inlineMessageId) {
+
         await ctx.answerCbQuery()
+
         return
     }
+
 
     const [
         ,
@@ -25,46 +37,64 @@ export const editAdminInlineMedia = async (ctx: any) => {
     ] =
         ctx.match
 
+
     const existingSession =
         getAdminEditSession(
             ctx.from.id
         )
 
+
     if (
         existingSession &&
-        existingSession.inlineMessageId === inlineMessageId
+
+        existingSession.inlineMessageId ===
+        inlineMessageId
     ) {
+
         existingSession.mode =
             undefined
-    }
 
-    else {
+    } else {
 
         const media =
             await $fetch(
                 '/api/bot/getMediaBot',
                 {
                     query: {
-                        media: mediaType,
-                        id: mediaId
+
+                        media:
+                        mediaType,
+
+                        id:
+                        mediaId
                     }
                 }
             )
 
+
         setAdminEditSession(
             ctx.from.id,
             {
+
                 inlineMessageId,
+
                 mediaId:
                     Number(mediaId),
+
                 mediaType,
+
                 media,
+
                 contentType,
+
                 comment:
                 undefined,
+
                 mode:
                 undefined,
+
                 currentMedia: {
+
                     type:
                         'photo',
 
@@ -76,14 +106,19 @@ export const editAdminInlineMedia = async (ctx: any) => {
                 },
 
                 currentCaption:
-                    createMediaCaption(media, contentType)
+                    createMediaCaption(
+                        media,
+                        contentType
+                    )
             }
         )
     }
 
+
     await ctx.editMessageReplyMarkup(
         editMediaChoiceKeyboard()
     )
+
 
     await ctx.answerCbQuery()
 }
