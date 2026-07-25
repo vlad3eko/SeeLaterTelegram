@@ -19,7 +19,7 @@ export const saveMedia = async (ctx: any) => {
     const userId = ctx.from.id
     const mediaId = Number(ctx.match[1])
     const mediaType = ctx.match[2]
-    const contentType = ctx.match[3]
+    // const contentType = ctx.match[3]
 
     const media = await $fetch(
         '/api/bot/getMediaBot',
@@ -79,17 +79,17 @@ export const saveMedia = async (ctx: any) => {
         }
     )
 
-    await ctx.editMessageReplyMarkup(
-        keyboardSendMediaCardInline(
-            mediaId,
-            mediaType,
-            contentType,
-            media.genres,
-            false,
-            "channel",
-            saveCount
-        )
-    )
+    // await ctx.editMessageReplyMarkup(
+    //     keyboardSendMediaCardInline(
+    //         mediaId,
+    //         mediaType,
+    //         contentType,
+    //         media.genres,
+    //         false,
+    //         "channel",
+    //         saveCount
+    //     )
+    // )
 
     await commandClear(ctx)
 }
