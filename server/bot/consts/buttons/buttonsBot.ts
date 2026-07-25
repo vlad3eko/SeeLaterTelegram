@@ -58,11 +58,16 @@ export const SearchButtonBot = (
     )
 }
 
-export const SaveMediaButtonBot = (mediaId: number, mediaType: string, contentType?: string | undefined) => {
-    let count = 0
+export const SaveMediaButtonBot = (mediaId: number, mediaType: string, contentType: string, ButtonContext: TypeButtonContext, saveCount = 0) => {
+    const text =
+        ButtonContext === 'channel'
+            ? `💾 Сохранить (${saveCount})`
+            : '💾 Сохранить'
+
     return Markup.button.callback(
-        `💾 Сохранить(${count++})`,
-        `save_media_${mediaId}_${mediaType}_${contentType}`)
+        text,
+        `save_media_${mediaId}_${mediaType}_${contentType}`
+    )
 }
 
 export const deleteMediaButtonBot = (mediaId: number, mediaType: string) => {

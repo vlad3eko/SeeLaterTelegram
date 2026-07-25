@@ -1,5 +1,4 @@
 import {
-    keyboardSearchBot,
     keyboardSendMediaCardInline
 } from "#server/bot/consts/buttons/keyboardBot"
 

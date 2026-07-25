@@ -51,6 +51,7 @@ export const keyboardSendMediaCardInline = (
     genres?: TmdbGenre[] | undefined,
     admin: boolean = false,
     ButtonContext: TypeButtonContext = 'inline',
+    saveCount = 0
 ) => {
 
     const keyboard = [

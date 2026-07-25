@@ -67,6 +67,15 @@ export const saveMedia = async (ctx: any) => {
         return
     }
 
+    const saveCount = await $fetch<number>(
+        '/api/bot/library/getFavoriteCount',
+        {
+            query: {
+                tmdbId: media.id
+            }
+        }
+    )
+
     await removeMessageSession(
         ctx.from.id,
         {
@@ -86,6 +95,9 @@ export const saveMedia = async (ctx: any) => {
                 mediaType,
                 contentType,
                 media.genres,
+                false,
+                "channel",
+                saveCount
             )
         }
     )
