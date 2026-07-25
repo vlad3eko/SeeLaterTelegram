@@ -43,7 +43,7 @@ export const keyboardSendMediaCardInline = (
     const keyboard = [
         [SearchButtonBot('Искать другое', ButtonContext), recommendationButtonBot(contentType, genres, ButtonContext, mediaId, mediaType)],
         [checkBookmarksMedias(ButtonContext)],
-        [deleteMediaButtonBot(mediaId, mediaType), SaveMediaButtonBot(mediaId, mediaType, contentType, ButtonContext, saveCount)]
+        [deleteMediaButtonBot(mediaId, mediaType), SaveMediaButtonBot(mediaId, mediaType, ButtonContext, saveCount)]
     ]
 
     if (admin) {
