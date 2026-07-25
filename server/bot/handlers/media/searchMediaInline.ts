@@ -1,7 +1,6 @@
 import {processSearchMediaInline} from "#server/bot/handlers/media/processSearchMediaInline";
 import {searchMedia} from "~/utils/search/searchMedia";
 import {parseSearchQuery} from "~/utils/search/parseSearchQuery";
-import {keyboardSearchBot} from "#server/bot/consts/buttons/keyboardBot";
 import {checkInlineQuery} from "#server/bot/consts/checkInlineQuery";
 
 export const searchMediaInline = async (ctx: any) => {

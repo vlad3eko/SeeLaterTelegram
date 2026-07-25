@@ -23,12 +23,14 @@ export const saveMedia = async (ctx: any) => {
     const media = await $fetch(
         '/api/bot/getMediaBot',
         {
-            query:{
+            query: {
                 id: mediaId,
                 media: mediaType
             }
         }
     )
+
+    console.log('[SAVE MEDIA] media', media)
 
     const mediaTitle = media.title || media.name
     const voteAverage = media.vote_average || 0
@@ -43,8 +45,8 @@ export const saveMedia = async (ctx: any) => {
     }>(
         '/api/bot/saveMediaBot',
         {
-            method:'POST',
-            body:{
+            method: 'POST',
+            body: {
                 userId,
                 mediaTitle,
                 mediaId,
@@ -58,7 +60,7 @@ export const saveMedia = async (ctx: any) => {
     )
 
 
-    if(!success){
+    if (!success) {
 
         await ctx.answerCbQuery(
             `❌ ${error?.message?.includes('duplicate')
@@ -66,7 +68,7 @@ export const saveMedia = async (ctx: any) => {
                 : 'Ошибка сохранения'
             }`,
             {
-                show_alert:true
+                show_alert: true
             }
         )
 
@@ -81,16 +83,21 @@ export const saveMedia = async (ctx: any) => {
     )
 
 
-    await ctx.editMessageCaption(
-        createMediaCaption(
-            media,
-            mediaType
-        ),
-        {
-            parse_mode:'HTML',
-            reply_markup: keyboardSendMediaCardInline(mediaId, mediaType, userId)
-        }
-    )
+    // await ctx.editMessageCaption(
+    //     createMediaCaption(
+    //         media,
+    //         mediaType
+    //     ),
+    //     {
+    //         parse_mode: 'HTML',
+    //         reply_markup: keyboardSendMediaCardInline(
+    //             mediaId,
+    //             mediaType,
+    //             // contentType,
+    //             // media.genres,
+    //         )
+    //     }
+    // )
 
     await commandClear(ctx)
 }
