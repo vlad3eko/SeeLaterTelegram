@@ -72,8 +72,6 @@ export const saveMedia = async (ctx: any) => {
         }
     )
 
-    console.log('[SAVE COUNT] ', saveCount)
-
     await removeMessageSession(
         ctx.from.id,
         {
@@ -81,21 +79,16 @@ export const saveMedia = async (ctx: any) => {
         }
     )
 
-    await ctx.telegram.editMessageReplyMarkup(
-        undefined,
-        undefined,
-        ctx.inlineMessageId,
-        {
-            reply_markup: keyboardSendMediaCardInline(
-                mediaId,
-                mediaType,
-                contentType,
-                media.genres,
-                false,
-                'channel',
-                saveCount
-            )
-        }
+    await ctx.editMessageReplyMarkup(
+        keyboardSendMediaCardInline(
+            mediaId,
+            mediaType,
+            contentType,
+            media.genres,
+            false,
+            "channel",
+            saveCount
+        )
     )
 
     await commandClear(ctx)
