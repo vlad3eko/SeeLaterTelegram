@@ -19,20 +19,18 @@ export const saveMedia = async (ctx: any) => {
     const userId = ctx.from.id
     const mediaId = Number(ctx.match[1])
     const mediaType = ctx.match[2]
+    const contentType = ctx.match[3]
 
 
-    // const media = await $fetch(
-    //     '/api/bot/getMediaBot',
-    //     {
-    //         query: {
-    //             id: mediaId,
-    //             media: mediaType
-    //         }
-    //     }
-    // )
-
-    const page = 1
-    const media = await searchMedia(ctx.inlineQuery.query, page, ctx.from.id)
+    const media = await $fetch(
+        '/api/bot/getMediaBot',
+        {
+            query: {
+                id: mediaId,
+                media: mediaType
+            }
+        }
+    )
 
     console.log('[SAVE MEDIA] media', media)
 
@@ -65,17 +63,6 @@ export const saveMedia = async (ctx: any) => {
 
 
     if (!success) {
-
-        await ctx.answerCbQuery(
-            `❌ ${error?.message?.includes('duplicate')
-                ? 'Фильм уже сохранён'
-                : 'Ошибка сохранения'
-            }`,
-            {
-                show_alert: true
-            }
-        )
-
         return
     }
 
@@ -86,22 +73,26 @@ export const saveMedia = async (ctx: any) => {
         }
     )
 
+    let count = 0
 
-    // await ctx.editMessageCaption(
-    //     createMediaCaption(
-    //         media,
-    //         mediaType
-    //     ),
-    //     {
-    //         parse_mode: 'HTML',
-    //         reply_markup: keyboardSendMediaCardInline(
-    //             mediaId,
-    //             mediaType,
-    //             // contentType,
-    //             // media.genres,
-    //         )
-    //     }
-    // )
+    await ctx.editMessageCaption(
+        createMediaCaption(
+            media,
+            mediaType
+        ),
+        {
+            parse_mode: 'HTML',
+            reply_markup: keyboardSendMediaCardInline(
+                mediaId,
+                mediaType,
+                contentType,
+                media.genres,
+                false,
+                'inline',
+                ++count,
+            )
+        }
+    )
 
     await commandClear(ctx)
 }

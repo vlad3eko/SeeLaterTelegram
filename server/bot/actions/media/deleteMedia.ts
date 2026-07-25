@@ -1,4 +1,6 @@
 import {checkChannelSubscriber} from "#server/bot/handlers/auth/check/checkChannelSubscriber";
+import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
+import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBot";
 
 export const deleteMedia = async (ctx: any) => {
 
@@ -11,32 +13,8 @@ export const deleteMedia = async (ctx: any) => {
         return
     }
 
-
     const telegramId = ctx.from.id
     const mediaId = Number(ctx.match[1])
-    // const mediaType = ctx.match[2]
-
-    // const media = await $fetch('/api/bot/getMediaBot', {
-    //     query: {
-    //         id: mediaId,
-    //         media: mediaType
-    //     }
-    // })
-    //
-    // await ctx.editMessageCaption(
-    //     createMediaCaption(
-    //         media,
-    //         mediaType
-    //     ),
-    //     {
-    //         parse_mode: 'HTML',
-    //         reply_markup: keyboardSendMediaCardInline(
-    //             media.id,
-    //             mediaType,
-    //             telegramId
-    //         )
-    //     }
-    // )
 
     await $fetch('/api/bot/deleteMediaBot', {
         method: 'POST',
@@ -45,4 +23,6 @@ export const deleteMedia = async (ctx: any) => {
             tmdb_id: mediaId
         }
     })
+
+
 }

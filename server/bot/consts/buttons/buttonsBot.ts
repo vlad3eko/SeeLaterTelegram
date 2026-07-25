@@ -58,10 +58,10 @@ export const SearchButtonBot = (
     )
 }
 
-export const SaveMediaButtonBot = (mediaId: number, mediaType: string) => {
+export const SaveMediaButtonBot = (mediaId: number, mediaType: string, contentType?: string, count?: number) => {
     return Markup.button.callback(
-        '💾 Сохранить',
-        `save_media_${mediaId}_${mediaType}`)
+        `💾 Сохранить(${count})`,
+        `save_media_${mediaId}_${mediaType}_${contentType}`)
 }
 
 export const deleteMediaButtonBot = (mediaId: number, mediaType: string) => {
