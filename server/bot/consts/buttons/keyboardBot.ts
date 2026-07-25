@@ -30,20 +30,6 @@ export const keyboardSearchBot = (text?: string, query?: string) => {
     ]).reply_markup
 }
 
-export const keyboardSavedMediaCardBot = (mediaId: number, mediaType: string) => {
-    return Markup.inlineKeyboard([
-        [deleteMediaButtonBot(mediaId, mediaType)],
-        [SearchButtonBot('Искать ещё')]
-    ]).reply_markup
-}
-
-export const keyboardSendMediaCard = (mediaId: number, mediaType: string) => {
-    return Markup.inlineKeyboard([
-        [SearchButtonBot('Искать другое')],
-        [SaveMediaButtonBot(mediaId, mediaType)]
-    ]).reply_markup
-}
-
 export const keyboardSendMediaCardInline = (
     mediaId: number,
     mediaType: 'movie' | 'tv',
@@ -57,7 +43,7 @@ export const keyboardSendMediaCardInline = (
     const keyboard = [
         [SearchButtonBot('Искать другое', ButtonContext), recommendationButtonBot(contentType, genres, ButtonContext, mediaId, mediaType)],
         [checkBookmarksMedias(ButtonContext)],
-        [deleteMediaButtonBot(mediaId, mediaType), SaveMediaButtonBot(mediaId, mediaType, contentType)]
+        [deleteMediaButtonBot(mediaId, mediaType), SaveMediaButtonBot(mediaId, mediaType, contentType, ButtonContext, saveCount)]
     ]
 
     if (admin) {
