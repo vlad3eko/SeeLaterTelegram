@@ -7,6 +7,8 @@ import {searchMedia} from "~/utils/search/searchMedia";
 
 export const saveMedia = async (ctx: any) => {
 
+    console.log('[SAVE MEDIA CTX]', ctx)
+
     const isUserBot = await checkChannelSubscriber(ctx)
 
     if (isUserBot) {
