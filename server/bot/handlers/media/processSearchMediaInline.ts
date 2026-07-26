@@ -13,7 +13,7 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
                 title: (media.title || media.name),
 
                 description:
-                    `${CONTENT_TYPE_LABELS[media.content_type as ContentType]} | ${media.vote_average ? '💎' + FormatRating(media?.vote_average) + ' | ' : ''}${media.vote_count ? '🍿' + media.vote_count + ' | ' : ''}${FormatDate(media.release_date)}`,
+                    `${CONTENT_TYPE_LABELS[media.content_type as ContentType]} | ${media.vote_average ? '💎' + FormatRating(media?.vote_average) + ' | ' : ''}${media.vote_count ? '🍿' + media.vote_count + ' | ' : ''}${FormatDate(media.release_date)} | ${media.genres.name}`,
 
                 thumb_url:
                     media.poster_path
