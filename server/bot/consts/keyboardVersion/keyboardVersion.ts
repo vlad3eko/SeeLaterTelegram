@@ -1,1 +1,1 @@
-export const CURRENT_KEYBOARD_VERSION  = 1
+export const CURRENT_KEYBOARD_VERSION  = 2

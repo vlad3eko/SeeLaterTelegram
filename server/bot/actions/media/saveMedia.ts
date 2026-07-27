@@ -102,20 +102,26 @@ export const saveMedia = async (ctx: any) => {
     )
 
     if (publishedMedia) {
-        await ctx.editMessageReplyMarkup(
-            keyboardSendMediaCardInline(
-                mediaId,
-                mediaType,
-                publishedMedia.contentType,
-                media.genres,
-                false,
-                "channel",
-                saveCount
+        try {
+            await ctx.editMessageReplyMarkup(
+                keyboardSendMediaCardInline(
+                    mediaId,
+                    mediaType,
+                    publishedMedia.content_type,
+                    media.genres,
+                    false,
+                    'channel',
+                    saveCount
+                )
             )
-        )
+        } catch (error: any) {
+            const errorMessage =
+                error?.response?.description
+            if (errorMessage !== 'Bad Request: message is not modified') {
+                throw error
+            }
+        }
     }
-
-    console.log('[saveMedia]', publishedMedia.contentType)
 
     await commandClear(ctx)
 
