@@ -84,8 +84,6 @@ export const recommendationButtonBot = (
     mediaType?: 'movie' | 'tv'
 ) => {
 
-    console.log('[recommendationButtonBot]', contentType)
-
     if (ButtonContext === 'channel') {
 
         return Markup.button.url(

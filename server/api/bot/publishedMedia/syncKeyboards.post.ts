@@ -89,9 +89,6 @@ export default defineEventHandler(async (event) => {
                     saveCount
                 )
 
-            console.log('[SYNC API]', post.content_type)
-
-
             await bot.telegram.editMessageReplyMarkup(
                 post.telegram_chat_id,
                 post.telegram_message_id,

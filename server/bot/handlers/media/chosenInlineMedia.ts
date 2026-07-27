@@ -56,7 +56,6 @@ export const chosenInlineMedia = async (ctx: any) => {
                     )
             }
         )
-        console.log('[CHOSEN INLINE MEDIA]', contentType)
 
     } catch (e) {
 

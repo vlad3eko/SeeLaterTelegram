@@ -37,8 +37,6 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
             })
         )
 
-        console.log('[processSearchMediaInline]', results[0])
-
         await ctx.answerInlineQuery(
             results,
             {

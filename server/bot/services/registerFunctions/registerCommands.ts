@@ -52,8 +52,6 @@ export function registerCommands(bot: Telegraf) {
                     )
                     .join(' ')
 
-            console.log('[TARGET GENRES]', tagGet)
-
             const messageContinue =
                 await ctx.reply(
                     'Вы перешли в расширенный поиск, нажмите кнопку ниже чтобы продолжить с места где остановились',
