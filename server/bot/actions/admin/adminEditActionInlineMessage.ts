@@ -75,6 +75,8 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
             }
         )
 
+        console.log('[adminEditActionInlineMessage] media', session.contentType)
+
         session.currentMedia =
             newMedia
 
@@ -129,6 +131,7 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
                         )
                 }
             )
+            console.log('[adminEditActionInlineMessage] text', session.contentType)
 
             session.comment =
                 text

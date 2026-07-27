@@ -115,6 +115,8 @@ export const saveMedia = async (ctx: any) => {
         )
     }
 
+    console.log('[saveMedia]', publishedMedia.contentType)
+
     await commandClear(ctx)
 
 }

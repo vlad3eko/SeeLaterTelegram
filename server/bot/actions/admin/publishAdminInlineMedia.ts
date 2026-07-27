@@ -51,6 +51,8 @@ export const publishAdminInlineMedia = async (ctx: any) => {
             'channel'
         )
 
+    console.log('[publishAdminInlineMedia]', session.contentType)
+
 
     let publishedMessage
 
@@ -201,6 +203,8 @@ export const publishAdminInlineMedia = async (ctx: any) => {
                 )
         }
     )
+
+    console.log('[publishAdminInlineMedia] all', session.contentType)
 
 
     clearAdminEditSession(
