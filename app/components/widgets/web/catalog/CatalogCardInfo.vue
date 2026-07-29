@@ -44,6 +44,7 @@
 <script lang="ts" setup>
 
 import type {TmdbMovieDetails, TmdbMovieProps} from "~/types/tmdb.types";
+import {tmdbFetch} from "#server/utils/api/tmdbFetch";
 
 const props = defineProps<TmdbMovieProps>()
 
@@ -76,7 +77,7 @@ const loadInfo = async () => {
 
   try {
     const data =
-        await $fetch<TmdbMovieDetails>(
+        await tmdbFetch<TmdbMovieDetails>(
             '/api/tmdb/media',
             {
               query:{

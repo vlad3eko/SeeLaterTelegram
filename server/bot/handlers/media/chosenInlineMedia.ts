@@ -4,10 +4,12 @@ import {
 
 import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption"
 import {isAdmin} from "#server/bot/consts/admins"
+import {tmdbFetch} from "#server/utils/api/tmdbFetch";
 
 
 export const chosenInlineMedia = async (ctx: any) => {
 
+    console.log('chosen Inline')
     try {
         const result = ctx.update.chosen_inline_result
         const inlineMessageId = result?.inline_message_id
@@ -19,7 +21,7 @@ export const chosenInlineMedia = async (ctx: any) => {
         ] = result.result_id.split('_')
 
 
-        const media = await $fetch(
+        const media = await tmdbFetch(
             '/api/bot/getMediaBot',
             {
                 query: {
@@ -28,6 +30,8 @@ export const chosenInlineMedia = async (ctx: any) => {
                 }
             }
         )
+
+        console.log('media', media)
 
         const admin = isAdmin(result.from.id)
         await ctx.telegram.editMessageMedia(undefined, undefined, inlineMessageId,
@@ -39,7 +43,7 @@ export const chosenInlineMedia = async (ctx: any) => {
                         media.backdrop_path
                     }`,
                 caption:
-                    createMediaCaption(
+                        createMediaCaption(
                         media,
                         contentType
                     ),

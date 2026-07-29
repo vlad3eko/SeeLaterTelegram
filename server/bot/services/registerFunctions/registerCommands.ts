@@ -12,6 +12,7 @@ import {openInlineSearch} from "#server/bot/actions/admin/helpers/openInlineSear
 import {genresConvert} from "~/utils/convert/genresConvert";
 import type {ContentType} from "~/utils/search/strategy/enums";
 import {CONTENT_TYPE_LABELS} from "~/utils/convert/library/enumsLibrary";
+import {tmdbFetch} from "#server/utils/api/tmdbFetch";
 
 const authRequests = new Map()
 
@@ -94,7 +95,7 @@ export function registerCommands(bot: Telegraf) {
             const [, mediaType, mediaId, contentType] = payload.split('_')
 
             const media =
-                await $fetch(
+                await tmdbFetch(
                     '/api/bot/getMediaBot',
                     {
                         query: {

@@ -1,11 +1,12 @@
 import type {NormalizedSearchQuery} from "~/utils/search/typesSearch";
 import {buildTmdbParams} from "~/utils/media/buildTmdbParams";
+import {tmdbFetch} from "#server/utils/api/tmdbFetch";
 
 export const searchMulti = async (query: NormalizedSearchQuery, page: number) => {
 
     const media = query.filters.mediaTypes[0] ?? "multi"
 
-    return await $fetch(
+    return await tmdbFetch(
         "/api/tmdb/search",
         {
             query: {
@@ -21,7 +22,7 @@ export const discoverMovies = async (query: NormalizedSearchQuery, page: number)
 
     const media = query.filters.mediaTypes[0] ?? 'movie'
 
-    return await $fetch(
+    return await tmdbFetch(
         "/api/tmdb/discover",
         {
             query: {
@@ -36,7 +37,7 @@ export const getPopularMovies = async (query: NormalizedSearchQuery, page: numbe
 
     const media = query.filters.mediaTypes[0] ?? 'movie'
 
-    return await $fetch("/api/tmdb/popular", {
+    return await tmdbFetch("/api/tmdb/popular", {
         query: {
             media,
             page

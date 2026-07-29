@@ -6,6 +6,7 @@ import {genresConvert} from "~/utils/convert/genresConvert";
 
 export const processSearchMediaInline = async (ctx: any, medias: any) => {
 
+    console.log('search process')
     try {
         const results = medias.results.map(
             (media: any) => ({
@@ -14,7 +15,8 @@ export const processSearchMediaInline = async (ctx: any, medias: any) => {
                 title: (media.title || media.name),
 
                 description:
-                    `${CONTENT_TYPE_LABELS[media.content_type as ContentType]} | ${media.vote_average ? '💎' + FormatRating(media?.vote_average) + ' | ' : ''}${media.vote_count ? '🍿' + media.vote_count + ' | ' : ''}${FormatDate(media.release_date)} | ${genresConvert(media.genres)}`,
+                    `${CONTENT_TYPE_LABELS[media.content_type as ContentType]} | ${media.vote_average ? '💎' + FormatRating(media?.vote_average) + ' | ' : ''}${media.vote_count ? '🍿' + media.vote_count + ' | ' : ''}
+${FormatDate(media.release_date)} | ${genresConvert(media.genres)}`,
 
                 thumb_url:
                     media.poster_path

@@ -11,8 +11,9 @@ export type AdminEditSession = {
     contentType: ContentType
 
     comment?: string
+    overview?: string
 
-    mode?: 'media' | 'text'
+    mode?: 'media' | 'text' | 'overview'
 
     currentMedia: {
         type: 'photo' | 'video'

@@ -36,7 +36,24 @@ export const adminEditMessageInlineCard = () => {
     )
 }
 
+export const adminEditOverviewInlineCard = () => {
+    return Markup.button.callback(
+        '📝 Описание',
+        'admin_edit_overview'
+    )
+}
+
 //..ADMIN
+
+export const startButtonBot = (
+    text: string,
+    query: string = ''
+) => {
+    return Markup.button.switchToCurrentChat(
+        `${"🗂  " + text}`,
+        query
+    )
+}
 
 // Возвращаем чистый объект кнопки, без [ ]
 export const SearchButtonBot = (
@@ -47,13 +64,13 @@ export const SearchButtonBot = (
 
     if (ButtonContext === 'channel') {
         return Markup.button.url(
-            `${text ? "🔍" + text : 'Поиск'}`,
+            `${text ? "🔍 " + text : 'Поиск'}`,
             'https://t.me/kinomanovNet_bot?start=search'
         )
     }
 
     return Markup.button.switchToCurrentChat(
-        `${text ? "🔍" + text : 'Поиск'}`,
+        `${text ? "🔍 " + text : 'Поиск'}`,
         query
     )
 }

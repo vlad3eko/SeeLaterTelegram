@@ -1,4 +1,5 @@
 import {TmdbGenre} from "~/types/tmdb.types";
+import {tmdbFetch} from "#server/utils/api/tmdbFetch";
 
 let movieGenres = new Map<number, string>()
 let tvGenres = new Map<number, string>()
@@ -10,10 +11,10 @@ export async function loadGenres() {
     }
 
     const [movie, tv] = await Promise.all([
-        $fetch<{ genres: TmdbGenre[] }>('/api/tmdb/genres', {
+        tmdbFetch<{ genres: TmdbGenre[] }>('/api/tmdb/genres', {
             query: { media: 'movie' }
         }),
-        $fetch<{ genres: TmdbGenre[] }>('/api/tmdb/genres', {
+        tmdbFetch<{ genres: TmdbGenre[] }>('/api/tmdb/genres', {
             query: { media: 'tv' }
         })
     ])

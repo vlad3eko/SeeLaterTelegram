@@ -13,6 +13,7 @@ import {
 import {
     CURRENT_KEYBOARD_VERSION
 } from "#server/bot/consts/keyboardVersion/keyboardVersion";
+import {tmdbFetch} from "#server/utils/api/tmdbFetch";
 
 
 export default defineEventHandler(async (event) => {
@@ -52,7 +53,7 @@ export default defineEventHandler(async (event) => {
         try {
 
             const media =
-                await $fetch(
+                await tmdbFetch(
                     '/api/bot/getMediaBot',
                     {
                         query: {

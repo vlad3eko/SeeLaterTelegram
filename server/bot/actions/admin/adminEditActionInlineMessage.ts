@@ -3,35 +3,15 @@ import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
 import type {AdminEditSession} from "#server/bot/actions/admin/adminEditSession";
 
 export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditSession) => {
-    console.log(
-        'EDIT ACTION START',
-        {
-            mode: session.mode,
-            text: ctx.message?.text,
-            messageId: ctx.message?.message_id
-        }
-    )
     // =========================
     // НОВОЕ МЕДИА
     // =========================
 
     if (session.mode === 'media') {
+        const photo = ctx.message.photo?.at(-1)
+        const video = ctx.message.video
 
-        console.log(
-            'COMMENT BEFORE MEDIA CHANGE:',
-            session.comment
-        )
-
-        const photo =
-            ctx.message.photo?.at(-1)
-
-        const video =
-            ctx.message.video
-
-
-        if (!photo && !video)
-            return
-
+        if (!photo && !video) return
 
         const newMedia = photo
             ? {
@@ -48,7 +28,8 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
             createMediaCaption(
                 session.media,
                 session.contentType,
-                session.comment
+                session.comment,
+                session.overview
             )
 
         await ctx.telegram.editMessageMedia(
@@ -91,7 +72,7 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
 
 
     // =========================
-    // НОВЫЙ ТЕКСТ
+    // НОВЫЙ РЕЦЕНЗИЯ
     // =========================
 
     if (session.mode === 'text') {
@@ -106,7 +87,8 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
             createMediaCaption(
                 session.media,
                 session.contentType,
-                text
+                text,
+                session.overview
             )
 
         try {
@@ -132,6 +114,69 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
 
             session.comment =
                 text
+
+            session.currentCaption =
+                caption
+            console.log(
+                'RESET ADMIN MODE'
+            )
+            session.mode =
+                undefined
+
+        } catch (error) {
+
+            console.error(
+                'EDIT CAPTION ERROR:',
+                error
+            )
+        }
+
+        return
+    }
+
+    // =========================
+    // НОВОЕ ОПИСАНИЕ
+    // =========================
+
+    if (session.mode === 'overview') {
+
+        const overview =
+            ctx.message.text
+
+        if (!overview)
+            return
+
+        const caption =
+            createMediaCaption(
+                session.media,
+                session.contentType,
+                session.comment,
+                overview
+            )
+
+        try {
+
+            await ctx.telegram.editMessageCaption(
+                undefined,
+                undefined,
+                session.inlineMessageId,
+                caption,
+                {
+                    parse_mode: 'HTML',
+
+                    reply_markup:
+                        keyboardSendMediaCardInline(
+                            session.mediaId,
+                            session.mediaType,
+                            session.contentType,
+                            session.media.genres,
+                            true
+                        )
+                }
+            )
+
+            session.overview =
+                overview
 
             session.currentCaption =
                 caption
