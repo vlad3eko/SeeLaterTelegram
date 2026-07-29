@@ -21,6 +21,5 @@ if (isDevelopment) {
 
     bot.launch()
 
-
     console.log('[BOT START DEVELOPMENT]')
 }
