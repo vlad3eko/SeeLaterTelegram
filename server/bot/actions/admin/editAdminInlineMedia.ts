@@ -10,7 +10,6 @@ import {tmdbFetch} from "#server/utils/api/tmdbFetch";
 
 export const editAdminInlineMedia = async (ctx: any) => {
 
-    console.log('editAdminInlineMedia')
     const inlineMessageId =
         ctx.callbackQuery.inline_message_id
 

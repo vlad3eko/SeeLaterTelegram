@@ -9,7 +9,6 @@ import {tmdbFetch} from "#server/utils/api/tmdbFetch";
 
 export const chosenInlineMedia = async (ctx: any) => {
 
-    console.log('chosen Inline')
     try {
         const result = ctx.update.chosen_inline_result
         const inlineMessageId = result?.inline_message_id
@@ -30,8 +29,6 @@ export const chosenInlineMedia = async (ctx: any) => {
                 }
             }
         )
-
-        console.log('media', media)
 
         const admin = isAdmin(result.from.id)
         await ctx.telegram.editMessageMedia(undefined, undefined, inlineMessageId,
