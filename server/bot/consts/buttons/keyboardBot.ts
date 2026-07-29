@@ -1,10 +1,11 @@
 import {Markup} from "telegraf";
 import {
-    adminEditInlineCard, adminEditMediaInlineCard, adminEditMessageInlineCard, adminPublishInlineCard,
+    adminEditInlineCard, adminEditMediaInlineCard, adminEditMessageInlineCard,
+    adminEditOverviewInlineCard, adminPublishInlineCard,
     checkBookmarksMedias,
     deleteMediaButtonBot, recommendationButtonBot,
     SaveMediaButtonBot,
-    SearchButtonBot
+    SearchButtonBot, startButtonBot
 } from "#server/bot/consts/buttons/buttonsBot";
 import type {TmdbGenre} from "~/types/tmdb.types";
 import type {ContentType} from "~/utils/search/strategy/enums";
@@ -17,12 +18,24 @@ export type TypeButtonContext =
 export const editMediaChoiceKeyboard = () => {
 
     return Markup.inlineKeyboard([
-        [adminEditMediaInlineCard(), adminEditMessageInlineCard()]
+        [adminEditMediaInlineCard()],
+        [adminEditMessageInlineCard()],
+        [adminEditOverviewInlineCard()]
     ]).reply_markup
 }
 
 //..Admin
 
+
+export const keyboardStartBot = (text?: string, query?: string) => {
+    return Markup.inlineKeyboard([
+        [startButtonBot('Фильмы 2026','#фильмы 2026')],
+        [startButtonBot('Сериалы 2026','#сериалы 2026')],
+        [startButtonBot('Мульфильмы','#мультфильм #приключения')],
+        [checkBookmarksMedias('inline')],
+        [SearchButtonBot('Искать другое', 'inline', query)]
+    ]).reply_markup
+}
 
 export const keyboardSearchBot = (text?: string, query?: string) => {
     return Markup.inlineKeyboard([
@@ -46,6 +59,7 @@ export const keyboardSendMediaCardInline = (
         [deleteMediaButtonBot(mediaId, mediaType), SaveMediaButtonBot(mediaId, mediaType, ButtonContext, saveCount)]
     ]
 
+    console.log('admin bool keyboard', admin)
     if (admin) {
         keyboard.push([adminEditInlineCard(mediaId, mediaType, contentType), adminPublishInlineCard(mediaId, mediaType)])
     }

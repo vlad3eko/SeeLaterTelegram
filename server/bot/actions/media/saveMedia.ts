@@ -2,6 +2,7 @@ import {commandClear} from "#server/bot/commands/commandClear";
 import {removeMessageSession} from "#server/bot/services/session/removeMessageSession";
 import {checkChannelSubscriber} from "#server/bot/handlers/auth/check/checkChannelSubscriber";
 import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBot";
+import {tmdbFetch} from "#server/utils/api/tmdbFetch";
 
 export const saveMedia = async (ctx: any) => {
 
@@ -23,7 +24,7 @@ export const saveMedia = async (ctx: any) => {
 
     const mediaType = ctx.match[2]
 
-    const media = await $fetch(
+    const media = await tmdbFetch(
         '/api/bot/getMediaBot',
         {
                 query: {

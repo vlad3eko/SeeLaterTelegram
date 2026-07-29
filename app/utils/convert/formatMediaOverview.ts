@@ -1,10 +1,14 @@
 export const formatMediaOverview = (
     overview?: string,
-    maxLength = 350
+    maxLength = 350,
+    addOverview?: string
 ) => {
 
     if (!overview)
         return 'Описание отсутствует'
+
+    if (addOverview)
+        return addOverview
 
 
     if (overview.length <= maxLength)

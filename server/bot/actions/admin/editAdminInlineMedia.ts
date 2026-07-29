@@ -5,10 +5,12 @@ import {
 
 import {editMediaChoiceKeyboard} from "#server/bot/consts/buttons/keyboardBot"
 import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption"
+import {tmdbFetch} from "#server/utils/api/tmdbFetch";
 
 
 export const editAdminInlineMedia = async (ctx: any) => {
 
+    console.log('editAdminInlineMedia')
     const inlineMessageId =
         ctx.callbackQuery.inline_message_id
 
@@ -41,7 +43,7 @@ export const editAdminInlineMedia = async (ctx: any) => {
     else {
 
         const media =
-            await $fetch(
+            await tmdbFetch(
                 '/api/bot/getMediaBot',
                 {
                     query: {

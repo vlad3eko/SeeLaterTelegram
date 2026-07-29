@@ -5,19 +5,22 @@ import {CONTENT_TYPE_LABELS} from "~/utils/convert/library/enumsLibrary";
 import type {ContentType} from "~/utils/search/strategy/enums";
 import {formatMediaOverview} from "~/utils/convert/formatMediaOverview";
 
-export const createMediaCaption = (media: any, contentType: string, comment?: string) => {
+export const createMediaCaption = (media: any, contentType: string, addComment?: string, addOverview?: string) => {
 
     const genresContent = genresConvert(media.genres)
     const mediaOverview =
-        formatMediaOverview(media.overview)
+        formatMediaOverview(media.overview, 350, addOverview)
+    const formatDate =
+        `(${FormatDate(media.release_date || media.first_air_date) || '-'})`
 
-    const mediaTitle = `<code>${media.title || media.name} (${FormatDate(media.release_date || media.first_air_date) || '-'})</code>`
-    comment = `${comment ? `\n<i>${comment}</i>\n` : ''}`
-    const population = `${media.vote_average ? '💎' + FormatRating(media?.vote_average): ''}`
+    const mediaTitle = `<code>${media.title || media.name} ${formatDate}</code>`
+    const mediaOriginalTitle = `<i>${media.original_title ? `\n • original: <code>${media.original_title} ${formatDate}</code>` : ''}</i>`
+    addComment = `${addComment ? `\n<i>${addComment}</i>\n` : ''}`
+    const grade = `${media.vote_average ? FormatRating(media?.vote_average) + '💎' : ''}`
     const botLink = `🤖 <a href="https://t.me/kinomanovNet_bot">Киноманов BOT | Ищи и Сохраняй</a>`
     const channelLink = `📢 <a href="https://t.me/kinomanovnet">Киноманов NET | Фильмы и сериалы</a>`
 
-    return `${mediaTitle} ${population}\n${comment}
+    return `${grade} ${mediaTitle} ${mediaOriginalTitle}\n${addComment}
 <blockquote expandable>${mediaOverview}</blockquote>\n
 <b>Жанр: </b><i>${genresContent || 'нет жанров'}</i>
 <b>Тип: </b><i>#${CONTENT_TYPE_LABELS[contentType as ContentType]}</i>

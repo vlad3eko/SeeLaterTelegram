@@ -7,6 +7,7 @@ import {sortByRating} from "~/utils/media/sortByRating";
 import {filterTheMovie} from "~/utils/media/filterTheMovie";
 import {getSectionMovieByRole} from "~/utils/media/getSectionMovieByJob";
 import {photoPersonSection} from "~/utils/person/photo/photoPersonSection";
+import {tmdbFetch} from "#server/utils/api/tmdbFetch";
 
 export const useTmdbPerson = () => {
     const route = useRoute()
@@ -16,7 +17,7 @@ export const useTmdbPerson = () => {
     })
 
     const {data, pending, refresh} = useAsyncData<TmdbPerson>(`person-${personID.value}`,
-        () => $fetch('/api/tmdb/person', {
+        () => tmdbFetch('/api/tmdb/person', {
             query: {
                 id: personID.value
             }

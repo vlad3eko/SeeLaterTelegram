@@ -2,6 +2,7 @@ import type {TmdbMovieDetails, TmdbTrailer} from "~/types/tmdb.types";
 import type {TmdbPersonMovieCrew} from "~/types/tmdb.person.types";
 import {useMovieStore} from "~/stores/movies.store";
 import {mapRoleByMovie} from "~/utils/person/role/mapRoleByMovie";
+import {tmdbFetch} from "#server/utils/api/tmdbFetch";
 
 export const useMovieDetails = () => {
 
@@ -16,7 +17,7 @@ export const useMovieDetails = () => {
     })
 
     const {data, pending} = useAsyncData<TmdbMovieDetails>(`${media}-${idMedia.value}`,
-        () => $fetch('/api/tmdb/media', {
+        () => tmdbFetch('/api/tmdb/media', {
             query: {
                 id: idMedia.value,
                 media
@@ -24,7 +25,7 @@ export const useMovieDetails = () => {
         }))
 
     const {data: credits, pending: creditsPending} = useAsyncData<TmdbMovieDetails>(`${media}-credits-${idMedia.value}`,
-        () => $fetch('/api/tmdb/credits', {
+        () => tmdbFetch('/api/tmdb/credits', {
             query: {
                 id: idMedia.value,
                 media
