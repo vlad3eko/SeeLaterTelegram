@@ -6,7 +6,6 @@ import {genresConvert} from "~/utils/convert/genresConvert";
 
 export const processSearchMediaInline = async (ctx: any, medias: any) => {
 
-    console.log('search process')
     try {
         const results = medias.results.map(
             (media: any) => ({
@@ -46,7 +45,7 @@ ${FormatDate(media.release_date)} | ${genresConvert(media.genres)}`,
                     text: '🔍 Расширенный поиск',
                     start_parameter: 'inline_settings'
                 },
-                cache_time: 3,
+                // cache_time: 0,
                 // is_personal: false,
                 next_offset:
                     medias.page < medias.total_pages
