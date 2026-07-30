@@ -30,6 +30,7 @@ export const chosenInlineMedia = async (ctx: any) => {
             }
         )
 
+
         const admin = isAdmin(result.from.id)
         await ctx.telegram.editMessageMedia(undefined, undefined, inlineMessageId,
             {
