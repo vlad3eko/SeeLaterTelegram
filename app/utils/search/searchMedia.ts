@@ -13,6 +13,7 @@ import {filterContentType} from "~/utils/search/filterContentType";
 export const searchMedia = async (query: string, page: number = 1, userId: number) => {
 
     await loadGenres()
+    console.log('query', query)
 
     const parsed = parseSearchQuery(query, userId)
     await saveLastSearchQuery(parsed.filters.genres, parsed.filters?.mediaTypes[0], userId, parsed.filters.contentType)

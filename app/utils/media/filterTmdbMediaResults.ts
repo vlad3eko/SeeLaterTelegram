@@ -5,7 +5,9 @@ export const filterTmdbMediaResults = (
     userId: number,
 ) => {
 
-    // только фильмы и сериалы
+    const releaseDate = Date.parse(media.release_date)
+    const dateNow = Date.now()
+
     if (
         media.media_type !== "movie" &&
         media.media_type !== "tv"
@@ -13,11 +15,18 @@ export const filterTmdbMediaResults = (
         return false
     }
 
-    // должно быть описание
-    if (!userId) {
-        return !(!media.overview ||
-            media.overview.trim().length < 20);
+    if (!userId) return false
+
+//[DEV-search]
+    if (releaseDate < dateNow) {
+        if (!media.poster_path.length) {
+            return false
+        } else if (!media.overview ||
+            media.overview.trim().length < 20) {
+            return false
+        }
     }
 
     return true
 }
+

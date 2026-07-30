@@ -59,7 +59,6 @@ export const keyboardSendMediaCardInline = (
         [deleteMediaButtonBot(mediaId, mediaType), SaveMediaButtonBot(mediaId, mediaType, ButtonContext, saveCount)]
     ]
 
-    console.log('admin bool keyboard', admin)
     if (admin) {
         keyboard.push([adminEditInlineCard(mediaId, mediaType, contentType), adminPublishInlineCard(mediaId, mediaType)])
     }
