@@ -1,12 +1,13 @@
-import type {SearchQuery} from "~/utils/search/typesSearch";
-
 export const filterTmdbMediaResults = (
     media: any,
     userId: number,
+    options?: {
+        isBookmarks?: boolean
+    }
 ) => {
 
-    const releaseDate = Date.parse(media.release_date)
-    const dateNow = Date.now()
+    const isBookmarks =
+        options?.isBookmarks ?? false
 
     if (
         media.media_type !== "movie" &&
@@ -15,18 +16,37 @@ export const filterTmdbMediaResults = (
         return false
     }
 
-    if (!userId) return false
+    if (!userId) {
+        return false
+    }
 
-//[DEV-search]
-    if (releaseDate < dateNow) {
-        if (!media.poster_path.length) {
+    const releaseDate = Date.parse(media.release_date)
+
+    const isReleased =
+        !Number.isNaN(releaseDate) &&
+        releaseDate <= Date.now()
+
+    if (isReleased) {
+
+        const hasPoster =
+            Boolean(media.poster_path)
+
+        if (!hasPoster) {
             return false
-        } else if (!media.overview ||
-            media.overview.trim().length < 20) {
-            return false
+        }
+
+        if (!isBookmarks) {
+
+            const hasOverview =
+                media.overview &&
+                media.overview.trim().length >= 20
+
+
+            if (!hasOverview) {
+                return false
+            }
         }
     }
 
     return true
 }
-

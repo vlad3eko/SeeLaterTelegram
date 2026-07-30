@@ -9,6 +9,7 @@ import {sortMediaResults} from "~/utils/media/sortMediaResults";
 import {loadGenres} from "#server/bot/consts/media/genresConvert";
 import {saveLastSearchQuery} from "~/utils/search/repository/tmdbRepository";
 import {filterContentType} from "~/utils/search/filterContentType";
+import {SearchStrategy} from "~/utils/search/strategy/enums";
 
 export const searchMedia = async (query: string, page: number = 1, userId: number) => {
 
@@ -26,7 +27,7 @@ export const searchMedia = async (query: string, page: number = 1, userId: numbe
 
     result.results = result.results
         .map(normalizeTmdbMedia)
-        .filter((media: any) => filterTmdbMediaResults(media, userId))
+        .filter((media: any) => filterTmdbMediaResults(media, userId, {isBookmarks: strategy === SearchStrategy.BOOKMARKS}))
         .map(normalizeMediaGenres)
         .filter((media: any) => filterContentType(media, normalized.filters.contentType))
     if (page === 1 && !(parsed.filters.genres[0]?.startsWith('collection'))) {
