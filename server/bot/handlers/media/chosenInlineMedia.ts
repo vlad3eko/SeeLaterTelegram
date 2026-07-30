@@ -30,6 +30,17 @@ export const chosenInlineMedia = async (ctx: any) => {
             }
         )
 
+        // const trailers = await tmdbFetch(
+        //     '/api/tmdb/trailers',
+        //     {
+        //         query: {
+        //             media: mediaType,
+        //             id: mediaId
+        //         }
+        //     }
+        // )
+        //
+        // console.log('trailers', trailers)
 
         const admin = isAdmin(result.from.id)
         await ctx.telegram.editMessageMedia(undefined, undefined, inlineMessageId,
