@@ -41,6 +41,7 @@ export const filterTmdbMediaResults = (
                 media.overview &&
                 media.overview.trim().length >= 20
 
+
             if (!hasOverview) {
                 return false
             }
