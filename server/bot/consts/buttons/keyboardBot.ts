@@ -61,7 +61,7 @@ export const keyboardSendMediaCardInline = (
     ]
 
     if (admin) {
-        keyboard.push([adminEditInlineCard(mediaId, mediaType, contentType, keyTrailer), adminPublishInlineCard(mediaId, mediaType)])
+        keyboard.push([adminEditInlineCard(mediaId, mediaType, contentType, keyTrailer), adminPublishInlineCard(mediaId, mediaType, contentType, keyTrailer)])
     }
 
     return Markup.inlineKeyboard(keyboard).reply_markup

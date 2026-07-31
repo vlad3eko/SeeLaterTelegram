@@ -13,10 +13,10 @@ export const adminEditInlineCard = (mediaId: number, mediaType: string, contentT
     )
 }
 
-export const adminPublishInlineCard = (mediaId: number, mediaType: string) => {
+export const adminPublishInlineCard = (mediaId: number, mediaType: string, contentType: string, keyTrailer: string | undefined) => {
     return Markup.button.callback(
         "🚀 ОПУБЛИКОВАТЬ",
-        `publish_media_${mediaId}_${mediaType}`
+        `publish_media_${mediaId}_${mediaType}_${contentType}_${keyTrailer}`
     )
 }
 

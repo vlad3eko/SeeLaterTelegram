@@ -9,7 +9,7 @@ import {adminEditOverview} from "#server/bot/actions/admin/adminEditOverview";
 
 export const registerAdminActions = (bot: Telegraf) => {
     bot.action(/^edit_media_(\d+)_(movie|tv)_([^_]+)(?:_(.+))?$/, editAdminInlineMedia)
-    bot.action(/^publish_media_(\d+)_(movie|tv)$/, publishAdminInlineMedia)
+    bot.action(/^publish_media_(\d+)_(movie|tv)_([^_]+)(?:_(.+))?$/, publishAdminInlineMedia)
     bot.action(/^admin_edit_media$/, adminEditMedia)
     bot.action(/^admin_edit_text$/, adminEditText)
     bot.action(/^admin_edit_overview$/, adminEditOverview)

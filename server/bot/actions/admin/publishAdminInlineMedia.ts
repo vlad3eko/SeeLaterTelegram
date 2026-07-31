@@ -1,45 +1,67 @@
-import {
-    clearAdminEditSession,
-    getAdminEditSession
-} from "#server/bot/actions/admin/adminEditSession";
-
-import {
-    keyboardSendMediaCardInline
-} from "#server/bot/consts/buttons/keyboardBot";
-
-import {
-    CURRENT_KEYBOARD_VERSION
-} from "#server/bot/consts/keyboardVersion/keyboardVersion";
-
+import {clearAdminEditSession, getAdminEditSession} from "#server/bot/actions/admin/adminEditSession"
+import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBot"
+import {CURRENT_KEYBOARD_VERSION} from "#server/bot/consts/keyboardVersion/keyboardVersion"
+import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption"
+import {tmdbFetch} from "#server/utils/api/tmdbFetch"
 
 export const publishAdminInlineMedia = async (ctx: any) => {
 
-    const session =
-        getAdminEditSession(
-            ctx.from.id
+    const [
+        ,
+        mediaId,
+        mediaType,
+        contentType,
+        keyTrailer
+    ] = ctx.match
+
+    const media =
+        await tmdbFetch(
+            '/api/bot/getMediaBot',
+            {
+                query: {
+                    id: mediaId,
+                    media: mediaType
+                }
+            }
         )
 
-
-    if (!session) {
-
-        await ctx.answerCbQuery(
-            'Сессия редактирования не найдена'
-        )
-
-        return
-    }
-
+    let session =
+        getAdminEditSession(ctx.from.id) ??
+        {
+            inlineMessageId:
+            ctx.callbackQuery.inline_message_id,
+            mediaId:
+                Number(mediaId),
+            mediaType,
+            media,
+            contentType,
+            keyTrailer,
+            currentMedia: {
+                type: 'photo',
+                fileId:
+                    `https://image.tmdb.org/t/p/w500${
+                        media.poster_path ||
+                        media.backdrop_path
+                    }`
+            },
+            currentCaption:
+                createMediaCaption(
+                    media,
+                    contentType,
+                    undefined,
+                    undefined,
+                    keyTrailer
+                )
+        }
 
     const channelId =
         '@kinomanovnet'
-
 
     const {
         type,
         fileId
     } =
         session.currentMedia
-
 
     const channelReplyMarkup =
         keyboardSendMediaCardInline(
@@ -52,7 +74,6 @@ export const publishAdminInlineMedia = async (ctx: any) => {
         )
 
     let publishedMessage
-
 
     if (type === 'photo') {
 
@@ -73,7 +94,6 @@ export const publishAdminInlineMedia = async (ctx: any) => {
             )
     }
 
-
     if (type === 'video') {
 
         publishedMessage =
@@ -93,7 +113,6 @@ export const publishAdminInlineMedia = async (ctx: any) => {
             )
     }
 
-
     if (!publishedMessage) {
 
         await ctx.answerCbQuery(
@@ -102,12 +121,6 @@ export const publishAdminInlineMedia = async (ctx: any) => {
 
         return
     }
-
-
-    /*
-     * 1. Сохраняем новую публикацию
-     *    с текущей версией клавиатуры
-     */
 
     try {
 
@@ -139,7 +152,6 @@ export const publishAdminInlineMedia = async (ctx: any) => {
             }
         )
 
-
     } catch (error) {
 
         console.error(
@@ -154,12 +166,6 @@ export const publishAdminInlineMedia = async (ctx: any) => {
         return
     }
 
-
-    /*
-     * 2. Проверяем старые публикации
-     *    и при необходимости обновляем клавиатуры
-     */
-
     try {
 
         await $fetch(
@@ -169,7 +175,6 @@ export const publishAdminInlineMedia = async (ctx: any) => {
             }
         )
 
-
     } catch (error) {
 
         console.error(
@@ -178,33 +183,29 @@ export const publishAdminInlineMedia = async (ctx: any) => {
         )
     }
 
+    if (session.inlineMessageId) {
 
-    /*
-     * 3. Возвращаем inline-карточке
-     *    обычную inline-клавиатуру
-     */
-
-    await ctx.telegram.editMessageReplyMarkup(
-        undefined,
-        undefined,
-        session.inlineMessageId,
-        {
-            reply_markup:
-                keyboardSendMediaCardInline(
-                    session.mediaId,
-                    session.mediaType,
-                    session.contentType,
-                    session.media.genres,
-                    false,
-                    'inline'
-                )
-        }
-    )
+        await ctx.telegram.editMessageReplyMarkup(
+            undefined,
+            undefined,
+            session.inlineMessageId,
+            {
+                reply_markup:
+                    keyboardSendMediaCardInline(
+                        session.mediaId,
+                        session.mediaType,
+                        session.contentType,
+                        session.media.genres,
+                        false,
+                        'inline'
+                    )
+            }
+        )
+    }
 
     clearAdminEditSession(
         ctx.from.id
     )
-
 
     await ctx.answerCbQuery(
         'Опубликовано'
