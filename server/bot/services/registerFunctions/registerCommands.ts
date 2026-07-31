@@ -13,6 +13,7 @@ import {genresConvert} from "~/utils/convert/genresConvert";
 import type {ContentType} from "~/utils/search/strategy/enums";
 import {CONTENT_TYPE_LABELS} from "~/utils/convert/library/enumsLibrary";
 import {tmdbFetch} from "#server/utils/api/tmdbFetch";
+import {mainKeyboard} from "#server/bot/consts/buttons/replyKeyboard";
 
 const authRequests = new Map()
 
@@ -25,6 +26,17 @@ export function registerCommands(bot: Telegraf) {
 
         const payload =
             ctx.startPayload
+
+        const menu = await ctx.reply('Открыто главное меню', mainKeyboard)
+        await addMessageSession(
+            ctx.from.id,
+            SessionMessageType.SearchInline,
+            {
+                messageId:
+                menu.message_id
+            }
+        )
+
 
         if (text.includes('inline_settings') || payload === 'inline_settings') {
 
@@ -61,7 +73,7 @@ export function registerCommands(bot: Telegraf) {
                             keyboardSearchBot(
                                 'Продолжить искать',
                                 tagGet
-                            )
+                            ),
                     }
                 )
 
@@ -78,14 +90,12 @@ export function registerCommands(bot: Telegraf) {
         }
 
         if (payload === 'search') {
-
             await openInlineSearch(ctx, '')
             return
         }
 
 
         if (payload === 'collection') {
-
             await openInlineSearch(ctx, '#collection')
             return
         }

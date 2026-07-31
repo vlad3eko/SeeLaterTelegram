@@ -2,6 +2,7 @@ import {registerActions} from "#server/bot/services/registerFunctions/registerAc
 import {registerCommands} from "#server/bot/services/registerFunctions/registerCommands";
 import {registerHandlers} from "#server/bot/services/registerFunctions/registerHandlers";
 import {Telegraf} from "telegraf";
+import {mainKeyboard} from "#server/bot/consts/buttons/replyKeyboard";
 
 const isDevelopment =
     process.env.NODE_ENV === 'development'

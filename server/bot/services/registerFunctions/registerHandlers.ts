@@ -5,8 +5,12 @@ import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
 import {keyboardSearchBot} from "#server/bot/consts/buttons/keyboardBot";
 import {chosenInlineMedia} from "#server/bot/handlers/media/chosenInlineMedia";
 import {getAdminEditSession} from "#server/bot/actions/admin/adminEditSession";
+import {registerHears} from "#server/bot/handlers/registerHears";
 
 export function registerHandlers(bot: Telegraf) {
+
+    registerHears(bot)
+
     bot.on("text", async (ctx) => {
 
         const session =
@@ -34,4 +38,5 @@ export function registerHandlers(bot: Telegraf) {
 
     bot.on('inline_query', searchMediaInline)
     bot.on('chosen_inline_result', chosenInlineMedia)
+
 }
