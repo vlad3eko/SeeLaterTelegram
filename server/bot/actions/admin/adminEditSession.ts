@@ -13,7 +13,7 @@ export type AdminEditSession = {
     comment?: string
     overview?: string
 
-    mode?: 'media' | 'text' | 'overview'
+    mode?: 'media' | 'text' | 'overview' | 'publish'
 
     currentMedia: {
         type: 'photo' | 'video'
