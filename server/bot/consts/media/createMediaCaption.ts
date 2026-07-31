@@ -5,13 +5,17 @@ import {CONTENT_TYPE_LABELS} from "~/utils/convert/library/enumsLibrary";
 import type {ContentType} from "~/utils/search/strategy/enums";
 import {formatMediaOverview} from "~/utils/convert/formatMediaOverview";
 
-export const createMediaCaption = (media: any, contentType: string, addComment?: string, addOverview?: string) => {
+export const createMediaCaption = (media: any, contentType: string, addComment: string | undefined, addOverview: string | undefined, keyTrailer?: string | undefined) => {
 
     const genresContent = genresConvert(media.genres)
     const mediaOverview =
         formatMediaOverview(media.overview, 350, addOverview)
     const formatDate =
         `(${FormatDate(media.release_date || media.first_air_date) || '-'})`
+
+    const trailerMessage = `${keyTrailer
+        ? `✅ <a href="https://www.youtube.com/watch?v=${keyTrailer}">смотреть</a>`
+        : '❌ Трейлера пока нет'}`
 
     const mediaTitle = `<code>${media.title || media.name} ${formatDate}</code>`
     const mediaOriginalTitle = `<i>${media.original_title ? `\n • original: <code>${media.original_title} ${formatDate}</code>` : ''}</i>`
@@ -24,10 +28,10 @@ export const createMediaCaption = (media: any, contentType: string, addComment?:
 <blockquote expandable>${mediaOverview}</blockquote>\n
 <b>Жанр: </b><i>${genresContent || 'нет жанров'}</i>
 <b>Тип: </b><i>#${CONTENT_TYPE_LABELS[contentType as ContentType]}</i>
-<b>Дата выхода: </b><i>${mediaReleaseConvert(media)}</i>\n
+<b>Дата выхода: </b><i>${mediaReleaseConvert(media)}</i>
+<b>Трейлер: </b><i>${trailerMessage}</i>\n
 <b><i>${botLink}</i></b>
 <b><i>${channelLink}</i></b>`
 }
-
 
 

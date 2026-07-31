@@ -19,7 +19,7 @@ registerHandlers(bot)
 
 if (isDevelopment) {
 
-    bot.launch()
+    bot.launch().catch(console.error)
 
     console.log('[BOT START DEVELOPMENT]')
 }

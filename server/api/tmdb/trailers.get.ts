@@ -33,7 +33,6 @@ export default defineEventHandler(async (event) => {
         ? trailerEng.results
         : []
 
-
     return {
         trailers: [
             ...ruResults,
