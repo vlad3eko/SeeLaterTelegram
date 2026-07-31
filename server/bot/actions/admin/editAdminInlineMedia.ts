@@ -1,6 +1,6 @@
 import {
     getAdminEditSession,
-    setAdminEditSession
+        setAdminEditSession
 } from "#server/bot/actions/admin/adminEditSession"
 
 import {editMediaChoiceKeyboard} from "#server/bot/consts/buttons/keyboardBot"
@@ -22,7 +22,8 @@ export const editAdminInlineMedia = async (ctx: any) => {
         ,
         mediaId,
         mediaType,
-        contentType
+        contentType,
+        keyTrailer
     ] =
         ctx.match
 
@@ -61,6 +62,7 @@ export const editAdminInlineMedia = async (ctx: any) => {
                 mediaType,
                 media,
                 contentType,
+                keyTrailer,
                 comment:
                 undefined,
                 mode:
@@ -77,7 +79,7 @@ export const editAdminInlineMedia = async (ctx: any) => {
                 },
 
                 currentCaption:
-                    createMediaCaption(media, contentType)
+                    createMediaCaption(media, contentType, undefined, undefined, keyTrailer)
             }
         )
     }

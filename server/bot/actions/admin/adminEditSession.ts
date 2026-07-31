@@ -9,7 +9,7 @@ export type AdminEditSession = {
     media: any
 
     contentType: ContentType
-
+    keyTrailer: string | undefined
     comment?: string
     overview?: string
 

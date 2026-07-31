@@ -29,7 +29,8 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
                 session.media,
                 session.contentType,
                 session.comment,
-                session.overview
+                session.overview,
+                session.keyTrailer
             )
 
         await ctx.telegram.editMessageMedia(
@@ -88,7 +89,8 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
                 session.media,
                 session.contentType,
                 text,
-                session.overview
+                session.overview,
+                session.keyTrailer
             )
 
         try {
@@ -151,7 +153,8 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
                 session.media,
                 session.contentType,
                 session.comment,
-                overview
+                overview,
+                session.keyTrailer
             )
 
         try {

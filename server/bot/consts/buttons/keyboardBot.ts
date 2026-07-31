@@ -50,7 +50,8 @@ export const keyboardSendMediaCardInline = (
     genres?: TmdbGenre[] | undefined,
     admin: boolean = false,
     ButtonContext: TypeButtonContext = 'inline',
-    saveCount = 0
+    saveCount = 0,
+    keyTrailer?: string | undefined
 ) => {
 
     const keyboard = [
@@ -60,7 +61,7 @@ export const keyboardSendMediaCardInline = (
     ]
 
     if (admin) {
-        keyboard.push([adminEditInlineCard(mediaId, mediaType, contentType), adminPublishInlineCard(mediaId, mediaType)])
+        keyboard.push([adminEditInlineCard(mediaId, mediaType, contentType, keyTrailer), adminPublishInlineCard(mediaId, mediaType)])
     }
 
     return Markup.inlineKeyboard(keyboard).reply_markup
