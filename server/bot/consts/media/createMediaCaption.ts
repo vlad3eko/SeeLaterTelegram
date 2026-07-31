@@ -29,7 +29,7 @@ export const createMediaCaption = (media: any, contentType: string, addComment: 
 <b>Жанр: </b><i>${genresContent || 'нет жанров'}</i>
 <b>Тип: </b><i>#${CONTENT_TYPE_LABELS[contentType as ContentType]}</i>
 <b>Дата выхода: </b><i>${mediaReleaseConvert(media)}</i>
-<b>Трейлер: </b><i>${trailerMessage}</i>\n
+<b>🔥 Трейлер: </b><i>${trailerMessage}</i>\n
 <b><i>${botLink}</i></b>
 <b><i>${channelLink}</i></b>`
 }
