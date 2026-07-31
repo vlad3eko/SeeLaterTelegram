@@ -10,7 +10,7 @@ export const menuBot = async (ctx: any) => {
         `Привет ${ctx.from.first_name || ctx.from.username}
 
 🔍 Для поиска используй кнопки ниже или напиши название кино в чат\n
-Связь: https://t.me/kinomanovnet?direct start`,
+Связь: https://t.me/kinomanovnet?direct`,
         {
             reply_markup: keyboardStartBot(),
             link_preview_options: {

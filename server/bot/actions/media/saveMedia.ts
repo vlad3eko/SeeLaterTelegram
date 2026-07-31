@@ -28,10 +28,8 @@ export const saveMedia = async (ctx: any) => {
         '/api/bot/getMediaBot',
         {
                 query: {
-
                     id:
                     mediaId,
-
                     media:
                     mediaType
                 }

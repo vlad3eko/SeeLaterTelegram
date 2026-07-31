@@ -13,6 +13,7 @@ import {genresConvert} from "~/utils/convert/genresConvert";
 import type {ContentType} from "~/utils/search/strategy/enums";
 import {CONTENT_TYPE_LABELS} from "~/utils/convert/library/enumsLibrary";
 import {tmdbFetch} from "#server/utils/api/tmdbFetch";
+import {mainKeyboard} from "#server/bot/consts/buttons/replyKeyboard";
 
 const authRequests = new Map()
 
@@ -78,14 +79,12 @@ export function registerCommands(bot: Telegraf) {
         }
 
         if (payload === 'search') {
-
             await openInlineSearch(ctx, '')
             return
         }
 
 
         if (payload === 'collection') {
-
             await openInlineSearch(ctx, '#collection')
             return
         }
