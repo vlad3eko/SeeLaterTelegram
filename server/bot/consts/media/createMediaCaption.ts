@@ -24,7 +24,6 @@ export const createMediaCaption = (media: any, contentType: string, addComment: 
     const botLink = `🤖 <a href="https://t.me/kinomanovNet_bot">Киноманов BOT | Ищи и Сохраняй</a>`
     const channelLink = `📢 <a href="https://t.me/kinomanovnet">Киноманов NET | Фильмы и сериалы</a>`
 
-
     return `${grade} ${mediaTitle} ${mediaOriginalTitle}\n${addComment}
 <blockquote expandable>${mediaOverview}</blockquote>\n
 <b>Жанр: </b><i>${genresContent || 'нет жанров'}</i>
