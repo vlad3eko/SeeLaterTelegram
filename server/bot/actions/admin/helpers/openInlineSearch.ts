@@ -16,7 +16,7 @@ export const openInlineSearch = async (
                     keyboardSearchBot(
                         'Продолжить искать',
                         query
-                    )
+                    ),
             }
         )
 

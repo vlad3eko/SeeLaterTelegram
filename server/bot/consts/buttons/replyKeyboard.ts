@@ -10,13 +10,8 @@ export const mainKeyboard = Markup.keyboard([
     [
         replyKey.MENU,
         // replyKey.RANDOM
+        replyKey.COLLECTION
     ],
-    [
-        Markup.button.switchToCurrentChat(
-            replyKey.COLLECTION,
-            "#collection"
-        )
-    ]
 ])
     .resize()
     .persistent()
