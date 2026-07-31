@@ -4,12 +4,13 @@ import {keyboardSearchBot} from "#server/bot/consts/buttons/keyboardBot";
 
 export const openInlineSearch = async (
     ctx: any,
-    query: string
+    query: string,
+    text?: string
 ) => {
 
     const messageContinue =
         await ctx.reply(
-            'Выберите действие:',
+            `${text || 'Выберите действие:'} `,
             {
                 reply_markup:
                     keyboardSearchBot(
