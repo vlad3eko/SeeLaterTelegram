@@ -5,6 +5,7 @@ import {
 import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption"
 import {isAdmin} from "#server/bot/consts/admins"
 import {tmdbFetch} from "#server/utils/api/tmdbFetch";
+import {getKeyTrailer} from "#server/bot/consts/media/getKeyTrailer";
 
 
 export const chosenInlineMedia = async (ctx: any) => {
@@ -30,17 +31,16 @@ export const chosenInlineMedia = async (ctx: any) => {
             }
         )
 
-        // const trailers = await tmdbFetch(
-        //     '/api/tmdb/trailers',
-        //     {
-        //         query: {
-        //             media: mediaType,
-        //             id: mediaId
-        //         }
-        //     }
-        // )
-        //
-        // console.log('trailers', trailers)
+        const trailers = await tmdbFetch(
+            '/api/tmdb/trailers',
+            {
+                query: {
+                    media: mediaType,
+                    id: mediaId
+                }
+            }
+        )
+        const keyTrailer = getKeyTrailer(trailers)
 
         const admin = isAdmin(result.from.id)
         await ctx.telegram.editMessageMedia(undefined, undefined, inlineMessageId,
@@ -52,9 +52,12 @@ export const chosenInlineMedia = async (ctx: any) => {
                         media.backdrop_path
                     }`,
                 caption:
-                        createMediaCaption(
+                    createMediaCaption(
                         media,
-                        contentType
+                        contentType,
+                        undefined,
+                        undefined,
+                        keyTrailer
                     ),
                 parse_mode: 'HTML'
             },
@@ -65,7 +68,10 @@ export const chosenInlineMedia = async (ctx: any) => {
                         mediaType,
                         contentType,
                         media.genres,
-                        admin
+                        admin,
+                        'inline',
+                        0,
+                        keyTrailer
                     )
             }
         )

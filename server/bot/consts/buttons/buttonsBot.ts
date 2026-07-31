@@ -1,17 +1,15 @@
 import {Markup} from "telegraf"
 import type {TmdbGenre} from "~/types/tmdb.types"
-import {ContentType, SearchStrategy} from "~/utils/search/strategy/enums"
+import {ContentType} from "~/utils/search/strategy/enums"
 import {genresConvert} from "~/utils/convert/genresConvert"
-import {CONTENT_TYPE_LABELS} from "~/utils/convert/library/enumsLibrary"
 import type {TypeButtonContext} from "#server/bot/consts/buttons/keyboardBot";
 import {getContentTypeLabel} from "~/utils/convert/library/getContentTypeLabel";
 
-
 //ADMIN..
-export const adminEditInlineCard = (mediaId: number, mediaType: string, contentType: string) => {
+export const adminEditInlineCard = (mediaId: number, mediaType: string, contentType: string, keyTrailer: string | undefined) => {
     return Markup.button.callback(
         "✏️ РЕДАКТИРОВАТЬ",
-        `edit_media_${mediaId}_${mediaType}_${contentType}`
+        `edit_media_${mediaId}_${mediaType}_${contentType}_${keyTrailer}`
     )
 }
 

@@ -22,9 +22,51 @@ export const editAdminInlineMedia = async (ctx: any) => {
         ,
         mediaId,
         mediaType,
-        contentType
+        contentType,
+        keyTrailer
     ] =
         ctx.match
+
+    const media =
+        await tmdbFetch(
+            '/api/bot/getMediaBot',
+            {
+                query: {
+                    media: mediaType,
+                    id: mediaId
+                }
+            }
+        )
+
+    setAdminEditSession(
+        ctx.from.id,
+        {
+            inlineMessageId,
+            mediaId:
+                Number(mediaId),
+            mediaType,
+            media,
+            contentType,
+            keyTrailer,
+            comment:
+            undefined,
+            mode:
+            undefined,
+            currentMedia: {
+                type:
+                    'photo',
+
+                fileId:
+                    `https://image.tmdb.org/t/p/w500${
+                        media.poster_path ||
+                        media.backdrop_path
+                    }`
+            },
+
+            currentCaption:
+                createMediaCaption(media, contentType, undefined, undefined, keyTrailer)
+        }
+    )
 
     const existingSession =
         getAdminEditSession(
@@ -35,51 +77,7 @@ export const editAdminInlineMedia = async (ctx: any) => {
         existingSession &&
         existingSession.inlineMessageId === inlineMessageId
     ) {
-        existingSession.mode =
-            undefined
-    }
-
-    else {
-
-        const media =
-            await tmdbFetch(
-                '/api/bot/getMediaBot',
-                {
-                    query: {
-                        media: mediaType,
-                        id: mediaId
-                    }
-                }
-            )
-
-        setAdminEditSession(
-            ctx.from.id,
-            {
-                inlineMessageId,
-                mediaId:
-                    Number(mediaId),
-                mediaType,
-                media,
-                contentType,
-                comment:
-                undefined,
-                mode:
-                undefined,
-                currentMedia: {
-                    type:
-                        'photo',
-
-                    fileId:
-                        `https://image.tmdb.org/t/p/w500${
-                            media.poster_path ||
-                            media.backdrop_path
-                        }`
-                },
-
-                currentCaption:
-                    createMediaCaption(media, contentType)
-            }
-        )
+        existingSession.mode = 'publish'
     }
 
     await ctx.editMessageReplyMarkup(
