@@ -27,6 +27,17 @@ export function registerCommands(bot: Telegraf) {
         const payload =
             ctx.startPayload
 
+        const menu = await ctx.reply('Открыто главное меню', mainKeyboard)
+        await addMessageSession(
+            ctx.from.id,
+            SessionMessageType.SearchInline,
+            {
+                messageId:
+                menu.message_id
+            }
+        )
+
+
         if (text.includes('inline_settings') || payload === 'inline_settings') {
 
             const messageStart =
@@ -62,7 +73,7 @@ export function registerCommands(bot: Telegraf) {
                             keyboardSearchBot(
                                 'Продолжить искать',
                                 tagGet
-                            )
+                            ),
                     }
                 )
 
