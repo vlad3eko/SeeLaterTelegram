@@ -7,6 +7,7 @@ export const formatMediaOverview = (
     if (addOverview)
         return addOverview
 
+
     if (!overview)
         return 'Описание отсутствует'
 
