@@ -5,11 +5,8 @@ export const deleteMedia = async (ctx: any) => {
 
     const isUserBot = await checkChannelSubscriber(ctx)
 
-    if (isUserBot) {
-        await ctx.answerCbQuery('✅ Удалено из вашей коллекции')
-    } else {
+    if (!isUserBot) {
         await ctx.answerCbQuery('❌ Подпишитесь на 🏷Киноманов BOT')
-        return
     }
 
     const telegramId = ctx.from.id
@@ -23,5 +20,6 @@ export const deleteMedia = async (ctx: any) => {
         }
     })
 
+    await ctx.answerCbQuery('✅ Удалено из вашей коллекции')
 
 }

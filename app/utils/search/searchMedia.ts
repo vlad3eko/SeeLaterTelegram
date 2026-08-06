@@ -10,11 +10,11 @@ import {loadGenres} from "#server/bot/consts/media/genresConvert";
 import {saveLastSearchQuery} from "~/utils/search/repository/tmdbRepository";
 import {filterContentType} from "~/utils/search/filterContentType";
 import {SearchStrategy} from "~/utils/search/strategy/enums";
+import {getInlineCacheOptions} from "~/utils/search/getInlineCacheOptions";
 
 export const searchMedia = async (query: string, page: number = 1, userId: number) => {
 
     await loadGenres()
-    console.log('query', query)
 
     const parsed = parseSearchQuery(query, userId)
     await saveLastSearchQuery(parsed.filters.genres, parsed.filters?.mediaTypes[0], userId, parsed.filters.contentType)
@@ -22,6 +22,7 @@ export const searchMedia = async (query: string, page: number = 1, userId: numbe
     const normalized = normalizeSearchQuery(parsed, page)
 
     const strategy = resolveSearchStrategy(normalized)
+    const cacheOptions = getInlineCacheOptions(strategy)
 
     const result = await executeSearchStrategy(strategy, normalized, page)
 
@@ -34,5 +35,8 @@ export const searchMedia = async (query: string, page: number = 1, userId: numbe
         result.results = sortMediaResults(result.results)
     }
 
-    return result
+    return {
+        ...result,
+        inlineOptions: cacheOptions
+    }
 }

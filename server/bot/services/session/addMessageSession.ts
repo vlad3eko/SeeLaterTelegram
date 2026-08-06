@@ -13,14 +13,18 @@ export const addMessageSession = async (
         return
     }
 
-    await $fetch('/api/bot/session/addMessageSession', {
-        method: 'POST',
-        body: {
-            telegram_id: telegramId,
-            message_id: options?.messageId ?? null,
-            inline_message_id: options?.inlineMessageId ?? null,
-            type
-        }
-    })
+    try {
+        await $fetch('/api/bot/session/addMessageSession', {
+            method: 'POST',
+            body: {
+                telegram_id: telegramId,
+                message_id: options?.messageId ?? null,
+                inline_message_id: options?.inlineMessageId ?? null,
+                type
+            }
+        })
+    } catch (e) {
+        console.log('/api/bot/session/addMessageSession [ERROR]', e)
+    }
 
 }

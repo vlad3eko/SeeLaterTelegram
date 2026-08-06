@@ -9,11 +9,11 @@ export const saveMedia = async (ctx: any) => {
     const isUserBot =
         await checkChannelSubscriber(ctx)
 
-    if (isUserBot) {
-        await ctx.answerCbQuery('✅ Добавлено в вашу коллекцию')
-    } else {
+    if (!isUserBot) {
         await ctx.answerCbQuery('❌ Подпишитесь на 🏷Киноманов BOT')
         return
+    } else {
+        await ctx.answerCbQuery('✅ Добавлено в вашу коллекцию')
     }
 
     const userId = ctx.from.id
@@ -75,7 +75,6 @@ export const saveMedia = async (ctx: any) => {
         '/api/bot/library/getFavoriteCount',
         {
                 query: {
-
                     tmdbId:
                     media.id
                 }
@@ -86,9 +85,7 @@ export const saveMedia = async (ctx: any) => {
         '/api/bot/publishedMedia/getByMedia',
             {
                 query: {
-
                     mediaId,
-
                     mediaType
                 }
             }
@@ -117,7 +114,7 @@ export const saveMedia = async (ctx: any) => {
             const errorMessage =
                 error?.response?.description
             if (errorMessage !== 'Bad Request: message is not modified') {
-                throw error
+                return
             }
         }
     }
