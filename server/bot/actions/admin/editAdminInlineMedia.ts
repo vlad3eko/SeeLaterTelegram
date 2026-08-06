@@ -88,9 +88,9 @@ export const editAdminInlineMedia = async (ctx: any) => {
                         "photo",
 
                     fileId:
-                        `https://image.tmdb.org/t/p/w500${
-                            media.poster_path ||
-                            media.backdrop_path
+                        `https://image.tmdb.org/t/p/original${
+                            media.backdrop_path ||
+                            media.poster_path
                         }`
                 },
 
@@ -106,9 +106,13 @@ export const editAdminInlineMedia = async (ctx: any) => {
         )
     }
 
-    await ctx.editMessageReplyMarkup(
-        editMediaChoiceKeyboard()
-    )
+    try {
+        await ctx.editMessageReplyMarkup(
+            editMediaChoiceKeyboard()
+        )
+    } catch (e) {
+        console.log('[ERROR editAdminInlineMedia: ]', e)
+    }
 
     await ctx.answerCbQuery()
 }

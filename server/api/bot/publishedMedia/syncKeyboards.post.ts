@@ -14,6 +14,7 @@ import {
     CURRENT_KEYBOARD_VERSION
 } from "#server/bot/consts/keyboardVersion/keyboardVersion";
 import {tmdbFetch} from "#server/utils/api/tmdbFetch";
+import {getMediaSaveCount} from "#server/bot/consts/keyboardVersion/getMediaSaveCount";
 
 
 export default defineEventHandler(async (event) => {
@@ -66,18 +67,8 @@ export default defineEventHandler(async (event) => {
                     }
                 )
 
-
             const saveCount =
-                await $fetch<number>(
-                    '/api/bot/library/getFavoriteCount',
-                    {
-                        query: {
-                            tmdbId:
-                            post.media_id
-                        }
-                    }
-                )
-
+                getMediaSaveCount(post.media_id)
 
             const replyMarkup =
                 keyboardSendMediaCardInline(
@@ -87,7 +78,7 @@ export default defineEventHandler(async (event) => {
                     media.genres,
                     false,
                     'channel',
-                    saveCount
+                    await saveCount
                 )
 
             await bot.telegram.editMessageReplyMarkup(
@@ -97,54 +88,30 @@ export default defineEventHandler(async (event) => {
                 replyMarkup
             )
 
+            await supabase
+                .from('published_media_messages')
+                .update(
+                    {
+                        keyboard_version:
+                        CURRENT_KEYBOARD_VERSION,
 
-            const {
-                error:
-                    updateError
-            } =
-                await supabase
-                    .from('published_media_messages')
-                    .update(
-                        {
-                            keyboard_version:
-                            CURRENT_KEYBOARD_VERSION,
-
-                            updated_at:
-                                new Date().toISOString()
-                        }
-                    )
-                    .eq(
-                        'id',
-                        post.id
-                    )
-
-
-            if (updateError) {
-
-                throw updateError
-            }
-
+                        updated_at:
+                            new Date().toISOString()
+                    }
+                )
+                .eq('id', post.id)
 
             updated++
 
+        } catch (error: any) {
 
-        } catch (error) {
+            const errorDescription =
+                error?.response?.description
 
-            failed++
-
-
-            console.error(
-                '[KEYBOARD SYNC ERROR]',
-                {
-                    postId:
-                    post.id,
-
-                    messageId:
-                    post.telegram_message_id,
-
-                    error
-                }
-            )
+            if (errorDescription !== "Bad Request: message is not modified" && errorDescription !== "Bad Request: message to edit not found") {
+                failed++
+                console.error(error)
+            }
         }
     }
 

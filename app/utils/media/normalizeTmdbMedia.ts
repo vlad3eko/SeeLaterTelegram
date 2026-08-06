@@ -2,7 +2,7 @@ import {ContentType} from "~/utils/search/strategy/enums"
 
 const ANIMATION_GENRE = 16
 
-export const normalizeTmdbMedia = (media: any) => {
+export const normalizeTmdbMedia = (media: any, cacheOptions: {}) => {
 
     const mediaType =
         media.media_type ||
@@ -68,6 +68,6 @@ export const normalizeTmdbMedia = (media: any) => {
         poster_path:
             media.poster_path ||
             media.backdrop_path ||
-            null
+            null,
     }
 }

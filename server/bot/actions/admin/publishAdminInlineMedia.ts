@@ -3,6 +3,7 @@ import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBo
 import {CURRENT_KEYBOARD_VERSION} from "#server/bot/consts/keyboardVersion/keyboardVersion"
 import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption"
 import {tmdbFetch} from "#server/utils/api/tmdbFetch"
+import {getMediaSaveCount} from "#server/bot/consts/keyboardVersion/getMediaSaveCount";
 
 export const publishAdminInlineMedia = async (ctx: any) => {
 
@@ -39,9 +40,9 @@ export const publishAdminInlineMedia = async (ctx: any) => {
             currentMedia: {
                 type: 'photo',
                 fileId:
-                    `https://image.tmdb.org/t/p/w500${
-                        media.poster_path ||
-                        media.backdrop_path
+                    `https://image.tmdb.org/t/p/original${
+                        media.backdrop_path ||
+                        media.poster_path
                     }`
             },
             currentCaption:
@@ -53,6 +54,7 @@ export const publishAdminInlineMedia = async (ctx: any) => {
                     keyTrailer
                 )
         }
+    console.log(session.currentCaption.length)
 
     const channelId =
         '@kinomanovnet'
@@ -63,6 +65,9 @@ export const publishAdminInlineMedia = async (ctx: any) => {
     } =
         session.currentMedia
 
+    const saveCount =
+        getMediaSaveCount(session.mediaId)
+
     const channelReplyMarkup =
         keyboardSendMediaCardInline(
             session.mediaId,
@@ -70,7 +75,8 @@ export const publishAdminInlineMedia = async (ctx: any) => {
             session.contentType,
             session.media.genres,
             false,
-            'channel'
+            'channel',
+            await saveCount
         )
 
     let publishedMessage
@@ -166,6 +172,8 @@ export const publishAdminInlineMedia = async (ctx: any) => {
         return
     }
 
+    await ctx.answerCbQuery('Опубликовано')
+
     try {
 
         await $fetch(
@@ -177,37 +185,38 @@ export const publishAdminInlineMedia = async (ctx: any) => {
 
     } catch (error) {
 
-        console.error(
+        console.log(
             '[KEYBOARD SYNC ERROR]',
             error
         )
     }
 
-    if (session.inlineMessageId) {
+    try {
+        if (session.inlineMessageId) {
 
-        await ctx.telegram.editMessageReplyMarkup(
-            undefined,
-            undefined,
-            session.inlineMessageId,
-            {
-                reply_markup:
-                    keyboardSendMediaCardInline(
-                        session.mediaId,
-                        session.mediaType,
-                        session.contentType,
-                        session.media.genres,
-                        false,
-                        'inline'
-                    )
-            }
-        )
+            await ctx.telegram.editMessageReplyMarkup(
+                undefined,
+                undefined,
+                session.inlineMessageId,
+                {
+                    reply_markup:
+                        keyboardSendMediaCardInline(
+                            session.mediaId,
+                            session.mediaType,
+                            session.contentType,
+                            session.media.genres,
+                            false,
+                            'inline'
+                        )
+                }
+            )
+        }
+    } catch (error: any) {
+        if (error?.response?.description !== "Bad Request: message is not modified")
+            console.log('[PUBLISHED MEDIA session.inlineMessageID ERROR]', error)
     }
 
     clearAdminEditSession(
         ctx.from.id
-    )
-
-    await ctx.answerCbQuery(
-        'Опубликовано'
     )
 }
