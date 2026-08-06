@@ -7,6 +7,7 @@ import {formatMediaOverview} from "~/utils/convert/formatMediaOverview";
 
 export const createMediaCaption = (media: any, contentType: string, addComment: string | undefined, addOverview: string | undefined, keyTrailer?: string | undefined) => {
 
+    console.log('media', media)
     const genresContent = genresConvert(media.genres)
     const mediaOverview =
         formatMediaOverview(media.overview, 350, addOverview)

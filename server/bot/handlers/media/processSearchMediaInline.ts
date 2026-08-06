@@ -6,7 +6,6 @@ import {genresConvert} from "~/utils/convert/genresConvert";
 
 export const processSearchMediaInline = async (ctx: any, medias: any) => {
 
-    console.log('media', medias)
     try {
         const results = medias.results.map(
             (media: any) => ({
