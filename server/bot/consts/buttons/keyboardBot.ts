@@ -1,7 +1,5 @@
 import {Markup} from "telegraf";
 import {
-    adminEditInlineCard, adminEditMediaInlineCard, adminEditMessageInlineCard,
-    adminEditOverviewInlineCard, adminPublishInlineCard,
     checkBookmarksMedias,
     deleteMediaButtonBot, recommendationButtonBot,
     SaveMediaButtonBot,
@@ -9,22 +7,10 @@ import {
 } from "#server/bot/consts/buttons/buttonsBot";
 import type {TmdbGenre} from "~/types/tmdb.types";
 import type {ContentType} from "~/utils/engines/search/strategy/enums";
-
-//Admin..
-
-export type TypeButtonContext =
-    'inline' | 'channel'
-
-export const editMediaChoiceKeyboard = () => {
-
-    return Markup.inlineKeyboard([
-        [adminEditMediaInlineCard()],
-        [adminEditMessageInlineCard()],
-        [adminEditOverviewInlineCard()]
-    ]).reply_markup
-}
-
-//..Admin
+import {
+    adminEditInlineCard, adminPublishInlineCard
+} from "#server/bot/consts/buttons/admin/buttonsAdmin";
+import type {TypeButtonContext} from "#server/bot/consts/buttons/admin/keyboardAdmin";
 
 
 export const keyboardStartBot = (text?: string, query?: string) => {

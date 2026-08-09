@@ -1,5 +1,5 @@
 import {processSearchMediaInline} from "#server/bot/handlers/media/processSearchMediaInline";
-import {searchMedia} from "~/utils/engines/search/searchMedia";
+import {searchMediaEntry} from "~/utils/engines/search/searchMediaEntry";
 import {parseSearchQuery} from "~/utils/engines/search/mapper/parseSearchQuery";
 import {checkInlineQuery} from "#server/bot/consts/checkInlineQuery";
 
@@ -25,7 +25,7 @@ export const searchMediaInline = async (ctx: any) => {
 
     try {
         const page = Number(ctx.inlineQuery.offset) || 1
-        const medias = await searchMedia(ctx.inlineQuery.query, page, ctx.from.id)
+        const medias = await searchMediaEntry(ctx.inlineQuery.query, page, ctx.from.id)
 
         if (!medias.results?.length) return await checkInlineQuery(ctx)
 

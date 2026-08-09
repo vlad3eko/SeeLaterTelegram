@@ -14,7 +14,7 @@ import type {ContentType} from "~/utils/engines/search/strategy/enums";
 import {CONTENT_TYPE_LABELS} from "~/utils/convert/library/enumsLibrary";
 import {tmdbFetch} from "#server/utils/api/tmdbFetch";
 import {mainKeyboard} from "#server/bot/consts/buttons/replyKeyboard";
-import {commandSelection} from "#server/bot/commands/commandSelection";
+import {commandContent} from "#server/bot/commands/commandContent";
 
 const authRequests = new Map()
 
@@ -155,6 +155,6 @@ export function registerCommands(bot: Telegraf) {
 
     bot.command('help', commandHelp)
     bot.command('clear', commandClear)
-    bot.command('selection', commandSelection)
+    bot.command('x', commandContent)
     bot.action('menu_bot', menuBot)
 }

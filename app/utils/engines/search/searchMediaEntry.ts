@@ -12,7 +12,7 @@ import {filterContentType} from "~/utils/engines/search/mapper/filterContentType
 import {SearchStrategy} from "~/utils/engines/search/strategy/enums";
 import {getInlineCacheOptions} from "~/utils/engines/search/mapper/getInlineCacheOptions";
 
-export const searchMedia = async (query: string, page: number = 1, userId: number) => {
+export const searchMediaEntry = async (query: string, page: number = 1, userId: number) => {
 
     await loadGenres()
 
