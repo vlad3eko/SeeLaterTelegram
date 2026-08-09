@@ -1,4 +1,4 @@
-import { tmdbGenres } from "~/utils/search/tmdbGenres";
+import { tmdbGenres } from "~/utils/engines/search/mapper/tmdbGenres";
 
 export const findGenre = (
     genres: string[],

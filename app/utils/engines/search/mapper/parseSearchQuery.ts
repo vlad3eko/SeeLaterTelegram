@@ -1,5 +1,5 @@
-import type {SearchQuery} from "~/utils/search/typesSearch";
-import {ContentType} from "~/utils/search/strategy/enums";
+import type {SearchQuery} from "~/utils/engines/search/mapper/typesSearch";
+import {ContentType} from "~/utils/engines/search/strategy/enums";
 
 export const parseSearchQuery = (
     query: string,

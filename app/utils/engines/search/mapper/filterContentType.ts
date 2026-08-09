@@ -1,4 +1,4 @@
-import {ContentType} from "~/utils/search/strategy/enums"
+import {ContentType} from "~/utils/engines/search/strategy/enums"
 
 export const filterContentType = (media: any, type?: ContentType) => {
 
@@ -6,3 +6,4 @@ export const filterContentType = (media: any, type?: ContentType) => {
 
     return media.content_type === type
 }
+

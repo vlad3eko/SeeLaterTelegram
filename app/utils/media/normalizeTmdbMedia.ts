@@ -1,4 +1,4 @@
-import {ContentType} from "~/utils/search/strategy/enums"
+import {ContentType} from "~/utils/engines/search/strategy/enums"
 
 const ANIMATION_GENRE = 16
 

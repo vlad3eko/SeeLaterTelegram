@@ -1,5 +1,5 @@
 import {isLiquidMedia} from "./isLiquidMedia"
-import {filterMediaQuality} from "~/utils/search/filterMediaQuality";
+import {filterMediaQuality} from "~/utils/engines/search/mapper/filterMediaQuality";
 
 export const sortMediaResults = (
     medias: any[],
@@ -60,7 +60,7 @@ export const sortMediaResults = (
                 )
                 .sort(
                     (a, b) =>
-                        b._vote - a._vote
+                        a._vote - b._vote
                 )
 
         const others =

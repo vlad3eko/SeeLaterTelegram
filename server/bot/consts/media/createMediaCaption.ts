@@ -2,12 +2,11 @@ import {FormatDate, FormatRating} from "~/utils/formatMoviesData";
 import {mediaReleaseConvert, mediaTypeConvert} from "~/utils/convert/mediaConvert";
 import {genresConvert} from "~/utils/convert/genresConvert";
 import {CONTENT_TYPE_LABELS} from "~/utils/convert/library/enumsLibrary";
-import type {ContentType} from "~/utils/search/strategy/enums";
+import type {ContentType} from "~/utils/engines/search/strategy/enums";
 import {formatMediaOverview} from "~/utils/convert/formatMediaOverview";
 
 export const createMediaCaption = (media: any, contentType: string, addComment: string | undefined, addOverview: string | undefined, keyTrailer?: string | undefined) => {
 
-    console.log('media', media)
     const genresContent = genresConvert(media.genres)
     const mediaOverview =
         formatMediaOverview(media.overview, 350, addOverview)

@@ -1,4 +1,4 @@
-import {buildCacheKey, getCache, saveCache} from "~/utils/search/repository/cacheRepository";
+import {buildCacheKey, getCache, saveCache} from "~/utils/engines/search/repository/cacheRepository";
 
 export default defineEventHandler(async (event) => {
     const query = getQuery(event)

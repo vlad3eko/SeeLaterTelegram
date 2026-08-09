@@ -1,5 +1,5 @@
-import type {NormalizedSearchQuery} from "~/utils/search/typesSearch";
-import {SearchStrategy} from "~/utils/search/strategy/enums";
+import type {NormalizedSearchQuery} from "~/utils/engines/search/mapper/typesSearch";
+import {SearchStrategy} from "~/utils/engines/search/strategy/enums";
 
 export const resolveSearchStrategy = (
     query: NormalizedSearchQuery

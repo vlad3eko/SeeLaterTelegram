@@ -1,4 +1,4 @@
-import type {NormalizedSearchQuery, SearchQuery} from "~/utils/search/typesSearch";
+import type {NormalizedSearchQuery, SearchQuery} from "~/utils/engines/search/mapper/typesSearch";
 import {findGenre} from "~/utils/media/findGenre";
 
 export const normalizeSearchQuery = (
