@@ -8,7 +8,7 @@ import {
     SearchButtonBot, startButtonBot
 } from "#server/bot/consts/buttons/buttonsBot";
 import type {TmdbGenre} from "~/types/tmdb.types";
-import type {ContentType} from "~/utils/search/strategy/enums";
+import type {ContentType} from "~/utils/engines/search/strategy/enums";
 
 //Admin..
 

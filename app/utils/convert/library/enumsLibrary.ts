@@ -1,4 +1,4 @@
-import {ContentType} from "~/utils/search/strategy/enums";
+import {ContentType} from "~/utils/engines/search/strategy/enums";
 
 export const CONTENT_TYPE_LABELS: Record<ContentType, string> = {
     [ContentType.MOVIE]: "фильм",

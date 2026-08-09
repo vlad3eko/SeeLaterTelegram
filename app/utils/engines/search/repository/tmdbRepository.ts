@@ -1,4 +1,4 @@
-import type {NormalizedSearchQuery} from "~/utils/search/typesSearch";
+import type {NormalizedSearchQuery} from "~/utils/engines/search/mapper/typesSearch";
 import {buildTmdbParams} from "~/utils/media/buildTmdbParams";
 import {tmdbFetch} from "#server/utils/api/tmdbFetch";
 

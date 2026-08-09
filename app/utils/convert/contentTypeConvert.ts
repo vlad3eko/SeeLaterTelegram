@@ -1,6 +1,6 @@
-import type {ContentType} from "~/utils/search/strategy/enums";
+import type {ContentType} from "~/utils/engines/search/strategy/enums";
 
-export const contentTypeConvert = (mediaType: any, contentType: any) => {
+export const contentTypeConvert = (mediaType: any, contentType: ContentType) => {
 
     if (!mediaType || !contentType) return
 

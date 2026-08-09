@@ -1,7 +1,7 @@
 import {FormatDate, FormatRating} from "~/utils/formatMoviesData";
 import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBot";
 import {CONTENT_TYPE_LABELS} from "~/utils/convert/library/enumsLibrary";
-import type {ContentType} from "~/utils/search/strategy/enums";
+import type {ContentType} from "~/utils/engines/search/strategy/enums";
 import {genresConvert} from "~/utils/convert/genresConvert";
 
 export const processSearchMediaInline = async (ctx: any, medias: any) => {

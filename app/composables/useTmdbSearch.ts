@@ -1,5 +1,4 @@
-import type { TmdbResponse } from "~/types/tmdb.types";
-import { searchMedia } from "~/utils/search/searchMedia";
+import { searchMedia } from "~/utils/engines/search/searchMedia";
 
 export const useTmdbSearch = () => {
 

@@ -1,12 +1,12 @@
-import {SearchStrategy} from "~/utils/search/strategy/enums";
-import type {NormalizedSearchQuery} from "~/utils/search/typesSearch";
+import {SearchStrategy} from "~/utils/engines/search/strategy/enums";
+import type {NormalizedSearchQuery} from "~/utils/engines/search/mapper/typesSearch";
 import {
     discoverMovies,
     getBookmarks,
     getPopularMovies,
     searchMixed,
     searchMulti
-} from "~/utils/search/repository/tmdbRepository";
+} from "~/utils/engines/search/repository/tmdbRepository";
 
 export const executeSearchStrategy = async (strategy: SearchStrategy, query: NormalizedSearchQuery, page: number = 1) => {
 

@@ -1,6 +1,6 @@
 import {Markup} from "telegraf"
 import type {TmdbGenre} from "~/types/tmdb.types"
-import {ContentType} from "~/utils/search/strategy/enums"
+import {ContentType} from "~/utils/engines/search/strategy/enums"
 import {genresConvert} from "~/utils/convert/genresConvert"
 import type {TypeButtonContext} from "#server/bot/consts/buttons/keyboardBot";
 import {getContentTypeLabel} from "~/utils/convert/library/getContentTypeLabel";
