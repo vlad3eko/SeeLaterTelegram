@@ -1,43 +1,99 @@
-import {buildCacheKey, getCache, saveCache} from "~/utils/engines/search/repository/cacheRepository";
+import {
+    buildCacheKey,
+    getCache,
+    saveCache
+} from "#server/global/engine/search/repository/cacheRepository"
 
 export default defineEventHandler(async (event) => {
+
     const query = getQuery(event)
     const config = useRuntimeConfig()
+
     const headers = {
-        accept: 'application/json',
+        accept: "application/json",
         Authorization: `Bearer ${config.tmdbApiKey}`
     }
 
-    const endpoint = 'credits'
+    const endpoint = "person/credits"
 
-    const cacheKey = buildCacheKey(endpoint, {
-        media: query.media,
-        id: query.id
-    })
+    const personId = Number(query.id || 0)
+    const personJob = String(query.personJob || "cast")
 
-    const cache = await getCache(event, cacheKey)
-    if (cache) return cache
-
-    const tmdbStart =
-        performance.now()
-
-    const credits = await fetch(`https://api.themoviedb.org/3/${query.media}/${query.id}/credits?language=ru-RU`, {
-        headers
-    })
-
-    if (!credits.ok) {
+    if (!personId) {
         throw createError({
-            statusCode: credits.status,
-            statusMessage: await credits.text()
+            statusCode: 400,
+            statusMessage: "Person ID is required"
         })
     }
 
-    const response = await credits.json()
+    const cacheKey = buildCacheKey(endpoint, {
+        id: personId,
+        personJob
+    })
 
-    await saveCache(event, endpoint, cacheKey, response, 30)
+    const cache = await getCache(event, cacheKey)
+
+    if (cache) {
+        return cache
+    }
+
+    const params = new URLSearchParams({
+        language: "ru-RU"
+    })
+
+    const tmdbStart = performance.now()
+
+    const res = await fetch(
+        `https://api.themoviedb.org/3/person/${personId}/combined_credits?${params}`,
+        {
+            headers
+        }
+    )
+
+    if (!res.ok) {
+        throw createError({
+            statusCode: res.status,
+            statusMessage: await res.text()
+        })
+    }
+
+    const credits = await res.json()
+
+    let results = []
+
+    if (personJob === "cast") {
+
+        results = credits.cast || []
+
+    } else if (personJob === "crew") {
+
+        results = credits.crew || []
+
+    } else {
+
+        results = [
+            ...(credits.cast || []),
+            ...(credits.crew || [])
+        ]
+    }
+
+    const response = {
+        page: 1,
+        results,
+        total_pages: 1,
+        total_results: results.length
+    }
+
+    await saveCache(
+        event,
+        endpoint,
+        cacheKey,
+        response,
+        90
+    )
 
     console.log(
-        `[TMDB] CREDITS ${(performance.now()-tmdbStart).toFixed(2)}ms`
+        `[TMDB] PERSON CREDITS ${(performance.now() - tmdbStart).toFixed(2)}ms`
     )
 
     return response
