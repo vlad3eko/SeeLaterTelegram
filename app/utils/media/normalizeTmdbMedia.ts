@@ -1,4 +1,6 @@
-import {ContentType} from "~/utils/search/strategy/enums"
+import {ContentType} from "#server/global/engine/search/strategy/enums";
+import {convertTranslateKnowForDepartment} from "#server/global/helpers/person/convert/translateKnowForDepartment";
+
 
 const ANIMATION_GENRE = 16
 
@@ -7,9 +9,11 @@ export const normalizeTmdbMedia = (media: any, cacheOptions: {}) => {
     const mediaType =
         media.media_type ||
         (
-            media.title
-                ? 'movie'
-                : 'tv'
+            media.known_for_department
+                ? 'person'
+                : media.title
+                    ? 'movie'
+                    : 'tv'
         )
 
     const genreIds = media.genre_ids ?? []
@@ -23,6 +27,8 @@ export const normalizeTmdbMedia = (media: any, cacheOptions: {}) => {
         || (media.origin_country ?? []).includes("JP")
         || (media.origin_country ?? []).includes("ZH")
 
+    const isPerson = !!media.known_for_department
+
     let contentType: ContentType
 
     if (mediaType === 'movie') {
@@ -31,16 +37,18 @@ export const normalizeTmdbMedia = (media: any, cacheOptions: {}) => {
                 ? ContentType.CARTOON
                 : ContentType.MOVIE
     } else {
-        if (!isAnimation) {
+        if (isPerson) {
+            contentType = ContentType.PERSON
+        } else if (!isAnimation) {
             contentType = ContentType.SERIES
-        }
-        else if (isJapanese) {
+        } else if (isJapanese) {
             contentType = ContentType.ANIME
-        }
-        else {
+        } else {
             contentType = ContentType.CARTOON_SERIES
         }
     }
+
+    const personType = media.known_for_department ? convertTranslateKnowForDepartment(media.known_for_department) : ''
 
     return {
         ...media,
@@ -49,12 +57,13 @@ export const normalizeTmdbMedia = (media: any, cacheOptions: {}) => {
 
         media_type: mediaType,
 
-        content_type: contentType,
+        content_type: personType || contentType,
 
         is_movie: contentType === ContentType.MOVIE,
         is_series: contentType === ContentType.SERIES,
         is_cartoon: contentType === ContentType.CARTOON,
         is_anime: contentType === ContentType.ANIME,
+        is_person: contentType === ContentType.PERSON,
 
         title:
             media.title ||
@@ -68,6 +77,7 @@ export const normalizeTmdbMedia = (media: any, cacheOptions: {}) => {
         poster_path:
             media.poster_path ||
             media.backdrop_path ||
+            media.profile_path ||
             null,
     }
 }

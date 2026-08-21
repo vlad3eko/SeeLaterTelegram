@@ -1,5 +1,4 @@
-import type { TmdbResponse } from "~/types/tmdb.types";
-import { searchMedia } from "~/utils/search/searchMedia";
+import {searchMediaEntry} from "#server/global/engine/search/searchMediaEntry";
 
 export const useTmdbSearch = () => {
 
@@ -21,7 +20,7 @@ export const useTmdbSearch = () => {
 
             page.value = 1
 
-            const result:any = await searchMedia(
+            const result:any = await searchMediaEntry(
                 searchInput.value,
                 page.value
             )
@@ -60,7 +59,7 @@ export const useTmdbSearch = () => {
 
             page.value++
 
-            const result:any = await searchMedia(
+            const result:any = await searchMediaEntry(
                 searchInput.value,
                 page.value
             )

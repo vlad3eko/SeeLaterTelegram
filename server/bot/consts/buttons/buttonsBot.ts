@@ -1,47 +1,9 @@
-import {Markup} from "telegraf"
-import type {TmdbGenre} from "~/types/tmdb.types"
-import {ContentType} from "~/utils/search/strategy/enums"
-import {genresConvert} from "~/utils/convert/genresConvert"
-import type {TypeButtonContext} from "#server/bot/consts/buttons/keyboardBot";
+import {Markup} from "telegraf";
+import type {TypeButtonContext} from "#server/bot/consts/buttons/admin/keyboardAdmin";
+import {ContentType} from "#server/global/engine/search/strategy/enums";
+import type {TmdbGenre} from "~/types/tmdb.types";
 import {getContentTypeLabel} from "~/utils/convert/library/getContentTypeLabel";
-
-//ADMIN..
-export const adminEditInlineCard = (mediaId: number, mediaType: string, contentType: string, keyTrailer: string | undefined) => {
-    return Markup.button.callback(
-        "✏️ РЕДАКТИРОВАТЬ",
-        `edit_media_${mediaId}_${mediaType}_${contentType}_${keyTrailer}`
-    )
-}
-
-export const adminPublishInlineCard = (mediaId: number, mediaType: string, contentType: string, keyTrailer: string | undefined) => {
-    return Markup.button.callback(
-        "🚀 ОПУБЛИКОВАТЬ",
-        `publish_media_${mediaId}_${mediaType}_${contentType}_${keyTrailer}`
-    )
-}
-
-export const adminEditMediaInlineCard = () => {
-    return Markup.button.callback(
-        "🖼 Медиа",
-        `admin_edit_media`
-    )
-}
-
-export const adminEditMessageInlineCard = () => {
-    return Markup.button.callback(
-        "📝 Текст",
-        `admin_edit_text`
-    )
-}
-
-export const adminEditOverviewInlineCard = () => {
-    return Markup.button.callback(
-        '📝 Описание',
-        'admin_edit_overview'
-    )
-}
-
-//..ADMIN
+import {genresConvert} from "~/utils/convert/genresConvert";
 
 export const startButtonBot = (
     text: string,
@@ -152,3 +114,23 @@ export const checkBookmarksMedias = (
         '#collection'
     )
 }
+
+// PERSON KEYBOARD
+
+export const mediaPersonFirstJob = (personId: number, job: string) => {
+
+    return Markup.button.switchToCurrentChat(
+        job,
+        ''
+    )
+}
+
+export const mediaPersonSecondJob = (personId: number, job: string) => {
+
+    return Markup.button.switchToCurrentChat(
+        job,
+        ''
+    )
+}
+
+// PERSON KEYBOARD

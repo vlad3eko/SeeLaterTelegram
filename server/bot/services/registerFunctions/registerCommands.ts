@@ -1,20 +1,19 @@
+import {mainKeyboard} from "#server/bot/consts/buttons/replyKeyboard";
 import {Telegraf} from "telegraf";
-import {menuBot} from "#server/bot/handlers/commands/start/menuBot";
-import {commandStart} from "#server/bot/commands/commandStart";
-import {commandHelp} from "#server/bot/commands/commandHelp";
 import {addMessageSession} from "#server/bot/services/session/addMessageSession";
 import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
-import {commandClear} from "#server/bot/commands/commandClear";
-import {getLastSearchQuery} from "~/utils/search/repository/tmdbRepository";
-import {keyboardSearchBot} from "#server/bot/consts/buttons/keyboardBot";
 import {isSubscriber} from "#server/bot/handlers/channel/isSubscriber";
+import {getLastSearchQuery} from "#server/global/engine/search/repository/tmdbRepository";
+import {keyboardSearchBot} from "#server/bot/consts/buttons/keyboardBot";
 import {openInlineSearch} from "#server/bot/actions/admin/helpers/openInlineSearch";
-import {genresConvert} from "~/utils/convert/genresConvert";
-import type {ContentType} from "~/utils/search/strategy/enums";
 import {CONTENT_TYPE_LABELS} from "~/utils/convert/library/enumsLibrary";
-import {tmdbFetch} from "#server/utils/api/tmdbFetch";
-import {mainKeyboard} from "#server/bot/consts/buttons/replyKeyboard";
-import {commandSelection} from "#server/bot/commands/commandSelection";
+import {ContentType} from "#server/global/engine/search/strategy/enums";
+import {genresConvert} from "~/utils/convert/genresConvert";
+import {commandStart} from "#server/bot/commands/commandStart";
+import {commandHelp} from "#server/bot/commands/commandHelp";
+import {commandClear} from "#server/bot/commands/commandClear";
+import {commandContent} from "#server/bot/commands/commandContent";
+import {menuBot} from "#server/bot/handlers/commands/start/menuBot";
 
 const authRequests = new Map()
 
@@ -155,6 +154,6 @@ export function registerCommands(bot: Telegraf) {
 
     bot.command('help', commandHelp)
     bot.command('clear', commandClear)
-    bot.command('selection', commandSelection)
+    bot.command('x', commandContent)
     bot.action('menu_bot', menuBot)
 }

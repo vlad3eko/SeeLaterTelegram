@@ -1,22 +1,26 @@
-import type {ContentType} from "~/utils/search/strategy/enums";
+import {ContentType} from "#server/global/engine/search/strategy/enums";
 
-export const contentTypeConvert = (mediaType: any, contentType: any) => {
+export const contentTypeConvert = (mediaType: any, contentType: ContentType) => {
 
     if (!mediaType || !contentType) return
 
     let convert
 
-        if (contentType) {
-            if (contentType === 'cartoon') {
-                convert = 'мультфильм'
-            } else if (contentType === 'movie') {
-                convert = 'фильм'
-            } else if (contentType === 'series') {
-                convert = 'сериал'
-            } else if (contentType === 'anime') {
-                convert = 'аниме'
-            }
-        } else if (mediaType) convert = mediaType
+        switch (contentType) {
+            case 'cartoon':
+                return convert = 'мультфильм'
+            case 'cartoonSeries':
+                return convert = 'мультсериал'
+            case 'movie':
+                return convert = 'фильм'
+            case 'series':
+                return convert = 'сериал'
+            case 'anime':
+                return convert = 'аниме'
+            case 'person':
+                return convert = 'человек'
 
-    return convert
+            default:
+                return convert = mediaType
+            }
 }

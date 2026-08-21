@@ -26,5 +26,5 @@ export const formatMediaOverview = (
         return cropped
 
 
-    return cropped.slice(0, lastDot + 1)
+    return `<blockquote>${cropped.slice(0, lastDot + 1)}</blockquote>`
 }

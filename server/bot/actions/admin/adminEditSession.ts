@@ -1,4 +1,4 @@
-import type {ContentType} from "~/utils/search/strategy/enums";
+import {ContentType} from "#server/bot/services/engines/global/engine/search/strategy/enums";
 
 export type AdminEditSession = {
     inlineMessageId: string
