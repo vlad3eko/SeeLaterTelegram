@@ -28,7 +28,7 @@ export const searchMediaInline = async (ctx: any) => {
         const medias = await searchMediaEntry(ctx.inlineQuery.query, page, ctx.from.id)
 
         if (!medias.results?.length) return await checkInlineQuery(ctx)
-        console.log('medias', medias.total_pages)
+        console.log('total_pages', medias.total_pages)
 
         await executeProcessSearch(medias, 'telegram', ctx)
 

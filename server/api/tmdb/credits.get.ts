@@ -3,6 +3,7 @@ import {
     getCache,
     saveCache
 } from "#server/global/engine/search/repository/cacheRepository"
+import {filterTmdbMediaResults} from "~/utils/media/filterTmdbMediaResults";
 
 export default defineEventHandler(async (event) => {
 
@@ -99,12 +100,23 @@ export default defineEventHandler(async (event) => {
     }
 
     /*
+  * =========================
+  * FILTER
+  * =========================
+  */
+
+    const filteredResults = results.filter(
+        (media: any) =>
+            filterTmdbMediaResults(media)
+    )
+
+    /*
      * =========================
      * PAGINATION
      * =========================
      */
 
-    const totalResults = results.length
+    const totalResults = filteredResults.length
 
     const totalPages = Math.ceil(
         totalResults / PAGE_SIZE
@@ -113,7 +125,7 @@ export default defineEventHandler(async (event) => {
     const start = (page - 1) * PAGE_SIZE
     const end = start + PAGE_SIZE
 
-    const paginatedResults = results.slice(
+    const paginatedResults = filteredResults.slice(
         start,
         end
     )
