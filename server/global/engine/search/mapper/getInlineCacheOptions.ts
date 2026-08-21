@@ -1,6 +1,6 @@
 import {SearchStrategy} from "#server/global/engine/search/strategy/enums";
 
-export const getInlineCacheOptions = (strategy:string)=>{
+export const setInlineCacheOptions = (strategy:string)=>{
     switch(strategy){
 
         case SearchStrategy.BOOKMARKS:
@@ -11,6 +11,13 @@ export const getInlineCacheOptions = (strategy:string)=>{
             }
 
         case SearchStrategy.POPULAR:
+            return {
+                // cache_time:600,
+                cache_time:0,
+                is_personal:false
+            }
+
+        case SearchStrategy.SEARCH_MIXED:
             return {
                 // cache_time:600,
                 cache_time:0,

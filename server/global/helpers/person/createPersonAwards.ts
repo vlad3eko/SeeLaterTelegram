@@ -14,6 +14,8 @@ export const createPersonAwards = (media: any, person: any) => {
         ? getPersonAge(media.birthday)
         : ''
 
+    const personTmdbId = media.id
+
     const placeOfBirth =
         media.place_of_birth || ''
 
@@ -36,6 +38,8 @@ export const createPersonAwards = (media: any, person: any) => {
 
     const preview = [
         `<b>${name}</b>`,
+        '',
+        `tmdb: <code>${personTmdbId}</code>`,
         `${profession}`,
     ].join('\n')
 
