@@ -10,6 +10,7 @@ export const executeProcessSearch = async (obj: any, options: options, ctx: any 
 
         case "telegram":
             const results = searchType(obj)
+
             await processInlineSearch(ctx, results)
     }
 }

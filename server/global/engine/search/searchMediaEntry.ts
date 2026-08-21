@@ -6,11 +6,11 @@ import {loadGenres} from "#server/bot/consts/media/genresConvert";
 import {parseSearchQuery} from "#server/global/engine/search/mapper/parseSearchQuery";
 import {normalizeSearchQuery} from "#server/global/engine/search/mapper/normalizeSearchQuery";
 import {resolveSearchStrategy} from "#server/global/engine/search/strategy/resolveSearchStrategy";
-import {getInlineCacheOptions} from "#server/global/engine/search/mapper/getInlineCacheOptions";
 import {executeSearchStrategy} from "#server/global/engine/search/strategy/executeSearchStrategy";
 import {SearchStrategy} from "#server/global/engine/search/strategy/enums";
 import {filterContentType} from "#server/global/engine/search/mapper/filterContentType";
 import {saveLastSearchQuery} from "#server/global/engine/search/repository/tmdbRepository";
+import {setInlineCacheOptions} from "#server/global/engine/search/mapper/getInlineCacheOptions";
 
 export const searchMediaEntry = async (query: string, page: number = 1, userId: number) => {
 
@@ -23,7 +23,7 @@ export const searchMediaEntry = async (query: string, page: number = 1, userId: 
     const normalized = normalizeSearchQuery(parsed, page)
 
     const strategy = resolveSearchStrategy(normalized)
-    const cacheOptions = getInlineCacheOptions(strategy)
+    const cacheOptions = setInlineCacheOptions(strategy)
 
     const result = await executeSearchStrategy(strategy, normalized, page)
 

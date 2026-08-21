@@ -121,7 +121,7 @@ export const mediaPersonFirstJob = (personId: number, job: string) => {
 
     return Markup.button.switchToCurrentChat(
         job,
-        ''
+        `#person ${personId}`
     )
 }
 
@@ -129,7 +129,7 @@ export const mediaPersonSecondJob = (personId: number, job: string) => {
 
     return Markup.button.switchToCurrentChat(
         job,
-        ''
+        `#person ${personId} #crew`
     )
 }
 
