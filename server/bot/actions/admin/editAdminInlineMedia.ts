@@ -4,16 +4,13 @@ import {
 } from "#server/bot/actions/admin/adminEditSession"
 
 import {
-    editMediaChoiceKeyboard
-} from "#server/bot/consts/buttons/keyboardBot"
-
-import {
     createMediaCaption
 } from "#server/bot/consts/media/createMediaCaption"
 
 import {
     tmdbFetch
 } from "#server/utils/api/tmdbFetch"
+import {editMediaChoiceKeyboard} from "#server/bot/consts/buttons/admin/keyboardAdmin";
 
 export const editAdminInlineMedia = async (ctx: any) => {
 

@@ -1,8 +1,8 @@
-import { tmdbGenres } from "~/utils/engines/search/mapper/tmdbGenres";
+import {tmdbGenres} from "#server/global/engine/search/mapper/tmdbGenres";
 
 export const findGenre = (
     genres: string[],
-    mediaType: "movie" | "tv"
+    mediaType: "movie" | "tv" | "person"
 ): number[] => {
 
     const dictionary: Record<string, number> =

@@ -56,7 +56,7 @@ export default defineEventHandler(async (event) => {
 
     for (const message of session.message_ids ?? []) {
 
-        // inline карточки не удаляем
+        // process карточки не удаляем
         if(message.inlineMessageId) continue
         if (message.inlineMessageId) continue
         if (!message.messageId) continue

@@ -83,7 +83,7 @@ import {useTmdbPerson} from "~/composables/person/useTmdbPerson";
 import Loader from "~/composables/Loader.vue";
 import {imageCheck} from "~/utils/imageCheck";
 import {dateConvert} from "~/utils/convert/dateConvert";
-import {convertTranslateKnowForDepartment} from "~/utils/convert/translateKnowForDepartment";
+import {convertTranslateKnowForDepartment} from "#server/global/helpers/person/convert/translateKnowForDepartment";
 import PersonGetMovieByRoleSection from "~/components/widgets/web/person/PersonGetMovieByRoleSection.vue";
 
 const {
