@@ -15,6 +15,7 @@ import {saveLastSearchQuery} from "#server/global/engine/search/repository/tmdbR
 export const searchMediaEntry = async (query: string, page: number = 1, userId: number) => {
 
     await loadGenres()
+    console.log('query', query)
 
     const parsed = parseSearchQuery(query, userId)
     await saveLastSearchQuery(parsed.filters.genres, parsed.filters?.mediaTypes[0], userId, parsed.filters.contentType)
@@ -25,6 +26,13 @@ export const searchMediaEntry = async (query: string, page: number = 1, userId: 
     const cacheOptions = getInlineCacheOptions(strategy)
 
     const result = await executeSearchStrategy(strategy, normalized, page)
+
+    console.log('================ SEARCH DEBUG ================')
+    console.log('strategy:', strategy)
+    console.log('normalized:', normalized)
+    console.log('result:', result)
+    console.log('result.results:', result?.results)
+    console.log('================================================')
 
     result.results = result.results
         .map(normalizeTmdbMedia)

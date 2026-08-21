@@ -59,6 +59,13 @@ export default defineEventHandler(async (event) => {
 
     const credits = await res.json()
 
+    console.log('[TMDB] CREDITS RAW:', {
+        personId,
+        personJob,
+        cast: credits.cast?.length,
+        crew: credits.crew?.length
+    })
+
     let results = []
 
     if (personJob === "cast") {
@@ -77,10 +84,10 @@ export default defineEventHandler(async (event) => {
         ]
     }
 
+    console.log('[TMDB] CREDITS RESULTS:', results.length)
+
     const response = {
-        page: 1,
         results,
-        total_pages: 1,
         total_results: results.length
     }
 
