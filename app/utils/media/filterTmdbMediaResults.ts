@@ -1,6 +1,6 @@
 export const filterTmdbMediaResults = (
     media: any,
-    userId: number,
+    userId?: number,
     options?: {
         isBookmarks?: boolean
     }
@@ -9,6 +9,7 @@ export const filterTmdbMediaResults = (
     const isBookmarks =
         options?.isBookmarks ?? false
 
+    // Оставляем только фильмы и сериалы
     if (
         media.media_type !== "movie" &&
         media.media_type !== "tv"
@@ -16,16 +17,23 @@ export const filterTmdbMediaResults = (
         return false
     }
 
-    if (!userId) {
-        return false
-    }
+    const releaseDateString =
+        media.release_date ||
+        media.first_air_date
 
-    const releaseDate = Date.parse(media.release_date)
+    const releaseDate =
+        releaseDateString
+            ? Date.parse(releaseDateString)
+            : NaN
 
     const isReleased =
         !Number.isNaN(releaseDate) &&
         releaseDate <= Date.now()
 
+    /*
+     * Для вышедших фильмов / сериалов
+     * нужны постер и нормальное описание.
+     */
     if (isReleased) {
 
         const hasPoster =
@@ -38,9 +46,8 @@ export const filterTmdbMediaResults = (
         if (!isBookmarks) {
 
             const hasOverview =
-                media.overview &&
+                typeof media.overview === "string" &&
                 media.overview.trim().length >= 20
-
 
             if (!hasOverview) {
                 return false
