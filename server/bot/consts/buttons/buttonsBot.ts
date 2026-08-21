@@ -1,9 +1,9 @@
-import {Markup} from "telegraf"
-import type {TmdbGenre} from "~/types/tmdb.types"
-import {ContentType} from "~/utils/engines/search/strategy/enums"
-import {genresConvert} from "~/utils/convert/genresConvert"
-import {getContentTypeLabel} from "~/utils/convert/library/getContentTypeLabel";
+import {Markup} from "telegraf";
 import type {TypeButtonContext} from "#server/bot/consts/buttons/admin/keyboardAdmin";
+import {ContentType} from "#server/global/engine/search/strategy/enums";
+import type {TmdbGenre} from "~/types/tmdb.types";
+import {getContentTypeLabel} from "~/utils/convert/library/getContentTypeLabel";
+import {genresConvert} from "~/utils/convert/genresConvert";
 
 export const startButtonBot = (
     text: string,
@@ -114,3 +114,23 @@ export const checkBookmarksMedias = (
         '#collection'
     )
 }
+
+// PERSON KEYBOARD
+
+export const mediaPersonFirstJob = (personId: number, job: string) => {
+
+    return Markup.button.switchToCurrentChat(
+        job,
+        ''
+    )
+}
+
+export const mediaPersonSecondJob = (personId: number, job: string) => {
+
+    return Markup.button.switchToCurrentChat(
+        job,
+        ''
+    )
+}
+
+// PERSON KEYBOARD

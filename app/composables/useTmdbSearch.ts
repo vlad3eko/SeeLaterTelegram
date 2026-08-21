@@ -1,4 +1,4 @@
-import { searchMediaEntry } from "~/utils/engines/search/searchMediaEntry";
+import {searchMediaEntry} from "#server/global/engine/search/searchMediaEntry";
 
 export const useTmdbSearch = () => {
 

@@ -1,5 +1,5 @@
-import {ContentStrategy} from "~/utils/engines/content/strategy/enums";
 import {executeDataProvider} from "~/utils/engines/content/strategy/executeDataProvider";
+import type {ContentStrategy} from "~/utils/engines/content/strategy/enums";
 
 export const generateContentEntry = async (ctx: any) => {
 

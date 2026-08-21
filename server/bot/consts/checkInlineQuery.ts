@@ -29,6 +29,5 @@ export const checkInlineQuery = async (ctx: any) => {
             reply_markup: keyboardSearchBot()
         }
     ], {
-        // cache_time: 0
     })
 }

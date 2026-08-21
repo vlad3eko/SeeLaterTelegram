@@ -1,18 +1,20 @@
-import {SearchStrategy} from "~/utils/engines/search/strategy/enums";
-import type {NormalizedSearchQuery} from "~/utils/engines/search/mapper/typesSearch";
+import {SearchStrategy} from "#server/global/engine/search/strategy/enums";
+import type {NormalizedSearchQuery} from "#server/global/engine/search/mapper/typesSearch";
 import {
-    discoverMovies,
-    getBookmarks,
-    getPopularMovies,
+    discoverMovies, getBookmarks, getPopularMovies,
     searchMixed,
-    searchMulti
-} from "~/utils/engines/search/repository/tmdbRepository";
+    searchMulti,
+    searchPerson
+} from "#server/global/engine/search/repository/tmdbRepository";
 
 export const executeSearchStrategy = async (strategy: SearchStrategy, query: NormalizedSearchQuery, page: number = 1) => {
 
         query.page = page
 
     switch(strategy) {
+
+        case SearchStrategy.PERSON:
+            return await searchPerson(query, page)
 
         case SearchStrategy.SEARCH_BY_TEXT:
             return await searchMulti(query, page)

@@ -1,5 +1,5 @@
-import type {NormalizedSearchQuery} from "~/utils/engines/search/mapper/typesSearch";
-import {SearchStrategy} from "~/utils/engines/search/strategy/enums";
+import {NormalizedSearchQuery} from "#server/global/engine/search/mapper/typesSearch";
+import {SearchStrategy} from "#server/global/engine/search/strategy/enums";
 
 export const resolveSearchStrategy = (
     query: NormalizedSearchQuery
@@ -16,9 +16,15 @@ export const resolveSearchStrategy = (
         || query.filters.companies.length > 0
         || query.filters.mediaTypes.length > 0
         || query.filters.contentType
+        || query.filters.id.length > 0
+        || query.filters.personJob.length > 0
 
     const hasFromUserId =
         query.from
+
+    if (query.filters.contentType === 'person') {
+        return SearchStrategy.PERSON
+    }
 
     if (hasText && hasFilters) {
         return SearchStrategy.SEARCH_MIXED

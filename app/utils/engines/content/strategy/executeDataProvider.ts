@@ -1,4 +1,5 @@
 import {ContentStrategy} from "~/utils/engines/content/strategy/enums";
+
 export const executeDataProvider = async (strategy: string, userId: number) => {
 
     switch(strategy) {

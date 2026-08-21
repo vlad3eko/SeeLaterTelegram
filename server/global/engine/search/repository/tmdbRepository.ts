@@ -1,6 +1,6 @@
-import type {NormalizedSearchQuery} from "~/utils/engines/search/mapper/typesSearch";
 import {buildTmdbParams} from "~/utils/media/buildTmdbParams";
 import {tmdbFetch} from "#server/utils/api/tmdbFetch";
+import type {NormalizedSearchQuery} from "#server/global/engine/search/mapper/typesSearch";
 
 export const searchMulti = async (query: NormalizedSearchQuery, page: number) => {
 
@@ -12,7 +12,7 @@ export const searchMulti = async (query: NormalizedSearchQuery, page: number) =>
             query: {
                 q: query.text,
                 page,
-                media
+                media,
             }
         }
     )
@@ -43,6 +43,15 @@ export const getPopularMovies = async (query: NormalizedSearchQuery, page: numbe
             page
         }
     })
+}
+
+export const getPersonApi = async (personID: any) => {
+    return await tmdbFetch('/api/tmdb/person', {
+            query: {
+                id: personID
+            }
+        }
+    )
 }
 
 export const searchMixed = async (query: NormalizedSearchQuery, page: number) => {
@@ -92,6 +101,27 @@ export const searchMixed = async (query: NormalizedSearchQuery, page: number) =>
     }
 }
 
+export const searchPerson = async (query: NormalizedSearchQuery, page: number) => {
+
+    const personId = query.filters.id?.[0]
+    const personJob = query.filters.personJob?.[0]
+
+    if (personId) {
+        return await $fetch(
+            "/api/tmdb/credits",
+            {
+                query: {
+                    id: personId,
+                    personJob,
+                    page,
+                }
+            }
+        )
+    }
+
+    return await searchMulti(query, page)
+}
+
 export const getBookmarks = async (query: NormalizedSearchQuery, page: number) => {
     return await $fetch('/api/:media', {
         query: {
@@ -121,3 +151,5 @@ export const getLastSearchQuery = async (userId: number) => {
         }
     })
 }
+
+

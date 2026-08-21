@@ -3,7 +3,8 @@ export enum SearchStrategy {
     SEARCH_BY_FILTERS = "SEARCH_BY_FILTERS",
     SEARCH_MIXED = "SEARCH_MIXED",
     POPULAR = "POPULAR",
-    BOOKMARKS = "BOOKMARKS"
+    BOOKMARKS = "BOOKMARKS",
+    PERSON = "PERSON"
 }
 
 export enum ContentType {
@@ -13,4 +14,7 @@ export enum ContentType {
     SERIES = "series",
     CARTOON_SERIES = "cartoonSeries",
     ANIME = "anime",
+
+    PERSON = 'person'
 }
+

@@ -1,5 +1,5 @@
-import type {NormalizedSearchQuery, SearchQuery} from "~/utils/engines/search/mapper/typesSearch";
 import {findGenre} from "~/utils/media/findGenre";
+import type {NormalizedSearchQuery, SearchQuery} from "#server/global/engine/search/mapper/typesSearch";
 
 export const normalizeSearchQuery = (
     query: SearchQuery,
@@ -15,6 +15,8 @@ export const normalizeSearchQuery = (
         page: page,
         filters: {
             genres: findGenre(query.filters.genres, mediaType),
+            id: query.filters.id,
+            personJob: query.filters.personJob,
             years: query.filters.years,
             providers: [],
             countries: query.filters.countries,

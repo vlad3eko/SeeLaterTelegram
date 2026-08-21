@@ -1,7 +1,7 @@
-import {processSearchMediaInline} from "#server/bot/handlers/media/processSearchMediaInline";
-import {searchMediaEntry} from "~/utils/engines/search/searchMediaEntry";
-import {parseSearchQuery} from "~/utils/engines/search/mapper/parseSearchQuery";
+import {searchMediaEntry} from "#server/global/engine/search/searchMediaEntry";
+import {parseSearchQuery} from "#server/global/engine/search/mapper/parseSearchQuery";
 import {checkInlineQuery} from "#server/bot/consts/checkInlineQuery";
+import {executeProcessSearch} from "#server/global/module/executeProcessSearch";
 
 export const searchMediaInline = async (ctx: any) => {
 
@@ -29,10 +29,10 @@ export const searchMediaInline = async (ctx: any) => {
 
         if (!medias.results?.length) return await checkInlineQuery(ctx)
 
-        await processSearchMediaInline(ctx, medias)
+        await executeProcessSearch(medias, 'telegram', ctx)
 
     } catch (error) {
-        console.error("inline search error:", error)
+        console.error("process search error:", error)
         await ctx.answerInlineQuery([])
     }
 }

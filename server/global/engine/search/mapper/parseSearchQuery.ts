@@ -1,5 +1,5 @@
-import type {SearchQuery} from "~/utils/engines/search/mapper/typesSearch";
-import {ContentType} from "~/utils/engines/search/strategy/enums";
+import {ContentType} from "#server/global/engine/search/strategy/enums";
+import type {SearchQuery} from "#server/global/engine/search/mapper/typesSearch";
 
 export const parseSearchQuery = (
     query: string,
@@ -14,6 +14,8 @@ export const parseSearchQuery = (
         .split(/\s+/)
         .filter(Boolean)
 
+    const id: number[] = []
+    const personJob: string[] = []
     const genres: string[] = []
     const years: number[] = []
     const providers: string[] = []
@@ -21,7 +23,7 @@ export const parseSearchQuery = (
     const companies: string[] = []
     let bookmarksOfUserId: number | null = null
 
-    const mediaTypes: ("movie" | "tv")[] = []
+    const mediaTypes: ("movie" | "tv" | "person")[] = []
 
     let sort: string | undefined
     let vote: number | undefined
@@ -41,25 +43,25 @@ export const parseSearchQuery = (
                 .toLowerCase()
 
             // тип медиа
-            if (["фильм","movie","movies","фильмы"].includes(tag)) {
+            if (["фильм", "movie", "movies", "фильмы"].includes(tag)) {
                 mediaTypes.push("movie")
                 contentType = ContentType.MOVIE
                 continue
             }
 
-            if (["мультфильм","cartoon","мультфильмы"].includes(tag)) {
+            if (["мультфильм", "cartoon", "мультфильмы"].includes(tag)) {
                 mediaTypes.push("movie")
                 contentType = ContentType.CARTOON
                 continue
             }
 
-            if (["сериал","tv","series","serial","сериалы"].includes(tag)) {
+            if (["сериал", "tv", "series", "serial", "сериалы"].includes(tag)) {
                 mediaTypes.push("tv")
                 contentType = ContentType.SERIES
                 continue
             }
 
-            if (["мультсериал","мультсериалы"].includes(tag)) {
+            if (["мультсериал", "мультсериалы"].includes(tag)) {
                 mediaTypes.push("tv")
                 contentType = ContentType.CARTOON_SERIES
                 continue
@@ -96,16 +98,35 @@ export const parseSearchQuery = (
                 bookmarksOfUserId = userId
             }
 
+            if (["person", "persona", "человек", "актёр", "actor"].includes(tag)) {
+                mediaTypes.push("person")
+                contentType = ContentType.PERSON
+                continue
+            }
+
+            if (["cast", 'актёр', 'роли', 'crew'].includes(tag)) {
+                if (id.length) {
+                    personJob.push(tag)
+                    continue
+                }
+            }
+
             genres.push(tag)
 
             continue
         }
 
         // ---------- ГОД ----------
-        if (/^\d{4}$/.test(cleanWord) &&
-            Number(cleanWord) >= 1900 &&
-            Number(cleanWord) <= new Date().getFullYear() + 5) {
+        if (/^\d{4}$/.test(cleanWord)
+            && Number(cleanWord) >= 1900
+            && Number(cleanWord) <= new Date().getFullYear() + 5
+            && !mediaTypes.includes("person")) {
             years.push(Number(cleanWord))
+            continue
+        } else if (cleanWord
+            && Number(cleanWord) >= 1900
+            && mediaTypes.includes("person")) {
+            id.push(Number(cleanWord))
             continue
         }
 
@@ -123,6 +144,8 @@ export const parseSearchQuery = (
         text: text.join(" "),
         filters: {
             genres,
+            id,
+            personJob,
             years,
             providers,
             countries,
