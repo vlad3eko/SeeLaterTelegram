@@ -1,9 +1,3 @@
-import { FormatDate, FormatRating } from "~/utils/formatMoviesData"
-import { keyboardSendMediaCardInline } from "#server/bot/consts/buttons/keyboardBot"
-import { genresConvert } from "~/utils/convert/genresConvert"
-import {convertTranslateKnowForDepartment} from "#server/global/helpers/person/convert/translateKnowForDepartment"
-import {contentTypeConvert} from "~/utils/convert/contentTypeConvert";
-
 export const processInlineSearch = async (ctx: any, results: any) => {
     try {
         await ctx.answerInlineQuery(results, {

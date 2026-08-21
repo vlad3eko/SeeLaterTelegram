@@ -18,6 +18,12 @@ export default defineEventHandler(async (event) => {
 
     const personId = Number(query.id || 0)
     const personJob = String(query.personJob || "cast")
+    const page = Math.max(
+        Number(query.page || 1),
+        1
+    )
+
+    const PAGE_SIZE = 20
 
     if (!personId) {
         throw createError({
@@ -33,75 +39,89 @@ export default defineEventHandler(async (event) => {
 
     const cache = await getCache(event, cacheKey)
 
+    let results
+
     if (cache) {
-        return cache
-    }
-
-    const params = new URLSearchParams({
-        language: "ru-RU"
-    })
-
-    const tmdbStart = performance.now()
-
-    const res = await fetch(
-        `https://api.themoviedb.org/3/person/${personId}/combined_credits?${params}`,
-        {
-            headers
-        }
-    )
-
-    if (!res.ok) {
-        throw createError({
-            statusCode: res.status,
-            statusMessage: await res.text()
-        })
-    }
-
-    const credits = await res.json()
-
-    console.log('[TMDB] CREDITS RAW:', {
-        personId,
-        personJob,
-        cast: credits.cast?.length,
-        crew: credits.crew?.length
-    })
-
-    let results = []
-
-    if (personJob === "cast") {
-
-        results = credits.cast || []
-
-    } else if (personJob === "crew") {
-
-        results = credits.crew || []
-
+        results = cache.results || []
     } else {
 
-        results = [
-            ...(credits.cast || []),
-            ...(credits.crew || [])
-        ]
+        const params = new URLSearchParams({
+            language: "ru-RU"
+        })
+
+        const tmdbStart = performance.now()
+
+        const res = await fetch(
+            `https://api.themoviedb.org/3/person/${personId}/combined_credits?${params}`,
+            {
+                headers
+            }
+        )
+
+        if (!res.ok) {
+            throw createError({
+                statusCode: res.status,
+                statusMessage: await res.text()
+            })
+        }
+
+        const credits = await res.json()
+
+        if (personJob === "cast") {
+
+            results = credits.cast || []
+
+        } else if (personJob === "crew") {
+
+            results = credits.crew || []
+
+        } else {
+
+            results = [
+                ...(credits.cast || []),
+                ...(credits.crew || [])
+            ]
+        }
+
+        await saveCache(
+            event,
+            endpoint,
+            cacheKey,
+            {
+                results
+            },
+            90
+        )
+
+        console.log(
+            `[TMDB] PERSON CREDITS ${(performance.now() - tmdbStart).toFixed(2)}ms`
+        )
     }
 
-    console.log('[TMDB] CREDITS RESULTS:', results.length)
+    /*
+     * =========================
+     * PAGINATION
+     * =========================
+     */
 
-    const response = {
-        results,
-        total_results: results.length
+    const totalResults = results.length
+
+    const totalPages = Math.ceil(
+        totalResults / PAGE_SIZE
+    )
+
+    const start = (page - 1) * PAGE_SIZE
+    const end = start + PAGE_SIZE
+
+    const paginatedResults = results.slice(
+        start,
+        end
+    )
+
+    return {
+        page,
+        results: paginatedResults,
+        total_pages: totalPages,
+        total_results: totalResults
     }
-
-    await saveCache(
-        event,
-        endpoint,
-        cacheKey,
-        response,
-        90
-    )
-
-    console.log(
-        `[TMDB] PERSON CREDITS ${(performance.now() - tmdbStart).toFixed(2)}ms`
-    )
-
-    return response
 })
