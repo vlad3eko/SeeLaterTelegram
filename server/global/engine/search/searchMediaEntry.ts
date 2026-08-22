@@ -11,6 +11,7 @@ import {SearchStrategy} from "#server/global/engine/search/strategy/enums";
 import {filterContentType} from "#server/global/engine/search/mapper/filterContentType";
 import {saveLastSearchQuery} from "#server/global/engine/search/repository/tmdbRepository";
 import {setInlineCacheOptions} from "#server/global/engine/search/mapper/getInlineCacheOptions";
+import {filterMediaResults} from "#server/global/engine/search/mapper/filterMediaResults";
 
 export const searchMediaEntry = async (query: string, page: number = 1, userId: number) => {
 
@@ -34,17 +35,18 @@ export const searchMediaEntry = async (query: string, page: number = 1, userId: 
     console.log('result.results:', result?.results)
     console.log('================================================')
 
+
     result.results = result.results
         .map(normalizeTmdbMedia)
 
     if (!(strategy === 'PERSON')) {
-        result.results = result.results.filter((media: any) => filterTmdbMediaResults(media, userId, {isBookmarks: strategy === SearchStrategy.BOOKMARKS}))
-            .map(normalizeMediaGenres)
-            .filter((media: any) => filterContentType(media, normalized.filters.contentType))
+        console.log('isPerson FALSE')
+        filterMediaResults(result, strategy, normalized)
         if (page === 1 && !(parsed.filters.genres[0]?.startsWith('collection'))) {
             result.results = sortMediaResults(result.results)
         }
     } else {
+        console.log('isPerson TRUE')
         result.results = result.results
             .filter((person: any) => person.profile_path !== null)
             .sort((a: any, b: any) => b.popularity - a.popularity)

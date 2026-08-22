@@ -1,6 +1,5 @@
 export const filterTmdbMediaResults = (
     media: any,
-    userId?: number,
     options?: {
         isBookmarks?: boolean
     }
