@@ -99,13 +99,41 @@ export default defineEventHandler(async (event) => {
         )
     }
 
+    /*
+  * =========================
+  * FILTER
+  * =========================
+  */
+
     const filteredResults = results.filter(
         (media: any) =>
             filterTmdbMediaResults(media)
     )
 
+    /*
+     * =========================
+     * PAGINATION
+     * =========================
+     */
+
+    const totalResults = filteredResults.length
+
+    const totalPages = Math.ceil(
+        totalResults / PAGE_SIZE
+    )
+
+    const start = (page - 1) * PAGE_SIZE
+    const end = start + PAGE_SIZE
+
+    const paginatedResults = filteredResults.slice(
+        start,
+        end
+    )
+
     return {
         page,
-        results: filteredResults,
+        results: paginatedResults,
+        total_pages: totalPages,
+        total_results: totalResults
     }
 })
