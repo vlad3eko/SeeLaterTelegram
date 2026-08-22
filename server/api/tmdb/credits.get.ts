@@ -99,8 +99,13 @@ export default defineEventHandler(async (event) => {
         )
     }
 
+    const filteredResults = results.filter(
+        (media: any) =>
+            filterTmdbMediaResults(media)
+    )
 
     return {
-        results: results,
+        page,
+        results: filteredResults,
     }
 })
