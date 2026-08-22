@@ -108,6 +108,7 @@ export const searchPerson = async (query: NormalizedSearchQuery, page: number) =
     const personJob = query.filters.personJob?.[0]
 
     if (personId) {
+        console.log('person ID', personId)
         return await tmdbFetch(
             "/api/tmdb/credits",
             {
@@ -120,6 +121,7 @@ export const searchPerson = async (query: NormalizedSearchQuery, page: number) =
         )
     }
 
+    console.log('!person ID')
     return await searchMulti(query, page)
 }
 
