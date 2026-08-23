@@ -27,12 +27,21 @@ export const searchMediaEntry = async (query: string, page: number = 1, userId: 
 
     const result = await executeSearchStrategy(strategy, normalized, page)
 
+    console.log('================ SEARCH DEBUG ================')
+    console.log('query', query)
+    console.log('strategy:', strategy)
+    console.log('normalized:', normalized)
+    console.log('result:', result.total_results)
+    console.log('================================================')
+
+
+    console.log('RESULTI', result)
     result.results = result.results
         .map(normalizeTmdbMedia)
 
     const isPerson = result.results?.[0].media_type === 'person'
 
-    if (!isPerson) {
+    if (!isPerson || !(strategy === SearchStrategy.PERSON)) {
         filterMediaResults(result, strategy, normalized)
         if (page === 1 && !(parsed.filters.genres[0]?.startsWith('collection'))) {
             result.results = sortMediaResults(result.results)
