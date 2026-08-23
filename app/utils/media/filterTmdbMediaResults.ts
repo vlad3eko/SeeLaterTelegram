@@ -2,33 +2,18 @@ export const filterTmdbMediaResults = (
     media: any,
     options?: {
         isBookmarks?: boolean
-        allowPersons?: boolean
     }
 ) => {
 
     const isBookmarks =
         options?.isBookmarks ?? false
 
-    const allowPersons =
-        options?.allowPersons ?? false
 
     /*
-     * =========================
-     * PERSON
-     * =========================
+     * Оставляем только фильмы и сериалы.
+     *
+     * content_type здесь НЕ проверяем.
      */
-
-    if (media.media_type === "person") {
-
-        return allowPersons
-    }
-
-    /*
-     * =========================
-     * MOVIE / TV
-     * =========================
-     */
-
     if (
         media.media_type !== "movie" &&
         media.media_type !== "tv"
@@ -36,42 +21,42 @@ export const filterTmdbMediaResults = (
         return false
     }
 
-    /*
-     * =========================
-     * RELEASE DATE
-     * =========================
-     */
 
     const releaseDateString =
         media.release_date ||
         media.first_air_date
+
 
     const releaseDate =
         releaseDateString
             ? Date.parse(releaseDateString)
             : NaN
 
+
     const isReleased =
         !Number.isNaN(releaseDate) &&
         releaseDate <= Date.now()
 
-    /*
-     * =========================
-     * RELEASED MEDIA
-     * =========================
-     */
 
+    /*
+     * Для уже вышедших фильмов/сериалов:
+     *
+     * нужен постер
+     * и для обычного поиска — описание.
+     */
     if (isReleased) {
 
         const hasPoster =
             Boolean(
-                media.poster_path ||
-                media.backdrop_path
+                media.poster_path?.length ||
+                media.backdrop_path?.length
             )
+
 
         if (!hasPoster) {
             return false
         }
+
 
         if (!isBookmarks) {
 
@@ -79,11 +64,13 @@ export const filterTmdbMediaResults = (
                 typeof media.overview === "string" &&
                 media.overview.trim().length >= 20
 
+
             if (!hasOverview) {
                 return false
             }
         }
     }
+
 
     return true
 }
