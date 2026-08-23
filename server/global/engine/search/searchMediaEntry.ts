@@ -16,7 +16,6 @@ import {filterMediaResults} from "#server/global/engine/search/mapper/filterMedi
 export const searchMediaEntry = async (query: string, page: number = 1, userId: number) => {
 
     await loadGenres()
-    console.log('query', query)
 
     const parsed = parseSearchQuery(query, userId)
     await saveLastSearchQuery(parsed.filters.genres, parsed.filters?.mediaTypes[0], userId, parsed.filters.contentType)
@@ -28,28 +27,21 @@ export const searchMediaEntry = async (query: string, page: number = 1, userId: 
 
     const result = await executeSearchStrategy(strategy, normalized, page)
 
-    console.log('================ SEARCH DEBUG ================')
-    console.log('strategy:', strategy)
-    console.log('normalized:', normalized)
-    console.log('result:', result)
-    console.log('result.results:', result?.results)
-    console.log('================================================')
-
-
     result.results = result.results
         .map(normalizeTmdbMedia)
 
-    if (!(strategy === 'PERSON')) {
-        console.log('isPerson FALSE')
+    const isPerson = result.results?.[0].media_type === 'person'
+
+    if (!isPerson) {
         filterMediaResults(result, strategy, normalized)
         if (page === 1 && !(parsed.filters.genres[0]?.startsWith('collection'))) {
             result.results = sortMediaResults(result.results)
         }
-    } else {
-        console.log('isPerson TRUE')
+    } else if (strategy === SearchStrategy.PERSON) {
         result.results = result.results
             .filter((person: any) => person.profile_path !== null)
             .sort((a: any, b: any) => b.popularity - a.popularity)
+
     }
 
     return {
