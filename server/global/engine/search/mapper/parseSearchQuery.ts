@@ -53,155 +53,63 @@ export const parseSearchQuery = (
                     .slice(1)
                     .toLowerCase()
 
-            if (
-                [
-                    "фильм",
-                    "movie",
-                    "movies",
-                    "фильмы"
-                ].includes(tag)
-            ) {
-
+            if (["фильм", "movie", "movies", "фильмы"].includes(tag)) {
                 mediaTypes.push("movie")
-                contentType =
-                    ContentType.MOVIE
+                contentType = ContentType.MOVIE
 
                 continue
             }
 
-            if (
-                [
-                    "мультфильм",
-                    "cartoon",
-                    "мультфильмы"
-                ].includes(tag)
-            ) {
-
+            if (["мультфильм", "cartoon", "мультфильмы"].includes(tag)) {
                 mediaTypes.push("movie")
-                contentType =
-                    ContentType.CARTOON
-
+                contentType = ContentType.CARTOON
                 continue
             }
 
-            if (
-                [
-                    "сериал",
-                    "tv",
-                    "series",
-                    "serial",
-                    "сериалы"
-                ].includes(tag)
-            ) {
-
+            if (["сериал", "tv", "series", "serial", "сериалы"].includes(tag)) {
                 mediaTypes.push("tv")
-                contentType =
-                    ContentType.SERIES
-
+                contentType = ContentType.SERIES
                 continue
             }
 
-            if (
-                [
-                    "мультсериал",
-                    "мультсериалы"
-                ].includes(tag)
-            ) {
-
+            if (["мультсериал", "мультсериалы"].includes(tag)) {
                 mediaTypes.push("tv")
-                contentType =
-                    ContentType.CARTOON_SERIES
-
+                contentType = ContentType.CARTOON_SERIES
                 continue
             }
 
-            if (
-                [
-                    "аниме",
-                    "anime"
-                ].includes(tag)
-            ) {
-
+            if (["аниме", "anime"].includes(tag)) {
                 mediaTypes.push("tv")
-                contentType =
-                    ContentType.ANIME
-
+                contentType = ContentType.ANIME
                 continue
             }
 
-            if (
-                [
-                    "popular",
-                    "популярные"
-                ].includes(tag)
-            ) {
-
-                sort = "popularity.desc"
+            if (["popular", "популярные"].includes(tag)) {sort = "popularity.desc"
                 continue
             }
 
-            if (
-                [
-                    "rating",
-                    "рейтинг"
-                ].includes(tag)
-            ) {
-
-                sort = "vote_average.desc"
+            if (["rating", "рейтинг"].includes(tag)) {sort = "vote_average.desc"
                 continue
             }
 
-            if (
-                [
-                    "new",
-                    "новые"
-                ].includes(tag)
-            ) {
-
-                sort =
-                    "primary_release_date.desc"
-
+            if (["new", "новые"].includes(tag)) {
+                sort = "primary_release_date.desc"
                 continue
             }
 
-            if (
-                [
-                    "old",
-                    "старые"
-                ].includes(tag)
-            ) {
-
-                sort =
-                    "primary_release_date.asc"
-
+            if (["old", "старые"].includes(tag)) {
+                sort = "primary_release_date.asc"
                 continue
             }
 
-            if (
-                tag === "collection"
-            ) {
-
-                bookmarksOfUserId =
-                    userId
-
+            if (tag === "collection") {
+                bookmarksOfUserId = userId
                 continue
             }
 
-            if (
-                [
-                    "person",
-                    "persona",
-                    "человек",
-                    "актёр",
-                    "actor"
-                ].includes(tag)
-            ) {
-
+            if (["person", "persona", "человек", "актёр", "actor"].includes(tag)) {
                 mediaTypes.push("person")
-
-                contentType =
-                    ContentType.PERSON
-
+                contentType = ContentType.PERSON
                 continue
             }
 
@@ -211,35 +119,19 @@ export const parseSearchQuery = (
              * =========================
              */
 
-            if (
-                [
-                    "cast",
-                    "актер",
-                    "актёр",
-                    "роли"
-                ].includes(tag)
-            ) {
-
-                personJob.push("cast")
+            if (["cast", "актер", "актёр", "роли"].includes(tag)) {personJob.push("cast")
                 continue
             }
 
-            if (
-                tag === "crew"
-            ) {
-
-                personJob.push("crew")
+            if (tag === "crew") {personJob.push("crew")
                 continue
             }
-
             /*
              * =========================
              * GENRE
              * =========================
              */
-
             genres.push(tag)
-
             continue
         }
 
@@ -249,15 +141,8 @@ export const parseSearchQuery = (
          * =========================
          */
 
-        if (
-            mediaTypes.includes("person") &&
-            /^\d+$/.test(cleanWord)
-        ) {
-
-            id.push(
-                Number(cleanWord)
-            )
-
+        if (mediaTypes.includes("person") && /^\d+$/.test(cleanWord)) {
+            id.push(Number(cleanWord))
             continue
         }
 
@@ -267,18 +152,12 @@ export const parseSearchQuery = (
          * =========================
          */
 
-        if (
-            /^\d{4}$/.test(cleanWord) &&
-            Number(cleanWord) >= 1900 &&
-            Number(cleanWord) <=
-            new Date().getFullYear() + 5 &&
-            !mediaTypes.includes("person")
+        if (/^\d{4}$/.test(cleanWord)
+            && Number(cleanWord) >= 1900
+            && Number(cleanWord) <= new Date().getFullYear() + 5
+            && !mediaTypes.includes("person")
         ) {
-
-            years.push(
-                Number(cleanWord)
-            )
-
+            years.push(Number(cleanWord))
             continue
         }
 
@@ -288,17 +167,8 @@ export const parseSearchQuery = (
          * =========================
          */
 
-        if (
-            /^>\d+(\.\d+)?$/.test(
-                word
-            )
-        ) {
-
-            vote =
-                Number(
-                    word.slice(1)
-                )
-
+        if (/^>\d+(\.\d+)?$/.test(word)) {
+            vote = Number(word.slice(1))
             continue
         }
 
@@ -307,32 +177,18 @@ export const parseSearchQuery = (
 
     return {
         from: bookmarksOfUserId,
-
-        text:
-            text.join(" "),
-
+        text: text.join(" "),
         filters: {
-
             genres,
-
             id,
-
             personJob,
-
             years,
-
             providers,
-
             countries,
-
             companies,
-
             mediaTypes,
-
             contentType,
-
             sort,
-
             vote
         }
     }
