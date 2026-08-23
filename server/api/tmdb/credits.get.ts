@@ -100,6 +100,6 @@ export default defineEventHandler(async (event) => {
     }
 
     return {
-        results: results
+        result: results
     }
 })
