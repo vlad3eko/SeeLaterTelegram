@@ -40,10 +40,10 @@ export default defineEventHandler(async (event) => {
 
     const cache = await getCache(event, cacheKey)
 
-    let results
+    let result
 
     if (cache) {
-        results = cache.results || []
+        result = cache.results || []
     } else {
 
         const params = new URLSearchParams({
@@ -70,15 +70,15 @@ export default defineEventHandler(async (event) => {
 
         if (personJob === "cast") {
 
-            results = credits.cast || []
+            result = credits.cast || []
 
         } else if (personJob === "crew") {
 
-            results = credits.crew || []
+            result = credits.crew || []
 
         } else {
 
-            results = [
+            result = [
                 ...(credits.cast || []),
                 ...(credits.crew || [])
             ]
@@ -89,7 +89,7 @@ export default defineEventHandler(async (event) => {
             endpoint,
             cacheKey,
             {
-                results
+                result
             },
             90
         )
@@ -99,7 +99,8 @@ export default defineEventHandler(async (event) => {
         )
     }
 
+
     return {
-        result: results
+        results: result
     }
 })
