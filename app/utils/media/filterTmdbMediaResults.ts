@@ -10,8 +10,10 @@ export const filterTmdbMediaResults = (
 
     // Оставляем только фильмы и сериалы
     if (
-        media.media_type !== "movie" &&
-        media.media_type !== "tv"
+        media.media_type !== "movie"
+        && media.media_type !== "tv"
+        || media.content_type !== "movie"
+        && media.content_type !== "tv"
     ) {
         return false
     }
@@ -36,8 +38,9 @@ export const filterTmdbMediaResults = (
     if (isReleased) {
 
         const hasPoster =
-            Boolean(media.poster_path)
+            Boolean(media.poster_path?.length || media.backdrop_path?.length)
 
+        console.log('hasPoster', hasPoster)
         if (!hasPoster) {
             return false
         }

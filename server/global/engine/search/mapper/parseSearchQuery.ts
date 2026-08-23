@@ -124,7 +124,6 @@ export const parseSearchQuery = (
             years.push(Number(cleanWord))
             continue
         } else if (cleanWord
-            && Number(cleanWord) >= 1900
             && mediaTypes.includes("person")) {
             id.push(Number(cleanWord))
             continue
