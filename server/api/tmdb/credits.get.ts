@@ -99,7 +99,5 @@ export default defineEventHandler(async (event) => {
         )
     }
 
-    return {
-        result: results
-    }
+    return results
 })

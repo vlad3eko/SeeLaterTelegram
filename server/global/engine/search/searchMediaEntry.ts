@@ -35,6 +35,7 @@ export const searchMediaEntry = async (query: string, page: number = 1, userId: 
     console.log('================================================')
 
 
+    console.log('RESULTI', result)
     result.results = result.results
         .map(normalizeTmdbMedia)
 
