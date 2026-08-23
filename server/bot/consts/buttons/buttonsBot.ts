@@ -119,9 +119,11 @@ export const checkBookmarksMedias = (
 
 export const mediaPersonFirstJob = (personId: number, job: string) => {
 
+    const isActor = job === 'Актёр' ? '' : '#crew'
+
     return Markup.button.switchToCurrentChat(
         job,
-        `#person ${personId}`
+        `#person ${personId} ${isActor}`
     )
 }
 

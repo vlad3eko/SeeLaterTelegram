@@ -10,14 +10,6 @@ export const processInlineSearch = async (
                 ? String(results.page + 1)
                 : ''
 
-        console.log(
-            'inline pagination:',
-            {
-                page: results.page,
-                total_pages: results.total_pages,
-                next_offset: nextOffset
-            }
-        )
 
         await ctx.answerInlineQuery(
             results.results,
