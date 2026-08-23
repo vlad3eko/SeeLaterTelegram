@@ -102,27 +102,42 @@ export const searchMixed = async (query: NormalizedSearchQuery, page: number) =>
     }
 }
 
-export const searchPerson = async (query: NormalizedSearchQuery, page: number) => {
+export const searchPerson = async (
+    query: NormalizedSearchQuery
+) => {
 
-    const personId = query.filters.id?.[0]
-    const personJob = query.filters.personJob?.[0]
+    const personId =
+        query.filters.id?.[0]
+
+    const personJob =
+        query.filters.personJob?.[0] || "cast"
 
     if (personId) {
-        console.log('person ID', personId)
+
+        console.log(
+            'person ID:',
+            personId
+        )
+
         return await tmdbFetch(
             "/api/tmdb/credits",
             {
                 query: {
                     id: personId,
-                    personJob,
-                    page,
+                    personJob
                 }
             }
         )
     }
 
-    console.log('!person ID')
-    return await searchMulti(query, page)
+    console.log(
+        '!person ID'
+    )
+
+    return await searchMulti(
+        query,
+        1
+    )
 }
 
 export const getBookmarks = async (query: NormalizedSearchQuery, page: number) => {

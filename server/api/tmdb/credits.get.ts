@@ -2,94 +2,132 @@ import {
     buildCacheKey,
     getCache,
     saveCache
-} from "#server/global/engine/search/repository/cacheRepository"
-import {filterTmdbMediaResults} from "~/utils/media/filterTmdbMediaResults";
+} from "#server/global/engine/search/repository/cacheRepository";
 
 export default defineEventHandler(async (event) => {
 
     const query = getQuery(event)
-    const config = useRuntimeConfig()
+
+    const config =
+        useRuntimeConfig()
 
     const headers = {
         accept: "application/json",
-        Authorization: `Bearer ${config.tmdbApiKey}`
+        Authorization:
+            `Bearer ${config.tmdbApiKey}`
     }
 
-    const endpoint = "person/credits"
+    const endpoint =
+        "person/credits"
 
-    const personId = Number(query.id || 0)
-    const personJob = String(query.personJob || "cast")
-    const page = Math.max(
-        Number(query.page || 1),
-        1
-    )
+    const personId =
+        Number(query.id || 0)
 
-    const PAGE_SIZE = 20
+    const personJob =
+        String(
+            query.personJob || "cast"
+        )
 
     if (!personId) {
+
         throw createError({
             statusCode: 400,
-            statusMessage: "Person ID is required"
+            statusMessage:
+                "Person ID is required"
         })
     }
 
-    const cacheKey = buildCacheKey(endpoint, {
-        id: personId,
-        personJob
-    })
-
-    const cache = await getCache(event, cacheKey)
-
-    let result
-
-    if (cache) {
-        result = cache.results || []
-    } else {
-
-        const params = new URLSearchParams({
-            language: "ru-RU"
-        })
-
-        const tmdbStart = performance.now()
-
-        const res = await fetch(
-            `https://api.themoviedb.org/3/person/${personId}/combined_credits?${params}`,
+    const cacheKey =
+        buildCacheKey(
+            endpoint,
             {
-                headers
+                id: personId,
+                personJob
             }
         )
 
+    const cache =
+        await getCache(
+            event,
+            cacheKey
+        )
+
+    let results: any[] = []
+
+    /*
+     * =========================
+     * CACHE
+     * =========================
+     */
+
+    if (cache) {
+
+        results =
+            cache.results || []
+
+    } else {
+
+        const params =
+            new URLSearchParams({
+                language: "ru-RU"
+            })
+
+        const tmdbStart =
+            performance.now()
+
+        const res =
+            await fetch(
+                `https://api.themoviedb.org/3/person/${personId}/combined_credits?${params}`,
+                {
+                    headers
+                }
+            )
+
         if (!res.ok) {
+
             throw createError({
                 statusCode: res.status,
-                statusMessage: await res.text()
+                statusMessage:
+                    await res.text()
             })
         }
 
-        const credits = await res.json()
+        const credits =
+            await res.json()
 
-        if (personJob === "cast") {
+        if (
+            personJob === "cast"
+        ) {
 
-            result = credits.cast || []
+            results =
+                credits.cast || []
 
-        } else if (personJob === "crew") {
+        } else if (
+            personJob === "crew"
+        ) {
 
-            result = credits.crew || []
+            results =
+                credits.crew || []
 
         } else {
 
-            result = [
+            results = [
                 ...(credits.cast || []),
                 ...(credits.crew || [])
             ]
         }
+
+        /*
+         * ВАЖНО:
+         * cache.results
+         */
 
         await saveCache(
             event,
             endpoint,
             cacheKey,
             {
-                result
+                results
             },
             90
         )
@@ -100,24 +138,12 @@ export default defineEventHandler(async (event) => {
     }
 
     /*
-     * =========================
-     * PAGINATION
-     * =========================
+     * Возвращаем ВСЕ credits.
+     *
+     * Pagination здесь больше не делаем.
      */
 
-    const totalResults = result.length
-
-    const totalPages = Math.ceil(
-        totalResults / PAGE_SIZE
-    )
-
-    const start = (page - 1) * PAGE_SIZE
-    const end = start + PAGE_SIZE
-
     return {
-        page,
-        results: result,
-        total_pages: totalPages,
-        total_results: totalResults
+        results
     }
 })
