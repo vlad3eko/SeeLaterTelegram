@@ -1,15 +1,14 @@
-import {normalizeTmdbMedia} from "~/utils/media/normalizeTmdbMedia";
 import {sortMediaResults} from "~/utils/media/sortMediaResults";
+import {filterMediaResults} from "#server/global/engine/search/mapper/filterMediaResults";
 import {loadGenres} from "#server/bot/consts/media/genresConvert";
 import {parseSearchQuery} from "#server/global/engine/search/mapper/parseSearchQuery";
+import {saveLastSearchQuery} from "#server/global/engine/search/repository/tmdbRepository";
 import {normalizeSearchQuery} from "#server/global/engine/search/mapper/normalizeSearchQuery";
 import {resolveSearchStrategy} from "#server/global/engine/search/strategy/resolveSearchStrategy";
+import {setInlineCacheOptions} from "#server/global/engine/search/mapper/getInlineCacheOptions";
 import {executeSearchStrategy} from "#server/global/engine/search/strategy/executeSearchStrategy";
 import {SearchStrategy} from "#server/global/engine/search/strategy/enums";
-import {saveLastSearchQuery} from "#server/global/engine/search/repository/tmdbRepository";
-import {setInlineCacheOptions} from "#server/global/engine/search/mapper/getInlineCacheOptions";
-import {filterMediaResults} from "#server/global/engine/search/mapper/filterMediaResults";
-import {normalizeMediaGenres} from "#server/bot/consts/media/normalizeMediaGenres";
+import {normalizeTmdbMedia} from "~/utils/media/normalizeTmdbMedia";
 
 export const searchMediaEntry = async (
     query: string,
@@ -19,18 +18,21 @@ export const searchMediaEntry = async (
 
     await loadGenres()
 
+
     const parsed =
         parseSearchQuery(
             query,
             userId
         )
 
+
     await saveLastSearchQuery(
         parsed.filters.genres,
-        parsed.filters.mediaTypes[0],
+        parsed.filters?.mediaTypes[0],
         userId,
         parsed.filters.contentType
     )
+
 
     const normalized =
         normalizeSearchQuery(
@@ -38,11 +40,24 @@ export const searchMediaEntry = async (
             page
         )
 
+
     const strategy =
-        resolveSearchStrategy(normalized)
+        resolveSearchStrategy(
+            normalized
+        )
+
 
     const cacheOptions =
-        setInlineCacheOptions(strategy)
+        setInlineCacheOptions(
+            strategy
+        )
+
+
+    /*
+     * ==================================================
+     * Получаем исходные результаты
+     * ==================================================
+     */
 
     const result =
         await executeSearchStrategy(
@@ -51,147 +66,241 @@ export const searchMediaEntry = async (
             page
         )
 
-    console.log('================ SEARCH DEBUG ================')
-    console.log('query:', query)
-    console.log('strategy:', strategy)
-    console.log('page:', page)
-    console.log('normalized:', normalized)
+
+    console.log(
+        '================ SEARCH DEBUG ================'
+    )
+
+    console.log(
+        'query:',
+        query
+    )
+
+    console.log(
+        'strategy:',
+        strategy
+    )
+
+    console.log(
+        'page:',
+        page
+    )
+
     console.log(
         'API results:',
-        result?.results?.length
+        result.results?.length
     )
+
     console.log(
         'total_results:',
-        result?.total_results
+        result.total_results
     )
+
     console.log(
-        'total_pages:',
-        result?.total_pages
+        '================================================'
     )
-    console.log('================================================')
 
 
     /*
-     * ==========================================
-     * NORMALIZE
-     * ==========================================
+     * ==================================================
+     * #person ID
+     *
+     * Особый pipeline:
+     *
+     * ВСЯ фильмография
+     *       ↓
+     * normalize
+     *       ↓
+     * filter
+     *       ↓
+     * sort
+     *       ↓
+     * pagination
+     * ==================================================
      */
 
-    result.results =
-        (result.results || [])
-            .map((media: any) =>
-                normalizeTmdbMedia(media)
-            )
+    const personId =
+        normalized.filters.id?.[0]
 
 
-    /*
-     * ==========================================
-     * PERSON
-     * ==========================================
-     *
-     * Credits уже являются фильмами/сериалами.
-     *
-     * НЕ применяем:
-     * - filterTmdbMediaResults
-     * - filterContentType(... PERSON)
-     * - sortMediaResults
-     *
-     * Иначе можно удалить все credits.
-     */
+    if (
+        strategy === SearchStrategy.PERSON &&
+        personId
+    ) {
 
-    if (strategy === SearchStrategy.PERSON) {
+        /*
+         * 1. Normalize
+         */
 
-        result.results =
-            result.results
-                .filter((media: any) => {
-
-                    return (
-                        media.media_type === 'movie' ||
-                        media.media_type === 'tv'
-                    )
-                })
-                .map(normalizeMediaGenres)
+        let results =
+            (result.results || [])
+                .map(
+                    normalizeTmdbMedia
+                )
 
 
         /*
-         * Сортировка работ человека
+         * 2. Удаляем всё лишнее
          *
-         * Сначала популярные.
+         * Здесь используется ТВОЯ
+         * общая фильтрация.
          */
 
-        result.results.sort(
-            (a: any, b: any) =>
-                (b.popularity || 0) -
-                (a.popularity || 0)
+        const filteredResult = {
+            ...result,
+            results
+        }
+
+
+        filterMediaResults(
+            filteredResult,
+            strategy,
+            normalized
         )
 
 
+        results =
+            filteredResult.results
+
+
         /*
-         * ======================================
-         * PAGINATION
-         * ======================================
+         * 3. Жанры
          *
-         * Telegram максимум 50 результатов.
+         * filterMediaResults уже вызывает
+         * normalizeMediaGenres()
+         */
+
+
+        /*
+         * 4. Полная сортировка
+         */
+
+        results =
+            sortMediaResults(
+                results
+            )
+
+
+        /*
+         * 5. Удаляем дубли
          *
-         * Берём 20 на одну страницу.
+         * combined_credits иногда может
+         * вернуть один и тот же проект
+         * несколько раз.
+         */
+
+        const unique =
+            new Map()
+
+
+        for (const media of results) {
+
+            const key =
+                `${media.media_type}_${media.id}`
+
+            if (!unique.has(key)) {
+
+                unique.set(
+                    key,
+                    media
+                )
+            }
+        }
+
+
+        results =
+            Array.from(
+                unique.values()
+            )
+
+
+        /*
+         * 6. И только теперь пагинация
          */
 
         const PAGE_SIZE = 20
 
+
         const totalResults =
-            result.results.length
+            results.length
+
 
         const totalPages =
             Math.ceil(
-                totalResults / PAGE_SIZE
+                totalResults /
+                PAGE_SIZE
             )
 
+
         const start =
-            (page - 1) * PAGE_SIZE
+            (page - 1) *
+            PAGE_SIZE
+
 
         const end =
-            start + PAGE_SIZE
+            start +
+            PAGE_SIZE
 
-        result.results =
-            result.results.slice(
+
+        const paginatedResults =
+            results.slice(
                 start,
                 end
             )
 
-        result.page =
-            page
-
-        result.total_results =
-            totalResults
-
-        result.total_pages =
-            totalPages
-
 
         console.log(
-            '[PERSON PAGINATION]',
+            '[PERSON FILMOGRAPHY]',
             {
-                totalResults,
-                totalPages,
+                personId,
+                beforeFilter:
+                result.results?.length,
+
+                afterFilter:
+                results.length,
+
                 page,
+
+                totalPages,
+
                 returned:
-                result.results.length
+                paginatedResults.length
             }
         )
 
 
         return {
             ...result,
-            inlineOptions: cacheOptions
+
+            results:
+            paginatedResults,
+
+            page,
+
+            total_results:
+            totalResults,
+
+            total_pages:
+            totalPages,
+
+            inlineOptions:
+            cacheOptions
         }
     }
 
 
     /*
-     * ==========================================
-     * ОБЫЧНЫЙ ПОИСК
-     * ==========================================
+     * ==================================================
+     * Обычный поиск
+     * ==================================================
      */
+
+    result.results =
+        (result.results || [])
+            .map(
+                normalizeTmdbMedia
+            )
+
 
     filterMediaResults(
         result,
@@ -202,7 +311,8 @@ export const searchMediaEntry = async (
 
     if (
         page === 1 &&
-        !parsed.filters.genres[0]?.startsWith('collection')
+        !parsed.filters.genres[0]
+            ?.startsWith('collection')
     ) {
 
         result.results =
@@ -214,6 +324,7 @@ export const searchMediaEntry = async (
 
     return {
         ...result,
-        inlineOptions: cacheOptions
+        inlineOptions:
+        cacheOptions
     }
 }

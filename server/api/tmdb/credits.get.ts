@@ -6,35 +6,27 @@ import {
 
 export default defineEventHandler(async (event) => {
 
-    const query =
-        getQuery(event)
-
-    const config =
-        useRuntimeConfig()
+    const query = getQuery(event)
+    const config = useRuntimeConfig()
 
     const headers = {
         accept: "application/json",
-        Authorization:
-            `Bearer ${config.tmdbApiKey}`
+        Authorization: `Bearer ${config.tmdbApiKey}`
     }
 
-    const endpoint =
-        "person/credits"
+    const endpoint = "person/credits"
 
     const personId =
         Number(query.id || 0)
 
     const personJob =
-        String(
-            query.personJob || "cast"
-        )
+        String(query.personJob || "cast")
+
 
     if (!personId) {
-
         throw createError({
             statusCode: 400,
-            statusMessage:
-                "Person ID is required"
+            statusMessage: "Person ID is required"
         })
     }
 
@@ -56,105 +48,85 @@ export default defineEventHandler(async (event) => {
         )
 
 
-    /*
-     * ======================================
-     * CACHE
-     * ======================================
-     */
-
-    if (cache) {
-
-        return {
-            results:
-                cache.results || []
-        }
-    }
-
-
-    /*
-     * ======================================
-     * TMDB
-     * ======================================
-     */
-
-    const params =
-        new URLSearchParams({
-            language: "ru-RU"
-        })
-
-
-    const tmdbStart =
-        performance.now()
-
-
-    const res =
-        await fetch(
-            `https://api.themoviedb.org/3/person/${personId}/combined_credits?${params}`,
-            {
-                headers
-            }
-        )
-
-
-    if (!res.ok) {
-
-        throw createError({
-            statusCode: res.status,
-            statusMessage:
-                await res.text()
-        })
-    }
-
-
-    const credits =
-        await res.json()
-
-
     let results: any[]
 
 
-    if (personJob === "cast") {
+    if (cache) {
 
         results =
-            credits.cast || []
-
-    } else if (personJob === "crew") {
-
-        results =
-            credits.crew || []
+            cache.results || []
 
     } else {
 
-        results = [
-            ...(credits.cast || []),
-            ...(credits.crew || [])
-        ]
+        const params =
+            new URLSearchParams({
+                language: "ru-RU"
+            })
+
+
+        const tmdbStart =
+            performance.now()
+
+
+        const res =
+            await fetch(
+                `https://api.themoviedb.org/3/person/${personId}/combined_credits?${params}`,
+                {
+                    headers
+                }
+            )
+
+
+        if (!res.ok) {
+            throw createError({
+                statusCode: res.status,
+                statusMessage: await res.text()
+            })
+        }
+
+
+        const credits =
+            await res.json()
+
+
+        if (personJob === "cast") {
+
+            results =
+                credits.cast || []
+
+        } else if (personJob === "crew") {
+
+            results =
+                credits.crew || []
+
+        } else {
+
+            results = [
+                ...(credits.cast || []),
+                ...(credits.crew || [])
+            ]
+        }
+
+
+        await saveCache(
+            event,
+            endpoint,
+            cacheKey,
+            {
+                results
+            },
+            90
+        )
+
+
+        console.log(
+            `[TMDB] PERSON CREDITS ${(performance.now() - tmdbStart).toFixed(2)}ms`
+        )
     }
 
 
-    /*
-     * ======================================
-     * CACHE
-     * ======================================
-     */
-
-    await saveCache(
-        event,
-        endpoint,
-        cacheKey,
-        {
-            results
-        },
-        90
-    )
-
-
-    console.log(
-        `[TMDB] PERSON CREDITS ${(performance.now() - tmdbStart).toFixed(2)}ms`
-    )
-
-
     return {
-        results
+        results,
+        total_results: results.length
     }
 })
