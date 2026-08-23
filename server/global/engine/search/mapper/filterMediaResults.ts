@@ -6,5 +6,5 @@ import {filterContentType} from "#server/global/engine/search/mapper/filterConte
 export const filterMediaResults = (result: any, strategy: any, normalized: any) => {
     result.results = result.results.filter((media: any) => filterTmdbMediaResults(media, {isBookmarks: strategy === SearchStrategy.BOOKMARKS}))
         .map(normalizeMediaGenres)
-        // .filter((media: any) => filterContentType(media, normalized.filters.contentType))
+        .filter((media: any) => filterContentType(media, normalized.filters.contentType))
 }

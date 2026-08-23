@@ -99,8 +99,25 @@ export default defineEventHandler(async (event) => {
         )
     }
 
+    /*
+     * =========================
+     * PAGINATION
+     * =========================
+     */
+
+    const totalResults = result.length
+
+    const totalPages = Math.ceil(
+        totalResults / PAGE_SIZE
+    )
+
+    const start = (page - 1) * PAGE_SIZE
+    const end = start + PAGE_SIZE
 
     return {
-        results: result
+        page,
+        results: result,
+        total_pages: totalPages,
+        total_results: totalResults
     }
 })
