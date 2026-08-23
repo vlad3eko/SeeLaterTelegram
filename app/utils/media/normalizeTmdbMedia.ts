@@ -1,10 +1,9 @@
 import {ContentType} from "#server/global/engine/search/strategy/enums";
 import {convertTranslateKnowForDepartment} from "#server/global/helpers/person/convert/translateKnowForDepartment";
 
-
 const ANIMATION_GENRE = 16
 
-export const normalizeTmdbMedia = (media: any, cacheOptions: {}) => {
+export const normalizeTmdbMedia = (media: any) => {
 
     const mediaType =
         media.media_type ||
@@ -22,48 +21,79 @@ export const normalizeTmdbMedia = (media: any, cacheOptions: {}) => {
         genreIds.includes(ANIMATION_GENRE)
 
     const isJapanese =
-        media.original_language === "ja"
-        || media.original_language === "zh"
-        || (media.origin_country ?? []).includes("JP")
-        || (media.origin_country ?? []).includes("ZH")
+        media.original_language === "ja" ||
+        media.original_language === "zh" ||
+        (media.origin_country ?? []).includes("JP") ||
+        (media.origin_country ?? []).includes("ZH")
 
-    const isPerson = !!media.known_for_department
+    const isPerson =
+        mediaType === 'person' ||
+        !!media.known_for_department
 
     let contentType: ContentType
 
-    if (mediaType === 'movie') {
+    if (isPerson) {
+
+        contentType = ContentType.PERSON
+
+    } else if (mediaType === 'movie') {
+
         contentType =
             isAnimation
                 ? ContentType.CARTOON
                 : ContentType.MOVIE
+
     } else {
-        if (isPerson) {
-            contentType = ContentType.PERSON
-        } else if (!isAnimation) {
+
+        if (!isAnimation) {
+
             contentType = ContentType.SERIES
+
         } else if (isJapanese) {
+
             contentType = ContentType.ANIME
+
         } else {
+
             contentType = ContentType.CARTOON_SERIES
         }
     }
 
-    const personType = media.known_for_department ? convertTranslateKnowForDepartment(media.known_for_department) : ''
-
     return {
         ...media,
 
-        id: media.tmdb_id || media.id,
+        id:
+            media.tmdb_id ||
+            media.id,
 
         media_type: mediaType,
 
-        content_type: personType || contentType,
+        // ВАЖНО:
+        // здесь всегда именно ContentType
+        content_type: contentType,
 
-        is_movie: contentType === ContentType.MOVIE,
-        is_series: contentType === ContentType.SERIES,
-        is_cartoon: contentType === ContentType.CARTOON,
-        is_anime: contentType === ContentType.ANIME,
-        is_person: contentType === ContentType.PERSON,
+        // Отдельно сохраняем профессию человека
+        person_department:
+            isPerson && media.known_for_department
+                ? convertTranslateKnowForDepartment(
+                    media.known_for_department
+                )
+                : '',
+
+        is_movie:
+            contentType === ContentType.MOVIE,
+
+        is_series:
+            contentType === ContentType.SERIES,
+
+        is_cartoon:
+            contentType === ContentType.CARTOON,
+
+        is_anime:
+            contentType === ContentType.ANIME,
+
+        is_person:
+            contentType === ContentType.PERSON,
 
         title:
             media.title ||

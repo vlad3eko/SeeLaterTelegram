@@ -2,21 +2,45 @@ export const filterTmdbMediaResults = (
     media: any,
     options?: {
         isBookmarks?: boolean
+        allowPersons?: boolean
     }
 ) => {
 
     const isBookmarks =
         options?.isBookmarks ?? false
 
-    // Оставляем только фильмы и сериалы
+    const allowPersons =
+        options?.allowPersons ?? false
+
+    /*
+     * =========================
+     * PERSON
+     * =========================
+     */
+
+    if (media.media_type === "person") {
+
+        return allowPersons
+    }
+
+    /*
+     * =========================
+     * MOVIE / TV
+     * =========================
+     */
+
     if (
-        media.media_type !== "movie"
-        && media.media_type !== "tv"
-        || media.content_type !== "movie"
-        && media.content_type !== "tv"
+        media.media_type !== "movie" &&
+        media.media_type !== "tv"
     ) {
         return false
     }
+
+    /*
+     * =========================
+     * RELEASE DATE
+     * =========================
+     */
 
     const releaseDateString =
         media.release_date ||
@@ -32,13 +56,18 @@ export const filterTmdbMediaResults = (
         releaseDate <= Date.now()
 
     /*
-     * Для вышедших фильмов / сериалов
-     * нужны постер и нормальное описание.
+     * =========================
+     * RELEASED MEDIA
+     * =========================
      */
+
     if (isReleased) {
 
         const hasPoster =
-            Boolean(media.poster_path?.length || media.backdrop_path?.length)
+            Boolean(
+                media.poster_path ||
+                media.backdrop_path
+            )
 
         if (!hasPoster) {
             return false
