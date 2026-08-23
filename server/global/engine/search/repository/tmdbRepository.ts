@@ -102,13 +102,13 @@ export const searchMixed = async (query: NormalizedSearchQuery, page: number) =>
     }
 }
 
-export const searchPerson = async (query: NormalizedSearchQuery, page: number) => {
+export const searchPerson = async (query: NormalizedSearchQuery) => {
 
     const personId =
         query.filters.id?.[0]
 
     const personJob =
-        query.filters.personJob?.[0] || 'cast'
+        query.filters.personJob?.[0] || "cast"
 
 
     if (personId) {
@@ -120,6 +120,7 @@ export const searchPerson = async (query: NormalizedSearchQuery, page: number) =
                 personJob
             }
         )
+
 
         return await tmdbFetch(
             "/api/tmdb/credits",
@@ -133,9 +134,14 @@ export const searchPerson = async (query: NormalizedSearchQuery, page: number) =
     }
 
 
+    console.log(
+        '[PERSON SEARCH] people'
+    )
+
+
     return await searchMulti(
         query,
-        page
+        query.page
     )
 }
 
@@ -168,5 +174,3 @@ export const getLastSearchQuery = async (userId: number) => {
         }
     })
 }
-
-
