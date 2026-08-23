@@ -40,7 +40,6 @@ export const filterTmdbMediaResults = (
         const hasPoster =
             Boolean(media.poster_path?.length || media.backdrop_path?.length)
 
-        console.log('hasPoster', hasPoster)
         if (!hasPoster) {
             return false
         }
