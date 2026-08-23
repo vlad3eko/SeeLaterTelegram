@@ -10,10 +10,11 @@ export const filterTmdbMediaResults = (
 
 
     /*
-     * Оставляем только фильмы и сериалы.
+     * Только фильмы и сериалы.
      *
      * content_type здесь НЕ проверяем.
      */
+
     if (
         media.media_type !== "movie" &&
         media.media_type !== "tv"
@@ -38,12 +39,6 @@ export const filterTmdbMediaResults = (
         releaseDate <= Date.now()
 
 
-    /*
-     * Для уже вышедших фильмов/сериалов:
-     *
-     * нужен постер
-     * и для обычного поиска — описание.
-     */
     if (isReleased) {
 
         const hasPoster =

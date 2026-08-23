@@ -79,10 +79,13 @@ export const chosenInlineCard = async (ctx: any) => {
             const personId = media.id
             const firstJob = convertTranslateKnowForDepartment(media.known_for_department)
             const secondJob = convertTranslateKnowForDepartment(media.combined_credits?.crew[0]?.job)
-            keyboard = keyboardPerson(personId, firstJob, secondJob)
+
+            keyboard = keyboardPerson(
+                personId,
+                firstJob,
+                secondJob)
 
         }
-
 
         await ctx.telegram.editMessageMedia(undefined, undefined, inlineMessageId,
             {
