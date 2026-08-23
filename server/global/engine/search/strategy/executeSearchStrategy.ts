@@ -14,7 +14,7 @@ export const executeSearchStrategy = async (strategy: SearchStrategy, query: Nor
     switch(strategy) {
 
         case SearchStrategy.PERSON:
-            return await searchPerson(query, page)
+            return await searchPerson(query)
 
         case SearchStrategy.SEARCH_BY_TEXT:
             return await searchMulti(query, page)
