@@ -2,55 +2,44 @@ import {
     buildCacheKey,
     getCache,
     saveCache
-} from "#server/global/engine/search/repository/cacheRepository";
+} from "#server/global/engine/search/repository/cacheRepository"
 
 export default defineEventHandler(async (event) => {
 
     const query = getQuery(event)
-
-    const config =
-        useRuntimeConfig()
+    const config = useRuntimeConfig()
 
     const headers = {
         accept: "application/json",
-        Authorization:
-            `Bearer ${config.tmdbApiKey}`
+        Authorization: `Bearer ${config.tmdbApiKey}`
     }
 
-    const endpoint =
-        "person/credits"
+    const endpoint = "person/credits"
 
-    const personId =
-        Number(query.id || 0)
+    const personId = Number(query.id || 0)
 
     const personJob =
-        String(
-            query.personJob || "cast"
-        )
+        String(query.personJob || "cast")
 
     if (!personId) {
-
         throw createError({
             statusCode: 400,
-            statusMessage:
-                "Person ID is required"
+            statusMessage: "Person ID is required"
         })
     }
 
-    const cacheKey =
-        buildCacheKey(
-            endpoint,
-            {
-                id: personId,
-                personJob
-            }
-        )
+    const cacheKey = buildCacheKey(
+        endpoint,
+        {
+            id: personId,
+            personJob
+        }
+    )
 
-    const cache =
-        await getCache(
-            event,
-            cacheKey
-        )
+    const cache = await getCache(
+        event,
+        cacheKey
+    )
 
     let results: any[] = []
 
@@ -62,64 +51,86 @@ export default defineEventHandler(async (event) => {
 
     if (cache) {
 
+        // ВАЖНО:
+        // поддерживаем оба старых варианта кэша
         results =
-            cache.results || []
+            cache.results ||
+            cache.result ||
+            []
 
-    } else {
+    }
 
-        const params =
-            new URLSearchParams({
-                language: "ru-RU"
-            })
+    /*
+     * =========================
+     * TMDB
+     * =========================
+     */
 
-        const tmdbStart =
-            performance.now()
+    else {
 
-        const res =
-            await fetch(
-                `https://api.themoviedb.org/3/person/${personId}/combined_credits?${params}`,
-                {
-                    headers
-                }
-            )
+        const params = new URLSearchParams({
+            language: "ru-RU"
+        })
+
+        const tmdbStart = performance.now()
+
+        const res = await fetch(
+            `https://api.themoviedb.org/3/person/${personId}/combined_credits?${params}`,
+            {
+                headers
+            }
+        )
 
         if (!res.ok) {
 
             throw createError({
                 statusCode: res.status,
-                statusMessage:
-                    await res.text()
+                statusMessage: await res.text()
             })
+
         }
 
-        const credits =
-            await res.json()
+        const credits = await res.json()
 
-        if (
-            personJob === "cast"
-        ) {
+        /*
+         * CAST
+         */
+
+        if (personJob === "cast") {
 
             results =
                 credits.cast || []
 
-        } else if (
-            personJob === "crew"
-        ) {
+        }
+
+        /*
+         * CREW
+         */
+
+        else if (personJob === "crew") {
 
             results =
                 credits.crew || []
 
-        } else {
+        }
+
+        /*
+         * CAST + CREW
+         */
+
+        else {
 
             results = [
                 ...(credits.cast || []),
                 ...(credits.crew || [])
             ]
+
         }
 
         /*
-         * ВАЖНО:
-         * cache.results
+         * CACHE
+         *
+         * Всегда используем results.
          */
 
         await saveCache(
@@ -138,12 +149,30 @@ export default defineEventHandler(async (event) => {
     }
 
     /*
-     * Возвращаем ВСЕ credits.
+     * =========================
+     * RESPONSE
+     * =========================
      *
-     * Pagination здесь больше не делаем.
+     * Здесь НЕ делаем slice().
+     *
+     * Возвращаем весь список.
+     * Общий search pipeline сам решит,
+     * что оставить.
      */
 
     return {
-        results
+
+        page: 1,
+
+        results,
+
+        total_results:
+        results.length,
+
+        total_pages:
+            results.length > 0
+                ? 1
+                : 0
+
     }
 })
