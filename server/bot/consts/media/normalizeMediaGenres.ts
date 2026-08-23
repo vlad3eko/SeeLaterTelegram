@@ -1,6 +1,5 @@
 import {getGenreNames} from "./genresConvert";
 
-
 export function normalizeMediaGenres(media:any){
 
     if (!media.genre_ids?.length){
