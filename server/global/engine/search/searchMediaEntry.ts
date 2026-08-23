@@ -9,6 +9,7 @@ import {SearchStrategy} from "#server/global/engine/search/strategy/enums";
 import {saveLastSearchQuery} from "#server/global/engine/search/repository/tmdbRepository";
 import {setInlineCacheOptions} from "#server/global/engine/search/mapper/getInlineCacheOptions";
 import {filterMediaResults} from "#server/global/engine/search/mapper/filterMediaResults";
+import {normalizeMediaGenres} from "#server/bot/consts/media/normalizeMediaGenres";
 
 export const searchMediaEntry = async (
     query: string,
@@ -17,12 +18,6 @@ export const searchMediaEntry = async (
 ) => {
 
     await loadGenres()
-
-    /*
-     * =========================
-     * PARSE
-     * =========================
-     */
 
     const parsed =
         parseSearchQuery(
@@ -37,34 +32,17 @@ export const searchMediaEntry = async (
         parsed.filters.contentType
     )
 
-    /*
-     * =========================
-     * NORMALIZE
-     * =========================
-     */
-
     const normalized =
         normalizeSearchQuery(
             parsed,
             page
         )
 
-    /*
-     * =========================
-     * STRATEGY
-     * =========================
-     */
-
     const strategy =
-        resolveSearchStrategy(
-            normalized
-        )
+        resolveSearchStrategy(normalized)
 
-    /*
-     * =========================
-     * API
-     * =========================
-     */
+    const cacheOptions =
+        setInlineCacheOptions(strategy)
 
     const result =
         await executeSearchStrategy(
@@ -73,53 +51,30 @@ export const searchMediaEntry = async (
             page
         )
 
-    console.log(
-        '================ SEARCH DEBUG ================'
-    )
-
-    console.log(
-        'query:',
-        query
-    )
-
-    console.log(
-        'strategy:',
-        strategy
-    )
-
-    console.log(
-        'page:',
-        page
-    )
-
-    console.log(
-        'normalized:',
-        normalized
-    )
-
+    console.log('================ SEARCH DEBUG ================')
+    console.log('query:', query)
+    console.log('strategy:', strategy)
+    console.log('page:', page)
+    console.log('normalized:', normalized)
     console.log(
         'API results:',
         result?.results?.length
     )
-
     console.log(
         'total_results:',
         result?.total_results
     )
-
     console.log(
         'total_pages:',
         result?.total_pages
     )
+    console.log('================================================')
 
-    console.log(
-        '================================================'
-    )
 
     /*
-     * =========================
-     * NORMALIZE TMDB MEDIA
-     * =========================
+     * ==========================================
+     * NORMALIZE
+     * ==========================================
      */
 
     result.results =
@@ -128,55 +83,79 @@ export const searchMediaEntry = async (
                 normalizeTmdbMedia(media)
             )
 
-    /*
-     * =========================
-     * FILTER
-     * =========================
-     */
-
-    filterMediaResults(
-        result,
-        strategy,
-        normalized
-    )
 
     /*
-     * =========================
-     * PERSON SORT
-     * =========================
+     * ==========================================
+     * PERSON
+     * ==========================================
+     *
+     * Credits уже являются фильмами/сериалами.
+     *
+     * НЕ применяем:
+     * - filterTmdbMediaResults
+     * - filterContentType(... PERSON)
+     * - sortMediaResults
+     *
+     * Иначе можно удалить все credits.
      */
 
     if (strategy === SearchStrategy.PERSON) {
 
         result.results =
             result.results
-                .filter(
-                    (person: any) =>
-                        Boolean(
-                            person.profile_path
-                        )
-                )
-                .sort(
-                    (a: any, b: any) =>
-                        (b.popularity || 0) -
-                        (a.popularity || 0)
-                )
+                .filter((media: any) => {
+
+                    return (
+                        media.media_type === 'movie' ||
+                        media.media_type === 'tv'
+                    )
+                })
+                .map(normalizeMediaGenres)
+
+
+        /*
+         * Сортировка работ человека
+         *
+         * Сначала популярные.
+         */
+
+        result.results.sort(
+            (a: any, b: any) =>
+                (b.popularity || 0) -
+                (a.popularity || 0)
+        )
+
+
+        /*
+         * ======================================
+         * PAGINATION
+         * ======================================
+         *
+         * Telegram максимум 50 результатов.
+         *
+         * Берём 20 на одну страницу.
+         */
+
+        const PAGE_SIZE = 20
 
         const totalResults =
             result.results.length
 
         const totalPages =
             Math.ceil(
-                totalResults / 20
+                totalResults / PAGE_SIZE
             )
 
         const start =
-            (page - 1) * 20
+            (page - 1) * PAGE_SIZE
+
+        const end =
+            start + PAGE_SIZE
 
         result.results =
             result.results.slice(
                 start,
-                start + 20
+                end
             )
 
         result.page =
@@ -187,22 +166,43 @@ export const searchMediaEntry = async (
 
         result.total_pages =
             totalPages
+
+
+        console.log(
+            '[PERSON PAGINATION]',
+            {
+                totalResults,
+                totalPages,
+                page,
+                returned:
+                result.results.length
+            }
+        )
+
+
+        return {
+            ...result,
+            inlineOptions: cacheOptions
+        }
     }
 
+
     /*
-     * =========================
-     * MEDIA SORT
-     * =========================
-     *
-     * Людей здесь не сортируем.
+     * ==========================================
+     * ОБЫЧНЫЙ ПОИСК
+     * ==========================================
      */
 
+    filterMediaResults(
+        result,
+        strategy,
+        normalized
+    )
+
+
     if (
-        strategy !== SearchStrategy.PERSON &&
         page === 1 &&
-        !parsed.filters.genres[0]?.startsWith(
-            'collection'
-        )
+        !parsed.filters.genres[0]?.startsWith('collection')
     ) {
 
         result.results =
@@ -211,12 +211,9 @@ export const searchMediaEntry = async (
             )
     }
 
+
     return {
         ...result,
-
-        inlineOptions:
-            setInlineCacheOptions(
-                strategy
-            )
+        inlineOptions: cacheOptions
     }
 }

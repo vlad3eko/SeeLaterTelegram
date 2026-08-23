@@ -102,21 +102,23 @@ export const searchMixed = async (query: NormalizedSearchQuery, page: number) =>
     }
 }
 
-export const searchPerson = async (
-    query: NormalizedSearchQuery
-) => {
+export const searchPerson = async (query: NormalizedSearchQuery, page: number) => {
 
     const personId =
         query.filters.id?.[0]
 
     const personJob =
-        query.filters.personJob?.[0] || "cast"
+        query.filters.personJob?.[0] || 'cast'
+
 
     if (personId) {
 
         console.log(
-            'person ID:',
-            personId
+            '[PERSON SEARCH]',
+            {
+                personId,
+                personJob
+            }
         )
 
         return await tmdbFetch(
@@ -130,13 +132,10 @@ export const searchPerson = async (
         )
     }
 
-    console.log(
-        '!person ID'
-    )
 
     return await searchMulti(
         query,
-        1
+        page
     )
 }
 
