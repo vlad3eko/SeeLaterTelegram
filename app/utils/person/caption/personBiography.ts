@@ -3,8 +3,8 @@ import {formatPersonBiography} from "#server/global/helpers/person/formatPersonB
 
 export interface PersonBiographyData {
     biography: string
-    awards: string
-    fact: string
+    awards: string | undefined
+    fact: string | undefined
 }
 
 export const personBiography = (
@@ -15,7 +15,7 @@ export const personBiography = (
         return {
             biography: '',
             awards: '',
-            fact: ''
+            fact: '',
         }
     }
 

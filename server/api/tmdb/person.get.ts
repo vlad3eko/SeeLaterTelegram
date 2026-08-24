@@ -25,7 +25,7 @@ export default defineEventHandler(async (event) => {
     const tmdbStart =
         performance.now()
 
-    const res = await fetch(`https://api.themoviedb.org/3/person/${personId}/combined_credits?${params}`,
+    const res = await fetch(`https://api.themoviedb.org/3/person/${personId}?${params}`,
         { headers  }
     )
 

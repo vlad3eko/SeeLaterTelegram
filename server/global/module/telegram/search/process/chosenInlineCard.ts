@@ -2,9 +2,10 @@ import {isAdmin} from "#server/bot/consts/admins";
 import {getKeyTrailer} from "#server/bot/consts/media/getKeyTrailer";
 import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
 import {keyboardPerson, keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBot";
-import {getPersonApi, searchPerson} from "#server/global/engine/search/repository/tmdbRepository";
 import {createPersonCaption} from "~/utils/person/createPersonCaption";
 import {convertTranslateKnowForDepartment} from "#server/global/helpers/person/convert/translateKnowForDepartment";
+import {getPersonApi, searchPerson} from "#server/global/engine/search/repository/tmdbRepository";
+import {tmdbFetch} from "#server/utils/api/tmdbFetch";
 
 export const chosenInlineCard = async (ctx: any) => {
 
@@ -72,15 +73,28 @@ export const chosenInlineCard = async (ctx: any) => {
             )
 
         } else {
-            media = await searchPerson(mediaId)
+            const crewData = await tmdbFetch(
+                "/api/tmdb/credits",
+                {
+                    query: {
+                        id: mediaId,
+                        personJob: "crew"
+                    }
+                }
+            )
 
-            console.log('media', media)
+            const getSecondJob = crewData.results?.[0]?.job || ''
+            console.log('getS', getSecondJob)
+            console.log('getCrew', crewData.results[0])
+
+            const media = await getPersonApi(mediaId)
+
             image = media.profile_path
             caption = createPersonCaption(media)
 
             const personId = media.id
             const firstJob = convertTranslateKnowForDepartment(media.known_for_department)
-            const secondJob = convertTranslateKnowForDepartment(media.combined_credits?.crew[0]?.job)
+            const secondJob = convertTranslateKnowForDepartment(getSecondJob)
 
             keyboard = keyboardPerson(
                 personId,
