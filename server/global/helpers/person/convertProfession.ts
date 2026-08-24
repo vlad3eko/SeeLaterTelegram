@@ -1,15 +1,25 @@
 import {convertTranslateKnowForDepartment} from "#server/global/helpers/person/convert/translateKnowForDepartment";
 
 export const convertProfession = (media: any) => {
-    const professionFirst =
-        '🎭 ' + convertTranslateKnowForDepartment(media.known_for_department)
-    const professionSecond = () => {
-        const x = convertTranslateKnowForDepartment(media.combined_credits?.crew[0]?.job)
-        if (!x) return ''
 
-        return ' • 🎬 ' + x
-    }
+    const professions = [
+        media.known_for_department
+            ? `🎭 ${convertTranslateKnowForDepartment(media.known_for_department)}`
+            : '',
 
+        ...(media.combined_credits?.crew ?? [])
+            .map((movie: any) => {
+                if (!movie.job) return null
 
-    return `${professionFirst}${professionSecond()}`
+                const profession =
+                    convertTranslateKnowForDepartment(movie.job)
+
+                if (!profession) return null
+
+                return `🎬 ${profession}`
+            })
+            .filter(Boolean)
+    ]
+
+    return [...new Set(professions)].join('\n')
 }

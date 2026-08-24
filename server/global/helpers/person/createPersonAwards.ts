@@ -129,13 +129,9 @@ export const createPersonAwards = (media: any, person: any) => {
 
     return [
         header,
-
         factBlock,
-
         awardBlock,
-
         knownForBlock,
-
         socialBlock
     ]
         .filter(Boolean)
