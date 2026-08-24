@@ -2,7 +2,7 @@ import {isAdmin} from "#server/bot/consts/admins";
 import {getKeyTrailer} from "#server/bot/consts/media/getKeyTrailer";
 import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
 import {keyboardPerson, keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBot";
-import {getPersonApi} from "#server/global/engine/search/repository/tmdbRepository";
+import {getPersonApi, searchPerson} from "#server/global/engine/search/repository/tmdbRepository";
 import {createPersonCaption} from "~/utils/person/createPersonCaption";
 import {convertTranslateKnowForDepartment} from "#server/global/helpers/person/convert/translateKnowForDepartment";
 
@@ -72,7 +72,9 @@ export const chosenInlineCard = async (ctx: any) => {
             )
 
         } else {
-            media = await getPersonApi(mediaId)
+            media = await searchPerson(mediaId)
+
+            console.log('media', media)
             image = media.profile_path
             caption = createPersonCaption(media)
 
