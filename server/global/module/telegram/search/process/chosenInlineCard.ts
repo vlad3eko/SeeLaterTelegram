@@ -80,7 +80,7 @@ export const chosenInlineCard = async (ctx: any) => {
             caption = createPersonCaption(media)
 
             const firstJob = convertTranslateKnowForDepartment(media.known_for_department)
-            const secondJob = convertTranslateKnowForDepartment(media.combined_credits?.crew?.[0]?.job)
+            const secondJob = convertTranslateKnowForDepartment(media.combined_credits?.crew?.[0]?.job) ? 'Другие работы' : ''
 
             keyboard = keyboardPerson(
                 mediaId,
