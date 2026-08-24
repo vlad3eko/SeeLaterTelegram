@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
         Number(query.id || 0)
 
     const personJob =
-        String(query.personJob || "cast")
+        query.personJob === 'crew' ? 'crew' : String(query.personJob || "cast")
 
 
     if (!personId) {
