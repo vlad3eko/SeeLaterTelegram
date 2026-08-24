@@ -73,19 +73,6 @@ export const chosenInlineCard = async (ctx: any) => {
             )
 
         } else {
-            const crewData = await tmdbFetch(
-                "/api/tmdb/credits",
-                {
-                    query: {
-                        id: mediaId,
-                        personJob: "crew"
-                    }
-                }
-            )
-
-            const getSecondJob = crewData.results?.[0]?.job || ''
-            console.log('getS', getSecondJob)
-            console.log('getCrew', crewData.results[0])
 
             const media = await getPersonApi(mediaId)
 
@@ -94,7 +81,7 @@ export const chosenInlineCard = async (ctx: any) => {
 
             const personId = media.id
             const firstJob = convertTranslateKnowForDepartment(media.known_for_department)
-            const secondJob = convertTranslateKnowForDepartment(getSecondJob)
+            const secondJob = convertTranslateKnowForDepartment(media.results?.[0]?.job)
 
             keyboard = keyboardPerson(
                 personId,
