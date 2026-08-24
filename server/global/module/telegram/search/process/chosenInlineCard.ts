@@ -79,12 +79,11 @@ export const chosenInlineCard = async (ctx: any) => {
             image = media.profile_path
             caption = createPersonCaption(media)
 
-            const personId = media.id
             const firstJob = convertTranslateKnowForDepartment(media.known_for_department)
-            const secondJob = convertTranslateKnowForDepartment(media.results?.[0]?.job)
+            const secondJob = convertTranslateKnowForDepartment(media.combined_credits?.crew?.[0]?.job) ? 'Другие работы' : ''
 
             keyboard = keyboardPerson(
-                personId,
+                mediaId,
                 firstJob,
                 secondJob)
 
