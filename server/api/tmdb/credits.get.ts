@@ -15,18 +15,32 @@ export default defineEventHandler(async (event) => {
         Authorization: `Bearer ${config.tmdbApiKey}`
     }
 
+
+    /*
+     * ==================================================
+     * PARAMS
+     * ==================================================
+     */
+
     const id =
         Number(query.id || 0)
 
     const personJob =
         String(query.personJob || "cast")
 
+    const mediaType =
+        String(query.mediaType || "person")
+
+
     if (!id) {
+
         throw createError({
             statusCode: 400,
             statusMessage: "ID is required"
         })
+
     }
+
 
     /*
      * ==================================================
@@ -34,14 +48,21 @@ export default defineEventHandler(async (event) => {
      * ==================================================
      */
 
+    const endpoint =
+        mediaType === "person"
+            ? "person/credits"
+            : `${mediaType}/credits`
+
+
     const cacheKey =
         buildCacheKey(
-            "credits",
+            endpoint,
             {
                 id,
                 personJob
             }
         )
+
 
     const cache =
         await getCache(
@@ -49,17 +70,18 @@ export default defineEventHandler(async (event) => {
             cacheKey
         )
 
+
     if (cache) {
+
         return cache
+
     }
+
 
     /*
      * ==================================================
-     * TMDB
+     * TMDB REQUEST
      * ==================================================
-     *
-     * Сначала movie.
-     * Если такого фильма нет — пробуем tv.
      */
 
     const params =
@@ -67,93 +89,184 @@ export default defineEventHandler(async (event) => {
             language: "ru-RU"
         })
 
+
     const tmdbStart =
         performance.now()
 
-    let mediaType:
-        "movie" | "tv"
 
-    let credits: any
+    let url: string
+
+
+    /*
+     * ==================================================
+     * PERSON
+     *
+     * /person/{id}/combined_credits
+     *
+     * Результат:
+     * фильмы и сериалы, где участвовал человек
+     * ==================================================
+     */
+
+    if (mediaType === "person") {
+
+        url =
+            `https://api.themoviedb.org/3/person/${id}/combined_credits?${params}`
+
+    }
+
 
     /*
      * ==================================================
      * MOVIE
+     *
+     * /movie/{id}/credits
+     *
+     * Результат:
+     * люди, участвовавшие в фильме
      * ==================================================
      */
 
-    const movieResponse =
+    else if (mediaType === "movie") {
+
+        url =
+            `https://api.themoviedb.org/3/movie/${id}/credits?${params}`
+
+    }
+
+
+    /*
+     * ==================================================
+     * TV
+     *
+     * /tv/{id}/credits
+     *
+     * Результат:
+     * люди, участвовавшие в сериале
+     * ==================================================
+     */
+
+    else if (mediaType === "tv") {
+
+        url =
+            `https://api.themoviedb.org/3/tv/${id}/credits?${params}`
+
+    }
+
+
+    else {
+
+        throw createError({
+            statusCode: 400,
+            statusMessage:
+                `Unsupported mediaType: ${mediaType}`
+        })
+
+    }
+
+
+    const res =
         await fetch(
-            `https://api.themoviedb.org/3/movie/${id}/credits?${params}`,
+            url,
             {
                 headers
             }
         )
 
-    if (movieResponse.ok) {
 
-        mediaType = "movie"
+    if (!res.ok) {
 
-        credits =
-            await movieResponse.json()
+        throw createError({
+            statusCode: res.status,
+            statusMessage:
+                await res.text()
+        })
 
-    } else {
-
-        /*
-         * ==================================================
-         * TV
-         * ==================================================
-         */
-
-        const tvResponse =
-            await fetch(
-                `https://api.themoviedb.org/3/tv/${id}/credits?${params}`,
-                {
-                    headers
-                }
-            )
-
-        if (!tvResponse.ok) {
-
-            throw createError({
-                statusCode: 404,
-                statusMessage:
-                    "Movie or TV credits not found"
-            })
-
-        }
-
-        mediaType = "tv"
-
-        credits =
-            await tvResponse.json()
     }
+
+
+    const credits =
+        await res.json()
+
 
     /*
      * ==================================================
-     * SELECT CAST / CREW
+     * SELECT RESULTS
      * ==================================================
      */
 
     let results: any[] = []
 
-    if (personJob === "cast") {
 
-        results =
-            credits.cast || []
+    /*
+     * PERSON
+     *
+     * Здесь cast / crew относятся
+     * к фильмографии человека
+     */
 
-    } else if (personJob === "crew") {
+    if (mediaType === "person") {
 
-        results =
-            credits.crew || []
+        if (personJob === "cast") {
 
-    } else {
+            results =
+                credits.cast || []
 
-        results = [
-            ...(credits.cast || []),
-            ...(credits.crew || [])
-        ]
+        }
+
+        else if (personJob === "crew") {
+
+            results =
+                credits.crew || []
+
+        }
+
+        else {
+
+            results = [
+                ...(credits.cast || []),
+                ...(credits.crew || [])
+            ]
+
+        }
 
     }
+
+
+    /*
+     * MOVIE / TV
+     *
+     * Здесь cast / crew уже являются
+     * людьми.
+     */
+
+    else {
+
+        if (personJob === "cast") {
+
+            results =
+                credits.cast || []
+
+        }
+
+        else if (personJob === "crew") {
+
+            results =
+                credits.crew || []
+
+        }
+
+        else {
+
+            results = [
+                ...(credits.cast || []),
+                ...(credits.crew || [])
+            ]
+
+        }
+
+    }
+
 
     /*
      * ==================================================
@@ -170,11 +283,10 @@ export default defineEventHandler(async (event) => {
 
         total_pages: 1,
 
-        page: 1,
-
-        mediaType
+        page: 1
 
     }
+
 
     /*
      * ==================================================
@@ -184,21 +296,23 @@ export default defineEventHandler(async (event) => {
 
     await saveCache(
         event,
-        "credits",
+        endpoint,
         cacheKey,
         result,
         90
     )
 
+
     console.log(
         `[TMDB] CREDITS ${(performance.now() - tmdbStart).toFixed(2)}ms`,
         {
-            id,
             mediaType,
+            id,
             personJob,
             results: results.length
         }
     )
+
 
     return result
 })
