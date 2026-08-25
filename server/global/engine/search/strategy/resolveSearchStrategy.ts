@@ -21,7 +21,7 @@ export const resolveSearchStrategy = (
         || query.filters.personJob.length > 0
 
     const hasFromUserId =
-        query.from
+        Boolean(query.from)
 
     const hasId =
         query.filters.id.length > 0
@@ -32,28 +32,74 @@ export const resolveSearchStrategy = (
     const isPerson =
         query.filters.contentType === "person"
 
+
+    /*
+     * ==========================================
+     * PERSON
+     *
+     * #person
+     * #person 2219
+     * #person 2219 #cast
+     * ==========================================
+     */
+
     if (isPerson) {
         return SearchStrategy.PERSON
     }
 
+
+    /*
+     * ==========================================
+     * CREDITS
+     *
+     * 634649 #cast
+     * 634649 #crew
+     *
+     * Здесь ID относится к media,
+     * а его тип определит credits API.
+     * ==========================================
+     */
+
     if (hasId && hasCreditType) {
         return SearchStrategy.CREDITS
     }
+
+
+    /*
+     * ==========================================
+     * LEGACY PERSON ID
+     *
+     * Сохраняем старое поведение:
+     *
+     * 2219
+     *
+     * ==========================================
+     */
+
+    if (hasId) {
+        return SearchStrategy.PERSON
+    }
+
+
     if (hasText && hasFilters) {
         return SearchStrategy.SEARCH_MIXED
     }
+
 
     if (hasText) {
         return SearchStrategy.SEARCH_BY_TEXT
     }
 
+
     if (hasFilters) {
         return SearchStrategy.SEARCH_BY_FILTERS
     }
 
+
     if (hasFromUserId) {
         return SearchStrategy.BOOKMARKS
     }
+
 
     return SearchStrategy.POPULAR
 }
