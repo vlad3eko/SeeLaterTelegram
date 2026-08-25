@@ -4,7 +4,7 @@ import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
 import {keyboardPerson, keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBot";
 import {createPersonCaption} from "~/utils/person/createPersonCaption";
 import {convertTranslateKnowForDepartment} from "#server/global/helpers/person/convert/translateKnowForDepartment";
-import {getPersonApi, searchPerson} from "#server/global/engine/search/repository/tmdbRepository";
+import {getPersonApi} from "#server/global/engine/search/repository/tmdbRepository";
 import {tmdbFetch} from "#server/utils/api/tmdbFetch";
 
 export const chosenInlineCard = async (ctx: any) => {
