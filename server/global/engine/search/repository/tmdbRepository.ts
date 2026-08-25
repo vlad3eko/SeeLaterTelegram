@@ -127,35 +127,6 @@ export const searchPerson = async (query: NormalizedSearchQuery) => {
     return await searchMulti(query, query.page)
 }
 
-export const searchCredits = async (
-    query: NormalizedSearchQuery
-) => {
-
-    const mediaId =
-        query.filters.id?.[0]
-
-    const personJob =
-        query.filters.personJob?.[0] || "cast"
-
-    if (!mediaId) {
-        return {
-            results: [],
-            total_results: 0,
-            total_pages: 0
-        }
-    }
-
-    return await tmdbFetch(
-        "/api/tmdb/credits",
-        {
-            query: {
-                id: mediaId,
-                personJob
-            }
-        }
-    )
-}
-
 export const getBookmarks = async (query: NormalizedSearchQuery, page: number) => {
     return await $fetch('/api/:media', {
         query: {
