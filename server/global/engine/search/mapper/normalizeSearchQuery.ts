@@ -23,6 +23,7 @@ export const normalizeSearchQuery = (
             companies: [],
             mediaTypes: query.filters.mediaTypes,
             contentType: query.filters.contentType,
+            creditType: query.filters?.creditType,
             sort: query.filters.sort,
             vote: query.filters.vote,
         }
