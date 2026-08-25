@@ -121,7 +121,7 @@ export const mediaCast = (mediaId: number) => {
 
     return Markup.button.switchToCurrentChat(
         '🎭 Список актёров',
-        `${mediaId}`
+        `${mediaId} #cast`
     )
 }
 

@@ -30,14 +30,16 @@ export const searchMediaEntry = async (
     const cacheOptions = setInlineCacheOptions(strategy)
 
     const result = await executeSearchStrategy(strategy, normalized, page)
-    console.log('result', result.results)
+    console.log('result.results.length', result.results.length)
 
-
-    if ((strategy === SearchStrategy.PERSON || strategy === SearchStrategy.CREDITS) && !normalized.filters.id?.length)
+    if (strategy === SearchStrategy.PERSON && !normalized.filters.id?.length)
         return personSearch(result, cacheOptions)
 
     if (strategy === SearchStrategy.PERSON && normalized.filters.id?.length)
         return personMedia(result, strategy, normalized, page, cacheOptions)
+
+    if (strategy === SearchStrategy.CREDITS)
+        return personSearch(result, cacheOptions)
 
     result.results = (result.results || []).map(normalizeTmdbMedia)
     filterMediaResults(result, strategy, normalized)
