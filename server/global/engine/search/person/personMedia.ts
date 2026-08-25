@@ -1,6 +1,6 @@
-import {normalizeTmdbMedia} from "~/utils/media/normalizeTmdbMedia";
-import {filterMediaResults} from "#server/global/engine/search/mapper/filterMediaResults";
-import {sortMediaResults} from "~/utils/media/sortMediaResults";
+import { normalizeTmdbMedia } from "~/utils/media/normalizeTmdbMedia"
+import { filterMediaResults } from "#server/global/engine/search/mapper/filterMediaResults"
+import { sortMediaResults } from "~/utils/media/sortMediaResults"
 
 export const personMedia = (
     result: any,
@@ -12,7 +12,7 @@ export const personMedia = (
 
     /*
      * ==================================================
-     * 1. Нормализуем ВСЮ фильмографию
+     * 1. NORMALIZE
      * ==================================================
      */
 
@@ -21,17 +21,9 @@ export const personMedia = (
             .map(normalizeTmdbMedia)
 
 
-    const beforeFilter =
-        results.length
-
-
     /*
      * ==================================================
-     * 2. Общая фильтрация
-     *
-     * ВАЖНО:
-     * filterMediaResults мутирует result.results.
-     * Поэтому после него забираем filteredResult.results.
+     * 2. FILTER
      * ==================================================
      */
 
@@ -40,13 +32,11 @@ export const personMedia = (
         results
     }
 
-
     filterMediaResults(
         filteredResult,
         strategy,
         normalized
     )
-
 
     results =
         filteredResult.results
@@ -54,133 +44,81 @@ export const personMedia = (
 
     /*
      * ==================================================
-     * 3. Фильтрация по жанрам
-     *
-     * Для обычного поиска это делает searchMixed/discover.
-     *
-     * Но фильмография человека приходит отдельным
-     * endpoint'ом, поэтому здесь её надо фильтровать
-     * самостоятельно.
-     * ==================================================
-     */
-
-    const genreIds =
-        normalized.filters.genres || []
-
-
-    if (genreIds.length) {
-
-        results =
-            results.filter(
-                (media: any) => {
-
-                    if (
-                        !Array.isArray(
-                            media.genre_ids
-                        )
-                    ) {
-                        return false
-                    }
-
-
-                    return genreIds.every(
-                        (genreId: number) =>
-                            media.genre_ids.includes(
-                                genreId
-                            )
-                    )
-                }
-            )
-    }
-
-
-    /*
-     * ==================================================
-     * 4. Сортируем ВСЮ фильмографию
+     * 3. SORT
      * ==================================================
      */
 
     results =
-        sortMediaResults(
-            results
-        )
+        sortMediaResults(results)
 
 
     /*
      * ==================================================
-     * 5. Убираем дубли
+     * 4. UNIQUE
      * ==================================================
      */
 
     const unique =
-        new Map()
-
+        new Map<string, any>()
 
     for (const media of results) {
 
         const key =
             `${media.media_type}_${media.id}`
 
-
         if (!unique.has(key)) {
-            unique.set(
-                key,
-                media
-            )
+            unique.set(key, media)
         }
     }
 
-
     results =
-        Array.from(
-            unique.values()
-        )
+        Array.from(unique.values())
 
 
     /*
      * ==================================================
-     * 6. Pagination
-     *
-     * Только ПОСЛЕ фильтрации + сортировки + dedupe
+     * 5. PAGINATION
      * ==================================================
      */
 
     const PAGE_SIZE = 20
 
-
     const totalResults =
         results.length
 
-
     const totalPages =
         Math.ceil(
-            totalResults /
-            PAGE_SIZE
+            totalResults / PAGE_SIZE
         )
 
-
     const start =
-        (page - 1) *
-        PAGE_SIZE
-
-
-    const end =
-        start +
-        PAGE_SIZE
-
+        (page - 1) * PAGE_SIZE
 
     const paginatedResults =
         results.slice(
             start,
-            end
+            start + PAGE_SIZE
         )
+
+
+    console.log(
+        "[PERSON FILMOGRAPHY]",
+        {
+            personId: normalized.filters.id?.[0],
+            beforeFilter: result.results?.length || 0,
+            afterFilter: totalResults,
+            page,
+            totalPages,
+            returned: paginatedResults.length
+        }
+    )
+
 
     return {
 
         ...result,
 
-        results:
-        paginatedResults,
+        results: paginatedResults,
 
         page,
 
