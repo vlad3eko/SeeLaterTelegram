@@ -175,21 +175,6 @@ export const personMedia = (
             end
         )
 
-
-    console.log(
-        '[PERSON FILMOGRAPHY]',
-        {
-            beforeFilter,
-            afterFilter: results.length,
-            page,
-            totalResults,
-            totalPages,
-            returned:
-            paginatedResults.length
-        }
-    )
-
-
     return {
 
         ...result,

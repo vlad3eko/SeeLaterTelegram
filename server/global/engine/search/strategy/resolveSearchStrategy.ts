@@ -17,15 +17,28 @@ export const resolveSearchStrategy = (
         || query.filters.mediaTypes.length > 0
         || query.filters.contentType
         || query.filters.id.length > 0
+        || query.filters.creditType
         || query.filters.personJob.length > 0
 
     const hasFromUserId =
         query.from
 
-    if (query.filters.contentType === 'person') {
+    const hasId =
+        query.filters.id.length > 0
+
+    const hasCreditType =
+        Boolean(query.filters.creditType)
+
+    const isPerson =
+        query.filters.contentType === "person"
+
+    if (isPerson) {
         return SearchStrategy.PERSON
     }
 
+    if (hasId && hasCreditType) {
+        return SearchStrategy.CREDITS
+    }
     if (hasText && hasFilters) {
         return SearchStrategy.SEARCH_MIXED
     }

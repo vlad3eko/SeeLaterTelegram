@@ -1,7 +1,7 @@
 import {Markup} from "telegraf";
 import {
     checkBookmarksMedias,
-    deleteMediaButtonBot, mediaPersonFirstJob, mediaPersonSecondJob, recommendationButtonBot,
+    deleteMediaButtonBot, mediaCast, mediaPersonFirstJob, mediaPersonSecondJob, recommendationButtonBot,
     SaveMediaButtonBot,
     SearchButtonBot, startButtonBot
 } from "#server/bot/consts/buttons/buttonsBot";
@@ -43,6 +43,7 @@ export const keyboardSendMediaCardInline = (
     const keyboard = [
         [SearchButtonBot('Искать другое', ButtonContext), recommendationButtonBot(contentType, genres, ButtonContext, mediaId, mediaType)],
         [checkBookmarksMedias(ButtonContext)],
+        [mediaCast(mediaId)],
         [deleteMediaButtonBot(mediaId, mediaType), SaveMediaButtonBot(mediaId, mediaType, ButtonContext, saveCount)]
     ]
 

@@ -117,6 +117,15 @@ export const checkBookmarksMedias = (
 
 // PERSON KEYBOARD
 
+export const mediaCast = (mediaId: number) => {
+
+    return Markup.button.switchToCurrentChat(
+        '🎭 Список актёров',
+        `${mediaId}`
+    )
+}
+
+
 export const mediaPersonFirstJob = (personId: number, job: string) => {
 
     const isActor = job === 'Актёр' ? '' : '#crew'

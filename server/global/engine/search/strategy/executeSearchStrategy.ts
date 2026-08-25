@@ -1,7 +1,7 @@
 import {SearchStrategy} from "#server/global/engine/search/strategy/enums";
 import type {NormalizedSearchQuery} from "#server/global/engine/search/mapper/typesSearch";
 import {
-    discoverMovies, getBookmarks, getPopularMovies,
+    discoverMovies, getBookmarks, getPopularMovies, searchCredits,
     searchMixed,
     searchMulti,
     searchPerson
@@ -15,6 +15,9 @@ export const executeSearchStrategy = async (strategy: SearchStrategy, query: Nor
 
         case SearchStrategy.PERSON:
             return await searchPerson(query)
+
+        case SearchStrategy.CREDITS:
+            return await searchCredits(query)
 
         case SearchStrategy.SEARCH_BY_TEXT:
             return await searchMulti(query, page)

@@ -113,15 +113,6 @@ export const searchPerson = async (query: NormalizedSearchQuery) => {
 
     if (personId) {
 
-        console.log(
-            '[PERSON SEARCH]',
-            {
-                personId,
-                personJob
-            }
-        )
-
-
         return await tmdbFetch(
             "/api/tmdb/credits",
             {
@@ -133,15 +124,35 @@ export const searchPerson = async (query: NormalizedSearchQuery) => {
         )
     }
 
+    return await searchMulti(query, query.page)
+}
 
-    console.log(
-        '[PERSON SEARCH] people'
-    )
+export const searchCredits = async (
+    query: NormalizedSearchQuery
+) => {
 
+    const mediaId =
+        query.filters.id?.[0]
 
-    return await searchMulti(
-        query,
-        query.page
+    const personJob =
+        query.filters.personJob?.[0] || "cast"
+
+    if (!mediaId) {
+        return {
+            results: [],
+            total_results: 0,
+            total_pages: 0
+        }
+    }
+
+    return await tmdbFetch(
+        "/api/tmdb/credits",
+        {
+            query: {
+                id: mediaId,
+                personJob
+            }
+        }
     )
 }
 

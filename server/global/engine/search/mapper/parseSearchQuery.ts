@@ -22,10 +22,13 @@ export const parseSearchQuery = (
     const countries: string[] = []
     const companies: string[] = []
 
-    let bookmarksOfUserId: number | null = null
+    let bookmarksOfUserId:
+        number | null = null
 
     const mediaTypes:
         ("movie" | "tv" | "person")[] = []
+    let creditType:
+        "cast" | "crew" | undefined
 
     let sort: string | undefined
     let vote: number | undefined
@@ -84,11 +87,13 @@ export const parseSearchQuery = (
                 continue
             }
 
-            if (["popular", "популярные"].includes(tag)) {sort = "popularity.desc"
+            if (["popular", "популярные"].includes(tag)) {
+                sort = "popularity.desc"
                 continue
             }
 
-            if (["rating", "рейтинг"].includes(tag)) {sort = "vote_average.desc"
+            if (["rating", "рейтинг"].includes(tag)) {
+                sort = "vote_average.desc"
                 continue
             }
 
@@ -119,11 +124,15 @@ export const parseSearchQuery = (
              * =========================
              */
 
-            if (["cast", "актер", "актёр", "роли"].includes(tag)) {personJob.push("cast")
+            if (["cast", "актер", "актёр", "роли"].includes(tag)) {
+                personJob.push("cast")
+                creditType = "cast"
                 continue
             }
 
-            if (tag === "crew") {personJob.push("crew")
+            if (tag === "crew") {
+                personJob.push("crew")
+                creditType = "crew"
                 continue
             }
             /*
@@ -141,7 +150,7 @@ export const parseSearchQuery = (
          * =========================
          */
 
-        if (mediaTypes.includes("person") && /^\d+$/.test(cleanWord)) {
+        if (/^\d+$/.test(cleanWord)) {
             id.push(Number(cleanWord))
             continue
         }
@@ -188,6 +197,7 @@ export const parseSearchQuery = (
             companies,
             mediaTypes,
             contentType,
+            creditType,
             sort,
             vote
         }
