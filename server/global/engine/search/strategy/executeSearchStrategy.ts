@@ -1,41 +1,96 @@
 import {SearchStrategy} from "#server/global/engine/search/strategy/enums";
 import type {NormalizedSearchQuery} from "#server/global/engine/search/mapper/typesSearch";
+
 import {
     discoverMovies,
-    getBookmarks, getPopularMovies,
-    searchMixed, searchMulti, searchPerson
+    getBookmarks,
+    getPopularMovies,
+    searchCredits,
+    searchMixed,
+    searchMulti,
+    searchPerson
 } from "#server/global/engine/search/repository/tmdbRepository";
 
-export const executeSearchStrategy = async (strategy: SearchStrategy, query: NormalizedSearchQuery, page: number = 1) => {
 
-        query.page = page
+export const executeSearchStrategy = async (
+    strategy: SearchStrategy,
+    query: NormalizedSearchQuery,
+    page: number = 1
+) => {
 
-    switch(strategy) {
+    query.page = page
+
+
+    switch (strategy) {
+
+        /*
+         * ==========================================
+         * PERSON
+         * ==========================================
+         */
 
         case SearchStrategy.PERSON:
+
             return await searchPerson(query)
+
+
+        /*
+         * ==========================================
+         * CREDITS
+         *
+         * ID фильма/сериала → люди
+         * ==========================================
+         */
 
         case SearchStrategy.CREDITS:
-            return await searchPerson(query)
+
+            return await searchCredits(query)
+
 
         case SearchStrategy.SEARCH_BY_TEXT:
-            return await searchMulti(query, page)
+
+            return await searchMulti(
+                query,
+                page
+            )
+
 
         case SearchStrategy.SEARCH_BY_FILTERS:
-            return await discoverMovies(query, page)
+
+            return await discoverMovies(
+                query,
+                page
+            )
+
 
         case SearchStrategy.SEARCH_MIXED:
-            return await searchMixed(query, page)
+
+            return await searchMixed(
+                query,
+                page
+            )
+
 
         case SearchStrategy.POPULAR:
-            return await getPopularMovies(query, page)
+
+            return await getPopularMovies(
+                query,
+                page
+            )
+
 
         case SearchStrategy.BOOKMARKS:
-            return await getBookmarks(query, page)
+
+            return await getBookmarks(
+                query,
+                page
+            )
+
 
         default:
+
             return {
-                results:[]
+                results: []
             }
     }
 }
