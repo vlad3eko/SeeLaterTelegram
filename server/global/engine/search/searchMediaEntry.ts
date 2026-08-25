@@ -21,15 +21,16 @@ export const searchMediaEntry = async (
     await loadGenres()
 
     const parsed = parseSearchQuery(query, userId)
-    console.log('parsed', parsed)
     await saveLastSearchQuery(parsed.filters.genres, parsed.filters?.mediaTypes[0], userId, parsed.filters.contentType)
 
     const normalized = normalizeSearchQuery(parsed, page)
+    console.log('normalized', normalized )
     const strategy = resolveSearchStrategy(normalized)
+    console.log('strategy', strategy )
     const cacheOptions = setInlineCacheOptions(strategy)
 
     const result = await executeSearchStrategy(strategy, normalized, page)
-    console.log('result', result.results)
+    console.log('result', result.results[0])
 
 
     if (strategy === SearchStrategy.PERSON && !normalized.filters.id?.length)
