@@ -9,6 +9,7 @@ export interface SearchFilters {
     countries: string[]
     companies: string[]
     mediaTypes: ("movie" | "tv" | "person")[]
+    creditType: "cast" | "crew" | undefined
     contentType?: ContentType
     sort?: string
     vote?: number
@@ -29,6 +30,7 @@ export interface NormalizedSearchFilters {
     countries: string[]
     companies: number[]
     mediaTypes: ("movie" | "tv" | "person")[]
+    creditType: ("cast" | "crew" | undefined)
     contentType?: ContentType
     sort?: string
     vote?: number

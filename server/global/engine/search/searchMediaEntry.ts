@@ -21,6 +21,7 @@ export const searchMediaEntry = async (
     await loadGenres()
 
     const parsed = parseSearchQuery(query, userId)
+    console.log('parsed', parsed)
     await saveLastSearchQuery(parsed.filters.genres, parsed.filters?.mediaTypes[0], userId, parsed.filters.contentType)
 
     const normalized = normalizeSearchQuery(parsed, page)
@@ -28,6 +29,8 @@ export const searchMediaEntry = async (
     const cacheOptions = setInlineCacheOptions(strategy)
 
     const result = await executeSearchStrategy(strategy, normalized, page)
+    console.log('result', result.results)
+
 
     if (strategy === SearchStrategy.PERSON && !normalized.filters.id?.length)
         return personSearch(result, cacheOptions)
@@ -45,7 +48,6 @@ export const searchMediaEntry = async (
     return {
         ...result,
 
-        inlineOptions:
-        cacheOptions
+        inlineOptions: cacheOptions
     }
 }
