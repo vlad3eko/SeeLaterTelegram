@@ -8,7 +8,7 @@ export const formatMediaOverview = (
         return addOverview
 
     if (!overview)
-        return 'Описание отсутствует'
+        return 'Описание сюжета отсутствует'
 
     if (overview.length <= maxLength)
         return overview

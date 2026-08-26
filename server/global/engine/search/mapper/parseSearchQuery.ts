@@ -27,6 +27,7 @@ export const parseSearchQuery = (
 
     const mediaTypes:
         ("movie" | "tv" | "person")[] = []
+
     let creditType:
         "cast" | "crew" | undefined
 
@@ -39,9 +40,10 @@ export const parseSearchQuery = (
 
         const cleanWord =
             word.replace(
-                /[()"«»']/g,
+                /[()"«»'[\]<>]/g,
                 ''
             )
+
 
         /*
          * =========================
@@ -56,67 +58,128 @@ export const parseSearchQuery = (
                     .slice(1)
                     .toLowerCase()
 
-            if (["фильм", "movie", "movies", "фильмы"].includes(tag)) {
+            if ([
+                "фильм",
+                "movie",
+                "movies",
+                "фильмы"
+            ].includes(tag)) {
+
                 mediaTypes.push("movie")
                 contentType = ContentType.MOVIE
 
                 continue
             }
 
-            if (["мультфильм", "cartoon", "мультфильмы"].includes(tag)) {
+            if ([
+                "мультфильм",
+                "cartoon",
+                "мультфильмы"
+            ].includes(tag)) {
+
                 mediaTypes.push("movie")
                 contentType = ContentType.CARTOON
+
                 continue
             }
 
-            if (["сериал", "tv", "series", "serial", "сериалы"].includes(tag)) {
+            if ([
+                "сериал",
+                "tv",
+                "series",
+                "serial",
+                "сериалы"
+            ].includes(tag)) {
+
                 mediaTypes.push("tv")
                 contentType = ContentType.SERIES
+
                 continue
             }
 
-            if (["мультсериал", "мультсериалы"].includes(tag)) {
+            if ([
+                "мультсериал",
+                "мультсериалы"
+            ].includes(tag)) {
+
                 mediaTypes.push("tv")
                 contentType = ContentType.CARTOON_SERIES
+
                 continue
             }
 
-            if (["аниме", "anime"].includes(tag)) {
+            if ([
+                "аниме",
+                "anime"
+            ].includes(tag)) {
+
                 mediaTypes.push("tv")
                 contentType = ContentType.ANIME
+
                 continue
             }
 
-            if (["popular", "популярные"].includes(tag)) {
+            if ([
+                "popular",
+                "популярные"
+            ].includes(tag)) {
+
                 sort = "popularity.desc"
+
                 continue
             }
 
-            if (["rating", "рейтинг"].includes(tag)) {
+            if ([
+                "rating",
+                "рейтинг"
+            ].includes(tag)) {
+
                 sort = "vote_average.desc"
+
                 continue
             }
 
-            if (["new", "новые"].includes(tag)) {
+            if ([
+                "new",
+                "новые"
+            ].includes(tag)) {
+
                 sort = "primary_release_date.desc"
+
                 continue
             }
 
-            if (["old", "старые"].includes(tag)) {
+            if ([
+                "old",
+                "старые"
+            ].includes(tag)) {
+
                 sort = "primary_release_date.asc"
+
                 continue
             }
 
             if (tag === "collection") {
+
                 bookmarksOfUserId = userId
+
                 continue
             }
 
-            if (["person", "persona", "человек", "актёр", "actor"].includes(tag)) {
+            if ([
+                "person",
+                "persona",
+                "человек",
+                "актёр",
+                "actor"
+            ].includes(tag)) {
+
                 mediaTypes.push("person")
                 contentType = ContentType.PERSON
+
                 continue
             }
+
 
             /*
              * =========================
@@ -124,51 +187,131 @@ export const parseSearchQuery = (
              * =========================
              */
 
-            if (["cast", "актер", "актёр", "роли"].includes(tag)) {
+            if ([
+                "cast",
+                "актер",
+                "актёр",
+                "роли"
+            ].includes(tag)) {
+
                 personJob.push("cast")
                 creditType = "cast"
+
                 continue
             }
 
             if (tag === "crew") {
+
                 personJob.push("crew")
                 creditType = "crew"
+
                 continue
             }
+
+
             /*
              * =========================
              * GENRE
              * =========================
              */
+
             genres.push(tag)
+
             continue
         }
 
+
         /*
          * =========================
-         * PERSON ID
+         * YEAR IN BRACKETS
+         * =========================
+         *
+         * Alpha Gang (2026)
+         * Alpha Gang [2026]
+         * Alpha Gang «2026»
+         * Alpha Gang "2026"
+         * Alpha Gang '2026'
+         * Alpha Gang <<2026>>
+         * Alpha Gang <2026>
+         *
+         * ВАЖНО:
+         * эта проверка находится ДО ID.
+         * =========================
+         */
+
+        const yearMatch =
+            word.match(
+                /^(?:\((\d{4})\)|\[(\d{4})\]|«(\d{4})»|"(\d{4})"|'(\d{4})'|<<(\d{4})>>|<(\d{4})>)$/
+            )
+
+        if (yearMatch) {
+
+            const year =
+                Number(
+                    yearMatch
+                        .slice(1)
+                        .find(Boolean)
+                )
+
+            if (
+                year >= 1900
+                && year <= new Date().getFullYear() + 5
+            ) {
+
+                years.push(year)
+
+                continue
+            }
+        }
+
+
+        /*
+         * =========================
+         * PERSON ID / MEDIA ID
+         * =========================
+         *
+         * 2219
+         * 634649
+         *
+         * Обычные числа по-прежнему
+         * считаются ID.
          * =========================
          */
 
         if (/^\d+$/.test(cleanWord)) {
-            id.push(Number(cleanWord))
+
+            id.push(
+                Number(cleanWord)
+            )
+
             continue
         }
+
 
         /*
          * =========================
-         * YEAR
+         * YEAR WITHOUT BRACKETS
+         * =========================
+         *
+         * Оставляем старую логику:
+         *
+         * 2026
+         *
+         * считается ID.
+         *
+         * Годом считается только:
+         *
+         * (2026)
+         * [2026]
+         * «2026»
+         * "2026"
+         * '2026'
+         * <<2026>>
+         * <2026>
+         *
          * =========================
          */
 
-        if (/^\d{4}$/.test(cleanWord)
-            && Number(cleanWord) >= 1900
-            && Number(cleanWord) <= new Date().getFullYear() + 5
-            && !mediaTypes.includes("person")
-        ) {
-            years.push(Number(cleanWord))
-            continue
-        }
 
         /*
          * =========================
@@ -177,16 +320,31 @@ export const parseSearchQuery = (
          */
 
         if (/^>\d+(\.\d+)?$/.test(word)) {
-            vote = Number(word.slice(1))
+
+            vote =
+                Number(
+                    word.slice(1)
+                )
+
             continue
         }
+
+
+        /*
+         * =========================
+         * TEXT
+         * =========================
+         */
 
         text.push(word)
     }
 
     return {
         from: bookmarksOfUserId,
-        text: text.join(" "),
+
+        text:
+            text.join(" "),
+
         filters: {
             genres,
             id,

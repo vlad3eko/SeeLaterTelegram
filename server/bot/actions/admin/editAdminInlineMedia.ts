@@ -1,15 +1,6 @@
-import {
-    getAdminEditSession,
-    setAdminEditSession
-} from "#server/bot/actions/admin/adminEditSession"
-
-import {
-    createMediaCaption
-} from "#server/bot/consts/media/createMediaCaption"
-
-import {
-    tmdbFetch
-} from "#server/utils/api/tmdbFetch"
+import {getAdminEditSession, setAdminEditSession} from "#server/bot/actions/admin/adminEditSession"
+import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption"
+import {tmdbFetch} from "#server/utils/api/tmdbFetch"
 import {editMediaChoiceKeyboard} from "#server/bot/consts/buttons/admin/keyboardAdmin";
 
 export const editAdminInlineMedia = async (ctx: any) => {
@@ -30,6 +21,7 @@ export const editAdminInlineMedia = async (ctx: any) => {
         keyTrailer
     ] = ctx.match
 
+
     const parsedMediaId =
         Number(mediaId)
 
@@ -42,7 +34,6 @@ export const editAdminInlineMedia = async (ctx: any) => {
         session.mediaId === parsedMediaId
 
     if (!isCurrentSession) {
-
         const media =
             await tmdbFetch(
                 "/api/bot/getMediaBot",
@@ -58,37 +49,20 @@ export const editAdminInlineMedia = async (ctx: any) => {
             ctx.from.id,
             {
                 inlineMessageId,
-
-                mediaId:
-                parsedMediaId,
-
+                mediaId: parsedMediaId,
                 mediaType,
-
                 media,
-
                 contentType,
-
                 keyTrailer,
-
-                comment:
-                undefined,
-
-                overview:
-                undefined,
-
-                mode:
-                undefined,
-
+                comment: undefined,
+                overview: undefined,
+                mode: undefined,
                 currentMedia: {
-
-                    type:
-                        "photo",
-
-                    fileId:
-                        `https://image.tmdb.org/t/p/original${
-                            media.backdrop_path ||
-                            media.poster_path
-                        }`
+                    type: "photo",
+                    fileId: `https://image.tmdb.org/t/p/original${
+                        media.backdrop_path
+                        || media.poster_path
+                    }`
                 },
 
                 currentCaption:

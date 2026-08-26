@@ -13,7 +13,9 @@ export const createMediaCaption = (media: any, contentType: string, addComment: 
     const formatDate =
         `(${FormatDate(media.release_date || media.first_air_date) || '-'})`
 
-    const trailerMessage = `${keyTrailer
+    const checkKeyTrailer = keyTrailer?.length && typeof keyTrailer !== 'undefined' && !keyTrailer.includes('undefined')
+
+    const trailerMessage = `${checkKeyTrailer
         ? `✅ <a href="https://www.youtube.com/watch?v=${keyTrailer}">смотреть</a>`
         : '❌ Трейлера пока нет'}`
 
