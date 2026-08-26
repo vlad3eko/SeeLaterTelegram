@@ -6,7 +6,7 @@ import {filterTheMovie} from "~/utils/media/filterTheMovie";
 import {sortByRating} from "~/utils/media/sortByRating";
 
 export const createPersonAwards = (media: any, person: any) => {
-    const name = media.name || 'Неизвестный человек'
+    const name = `<code>${media.name}</code>` || 'Неизвестный человек'
 
     const profession = convertProfession(media)
 

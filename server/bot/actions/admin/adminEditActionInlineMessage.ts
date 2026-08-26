@@ -6,7 +6,6 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
     // =========================
     // НОВОЕ МЕДИА
     // =========================
-
     if (session.mode === 'media') {
         const photo = ctx.message.photo?.at(-1)
         const video = ctx.message.video
@@ -71,11 +70,9 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
         return
     }
 
-
     // =========================
-    // НОВЫЙ РЕЦЕНЗИЯ
+    // НОВАЯ РЕЦЕНЗИЯ
     // =========================
-
     if (session.mode === 'text') {
 
         const text =
@@ -139,7 +136,6 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
     // =========================
     // НОВОЕ ОПИСАНИЕ
     // =========================
-
     if (session.mode === 'overview') {
 
         const overview =
