@@ -54,7 +54,6 @@ export const publishAdminInlineMedia = async (ctx: any) => {
                     keyTrailer
                 )
         }
-    console.log(session.currentCaption.length)
 
     const channelId =
         '@kinomanovnet'

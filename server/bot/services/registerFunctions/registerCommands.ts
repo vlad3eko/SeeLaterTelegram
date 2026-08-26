@@ -19,6 +19,7 @@ const authRequests = new Map()
 
 export function registerCommands(bot: Telegraf) {
 
+
     bot.start(async (ctx: any) => {
 
         const text =
@@ -97,6 +98,15 @@ export function registerCommands(bot: Telegraf) {
 
         if (payload === 'collection') {
             await openInlineSearch(ctx, '#collection')
+            return
+        }
+
+        if (payload.startsWith('media_cast_')) {
+
+            const mediaId = payload.slice('media_cast_'.length)
+            console.log('mediaId', mediaId)
+
+            await openInlineSearch(ctx,`${mediaId} #cast`)
             return
         }
 
