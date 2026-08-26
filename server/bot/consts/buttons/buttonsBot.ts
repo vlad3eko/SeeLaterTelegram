@@ -117,7 +117,15 @@ export const checkBookmarksMedias = (
 
 // PERSON KEYBOARD
 
-export const mediaCast = (mediaId: number) => {
+export const mediaCast = (mediaId: number, ButtonContext: TypeButtonContext) => {
+
+    if (ButtonContext === 'channel') {
+
+        return Markup.button.url(
+            '🎭 Список актёров',
+            `https://t.me/kinomanovNet_bot?start=media_cast_${mediaId}`
+        )
+    }
 
     return Markup.button.switchToCurrentChat(
         '🎭 Список актёров',
