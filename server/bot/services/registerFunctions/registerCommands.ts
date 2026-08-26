@@ -38,7 +38,6 @@ export function registerCommands(bot: Telegraf) {
             }
         )
 
-
         if (text.includes('inline_settings') || payload === 'inline_settings') {
 
             const messageStart =
