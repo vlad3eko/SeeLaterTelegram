@@ -11,6 +11,7 @@ import {personMedia} from "#server/global/engine/search/person/personMedia";
 import {normalizeTmdbMedia} from "~/utils/media/normalizeTmdbMedia";
 import {filterMediaResults} from "#server/global/engine/search/mapper/filterMediaResults";
 import {sortMediaResults} from "~/utils/media/sortMediaResults";
+import {creditsSearch} from "#server/global/engine/search/person/creditsSearch";
 
 export const searchMediaEntry = async (
     query: string,
@@ -28,6 +29,7 @@ export const searchMediaEntry = async (
     const cacheOptions = setInlineCacheOptions(strategy)
 
     const result = await executeSearchStrategy(strategy, normalized, page)
+    console.log('results', result.results)
 
     if (strategy === SearchStrategy.PERSON && !normalized.filters.id?.length)
         return personSearch(result, cacheOptions)
@@ -36,7 +38,9 @@ export const searchMediaEntry = async (
         return personMedia(result, strategy, normalized, page, cacheOptions)
 
     if (strategy === SearchStrategy.CREDITS)
-        return personSearch(result, cacheOptions)
+        return creditsSearch(result, page, cacheOptions)
+
+
 
     result.results = (result.results || []).map(normalizeTmdbMedia)
     filterMediaResults(result, strategy, normalized)

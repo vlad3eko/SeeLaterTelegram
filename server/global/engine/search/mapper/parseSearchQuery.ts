@@ -36,14 +36,28 @@ export const parseSearchQuery = (
 
     const text: string[] = []
 
+    /*
+     * Числа пока не записываем сразу в ID.
+     *
+     * Сначала собираем их отдельно.
+     *
+     * Это нужно для:
+     *
+     * 12 лет рабства
+     * 634649 #cast
+     * 124265 #person
+     *
+     * В первом случае 12 должен стать частью текста.
+     * Во втором и третьем — ID.
+     */
+
+    const numericTokens: {
+        value: number
+        word: string
+    }[] = []
+
+
     for (const word of words) {
-
-        const cleanWord =
-            word.replace(
-                /[()"«»'[\]<>]/g,
-                ''
-            )
-
 
         /*
          * =========================
@@ -51,10 +65,10 @@ export const parseSearchQuery = (
          * =========================
          */
 
-        if (cleanWord.startsWith("#")) {
+        if (word.startsWith("#")) {
 
             const tag =
-                cleanWord
+                word
                     .slice(1)
                     .toLowerCase()
 
@@ -180,7 +194,6 @@ export const parseSearchQuery = (
                 continue
             }
 
-
             /*
              * =========================
              * PERSON JOB
@@ -208,7 +221,6 @@ export const parseSearchQuery = (
                 continue
             }
 
-
             /*
              * =========================
              * GENRE
@@ -234,8 +246,7 @@ export const parseSearchQuery = (
          * Alpha Gang <<2026>>
          * Alpha Gang <2026>
          *
-         * ВАЖНО:
-         * эта проверка находится ДО ID.
+         * Только такие числа считаются годом.
          * =========================
          */
 
@@ -254,8 +265,8 @@ export const parseSearchQuery = (
                 )
 
             if (
-                year >= 1900
-                && year <= new Date().getFullYear() + 5
+                year >= 1900 &&
+                year <= new Date().getFullYear() + 5
             ) {
 
                 years.push(year)
@@ -267,50 +278,25 @@ export const parseSearchQuery = (
 
         /*
          * =========================
-         * PERSON ID / MEDIA ID
+         * PURE NUMBER
          * =========================
          *
-         * 2219
-         * 634649
+         * Пока НЕ определяем его как ID.
          *
-         * Обычные числа по-прежнему
-         * считаются ID.
+         * Сначала посмотрим, есть ли в запросе
+         * обычный текст.
          * =========================
          */
 
-        if (/^\d+$/.test(cleanWord)) {
+        if (/^\d+$/.test(word)) {
 
-            id.push(
-                Number(cleanWord)
-            )
+            numericTokens.push({
+                value: Number(word),
+                word
+            })
 
             continue
         }
-
-
-        /*
-         * =========================
-         * YEAR WITHOUT BRACKETS
-         * =========================
-         *
-         * Оставляем старую логику:
-         *
-         * 2026
-         *
-         * считается ID.
-         *
-         * Годом считается только:
-         *
-         * (2026)
-         * [2026]
-         * «2026»
-         * "2026"
-         * '2026'
-         * <<2026>>
-         * <2026>
-         *
-         * =========================
-         */
 
 
         /*
@@ -339,24 +325,103 @@ export const parseSearchQuery = (
         text.push(word)
     }
 
+
+    /*
+     * ==================================================
+     * RESOLVE NUMERIC TOKENS
+     * ==================================================
+     *
+     * Здесь находится ключевое исправление.
+     *
+     * Если есть обычный текст:
+     *
+     * 12 лет рабства
+     *      ↓
+     * text = "12 лет рабства"
+     * id = []
+     *
+     * Если обычного текста нет:
+     *
+     * 634649 #cast
+     *      ↓
+     * id = [634649]
+     *
+     * 124265 #person
+     *      ↓
+     * id = [124265]
+     *
+     * Обычный числовой поиск:
+     *
+     * 634649
+     *      ↓
+     * id = [634649]
+     *
+     * Таким образом старое поведение ID сохраняется.
+     * ==================================================
+     */
+
+    if (text.length > 0) {
+
+        /*
+         * Если в запросе уже есть обычный текст,
+         * числа считаем частью названия.
+         */
+
+        for (const numericToken of numericTokens) {
+
+            text.unshift(
+                numericToken.word
+            )
+        }
+
+    } else {
+
+        /*
+         * Если текста нет,
+         * числа остаются ID.
+         */
+
+        for (const numericToken of numericTokens) {
+
+            id.push(
+                numericToken.value
+            )
+        }
+    }
+
+
     return {
-        from: bookmarksOfUserId,
+
+        from:
+        bookmarksOfUserId,
 
         text:
             text.join(" "),
 
         filters: {
+
             genres,
+
             id,
+
             personJob,
+
             years,
+
             providers,
+
             countries,
+
             companies,
+
             mediaTypes,
+
             contentType,
+
             creditType,
+
             sort,
+
             vote
         }
     }
