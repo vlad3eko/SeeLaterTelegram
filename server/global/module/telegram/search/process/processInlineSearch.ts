@@ -3,13 +3,12 @@ export const processInlineSearch = async (
     results: any
 ) => {
 
+    const nextOffset =
+        results.page < results.total_pages
+            ? String(results.page + 1)
+            : ''
+
     try {
-
-        const nextOffset =
-            results.page < results.total_pages
-                ? String(results.page + 1)
-                : ''
-
 
         await ctx.answerInlineQuery(
             results.results,
@@ -25,19 +24,18 @@ export const processInlineSearch = async (
             }
         )
 
+
     } catch (error: any) {
 
-        const errorMessage =
-            error?.response?.description
-        if (errorMessage.includes('400: ')) {
+        const description =
+            error?.response?.description || ''
+
+        if (description.includes('query is too old')
+            || description.includes('response timeout expired')
+            || description.includes('query ID is invalid')) {
             return
         }
 
-        console.error(
-            'Ошибка process:',
-            error
-        )
-
-        await ctx.answerInlineQuery([])
+        console.error('[INLINE QUERY ERROR]', error)
     }
 }
