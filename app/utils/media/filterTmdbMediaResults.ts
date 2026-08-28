@@ -11,8 +11,6 @@ export const filterTmdbMediaResults = (
 
     /*
      * Только фильмы и сериалы.
-     *
-     * content_type здесь НЕ проверяем.
      */
 
     if (
@@ -22,6 +20,10 @@ export const filterTmdbMediaResults = (
         return false
     }
 
+
+    /*
+     * Определяем дату релиза.
+     */
 
     const releaseDateString =
         media.release_date ||
@@ -34,35 +36,64 @@ export const filterTmdbMediaResults = (
             : NaN
 
 
-    const isReleased =
-        !Number.isNaN(releaseDate) &&
-        releaseDate <= Date.now()
+    /*
+     * Если TMDB вообще не дал дату —
+     * такой результат не используем.
+     *
+     * Важно:
+     * неизвестная дата != будущий релиз.
+     */
+
+    if (Number.isNaN(releaseDate)) {
+        return false
+    }
 
 
-    if (isReleased) {
+    /*
+     * Будущий релиз.
+     *
+     * Для него пока допускаем отсутствие
+     * постера и описания.
+     */
 
-        const hasPoster =
-            Boolean(
-                media.poster_path?.length ||
-                media.backdrop_path?.length
-            )
+    const isUnreleased =
+        releaseDate > Date.now()
 
 
-        if (!hasPoster) {
+    if (isUnreleased) {
+        return true
+    }
+
+
+    /*
+     * Уже вышедший фильм / сериал.
+     *
+     * Для bookmarks сохраняем старое поведение:
+     * если это закладка, дополнительные требования
+     * к overview не применяем.
+     */
+
+    const hasPoster =
+        Boolean(
+            media.poster_path?.length ||
+            media.backdrop_path?.length
+        )
+
+
+    if (!hasPoster) {
+        return false
+    }
+
+
+    if (!isBookmarks) {
+
+        const hasOverview =
+            typeof media.overview === "string" &&
+            media.overview.trim().length >= 20
+
+
+        if (!hasOverview) {
             return false
-        }
-
-
-        if (!isBookmarks) {
-
-            const hasOverview =
-                typeof media.overview === "string" &&
-                media.overview.trim().length >= 20
-
-
-            if (!hasOverview) {
-                return false
-            }
         }
     }
 
