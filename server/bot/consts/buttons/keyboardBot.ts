@@ -15,8 +15,8 @@ import type {ContentType} from "#server/global/engine/search/strategy/enums";
 
 export const keyboardStartBot = (text?: string, query?: string) => {
     return Markup.inlineKeyboard([
-        [startButtonBot('Фильмы 2026', '#фильмы 2026')],
-        [startButtonBot('Сериалы 2026', '#сериалы 2026')],
+        [startButtonBot('Фильмы (2026)', '#фильмы (2026)')],
+        [startButtonBot('Сериалы (2026)', '#сериалы (2026)')],
         [startButtonBot('Мульфильмы', '#мультфильм #приключения')],
         [checkBookmarksMedias('inline')],
         [SearchButtonBot('Искать другое', 'inline', query)]
