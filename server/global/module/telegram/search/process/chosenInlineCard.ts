@@ -13,8 +13,12 @@ export const chosenInlineCard = async (ctx: any) => {
     const result = ctx.update.chosen_inline_result
     const inlineMessageId = result?.inline_message_id
 
+    console.log('before')
+    console.log('result', result)
+    console.log('inlineMessageId', inlineMessageId)
     if (!inlineMessageId) return
 
+    console.log('after')
     if (result.result_id === 'no_search_results'
         || result.result_id === 'empty_collection') {
         return
@@ -28,7 +32,6 @@ export const chosenInlineCard = async (ctx: any) => {
             contentType,
             mediaId
         ] = result.result_id.split('_')
-
 
         const isPerson = mediaType === 'person'
             || contentType === 'person'
