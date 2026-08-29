@@ -13,6 +13,7 @@ export async function createFavorite(
                 vote_average: payload.voteAverage,
                 vote_count: payload.voteCount,
                 release_date: payload.releaseDate,
+                genres_ids: payload.genresIds,
             },
             {
                 onConflict: 'user_id,tmdb_id',

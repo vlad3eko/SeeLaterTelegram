@@ -20,8 +20,8 @@ export const searchMediaEntry = async (query: string, page: number = 1, userId: 
     const strategy = resolveSearchStrategy(normalized)
     const cacheOptions = setInlineCacheOptions(strategy)
 
-    const result = await executeSearchStrategy(strategy, normalized, page)
-    executeResultStrategy(strategy, normalized, result, cacheOptions, page, parsed)
+    const results = await executeSearchStrategy(strategy, normalized, page)
+    const result =  executeResultStrategy(strategy, normalized, results, cacheOptions, page, parsed)
 
     return {
         ...result,

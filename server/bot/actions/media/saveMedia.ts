@@ -25,27 +25,21 @@ export const saveMedia = async (ctx: any) => {
     const mediaType = ctx.match[2]
 
     const media = await tmdbFetch(
-        '/api/bot/getMediaBot',
+        '/api/tmdb/media',
         {
                 query: {
-                    id:
-                    mediaId,
-                    media:
-                    mediaType
+                    id: mediaId,
+                    media: mediaType
                 }
             }
         )
 
     const mediaTitle = media.title || media.name
-
     const voteAverage = media.vote_average || 0
-
     const voteCount = media.vote_count || 0
-
     const mediaPoster = media.poster_path || media.backdrop_path
-
     const releaseDate = media.release_date || media.first_air_date
-
+    const genresIds = media.genres
 
     const {success} = await $fetch<{
         success: boolean
@@ -62,7 +56,8 @@ export const saveMedia = async (ctx: any) => {
                     mediaPoster,
                     voteAverage,
                     voteCount,
-                    releaseDate
+                    releaseDate,
+                    genresIds
                 }
             }
         )
