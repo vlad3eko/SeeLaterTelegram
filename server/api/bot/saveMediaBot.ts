@@ -23,6 +23,8 @@ export default defineEventHandler(async (event) => {
         voteAverage: body.voteAverage,
         voteCount: body.voteCount,
         releaseDate: body.releaseDate,
+        genresIds: body.genresIds,
+
     })
 
     return {
