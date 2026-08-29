@@ -13,6 +13,7 @@ export interface SearchFilters {
     contentType?: ContentType
     sort?: string
     vote?: number
+    isCollection: boolean
 }
 
 export interface SearchQuery {
@@ -34,6 +35,7 @@ export interface NormalizedSearchFilters {
     contentType?: ContentType
     sort?: string
     vote?: number
+    isCollection: boolean
 }
 
 export interface NormalizedSearchQuery {

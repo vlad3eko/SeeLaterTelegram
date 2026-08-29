@@ -22,6 +22,8 @@ export const parseSearchQuery = (
     const countries: string[] = []
     const companies: string[] = []
 
+
+    let isCollection: boolean = false
     let bookmarksOfUserId:
         number | null = null
 
@@ -173,8 +175,8 @@ export const parseSearchQuery = (
                 continue
             }
 
-            if (tag === "collection") {
-
+            if (['collection', 'коллекция'].includes(tag)) {
+                isCollection = true
                 bookmarksOfUserId = userId
 
                 continue
@@ -391,38 +393,22 @@ export const parseSearchQuery = (
 
 
     return {
-
-        from:
-        bookmarksOfUserId,
-
-        text:
-            text.join(" "),
-
+        from: bookmarksOfUserId,
+        text: text.join(" "),
         filters: {
-
             genres,
-
             id,
-
             personJob,
-
             years,
-
             providers,
-
             countries,
-
             companies,
-
             mediaTypes,
-
             contentType,
-
             creditType,
-
             sort,
-
-            vote
+            vote,
+            isCollection,
         }
     }
 }

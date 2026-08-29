@@ -15,6 +15,13 @@ export const startButtonBot = (
     )
 }
 
+export const LoadingButtonTelegramCard = () => {
+    return Markup.button.switchToCurrentChat(
+        '⏳ Загрузка',
+        ''
+    )
+}
+
 // Возвращаем чистый объект кнопки, без [ ]
 export const SearchButtonBot = (
     text: string | undefined,

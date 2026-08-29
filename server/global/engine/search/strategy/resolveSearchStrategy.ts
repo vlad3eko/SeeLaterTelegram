@@ -32,7 +32,9 @@ export const resolveSearchStrategy = (
     const isPerson =
         query.filters.contentType === "person"
 
-
+    if (hasFromUserId || query.filters.isCollection) {
+        return SearchStrategy.BOOKMARKS
+    }
     /*
      * ==========================================
      * PERSON
@@ -95,10 +97,6 @@ export const resolveSearchStrategy = (
         return SearchStrategy.SEARCH_BY_FILTERS
     }
 
-
-    if (hasFromUserId) {
-        return SearchStrategy.BOOKMARKS
-    }
 
 
     return SearchStrategy.POPULAR
