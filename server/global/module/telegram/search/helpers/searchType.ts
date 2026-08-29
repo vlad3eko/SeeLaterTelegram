@@ -2,7 +2,8 @@ import {convertTranslateKnowForDepartment} from "#server/global/helpers/person/c
 import {contentTypeConvert} from "~/utils/convert/contentTypeConvert";
 import {FormatDate, FormatRating} from "~/utils/formatMoviesData";
 import {genresConvert} from "~/utils/convert/genresConvert";
-import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBot";
+import {Markup} from "telegraf";
+import {LoadingButtonTelegramCard} from "#server/bot/consts/buttons/buttonsBot";
 
 export const searchType = (medias: any) => {
 
@@ -87,25 +88,16 @@ export const searchType = (medias: any) => {
 
         return {
             type: 'article',
-
-            // ID должен быть уникальным для конкретной страницы/медиа
             id: `${medias.page}_${media.media_type}_${media.content_type}_${media.id}`,
-
             title,
-
             description: description.trim(),
-
             thumb_url,
-
             input_message_content: {
                 message_text: 'bot: ⏳ Загружаю карточку...'
             },
-
-            reply_markup: keyboardSendMediaCardInline(
-                media.id,
-                media.media_type || media.content_type,
-                media.content_type || media.media_type
-            )
+            reply_markup: Markup.inlineKeyboard([
+                LoadingButtonTelegramCard()
+            ]).reply_markup
         }
     })
 

@@ -5,49 +5,23 @@ import {saveLastSearchQuery} from "#server/global/engine/search/repository/tmdbR
 import {normalizeSearchQuery} from "#server/global/engine/search/mapper/normalizeSearchQuery";
 import {resolveSearchStrategy} from "#server/global/engine/search/strategy/resolveSearchStrategy";
 import {setInlineCacheOptions} from "#server/global/engine/search/mapper/getInlineCacheOptions";
-import {SearchStrategy} from "#server/global/engine/search/strategy/enums";
-import {personSearch} from "#server/global/engine/search/person/personSearch";
-import {personMedia} from "#server/global/engine/search/person/personMedia";
-import {normalizeTmdbMedia} from "~/utils/media/normalizeTmdbMedia";
-import {filterMediaResults} from "#server/global/engine/search/mapper/filterMediaResults";
-import {sortMediaResults} from "~/utils/media/sortMediaResults";
-import {creditsSearch} from "#server/global/engine/search/person/creditsSearch";
+import {executeResultStrategy} from "#server/global/engine/search/strategy/executeResultStrategy";
 
-export const searchMediaEntry = async (
-    query: string,
-    page: number = 1,
-    userId: number
-) => {
+export const searchMediaEntry = async (query: string, page: number = 1, userId: number) => {
 
     await loadGenres()
 
     const parsed = parseSearchQuery(query, userId)
+    console.log('parsed', parsed)
     await saveLastSearchQuery(parsed.filters.genres, parsed.filters?.mediaTypes[0], userId, parsed.filters.contentType)
 
     const normalized = normalizeSearchQuery(parsed, page)
+
     const strategy = resolveSearchStrategy(normalized)
     const cacheOptions = setInlineCacheOptions(strategy)
 
     const result = await executeSearchStrategy(strategy, normalized, page)
-    console.log('results', result.results)
-
-    if (strategy === SearchStrategy.PERSON && !normalized.filters.id?.length)
-        return personSearch(result, cacheOptions)
-
-    if (strategy === SearchStrategy.PERSON && normalized.filters.id?.length)
-        return personMedia(result, strategy, normalized, page, cacheOptions)
-
-    if (strategy === SearchStrategy.CREDITS)
-        return creditsSearch(result, page, cacheOptions)
-
-
-
-    result.results = (result.results || []).map(normalizeTmdbMedia)
-    filterMediaResults(result, strategy, normalized)
-
-    if (page === 1 && !parsed.filters.genres[0]?.startsWith('collection')) {
-        result.results = sortMediaResults(result.results)
-    }
+    executeResultStrategy(strategy, normalized, result, cacheOptions, page, parsed)
 
     return {
         ...result,

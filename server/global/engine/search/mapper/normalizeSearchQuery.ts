@@ -26,6 +26,7 @@ export const normalizeSearchQuery = (
             creditType: query.filters?.creditType,
             sort: query.filters.sort,
             vote: query.filters.vote,
+            isCollection: query.filters.isCollection,
         }
     }
 }
