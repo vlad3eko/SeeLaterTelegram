@@ -252,7 +252,13 @@ export const getBookmarks = async (
         {
             query: {
                 userId: query.from,
-                page
+                page,
+                genres: query.filters.genres,
+                years: query.filters.years,
+                mediaTypes: query.filters.mediaTypes,
+                contentType: query.filters.contentType,
+                sort: query.filters.sort,
+                vote: query.filters.vote
             }
         }
     )
