@@ -27,10 +27,14 @@ export const executeResultStrategy = (
         return creditsSearch(result, page, cacheOptions)
     }
 
-    result.results = (result.results || []).map(normalizeTmdbMedia)
+    result.results = (result.results || [])
+        .map(normalizeTmdbMedia)
     filterMediaResults(result, strategy, normalized)
 
     if (page === 1 && !parsed.filters.isCollection) {
-        result.results = sortMediaResults(result.results)
+       result.results = sortMediaResults(result.results)
     }
+
+    return result
+
 }
