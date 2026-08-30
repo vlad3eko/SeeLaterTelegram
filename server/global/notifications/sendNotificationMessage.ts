@@ -5,8 +5,7 @@ import {tmdbFetch} from "#server/utils/api/tmdbFetch";
 import {linkOfMedia} from "#server/global/helpers/linkOfMedia";
 import {Markup} from "telegraf";
 import {checkBookmarksMedias} from "#server/bot/consts/buttons/buttonsBot";
-
-export const ADMIN_TELEGRAM_ID = 788847654
+import {telegramBotShortLink, telegramChannelShortLink} from "#server/global/oneLinkApp";
 
 export interface TextMessage {
     message_id: number
@@ -40,10 +39,10 @@ export const NOTIFICATION_MESSAGE = {
     }
 } as const
 
-export const LINK_OUR_CHANNEL = {
+export const SHARE_CHANNEL_LINKS = {
     Group: `
-🤖 <a href="https://t.me/kinomanovNet_bot">Киноманов BOT | Ищи и Сохраняй</a>
-📢 <a href="https://t.me/kinomanovnet">Киноманов NET | Фильмы и сериалы</a>
+🤖 <a href="${telegramBotShortLink}">Киноманов BOT | Ищи и Сохраняй</a>
+📢 <a href="${telegramChannelShortLink}">Киноманов NET | Фильмы и сериалы</a>
 
 ${NOTIFICATION_MESSAGE.ContactUs}
     `

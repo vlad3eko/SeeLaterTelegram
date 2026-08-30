@@ -1,6 +1,4 @@
-export const BOT_ADMINS = [
-    788847654
-]
+import {BOT_ADMINS} from "#server/global/oneLinkApp";
 
 export const isAdmin = (telegramId: number) => {
     if (!telegramId) return false

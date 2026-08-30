@@ -1,6 +1,7 @@
 import {Markup} from "telegraf";
 import {addMessageSession} from "#server/bot/services/session/addMessageSession";
 import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
+import {telegramChannelShortLink} from "#server/global/oneLinkApp";
 
 export const failedChannelSubscriber = async (ctx: any) => {
 
@@ -9,7 +10,7 @@ export const failedChannelSubscriber = async (ctx: any) => {
         Markup.inlineKeyboard([
             Markup.button.url(
                 'Подписаться',
-                'https://t.me/kinomanovnet'
+                telegramChannelShortLink
             ),
             Markup.button.callback(
                 'Проверить подписку',

@@ -4,6 +4,7 @@ import {ContentType} from "#server/global/engine/search/strategy/enums";
 import type {TmdbGenre} from "~/types/tmdb.types";
 import {getContentTypeLabel} from "~/utils/convert/library/getContentTypeLabel";
 import {genresConvert} from "~/utils/convert/genresConvert";
+import {telegramBotShortLink} from "#server/global/oneLinkApp";
 
 export const startButtonBot = (
     text: string,
@@ -32,7 +33,7 @@ export const SearchButtonBot = (
     if (ButtonContext === 'channel') {
         return Markup.button.url(
             `${text ? "🔍 " + text : 'Поиск'}`,
-            'https://t.me/kinomanovNet_bot?start=search'
+            `${telegramBotShortLink}?start=search`
         )
     }
 
@@ -72,7 +73,7 @@ export const recommendationButtonBot = (
 
         return Markup.button.url(
             '📋 Похожие',
-            `https://t.me/kinomanovNet_bot?start=similar_${mediaType}_${mediaId}_${contentType}`
+            `${telegramBotShortLink}?start=similar_${mediaType}_${mediaId}_${contentType}`
         )
     }
 
@@ -112,7 +113,7 @@ export const checkBookmarksMedias = (
 
         return Markup.button.url(
             '📦 Коллекция',
-            'https://t.me/kinomanovNet_bot?start=collection'
+            `${telegramBotShortLink}?start=collection`
         )
     }
 
@@ -130,7 +131,7 @@ export const mediaCast = (mediaId: number, ButtonContext: TypeButtonContext) => 
 
         return Markup.button.url(
             '🎭 Список актёров',
-            `https://t.me/kinomanovNet_bot?start=media_cast_${mediaId}`
+            `${telegramBotShortLink}?start=media_cast_${mediaId}`
         )
     }
 
