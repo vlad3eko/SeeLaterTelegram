@@ -3,18 +3,23 @@ import {removeMessageSession} from "#server/bot/services/session/removeMessageSe
 import {checkChannelSubscriber} from "#server/bot/handlers/auth/check/checkChannelSubscriber";
 import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBot";
 import {tmdbFetch} from "#server/utils/api/tmdbFetch";
+import {
+    ADMIN_TELEGRAM_ID,
+    NOTIFICATION_MESSAGE,
+    sendNotificationTelegramMessage
+} from "#server/global/notifications/sendNotificationMessage";
 
 export const saveMedia = async (ctx: any) => {
 
     const isUserBot =
         await checkChannelSubscriber(ctx)
 
-    if (!isUserBot) {
-        await ctx.answerCbQuery('❌ Подпишитесь на 🏷Киноманов BOT')
-        return
-    } else {
-        await ctx.answerCbQuery('✅ Добавлено в вашу коллекцию')
-    }
+
+
+    if (!isUserBot)
+        return await ctx.answerCbQuery(NOTIFICATION_MESSAGE.CbQ.ErrorOnlyForSubscriber)
+
+
 
     const userId = ctx.from.id
 
@@ -62,9 +67,14 @@ export const saveMedia = async (ctx: any) => {
             }
         )
 
-    if (!success) {
-        return
-    }
+
+
+    if (!success)
+        return await ctx.answerCbQuery(NOTIFICATION_MESSAGE.CbQ.ErrorAlreadyExist)
+
+
+
+    await ctx.answerCbQuery(NOTIFICATION_MESSAGE.CbQ.SuccessSaved)
 
     const saveCount = await $fetch<number>(
         '/api/bot/library/getFavoriteCount',
@@ -115,5 +125,5 @@ export const saveMedia = async (ctx: any) => {
     }
 
     await commandClear(ctx)
-
+    await sendNotificationTelegramMessage(userId, NOTIFICATION_MESSAGE.SuccessSaved, {mediaId, mediaType})
 }

@@ -105,7 +105,7 @@ export const recommendationButtonBot = (
 }
 
 export const checkBookmarksMedias = (
-    ButtonContext: TypeButtonContext
+    ButtonContext: TypeButtonContext = 'inline'
 ) => {
 
     if (ButtonContext === 'channel') {

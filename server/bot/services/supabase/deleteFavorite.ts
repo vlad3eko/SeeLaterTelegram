@@ -5,7 +5,7 @@ export const deleteFavorite = async (
 ) => {
     return await supabase
         .from('favorites')
-        .delete()
+        .delete({count: 'exact'})
         .eq('user_id', userId)
         .eq('tmdb_id', mediaId)
 }
