@@ -4,7 +4,6 @@ import {checkChannelSubscriber} from "#server/bot/handlers/auth/check/checkChann
 import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBot";
 import {tmdbFetch} from "#server/utils/api/tmdbFetch";
 import {
-    ADMIN_TELEGRAM_ID,
     NOTIFICATION_MESSAGE,
     sendNotificationTelegramMessage
 } from "#server/global/notifications/sendNotificationMessage";

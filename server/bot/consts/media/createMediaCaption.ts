@@ -4,7 +4,7 @@ import {genresConvert} from "~/utils/convert/genresConvert";
 import {CONTENT_TYPE_LABELS} from "~/utils/convert/library/enumsLibrary";
 import {formatMediaOverview} from "~/utils/convert/formatMediaOverview";
 import {ContentType} from "#server/global/engine/search/strategy/enums";
-import {LINK_OUR_CHANNEL} from "#server/global/notifications/sendNotificationMessage";
+import {SHARE_CHANNEL_LINKS} from "#server/global/notifications/sendNotificationMessage";
 
 export const createMediaCaption = (media: any, contentType: string, addComment: string | undefined, addOverview: string | undefined, keyTrailer?: string | undefined) => {
 
@@ -32,7 +32,7 @@ ${grade} ${mediaTitle} ${mediaOriginalTitle}\n
 <b>Тип: </b><i>#${CONTENT_TYPE_LABELS[contentType as ContentType]}</i>
 <b>Дата выхода: </b><i>${mediaReleaseConvert(media)}</i>
 <b>🔥 Трейлер: </b><i>${trailerMessage}</i>
-<b><i>${LINK_OUR_CHANNEL.Group}</i></b>`
+<b><i>${SHARE_CHANNEL_LINKS.Group}</i></b>`
 }
 
 

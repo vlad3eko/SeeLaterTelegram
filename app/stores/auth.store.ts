@@ -1,5 +1,6 @@
 import {useUserStore} from "~/stores/user.store";
 import type {TelegramResponse} from "~/types/auth/telegram/telegram.types";
+import {telegramBotShortLink} from "#server/global/oneLinkApp";
 
 export const useAuthStore = defineStore('isAuth', () => {
 
@@ -11,7 +12,7 @@ export const useAuthStore = defineStore('isAuth', () => {
         const token = crypto.randomUUID()
 
         window.open(
-            `https://t.me/kinomanovNet_bot?start=${token}`,
+            `${telegramBotShortLink}?start=${token}`,
             '_blank'
         )
 
