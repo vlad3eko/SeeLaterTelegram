@@ -14,15 +14,17 @@ export default defineEventHandler(async (event) => {
         .eq('telegram_id', body.telegram_id)
         .single()
 
-    const { error } = await deleteFavorite(
+    const { error, count } = await deleteFavorite(
         supabase,
         user.id,
         body.tmdb_id
     )
 
+    const isSuccess = !error && (count !== null && count > 0);
+
     return {
-        success: !error,
-        error
+        success: isSuccess,
+        error: !isSuccess
     }
 
 })

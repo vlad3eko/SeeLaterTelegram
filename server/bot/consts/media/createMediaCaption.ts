@@ -4,6 +4,7 @@ import {genresConvert} from "~/utils/convert/genresConvert";
 import {CONTENT_TYPE_LABELS} from "~/utils/convert/library/enumsLibrary";
 import {formatMediaOverview} from "~/utils/convert/formatMediaOverview";
 import {ContentType} from "#server/global/engine/search/strategy/enums";
+import {LINK_OUR_CHANNEL} from "#server/global/notifications/sendNotificationMessage";
 
 export const createMediaCaption = (media: any, contentType: string, addComment: string | undefined, addOverview: string | undefined, keyTrailer?: string | undefined) => {
 
@@ -23,9 +24,6 @@ export const createMediaCaption = (media: any, contentType: string, addComment: 
     const mediaOriginalTitle = `<i>${media.original_title ? `\n • original: <code>${media.original_title} ${formatDate}</code>` : ''}</i>`
     addComment = `${addComment ? `\n<i>${addComment}</i>\n` : ''}`
     const grade = `${media.vote_average ? FormatRating(media?.vote_average) + '💎' : ''}`
-    const botLink = `🤖 <a href="https://t.me/kinomanovNet_bot">Киноманов BOT | Ищи и Сохраняй</a>`
-    const channelLink = `📢 <a href="https://t.me/kinomanovnet">Киноманов NET | Фильмы и сериалы</a>`
-
 
     return `${addComment}
 ${grade} ${mediaTitle} ${mediaOriginalTitle}\n
@@ -33,9 +31,8 @@ ${grade} ${mediaTitle} ${mediaOriginalTitle}\n
 <b>Жанр: </b><i>${genresContent || 'нет жанров'}</i>
 <b>Тип: </b><i>#${CONTENT_TYPE_LABELS[contentType as ContentType]}</i>
 <b>Дата выхода: </b><i>${mediaReleaseConvert(media)}</i>
-<b>🔥 Трейлер: </b><i>${trailerMessage}</i>\n
-<b><i>${botLink}</i></b>
-<b><i>${channelLink}</i></b>`
+<b>🔥 Трейлер: </b><i>${trailerMessage}</i>
+<b><i>${LINK_OUR_CHANNEL.Group}</i></b>`
 }
 
 
