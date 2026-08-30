@@ -25,7 +25,8 @@ export const processTelegramAuth = async (ctx: any, sendSuccessMessage: boolean 
         if (error.message.includes('member')) return
 
         const errorMessage = await ctx.reply(
-            `Подождите или повторите запрос позже`
+            `Подождите или повторите запрос позже.\n\nЕсли вы считаете что столкнулись с ошибкой, <a href="https://t.me/kinomanovnet?direct">сообщите мне</a>`,
+            {parse_mode: 'HTML'}
         )
         await addMessageSession(
             ctx.from.id,
