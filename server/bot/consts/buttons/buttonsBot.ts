@@ -125,7 +125,7 @@ export const checkBookmarksMedias = (
 
 // PERSON KEYBOARD
 
-export const mediaCast = (mediaId: number, ButtonContext: TypeButtonContext) => {
+export const mediaCast = (mediaId: number, mediaType: string,ButtonContext: TypeButtonContext) => {
 
     if (ButtonContext === 'channel') {
 
@@ -137,7 +137,7 @@ export const mediaCast = (mediaId: number, ButtonContext: TypeButtonContext) => 
 
     return Markup.button.switchToCurrentChat(
         '🎭 Список актёров',
-        `${mediaId} #cast`
+        `#${mediaType} ${mediaId} #cast`
     )
 }
 

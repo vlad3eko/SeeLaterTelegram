@@ -11,6 +11,7 @@ import {
 } from "#server/bot/consts/buttons/admin/buttonsAdmin";
 import type {TypeButtonContext} from "#server/bot/consts/buttons/admin/keyboardAdmin";
 import type {ContentType} from "#server/global/engine/search/strategy/enums";
+import {contentTypeConvert} from "~/utils/convert/contentTypeConvert";
 
 
 export const keyboardStartBot = (text?: string, query?: string) => {
@@ -40,10 +41,12 @@ export const keyboardSendMediaCardInline = (
     keyTrailer?: string | undefined
 ) => {
 
+    const translateType = contentTypeConvert(mediaType, contentType)
+
     const keyboard = [
         [SearchButtonBot('Искать другое', ButtonContext), recommendationButtonBot(contentType, genres, ButtonContext, mediaId, mediaType)],
         [checkBookmarksMedias(ButtonContext)],
-        [mediaCast(mediaId, ButtonContext)],
+        [mediaCast(mediaId, translateType, ButtonContext)],
         [deleteMediaButtonBot(mediaId, mediaType), SaveMediaButtonBot(mediaId, mediaType, ButtonContext, saveCount)]
     ]
 
