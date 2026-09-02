@@ -206,7 +206,7 @@ export const searchCredits = async (
     query: NormalizedSearchQuery
 ) => {
 
-    const mediaTypes =
+    const mediaType =
         query.filters?.mediaTypes?.[0]
 
     const mediaId =
@@ -226,14 +226,13 @@ export const searchCredits = async (
         }
     }
 
-
     return await tmdbFetch(
         "/api/tmdb/credits",
         {
             query: {
                 id: mediaId,
                 personJob,
-                mediaTypes
+                mediaType
             }
         }
     )
