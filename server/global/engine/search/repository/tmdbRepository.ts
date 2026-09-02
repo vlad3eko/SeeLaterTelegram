@@ -206,6 +206,9 @@ export const searchCredits = async (
     query: NormalizedSearchQuery
 ) => {
 
+    const mediaTypes =
+        query.filters?.mediaTypes?.[0]
+
     const mediaId =
         query.filters.id?.[0]
 
@@ -229,7 +232,8 @@ export const searchCredits = async (
         {
             query: {
                 id: mediaId,
-                personJob
+                personJob,
+                mediaTypes
             }
         }
     )

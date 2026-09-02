@@ -12,12 +12,16 @@ export const searchMediaEntry = async (query: string, page: number = 1, userId: 
     await loadGenres()
 
     const parsed = parseSearchQuery(query, userId)
+    console.log('parsed', parsed)
+
     await saveLastSearchQuery(parsed.filters.genres, parsed.filters?.mediaTypes[0], userId, parsed.filters.contentType)
 
     const normalized = normalizeSearchQuery(parsed, page)
+    console.log('normalized', normalized)
 
     const strategy = resolveSearchStrategy(normalized)
     const cacheOptions = setInlineCacheOptions(strategy)
+    console.log('strategy', strategy)
 
     const results = await executeSearchStrategy(strategy, normalized, page)
     const result = executeResultStrategy(strategy, normalized, results, cacheOptions, page, parsed)

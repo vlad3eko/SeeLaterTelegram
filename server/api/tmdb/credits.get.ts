@@ -4,84 +4,6 @@ import {
     saveCache
 } from "#server/global/engine/search/repository/cacheRepository"
 
-
-type MediaType =
-    "person"
-    | "movie"
-    | "tv"
-
-
-/*
- * ==================================================
- * RESOLVE MEDIA TYPE
- *
- * Если mediaType передан явно —
- * используем его.
- *
- * Если нет —
- * проверяем movie → tv.
- *
- * person сюда не включаем,
- * потому что person используется
- * старым сценарием #person.
- * ==================================================
- */
-
-const resolveMediaType = async (
-    id: number,
-    headers: Record<string, string>
-): Promise<"movie" | "tv"> => {
-
-    /*
-     * =========================
-     * MOVIE
-     * =========================
-     */
-
-    const movieRes =
-        await fetch(
-            `https://api.themoviedb.org/3/movie/${id}`,
-            {
-                headers
-            }
-        )
-
-
-    if (movieRes.ok) {
-
-        return "movie"
-    }
-
-
-    /*
-     * =========================
-     * TV
-     * =========================
-     */
-
-    const tvRes =
-        await fetch(
-            `https://api.themoviedb.org/3/tv/${id}`,
-            {
-                headers
-            }
-        )
-
-
-    if (tvRes.ok) {
-
-        return "tv"
-    }
-
-
-    throw createError({
-        statusCode: 404,
-        statusMessage:
-            `TMDB movie or TV not found: ${id}`
-    })
-}
-
-
 export default defineEventHandler(async (event) => {
 
     const query =
@@ -92,13 +14,8 @@ export default defineEventHandler(async (event) => {
 
 
     const headers = {
-
-        accept:
-            "application/json",
-
-        Authorization:
-            `Bearer ${config.tmdbApiKey}`
-
+        accept: "application/json",
+        Authorization: `Bearer ${config.tmdbApiKey}`
     }
 
 
@@ -108,85 +25,16 @@ export default defineEventHandler(async (event) => {
      * ==================================================
      */
 
-    const id =
-        Number(query.id || 0)
+    const id = Number(query.id || 0)
+    const personJob = String(query.personJob || "cast")
+    const mediaType = String(query.mediaType)
 
-
-    const personJob =
-        String(
-            query.personJob || "cast"
-        )
-
-
-    /*
-     * mediaType теперь OPTIONAL.
-     *
-     * person → старый #person
-     * movie/tv → можно передать явно
-     * undefined → auto detect
-     */
-
-    const requestedMediaType =
-        query.mediaType
-            ? String(query.mediaType)
-            : null
-
-
-    if (!id) {
-
+    if (!['movie', 'tv', 'person'].includes(mediaType)) {
         throw createError({
             statusCode: 400,
-            statusMessage:
-                "ID is required"
+            statusMessage: "Invalid mediaType"
         })
     }
-
-
-    /*
-     * ==================================================
-     * RESOLVE MEDIA TYPE
-     * ==================================================
-     */
-
-    let mediaType: MediaType
-
-
-    if (
-        requestedMediaType === "person"
-        || requestedMediaType === "movie"
-        || requestedMediaType === "tv"
-    ) {
-
-        /*
-         * Явно переданный тип.
-         *
-         * Это используется старым
-         * сценарием #person.
-         */
-
-        mediaType =
-            requestedMediaType
-
-    }
-
-    else {
-
-        /*
-         * Новый сценарий:
-         *
-         * 634649 #cast
-         *
-         * credits сам определяет
-         * movie или tv.
-         */
-
-        mediaType =
-            await resolveMediaType(
-                id,
-                headers
-            )
-    }
-
 
     /*
      * ==================================================
@@ -194,10 +42,7 @@ export default defineEventHandler(async (event) => {
      * ==================================================
      */
 
-    const endpoint =
-        mediaType === "person"
-            ? "person/credits"
-            : `${mediaType}/credits`
+    const endpoint = `${mediaType}/credits`
 
 
     const cacheKey =
@@ -205,20 +50,17 @@ export default defineEventHandler(async (event) => {
             endpoint,
             {
                 id,
-                personJob
+                personJob,
+                mediaType
             }
         )
 
 
     const cache =
-        await getCache(
-            event,
-            cacheKey
-        )
+        await getCache(event, cacheKey)
 
 
     if (cache) {
-
         return cache
     }
 
@@ -254,30 +96,9 @@ export default defineEventHandler(async (event) => {
             `https://api.themoviedb.org/3/person/${id}/combined_credits?${params}`
     }
 
-
-    /*
-     * ==================================================
-     * MOVIE
-     * ==================================================
-     */
-
-    else if (mediaType === "movie") {
-
-        url =
-            `https://api.themoviedb.org/3/movie/${id}/credits?${params}`
-    }
-
-
-    /*
-     * ==================================================
-     * TV
-     * ==================================================
-     */
-
     else {
-
         url =
-            `https://api.themoviedb.org/3/tv/${id}/credits?${params}`
+            `https://api.themoviedb.org/3/${mediaType}/${id}/credits?${params}`
     }
 
 
@@ -387,7 +208,6 @@ export default defineEventHandler(async (event) => {
             results.length
         }
     )
-
 
     return result
 })
