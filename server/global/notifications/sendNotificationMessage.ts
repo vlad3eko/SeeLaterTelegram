@@ -28,7 +28,7 @@ export interface TextMessage {
 export const NOTIFICATION_MESSAGE = {
     SuccessSaved: 'успешно добавлено в вашу коллекцию',
 
-    ContactUs: 'Спасибо, мы активно развиваемся благодаря вашей поддержке.\n\n<a href="https://t.me/kinomanovnet?direct"><b>Вопросы и предложения</b></a>',
+    ContactUs: 'Спасибо, мы активно развиваемся благодаря вашей поддержке.\n\n<a href="https://t.me/kinomanovGroup/2/4"><b>Вопросы и предложения</b></a>',
 
     CbQ: {
         SuccessSaved: '✅ Добавлено в вашу коллекцию',

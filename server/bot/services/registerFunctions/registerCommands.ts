@@ -104,6 +104,7 @@ export function registerCommands(bot: Telegraf) {
 
             const [, , mediaType, mediaId] = payload.split('_')
             console.log('payload', payload)
+            console.log('entry payload', mediaType, mediaId)
 
             await openInlineSearch(ctx,`#${mediaType} ${mediaId} #cast`)
             return
