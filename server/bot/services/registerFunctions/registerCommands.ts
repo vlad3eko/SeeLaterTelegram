@@ -100,11 +100,24 @@ export function registerCommands(bot: Telegraf) {
             return
         }
 
-        if (payload.startsWith('cast_')) {
+        console.log('[START PAYLOAD]', {
+            payload,
+            startsWithCast: payload?.startsWith('cast_')
+        })
 
-            const [, mediaType, mediaId, ] = payload.split('_')
+        if (payload?.startsWith('cast_')) {
+            const [, mediaType, mediaId] = payload.split('_')
 
-            await openInlineSearch(ctx,`#${mediaType} ${mediaId} #cast`)
+            console.log('[CAST PAYLOAD]', {
+                mediaType,
+                mediaId
+            })
+
+            await openInlineSearch(
+                ctx,
+                `#${mediaType} ${mediaId} #cast`
+            )
+
             return
         }
 
