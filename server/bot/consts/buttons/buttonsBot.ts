@@ -129,7 +129,15 @@ export const checkBookmarksMedias = (
 export const mediaCast = (mediaId: number, mediaType: string, contentType: ContentType, ButtonContext: TypeButtonContext) => {
 
     const type = contentTypeConvert(mediaType, contentType)
-    console.log('[type]', mediaType, contentType, type)
+
+    console.log('[mediaCast CREATE]', {
+        mediaId,
+        mediaType,
+        contentType,
+        type,
+        payload: `media_cast_${contentType}_${mediaId}`
+    })
+
 
     if (ButtonContext === 'channel') {
 
