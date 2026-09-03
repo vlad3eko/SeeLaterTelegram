@@ -125,13 +125,13 @@ export const checkBookmarksMedias = (
 
 // PERSON KEYBOARD
 
-export const mediaCast = (mediaId: number, mediaType: string,ButtonContext: TypeButtonContext) => {
+export const mediaCast = (mediaId: number, mediaType: string, ButtonContext: TypeButtonContext) => {
 
     if (ButtonContext === 'channel') {
 
         return Markup.button.url(
             '🎭 Список актёров',
-            `${telegramBotShortLink}?start=cast_${mediaType}_${mediaId}`
+            `${telegramBotShortLink}?start=media_cast_${mediaType}_${mediaId}`
         )
     }
 
