@@ -5,6 +5,7 @@ import type {TmdbGenre} from "~/types/tmdb.types";
 import {getContentTypeLabel} from "~/utils/convert/library/getContentTypeLabel";
 import {genresConvert} from "~/utils/convert/genresConvert";
 import {telegramBotShortLink} from "#server/global/oneLinkApp";
+import {contentTypeConvert} from "~/utils/convert/contentTypeConvert";
 
 export const startButtonBot = (
     text: string,
@@ -125,19 +126,21 @@ export const checkBookmarksMedias = (
 
 // PERSON KEYBOARD
 
-export const mediaCast = (mediaId: number, mediaType: string, ButtonContext: TypeButtonContext) => {
+export const mediaCast = (mediaId: number, mediaType: string, contentType: ContentType, ButtonContext: TypeButtonContext) => {
+
+    const type = contentTypeConvert(mediaType, contentType)
 
     if (ButtonContext === 'channel') {
 
         return Markup.button.url(
             '🎭 Список актёров',
-            `${telegramBotShortLink}?start=media_cast_${mediaType}_${mediaId}`
+            `${telegramBotShortLink}?start=media_cast_${type}_${mediaId}`
         )
     }
 
     return Markup.button.switchToCurrentChat(
         '🎭 Список актёров',
-        `#${mediaType} ${mediaId} #cast`
+        `#${type} ${mediaId} #cast`
     )
 }
 

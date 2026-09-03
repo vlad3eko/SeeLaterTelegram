@@ -41,12 +41,10 @@ export const keyboardSendMediaCardInline = (
     keyTrailer?: string | undefined
 ) => {
 
-    const translateType = contentTypeConvert(mediaType, contentType)
-
     const keyboard = [
         [SearchButtonBot('Искать другое', ButtonContext), recommendationButtonBot(contentType, genres, ButtonContext, mediaId, mediaType)],
         [checkBookmarksMedias(ButtonContext)],
-        [mediaCast(mediaId, translateType, ButtonContext)],
+        [mediaCast(mediaId, mediaType, contentType, ButtonContext)],
         [deleteMediaButtonBot(mediaId, mediaType), SaveMediaButtonBot(mediaId, mediaType, ButtonContext, saveCount)]
     ]
 
