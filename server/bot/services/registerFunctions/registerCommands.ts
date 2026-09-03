@@ -14,6 +14,7 @@ import {commandHelp} from "#server/bot/commands/commandHelp";
 import {commandClear} from "#server/bot/commands/commandClear";
 import {commandContent} from "#server/bot/commands/commandContent";
 import {menuBot} from "#server/bot/handlers/commands/start/menuBot";
+import {contentTypeToTag} from "~/utils/convert/contentTypeConvert";
 
 const authRequests = new Map()
 
@@ -102,11 +103,13 @@ export function registerCommands(bot: Telegraf) {
 
         if (payload.startsWith('media_cast_')) {
 
-            const [, , mediaType, mediaId] = payload.split('_')
+            const [, , contentType, mediaId] = payload.split('_')
             console.log('payload', payload)
-            console.log('entry payload', mediaType, mediaId)
+            console.log('entry payload', contentType, mediaId)
+            const type = contentTypeToTag[contentType as ContentType]
+            console.log('type entry')
 
-            await openInlineSearch(ctx,`#${mediaType} ${mediaId} #cast`)
+            await openInlineSearch(ctx,`#${type} ${mediaId} #cast`)
             return
         }
 
