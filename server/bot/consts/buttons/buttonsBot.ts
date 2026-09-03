@@ -131,7 +131,7 @@ export const mediaCast = (mediaId: number, mediaType: string,ButtonContext: Type
 
         return Markup.button.url(
             '🎭 Список актёров',
-            `${telegramBotShortLink}?start=media_cast_${mediaId}`
+            `${telegramBotShortLink}?start=media_cast_${mediaType}_${mediaId}`
         )
     }
 
