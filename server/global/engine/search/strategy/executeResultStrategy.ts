@@ -18,11 +18,9 @@ export const executeResultStrategy = (
     if (strategy === SearchStrategy.PERSON && !normalized.filters.id?.length) {
         return personSearch(result, cacheOptions)
     }
-
     if (strategy === SearchStrategy.PERSON && normalized.filters.id?.length) {
         return personMedia(result, strategy, normalized, page, cacheOptions)
     }
-
     if (strategy === SearchStrategy.CREDITS) {
         return creditsSearch(result, page, cacheOptions)
     }

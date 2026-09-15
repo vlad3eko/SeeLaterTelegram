@@ -1,5 +1,7 @@
 import type {ContentType} from "#server/global/engine/search/strategy/enums";
 
+type modeEditSession = 'media' | 'text' | 'overview' | 'publish' | 'type'
+
 export type AdminEditSession = {
     inlineMessageId: string
 
@@ -10,17 +12,15 @@ export type AdminEditSession = {
 
     contentType: ContentType
     keyTrailer: string | undefined
-    comment?: string
-    overview?: string
+    comment?: string | undefined
+    overview?: string | undefined
 
-    mode?: 'media' | 'text' | 'overview' | 'publish'
+    mode?: modeEditSession
 
     currentMedia: {
         type: 'photo' | 'video'
         fileId: string
     }
-
-    currentCaption: string
 }
 
 

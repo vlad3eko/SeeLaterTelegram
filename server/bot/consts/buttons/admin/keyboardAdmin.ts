@@ -2,7 +2,7 @@ import {Markup} from "telegraf";
 import {
     adminEditMediaInlineCard,
     adminEditMessageInlineCard,
-    adminEditOverviewInlineCard
+    adminEditOverviewInlineCard, adminEditTypeInlineCard
 } from "#server/bot/consts/buttons/admin/buttonsAdmin";
 
 export type TypeButtonContext =
@@ -13,6 +13,7 @@ export const editMediaChoiceKeyboard = () => {
     return Markup.inlineKeyboard([
         [adminEditMediaInlineCard()],
         [adminEditMessageInlineCard()],
-        [adminEditOverviewInlineCard()]
+        [adminEditOverviewInlineCard()],
+        [adminEditTypeInlineCard()]
     ]).reply_markup
 }

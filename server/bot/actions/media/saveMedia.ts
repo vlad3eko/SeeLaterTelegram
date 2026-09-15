@@ -73,8 +73,6 @@ export const saveMedia = async (ctx: any) => {
 
 
 
-    await ctx.answerCbQuery(NOTIFICATION_MESSAGE.CbQ.SuccessSaved)
-
     const saveCount = await $fetch<number>(
         '/api/bot/library/getFavoriteCount',
         {
@@ -111,7 +109,10 @@ export const saveMedia = async (ctx: any) => {
                     media.genres,
                     false,
                     'channel',
-                    saveCount
+                    saveCount,
+                    publishedMedia.keyTrailer,
+                    publishedMedia.isRichTypeCard
+
                 )
             )
         } catch (error: any) {
@@ -125,4 +126,5 @@ export const saveMedia = async (ctx: any) => {
 
     await commandClear(ctx)
     await sendNotificationTelegramMessage(userId, NOTIFICATION_MESSAGE.SuccessSaved, {mediaId, mediaType})
+    await ctx.answerCbQuery(NOTIFICATION_MESSAGE.CbQ.SuccessSaved)
 }

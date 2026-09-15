@@ -11,7 +11,6 @@ import {
     searchPerson
 } from "#server/global/engine/search/repository/tmdbRepository";
 
-
 export const executeSearchStrategy = async (
     strategy: SearchStrategy,
     query: NormalizedSearchQuery,
@@ -23,72 +22,28 @@ export const executeSearchStrategy = async (
 
     switch (strategy) {
 
-        /*
-         * ==========================================
-         * PERSON
-         * ==========================================
-         */
-
         case SearchStrategy.PERSON:
-
             return await searchPerson(query)
 
-
-        /*
-         * ==========================================
-         * CREDITS
-         *
-         * ID фильма/сериала → люди
-         * ==========================================
-         */
-
         case SearchStrategy.CREDITS:
-
             return await searchCredits(query)
 
-
         case SearchStrategy.SEARCH_BY_TEXT:
-
-            return await searchMulti(
-                query,
-                page
-            )
-
+            return await searchMulti(query, page)
 
         case SearchStrategy.SEARCH_BY_FILTERS:
-
-            return await discoverMovies(
-                query,
-                page
-            )
-
+            return await discoverMovies(query, page)
 
         case SearchStrategy.SEARCH_MIXED:
-
-            return await searchMixed(
-                query,
-                page
-            )
-
+            return await searchMixed(query, page)
 
         case SearchStrategy.POPULAR:
-
-            return await getPopularMovies(
-                query,
-                page
-            )
-
+            return await getPopularMovies(query, page)
 
         case SearchStrategy.BOOKMARKS:
-
-            return await getBookmarks(
-                query,
-                page
-            )
-
+            return await getBookmarks(query, page)
 
         default:
-
             return {
                 results: []
             }

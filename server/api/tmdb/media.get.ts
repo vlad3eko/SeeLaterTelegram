@@ -15,7 +15,7 @@ export default defineEventHandler(async (event) => {
     if (media !== "movie" && media !== "tv") {
         throw createError({
             statusCode: 400,
-            statusMessage: "Invalid media type"
+            statusMessage: "Invalid media variant"
         })
     }
 

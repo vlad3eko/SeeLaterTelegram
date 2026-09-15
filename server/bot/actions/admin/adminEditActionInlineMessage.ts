@@ -1,11 +1,11 @@
-import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBot";
-import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
+import {engineRichCard} from "#server/global/engine/card/engineRichCard";
 import type {AdminEditSession} from "#server/bot/actions/admin/adminEditSession";
 
-export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditSession) => {
-    // =========================
-    // НОВОЕ МЕДИА
-    // =========================
+export const adminEditActionInlineMessage = async (
+    ctx: any,
+    session: AdminEditSession
+) => {
+
     if (session.mode === 'media') {
         const photo = ctx.message.photo?.at(-1)
         const video = ctx.message.video
@@ -22,175 +22,122 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
                 fileId: video.file_id
             }
 
-
-        const caption =
-            createMediaCaption(
-                session.media,
-                session.contentType,
-                session.comment,
-                session.overview,
-                session.keyTrailer
-            )
-
-        await ctx.telegram.editMessageMedia(
-            undefined,
-            undefined,
-            session.inlineMessageId,
-
-            {
-                type: newMedia.type,
-                media: newMedia.fileId,
-                caption,
-                parse_mode: 'HTML'
-            },
-
-            {
-                reply_markup:
-                    keyboardSendMediaCardInline(
-                        session.mediaId,
-                        session.mediaType,
-                        session.contentType,
-                        session.media.genres,
-                        true
-                    )
-            }
-        )
-
-        session.currentMedia =
-            newMedia
-
-        session.currentCaption =
-            caption
-        console.log(
-            'RESET ADMIN MODE'
-        )
-        session.mode =
-            undefined
-
-        return
-    }
-
-    // =========================
-    // НОВАЯ РЕЦЕНЗИЯ
-    // =========================
-    if (session.mode === 'text') {
-
-        const text =
-            ctx.message.text
-
-        if (!text)
-            return
-
-        const caption =
-            createMediaCaption(
-                session.media,
-                session.contentType,
-                text,
-                session.overview,
-                session.keyTrailer
-            )
+        session.currentMedia = newMedia
 
         try {
-
-            await ctx.telegram.editMessageCaption(
-                undefined,
-                undefined,
-                session.inlineMessageId,
-                caption,
+            await engineRichCard(
                 {
-                    parse_mode: 'HTML',
-
-                    reply_markup:
-                        keyboardSendMediaCardInline(
-                            session.mediaId,
-                            session.mediaType,
-                            session.contentType,
-                            session.media.genres,
-                            true
-                        )
+                    ctx,
+                    inlineMessageId: session.inlineMessageId,
+                    isAdmin: true
+                },
+                {
+                    id: session.mediaId,
+                    type: session.mediaType,
+                    status: 'ready',
+                    contentType: session.contentType,
+                    addComment: session.comment,
+                    addOverview: session.overview,
+                    keyTrailer: session.keyTrailer,
+                    mediaOverride: newMedia
                 }
             )
 
-            session.comment =
-                text
-
-            session.currentCaption =
-                caption
-            console.log(
-                'RESET ADMIN MODE'
-            )
-            session.mode =
-                undefined
-
+            session.mode = undefined
         } catch (error) {
-
-            console.error(
-                'EDIT CAPTION ERROR:',
-                error
-            )
+            console.error('EDIT MEDIA ERROR:', error)
         }
 
         return
     }
 
-    // =========================
-    // НОВОЕ ОПИСАНИЕ
-    // =========================
-    if (session.mode === 'overview') {
-
-        const overview =
-            ctx.message.text
-
-        if (!overview)
-            return
-
-        const caption =
-            createMediaCaption(
-                session.media,
-                session.contentType,
-                session.comment,
-                overview,
-                session.keyTrailer
-            )
+    if (session.mode === 'text') {
+        const text = ctx.message.text
+        if (!text) return
 
         try {
-
-            await ctx.telegram.editMessageCaption(
-                undefined,
-                undefined,
-                session.inlineMessageId,
-                caption,
+            await engineRichCard(
                 {
-                    parse_mode: 'HTML',
-
-                    reply_markup:
-                        keyboardSendMediaCardInline(
-                            session.mediaId,
-                            session.mediaType,
-                            session.contentType,
-                            session.media.genres,
-                            true
-                        )
+                    ctx,
+                    inlineMessageId: session.inlineMessageId,
+                    isAdmin: true
+                },
+                {
+                    id: session.mediaId,
+                    type: session.mediaType,
+                    status: 'ready',
+                    contentType: session.contentType,
+                    addComment: text,
+                    addOverview: session.overview,
+                    keyTrailer: session.keyTrailer,
+                    mediaOverride: session.currentMedia
                 }
             )
 
-            session.overview =
-                overview
-
-            session.currentCaption =
-                caption
-            console.log(
-                'RESET ADMIN MODE'
-            )
-            session.mode =
-                undefined
-
+            session.comment = text
+            session.mode = undefined
         } catch (error) {
+            console.error('EDIT CAPTION ERROR:', error)
+        }
 
-            console.error(
-                'EDIT CAPTION ERROR:',
-                error
+        return
+    }
+
+    if (session.mode === 'overview') {
+        const overview = ctx.message.text
+        if (!overview) return
+
+        try {
+            await engineRichCard(
+                {
+                    ctx,
+                    inlineMessageId: session.inlineMessageId,
+                    isAdmin: true
+                },
+                {
+                    id: session.mediaId,
+                    type: session.mediaType,
+                    status: 'ready',
+                    contentType: session.contentType,
+                    addComment: session.comment,
+                    addOverview: overview,
+                    keyTrailer: session.keyTrailer,
+                    mediaOverride: session.currentMedia
+                }
             )
+
+            session.overview = overview
+            session.mode = undefined
+        } catch (error) {
+            console.error('EDIT OVERVIEW ERROR:', error)
+        }
+
+        return
+    }
+
+    if (session.mode === 'type') {
+        try {
+            await engineRichCard(
+                {
+                    ctx,
+                    inlineMessageId: session.inlineMessageId,
+                    isAdmin: true
+                },
+                {
+                    id: session.mediaId,
+                    type: session.mediaType,
+                    status: 'ready',
+                    contentType: session.contentType,
+                    addComment: session.comment,
+                    addOverview: session.overview,
+                    keyTrailer: session.keyTrailer,
+                    mediaOverride: session.currentMedia
+                }
+            )
+
+            session.mode = undefined
+        } catch (error) {
+            console.error('EDIT TYPE CARD ERROR:', error)
         }
 
         return

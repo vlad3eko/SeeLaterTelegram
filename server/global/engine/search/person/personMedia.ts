@@ -100,20 +100,6 @@ export const personMedia = (
             start + PAGE_SIZE
         )
 
-
-    console.log(
-        "[PERSON FILMOGRAPHY]",
-        {
-            personId: normalized.filters.id?.[0],
-            beforeFilter: result.results?.length || 0,
-            afterFilter: totalResults,
-            page,
-            totalPages,
-            returned: paginatedResults.length
-        }
-    )
-
-
     return {
 
         ...result,

@@ -1,4 +1,4 @@
-import {searchType} from "#server/global/module/telegram/search/helpers/searchType";
+import {processExecuteCard} from "#server/global/module/telegram/search/process/processExecuteCard";
 import {processInlineSearch} from "#server/global/module/telegram/search/process/processInlineSearch";
 import {checkInlineQuery} from "#server/bot/consts/checkInlineQuery";
 
@@ -13,7 +13,7 @@ export const executeProcessSearch = async (medias: any, options: options, ctx: a
             return
 
         case "telegram":
-            const results = searchType(medias)
+            const results = processExecuteCard(medias)
 
             await processInlineSearch(ctx, results)
     }

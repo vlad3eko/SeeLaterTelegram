@@ -1,9 +1,15 @@
-import {clearAdminEditSession, getAdminEditSession} from "#server/bot/actions/admin/adminEditSession"
+import {
+    type AdminEditSession,
+    clearAdminEditSession,
+    getAdminEditSession
+} from "#server/bot/actions/admin/adminEditSession"
 import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBot"
 import {CURRENT_KEYBOARD_VERSION} from "#server/bot/consts/keyboardVersion/keyboardVersion"
-import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption"
 import {tmdbFetch} from "#server/utils/api/tmdbFetch"
 import {getMediaSaveCount} from "#server/bot/consts/keyboardVersion/getMediaSaveCount";
+import {NOTIFICATION_MESSAGE} from "#server/global/notifications/sendNotificationMessage";
+import {CHANEL_LINK} from "#server/bot/bot";
+import {resolveRichCard} from "#server/global/engine/card/engineRichCard";
 
 export const publishAdminInlineMedia = async (ctx: any) => {
 
@@ -16,19 +22,15 @@ export const publishAdminInlineMedia = async (ctx: any) => {
     ] = ctx.match
 
     const media =
-        await tmdbFetch(
-            '/api/bot/getMediaBot',
-            {
-                query: {
-                    id: mediaId,
-                    media: mediaType
-                }
+        await tmdbFetch('/api/bot/getMediaBot', {
+            query: {
+                id: mediaId,
+                media: mediaType
             }
-        )
+        })
 
-    let session =
-        getAdminEditSession(ctx.from.id) ??
-        {
+    const session: AdminEditSession =
+        getAdminEditSession(ctx.from.id) ?? {
             inlineMessageId:
             ctx.callbackQuery.inline_message_id,
             mediaId:
@@ -37,35 +39,46 @@ export const publishAdminInlineMedia = async (ctx: any) => {
             media,
             contentType,
             keyTrailer,
+            comment: undefined,
+            overview: undefined,
             currentMedia: {
                 type: 'photo',
                 fileId:
                     `https://image.tmdb.org/t/p/original${
-                        media.backdrop_path ||
-                        media.poster_path
+                        media.poster_path ||
+                        media.backdrop_path
                     }`
-            },
-            currentCaption:
-                createMediaCaption(
-                    media,
-                    contentType,
-                    undefined,
-                    undefined,
-                    keyTrailer
-                )
+            }
         }
 
     const channelId =
-        '@kinomanovnet'
-
-    const {
-        type,
-        fileId
-    } =
-        session.currentMedia
+        CHANEL_LINK
 
     const saveCount =
         getMediaSaveCount(session.mediaId)
+
+    const {
+        caption,
+        keyboard
+    } =
+        await resolveRichCard(
+            {
+                ctx,
+                inlineMessageId:
+                session.inlineMessageId,
+                isAdmin: false
+            },
+            {
+                id: session.mediaId,
+                type: session.mediaType,
+                status: 'ready',
+                contentType: session.contentType,
+                addComment: session.comment,
+                addOverview: session.overview,
+                keyTrailer: session.keyTrailer,
+                mediaOverride: session.currentMedia
+            }
+        )
 
     const channelReplyMarkup =
         keyboardSendMediaCardInline(
@@ -75,124 +88,71 @@ export const publishAdminInlineMedia = async (ctx: any) => {
             session.media.genres,
             false,
             'channel',
-            await saveCount
+            await saveCount,
+            session.keyTrailer,
         )
 
     let publishedMessage
 
-    if (type === 'photo') {
-
+    try {
         publishedMessage =
-            await ctx.telegram.sendPhoto(
-                channelId,
-                fileId,
+            await ctx.telegram.callApi(
+                'sendRichMessage',
                 {
-                    caption:
-                    session.currentCaption,
-
-                    parse_mode:
-                        'HTML',
-
-                    reply_markup:
-                    channelReplyMarkup
+                    chat_id: channelId,
+                    rich_message: caption,
+                    reply_markup: channelReplyMarkup
                 }
             )
-    }
-
-    if (type === 'video') {
-
-        publishedMessage =
-            await ctx.telegram.sendVideo(
-                channelId,
-                fileId,
-                {
-                    caption:
-                    session.currentCaption,
-
-                    parse_mode:
-                        'HTML',
-
-                    reply_markup:
-                    channelReplyMarkup
-                }
-            )
-    }
-
-    if (!publishedMessage) {
-
+    } catch (error) {
+        console.error('[RICH MESSAGE PUBLISH ERROR]', error)
         await ctx.answerCbQuery(
-            'Не удалось опубликовать'
+            NOTIFICATION_MESSAGE.CbQ.ErrorPublished
         )
-
         return
     }
 
     try {
-
         await $fetch(
             '/api/bot/publishedMedia/create',
             {
                 method: 'POST',
-
                 body: {
-
-                    telegramChatId:
-                    channelId,
-
-                    telegramMessageId:
-                    publishedMessage.message_id,
-
-                    mediaId:
-                    session.mediaId,
-
-                    mediaType:
-                    session.mediaType,
-
-                    contentType:
-                    session.contentType,
-
-                    keyboardVersion:
-                    CURRENT_KEYBOARD_VERSION
+                    telegramChatId: channelId,
+                    telegramMessageId: publishedMessage.message_id,
+                    mediaId: session.mediaId,
+                    mediaType: session.mediaType,
+                    contentType: session.contentType,
+                    keyboardVersion: CURRENT_KEYBOARD_VERSION,
+                    keyTrailer: session.keyTrailer,
                 }
             }
         )
-
     } catch (error) {
-
-        console.error(
-            '[PUBLISHED MEDIA SAVE ERROR]',
-            error
-        )
-
+        console.error('[PUBLISHED MEDIA SAVE ERROR]', error)
         await ctx.answerCbQuery(
             'Карточка опубликована, но не сохранена в истории'
         )
-
         return
     }
 
-    await ctx.answerCbQuery('Опубликовано')
+    await ctx.answerCbQuery(
+        NOTIFICATION_MESSAGE.CbQ.SuccessPublished
+    )
 
     try {
-
         await $fetch(
             '/api/bot/publishedMedia/syncKeyboards',
             {
                 method: 'POST'
             }
         )
-
     } catch (error) {
-
-        console.log(
-            '[KEYBOARD SYNC ERROR]',
-            error
-        )
+        console.log('[KEYBOARD SYNC ERROR]', error)
     }
 
     try {
         if (session.inlineMessageId) {
-
             await ctx.telegram.editMessageReplyMarkup(
                 undefined,
                 undefined,
@@ -205,17 +165,24 @@ export const publishAdminInlineMedia = async (ctx: any) => {
                             session.contentType,
                             session.media.genres,
                             false,
-                            'inline'
+                            'inline',
+                            await saveCount,
+                            session.keyTrailer,
                         )
                 }
             )
         }
     } catch (error: any) {
-        if (error?.response?.description !== "Bad Request: message is not modified")
-            console.log('[PUBLISHED MEDIA session.inlineMessageID ERROR]', error)
+        if (
+            error?.response?.description !==
+            "Bad Request: message is not modified"
+        ) {
+            console.log(
+                '[PUBLISHED MEDIA session.inlineMessageID ERROR]',
+                error
+            )
+        }
     }
 
-    clearAdminEditSession(
-        ctx.from.id
-    )
+    clearAdminEditSession(ctx.from.id)
 }

@@ -130,14 +130,6 @@ export const mediaCast = (mediaId: number, mediaType: string, contentType: Conte
 
     const type = contentTypeConvert(mediaType, contentType)
 
-    console.log('[mediaCast CREATE]', {
-        mediaId,
-        mediaType,
-        contentType,
-        type,
-        payload: `media_cast_${contentType}_${mediaId}`
-    })
-
     if (ButtonContext === 'channel') {
 
         return Markup.button.url(

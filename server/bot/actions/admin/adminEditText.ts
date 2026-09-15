@@ -1,4 +1,5 @@
 import {getAdminEditSession} from "#server/bot/actions/admin/adminEditSession";
+import {NOTIFICATION_MESSAGE} from "#server/global/notifications/sendNotificationMessage";
 
 export const adminEditText = async (ctx: any) => {
 
@@ -6,19 +7,9 @@ export const adminEditText = async (ctx: any) => {
         getAdminEditSession(ctx.from.id)
 
     if (!session) {
-        await ctx.answerCbQuery(
-            'Сессия не найдена'
-        )
-
+        await ctx.answerCbQuery(NOTIFICATION_MESSAGE.CbQ.ErrorProcessSession)
         return
     }
-
     session.mode = 'text'
-
-    console.log(
-        'EDIT TEXT MODE:',
-        session.mode
-    )
-
-    await ctx.answerCbQuery()
+    await ctx.answerCbQuery(NOTIFICATION_MESSAGE.CbQ.SuccessProcessEditText)
 }

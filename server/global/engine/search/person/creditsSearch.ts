@@ -50,16 +50,6 @@ export const creditsSearch = (
     const start = (currentPage - 1) * PAGE_SIZE
     const paginatedResults = results.slice(start, start + PAGE_SIZE)
 
-    console.log("[CREDITS SEARCH]", {
-            page: currentPage,
-            totalResults,
-            totalPages,
-            returned:
-            paginatedResults.length
-        }
-    )
-
-
     /*
      * ==================================================
      * 4. RESPONSE

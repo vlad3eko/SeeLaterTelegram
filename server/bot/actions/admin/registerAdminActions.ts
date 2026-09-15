@@ -6,13 +6,16 @@ import {getAdminEditSession} from "#server/bot/actions/admin/adminEditSession";
 import {adminEditActionInlineMessage} from "#server/bot/actions/admin/adminEditActionInlineMessage";
 import {Telegraf} from "telegraf";
 import {adminEditOverview} from "#server/bot/actions/admin/adminEditOverview";
+import {adminEditTypeCard} from "#server/bot/actions/admin/card/adminEditTypeCard";
 
 export const registerAdminActions = (bot: Telegraf) => {
     bot.action(/^edit_media_(\d+)_(movie|tv)_([^_]+)(?:_(.+))?$/, editAdminInlineMedia)
-    bot.action(/^publish_media_(\d+)_(movie|tv)_([^_]+)(?:_(.+))?$/, publishAdminInlineMedia)
+    bot.action(/^publish_media_(\d+)_(movie|tv)_([^_]+)(?:_(.+?))?(?:_(true|false))?$/, publishAdminInlineMedia)
     bot.action(/^admin_edit_media$/, adminEditMedia)
     bot.action(/^admin_edit_text$/, adminEditText)
     bot.action(/^admin_edit_overview$/, adminEditOverview)
+    bot.action(/^admin_edit_type_card$/, adminEditTypeCard)
+
     bot.on('message', async (ctx: any, next) => {
 
         const session =

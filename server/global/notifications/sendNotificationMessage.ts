@@ -29,6 +29,15 @@ export const NOTIFICATION_MESSAGE = {
     SuccessSaved: 'успешно добавлено в вашу коллекцию',
 
     ContactUs: 'Спасибо, мы активно развиваемся благодаря вашей поддержке.\n\n<a href="https://t.me/kinomanovGroup/2/4"><b>Вопросы и предложения</b></a>',
+    ContactUsRich: {
+      type: 'paragraph',
+      text: [
+          {
+              type: 'italic',
+              text: 'Спасибо, мы активно развиваемся благодаря вашей поддержке.',
+          },
+      ]
+    },
 
     CbQ: {
         SuccessSaved: '✅ Добавлено в вашу коллекцию',
@@ -36,6 +45,16 @@ export const NOTIFICATION_MESSAGE = {
         ErrorAlreadyExist: '❌ Уже сохраняли',
         SuccessDelete: '✅ Удалено из вашей коллекции',
         ErrorDoesNotExist: '❌ Нечего удалять',
+
+        SuccessPublished: '✅ Публикация',
+        ErrorPublished: '❌ Публикация',
+
+        SuccessProcessEditCard: '✅ Редактирование карты',
+        ErrorProcessSession: '❌ Сессия не найдена',
+        SuccessProcessEditImage: '✅ Редактирование изображения',
+        SuccessProcessEditText: '✅ Редактирование комментария',
+        SuccessProcessEditOverview: '✅ Редактирование описания',
+        SuccessProcessEditType: '✅ Редактирование типа карты',
     }
 } as const
 
@@ -45,7 +64,9 @@ export const SHARE_CHANNEL_LINKS = {
 📢 <a href="${telegramChannelShortLink}">Киноманов NET | Фильмы и сериалы</a>
 
 ${NOTIFICATION_MESSAGE.ContactUs}
-    `
+    `,
+
+    Rich: {}
 }
 
 interface NOTIFICATION_OPTIONS {
@@ -83,6 +104,6 @@ export const sendNotificationTelegramMessage = async (userId: number, descriptio
             }
         )
     } catch (e) {
-        console.log('ошибка отправка', e)
+        console.log('ошибка отправки уведомления о сохранении', e)
     }
 }
