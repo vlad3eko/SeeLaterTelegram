@@ -9,8 +9,6 @@ export const generateContentEntry = async (ctx: any) => {
     const userId = ctx.match[2]
 
     const executeProvider = await executeDataProvider(strategy, userId)
-    console.log('eP', executeProvider)
-
 }
 
 // Data Provider
@@ -46,7 +44,7 @@ export const generateContentEntry = async (ctx: any) => {
     // ----------------
     // id
     // title
-    // type
+    // variant
     // source
     // filters
     // movies[]

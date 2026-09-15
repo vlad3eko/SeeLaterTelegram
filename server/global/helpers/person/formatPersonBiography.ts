@@ -1,28 +1,47 @@
-import {linkOfMedia} from "#server/global/helpers/linkOfMedia";
+export const formatPersonBiography = (text: string): any[] => {
 
-export const formatPersonBiography = (text: string): string => {
-    if (!text) return ''
+    if (!text) return []
 
-    // Разбиваем текст на отдельные награды по запятой
-    const awards = text.split(',').map(item => item.trim())
+    const awards = text
+        .split(/,\s*(?![^[]*\])/)
+        .map(item => item.trim())
+        .filter(Boolean)
 
-    // Обрабатываем каждую награду
-    const formattedAwards = awards.map(award => {
-        // Ищем название в скобках [Название]
+    return awards.map(award => {
+
         const match = award.match(/\[([^\]]+)\]/)
-        const title = match ? match[1] : '' // Название без скобок
 
-        // Убираем [Название] из текста
-        const cleanAward = award.replace(/\[[^\]]+\]/, '').trim()
+        const title = match
+            ? match[1]
+            : ''
 
-        // Если есть название — добавляем ссылку
-        if (title) {
-            return `<i>${cleanAward}</i> \n${linkOfMedia(title, cleanAward)}`
+        const cleanAward = award
+            .replace(/\[[^\]]+\]/, '')
+            .trim()
+
+        if (!title) {
+            return {
+                type: 'paragraph',
+                text: cleanAward
+            }
         }
 
-        return cleanAward
+        return {
+            type: 'paragraph',
+            text: [
+                {
+                    type: 'italic',
+                    text: cleanAward
+                },
+                ' · ',
+                {
+                    type: 'url',
+                    text: title,
+                    url: `https://www.google.com/search?q=${encodeURIComponent(
+                        title + ' ' + cleanAward
+                    )}`
+                }
+            ]
+        }
     })
-
-    // Собираем обратно
-    return `${formattedAwards.join('\n')}`
 }

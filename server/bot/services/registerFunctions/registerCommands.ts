@@ -104,10 +104,7 @@ export function registerCommands(bot: Telegraf) {
         if (payload.startsWith('media_cast_')) {
 
             const [, , contentType, mediaId] = payload.split('_')
-            console.log('payload', payload)
-            console.log('entry payload', contentType, mediaId)
             const type = contentTypeToTag[contentType as ContentType]
-            console.log('type entry')
 
             await openInlineSearch(ctx,`#${type} ${mediaId} #cast`)
             return

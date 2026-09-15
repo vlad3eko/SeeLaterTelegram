@@ -7,10 +7,10 @@ export const adminEditInlineCard = (mediaId: number, mediaType: string, contentT
     )
 }
 
-export const adminPublishInlineCard = (mediaId: number, mediaType: string, contentType: string, keyTrailer: string | undefined) => {
+export const adminPublishInlineCard = (mediaId: number, mediaType: string, contentType: string, keyTrailer: string | undefined, isRichTypeCard: boolean = false) => {
     return Markup.button.callback(
         "🚀 ОПУБЛИКОВАТЬ",
-        `publish_media_${mediaId}_${mediaType}_${contentType}_${keyTrailer}`
+        `publish_media_${mediaId}_${mediaType}_${contentType}_${keyTrailer}_${isRichTypeCard}`
     )
 }
 
@@ -32,5 +32,12 @@ export const adminEditOverviewInlineCard = () => {
     return Markup.button.callback(
         '📝 Описание',
         'admin_edit_overview'
+    )
+}
+
+export const adminEditTypeInlineCard = () => {
+    return Markup.button.callback(
+        'Тип',
+        'admin_edit_type_card'
     )
 }

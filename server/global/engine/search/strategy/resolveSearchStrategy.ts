@@ -35,68 +35,27 @@ export const resolveSearchStrategy = (
     if (hasFromUserId || query.filters.isCollection) {
         return SearchStrategy.BOOKMARKS
     }
-    /*
-     * ==========================================
-     * PERSON
-     *
-     * #person
-     * #person 2219
-     * #person 2219 #cast
-     * ==========================================
-     */
 
-    if (isPerson) {
+    if (isPerson)
         return SearchStrategy.PERSON
-    }
 
-
-    /*
-     * ==========================================
-     * CREDITS
-     *
-     * 634649 #cast
-     * 634649 #crew
-     *
-     * Здесь ID относится к media,
-     * а его тип определит credits API.
-     * ==========================================
-     */
-
-    if (hasId && hasCreditType) {
+    if (hasId && hasCreditType)
         return SearchStrategy.CREDITS
-    }
 
-
-    /*
-     * ==========================================
-     * LEGACY PERSON ID
-     *
-     * Сохраняем старое поведение:
-     *
-     * 2219
-     *
-     * ==========================================
-     */
-
-    if (hasId) {
+    if (hasId)
         return SearchStrategy.PERSON
-    }
 
 
-    if (hasText && hasFilters) {
+    if (hasText && hasFilters)
         return SearchStrategy.SEARCH_MIXED
-    }
 
 
-    if (hasText) {
+    if (hasText)
         return SearchStrategy.SEARCH_BY_TEXT
-    }
 
 
-    if (hasFilters) {
+    if (hasFilters)
         return SearchStrategy.SEARCH_BY_FILTERS
-    }
-
 
 
     return SearchStrategy.POPULAR

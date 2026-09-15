@@ -12,6 +12,7 @@ import {
 import type {TypeButtonContext} from "#server/bot/consts/buttons/admin/keyboardAdmin";
 import type {ContentType} from "#server/global/engine/search/strategy/enums";
 import {contentTypeConvert} from "~/utils/convert/contentTypeConvert";
+import type {typeRichCard} from "#server/global/engine/card/enum/types";
 
 
 export const keyboardStartBot = (text?: string, query?: string) => {
@@ -32,14 +33,18 @@ export const keyboardSearchBot = (text?: string, query?: string) => {
 
 export const keyboardSendMediaCardInline = (
     mediaId: number,
-    mediaType: 'movie' | 'tv',
+    mediaType: typeRichCard,
     contentType: ContentType,
     genres?: TmdbGenre[] | undefined,
     admin: boolean = false,
     ButtonContext: TypeButtonContext = 'inline',
     saveCount = 0,
-    keyTrailer?: string | undefined
+    keyTrailer?: string | undefined,
+    isRichTypeCard: boolean = false
 ) => {
+
+    if (mediaType === 'person')
+        return
 
     const keyboard = [
         [SearchButtonBot('Искать другое', ButtonContext), recommendationButtonBot(contentType, genres, ButtonContext, mediaId, mediaType)],
@@ -49,7 +54,7 @@ export const keyboardSendMediaCardInline = (
     ]
 
     if (admin) {
-        keyboard.push([adminEditInlineCard(mediaId, mediaType, contentType, keyTrailer), adminPublishInlineCard(mediaId, mediaType, contentType, keyTrailer)])
+        keyboard.push([adminEditInlineCard(mediaId, mediaType, contentType, keyTrailer), adminPublishInlineCard(mediaId, mediaType, contentType, keyTrailer, isRichTypeCard)])
     }
 
     return Markup.inlineKeyboard(keyboard).reply_markup

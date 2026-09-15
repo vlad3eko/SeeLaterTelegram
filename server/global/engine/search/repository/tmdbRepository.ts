@@ -1,6 +1,7 @@
 import {buildTmdbParams} from "~/utils/media/buildTmdbParams";
 import {tmdbFetch} from "#server/utils/api/tmdbFetch";
 import type {NormalizedSearchQuery} from "#server/global/engine/search/mapper/typesSearch";
+import {getKeyTrailer} from "#server/bot/consts/media/getKeyTrailer";
 
 
 export const searchMulti = async (
@@ -309,4 +310,56 @@ export const getLastSearchQuery = async (
             }
         }
     )
+}
+
+export const getEnrichMediaApi = async (mediaId: number, mediaType: string) => {
+
+    const [details, trailers, cast, crew] = await Promise.all([
+        tmdbFetch('/api/bot/getMediaBot', {
+            query: {
+                media: mediaType,
+                id: mediaId
+            }
+        }),
+
+        tmdbFetch('/api/tmdb/trailers', {
+            query: {
+                media: mediaType,
+                id: mediaId
+            }
+        }),
+
+        tmdbFetch(
+            "/api/tmdb/credits",
+            {
+                query: {
+                    id: mediaId,
+                    undefined,
+                    mediaType
+                }
+            }
+        ),
+
+        tmdbFetch(
+            "/api/tmdb/credits",
+            {
+                query: {
+                    id: mediaId,
+                    personJob: 'crew',
+                    mediaType
+                }
+            }
+        )
+    ])
+
+    return {
+        ...details,
+        keyTrailer: getKeyTrailer(trailers),
+        credits: [
+            ...crew.results.filter(
+                (role: any) => role.known_for_department === 'Directing' && role.profile_path
+            ).slice(0, 1),
+            ...cast.results.slice(0, 5),
+        ]
+    }
 }

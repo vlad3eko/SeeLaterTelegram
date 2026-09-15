@@ -7,7 +7,8 @@ export default defineNuxtConfig({
     css: ['./app/assets/css/main.css'],
     runtimeConfig: {
         tmdbApiKey: process.env.TMDB_API_KEY,
-        telegramKey: process.env.TELEGRAM_TOKEN
+        telegramKey: process.env.TELEGRAM_TOKEN,
+        telegramStorageChanel: process.env.TELEGRAM_MEDIA_STORAGE_CHAT_ID
     },
     nitro: {
         preset: 'vercel'

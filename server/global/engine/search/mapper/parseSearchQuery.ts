@@ -75,6 +75,8 @@ export const parseSearchQuery = (
                     .toLowerCase()
 
             if ([
+                "m",
+                "f",
                 "фильм",
                 "movie",
                 "movies",
@@ -101,6 +103,7 @@ export const parseSearchQuery = (
 
             if ([
                 "сериал",
+                "t",
                 "tv",
                 "series",
                 "serial",
@@ -183,6 +186,7 @@ export const parseSearchQuery = (
             }
 
             if ([
+                "p",
                 "person",
                 "persona",
                 "человек",

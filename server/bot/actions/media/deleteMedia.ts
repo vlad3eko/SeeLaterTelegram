@@ -1,5 +1,4 @@
 import {checkChannelSubscriber} from "#server/bot/handlers/auth/check/checkChannelSubscriber";
-import {createMediaCaption} from "#server/bot/consts/media/createMediaCaption";
 import {NOTIFICATION_MESSAGE} from "#server/global/notifications/sendNotificationMessage";
 
 export const deleteMedia = async (ctx: any) => {

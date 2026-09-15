@@ -5,7 +5,7 @@ import {keyboardSearchBot} from "#server/bot/consts/buttons/keyboardBot";
 import {getAdminEditSession} from "#server/bot/actions/admin/adminEditSession";
 import {registerHears} from "#server/bot/handlers/registerHears";
 import {searchMediaInline} from "#server/global/module/telegram/search/process/searchMediaInline";
-import {chosenInlineCard} from "#server/global/module/telegram/search/process/chosenInlineCard";
+import {chosenCard} from "#server/global/module/telegram/search/process/chosenCard";
 
 export function registerHandlers(bot: Telegraf) {
 
@@ -24,7 +24,7 @@ export function registerHandlers(bot: Telegraf) {
         const textId = ctx.message.message_id
 
         if (text.startsWith('/')) return
-        if (text.startsWith('bot: ')) return chosenInlineCard(ctx)
+        if (text.startsWith('bot: ')) return chosenCard(ctx)
         if ((text.startsWith('message: '))) return
 
         await addMessageSession(ctx.from.id, SessionMessageType.SearchInline, {messageId: textId})
@@ -37,6 +37,6 @@ export function registerHandlers(bot: Telegraf) {
     })
 
     bot.on('inline_query', searchMediaInline)
-    bot.on('chosen_inline_result', chosenInlineCard)
+    bot.on('chosen_inline_result', chosenCard)
 
 }

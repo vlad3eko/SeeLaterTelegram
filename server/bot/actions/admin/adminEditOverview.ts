@@ -1,21 +1,16 @@
 import {getAdminEditSession} from "#server/bot/actions/admin/adminEditSession";
+import {NOTIFICATION_MESSAGE} from "#server/global/notifications/sendNotificationMessage";
 
 export const adminEditOverview = async (ctx: any) => {
 
     const session =
         getAdminEditSession(ctx.from.id)
 
-    console.log('session [ADMIN EDIT OVERVIEW]', true)
-
     if (!session) {
-        await ctx.answerCbQuery('Сессия не найдена')
+        await ctx.answerCbQuery(NOTIFICATION_MESSAGE.CbQ.ErrorProcessSession)
         return
     }
 
     session.mode = 'overview'
-
-    console.log('EDIT OVERVIEW MODE: ', session.mode)
-
-    await ctx.answerCbQuery()
-
+    await ctx.answerCbQuery(NOTIFICATION_MESSAGE.CbQ.SuccessProcessEditOverview)
 }

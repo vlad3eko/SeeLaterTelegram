@@ -78,7 +78,9 @@ export default defineEventHandler(async (event) => {
                     media.genres,
                     false,
                     'channel',
-                    await saveCount
+                    await saveCount,
+                    post.keyTrailer,
+                    post.isRichTypeCard
                 )
 
             await bot.telegram.editMessageReplyMarkup(
@@ -108,7 +110,7 @@ export default defineEventHandler(async (event) => {
             const errorDescription =
                 error?.response?.description
 
-            if (errorDescription !== "Bad Request: message is not modified" && errorDescription !== "Bad Request: message to edit not found") {
+            if (errorDescription !== "Bad Request: message is not modified" && errorDescription !== "Bad Request: message to edit not found" && errorDescription !== "Bad Request: MESSAGE_ID_INVALID") {
                 failed++
                 console.error(error)
             }
