@@ -1,5 +1,9 @@
 import {Input} from "telegraf"
-import {getTelegramMediaCache, setTelegramMediaCache} from "#server/global/engine/card/construct/getTelegramMediaCache";
+import {
+    getTelegramMediaCache,
+    setTelegramMediaCache, uploadTelegramMedia,
+    uploadTelegramPhoto
+} from "#server/global/engine/card/construct/getTelegramMediaCache";
 
 type PersonImage = {
     id: number
@@ -55,33 +59,36 @@ export const getTelegramMediaImages = async (
 
     if (needUpload.length) {
 
-        const first = needUpload[0]
-
         let messages: any[] = []
 
         if (needUpload.length === 1) {
             messages = [
-                await ctx.telegram.sendPhoto(
-                    process.env.TELEGRAM_MEDIA_STORAGE_CHAT_ID,
+                await uploadTelegramPhoto(
                     Input.fromURL(
-                        `https://image.tmdb.org/t/p/w780${first!.path}`
+                        `https://image.tmdb.org/t/p/w780${needUpload[0]!.path}`
                     )
                 )
             ]
         } else {
-            messages = await ctx.telegram.sendMediaGroup(
-                process.env.TELEGRAM_MEDIA_STORAGE_CHAT_ID,
-                needUpload.map(item => ({
-                    type: 'photo' as const,
-                    media: Input.fromURL(
-                        `https://image.tmdb.org/t/p/w780${item.path}`
-                    )
-                }))
-            )
+            for (let i = 0; i < needUpload.length; i += 10) {
+
+                const chunk = needUpload.slice(i,i + 10)
+
+                const album = await uploadTelegramMedia(
+                    chunk.map(item => ({
+                        type: 'photo' as const,
+                        media: Input.fromURL(
+                            `https://image.tmdb.org/t/p/w780${item.path}`
+                        )
+                    }))
+                )
+
+                messages.push(...album)
+            }
         }
 
         await Promise.all(
-            messages.map(async (message: any, index: number) => {
+            messages.map(async (message:any,index:number) => {
 
                 const fileId =
                     message.photo?.[message.photo.length - 1]?.file_id
@@ -94,15 +101,9 @@ export const getTelegramMediaImages = async (
 
                 const key = needUpload[index]!.key
 
-                await setTelegramMediaCache(
-                    key,
-                    fileId
-                )
+                await setTelegramMediaCache(key,fileId)
 
-                result.set(
-                    key,
-                    fileId
-                )
+                result.set(key,fileId)
             })
         )
     }
