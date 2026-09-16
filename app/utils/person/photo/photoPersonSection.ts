@@ -1,3 +1,4 @@
+
 import type {TmdbPerson} from "~/types/tmdb.person.types";
 
 export const photoPersonSection = (data: TmdbPerson[]) => {

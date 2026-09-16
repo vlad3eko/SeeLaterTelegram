@@ -1,3 +1,4 @@
+
 <template>
   <NuxtLink :to="formatLink"
             class="relative block min-h-60 shrink-0 overflow-hidden rounded-xl cursor-pointer group">

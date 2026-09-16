@@ -1,3 +1,4 @@
+
 <template>
   <div class="w-full mx-auto lg:mx-0 max-md:w-100 max-lg:w-100">
     <div class="sticky top-5">

@@ -1,4 +1,4 @@
-import {bot} from "#server/bot/bot";
+ import {bot} from "#server/bot/bot";
 import {addMessageSession} from "#server/bot/services/session/addMessageSession";
 import {SessionMessageNotificationType} from "#server/bot/consts/types/SessionMessageTypes";
 import {tmdbFetch} from "#server/utils/api/tmdbFetch";
@@ -24,6 +24,7 @@ export interface TextMessage {
     date: number
     text: string
 }
+
 
 export const NOTIFICATION_MESSAGE = {
     SuccessSaved: 'успешно добавлено в вашу коллекцию',

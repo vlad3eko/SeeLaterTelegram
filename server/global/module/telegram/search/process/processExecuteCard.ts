@@ -15,6 +15,7 @@ export const processExecuteCard = (medias: any) => {
                 ? `https://image.tmdb.org/t/p/w500${imagePath}`
                 : 'https://www.levyinstitute.org/wp-content/themes/levy_institute_v2/img/no_profile_image.gif'
 
+
         const richMessage = isPerson
             ? createPersonCaption("pending", {media, contentType: media.content_type})
             : createMediaCaption('pending', {media, contentType: media.content_type})

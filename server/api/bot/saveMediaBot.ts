@@ -1,3 +1,4 @@
+
 import {serverSupabaseClient} from '#supabase/server'
 import {createFavorite} from "#server/bot/services/supabase/addFavorite";
 

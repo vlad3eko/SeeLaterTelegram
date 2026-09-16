@@ -1,3 +1,4 @@
+
 <template>
   <section class="min-w-133">
     <Transition name="fade" mode="out-in" v-if="!pending && favorites?.length">

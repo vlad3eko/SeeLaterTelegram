@@ -1,3 +1,4 @@
+
 <template>
   <div v-if="trailer" class="overflow-hidden rounded-2xl bg-shell shadow-2xl ">
     <div class="relative md:h-[450px]">

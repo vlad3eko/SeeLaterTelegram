@@ -1,3 +1,4 @@
+
 import {ContentType} from "#server/global/engine/search/strategy/enums";
 
 export type statusRichCard = "pending" | "ready" | "error"

@@ -4,3 +4,4 @@ export const linkOfMedia = (link: string, title?: string) => {
 
     return `     • ` + `<i><a href="https://www.google.com/search?q=${encodedTitle + altLink}">«${link}»</a></i>`
 }
+

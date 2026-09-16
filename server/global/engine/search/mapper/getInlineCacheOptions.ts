@@ -1,3 +1,4 @@
+
 import {SearchStrategy} from "#server/global/engine/search/strategy/enums";
 
 export const setInlineCacheOptions = (strategy:string)=>{

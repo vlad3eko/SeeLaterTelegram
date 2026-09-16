@@ -1,3 +1,4 @@
+
 <template>
   <NuxtImg :src="imageCheck(data)"
            class="absolute inset-0 w-full h-full object-cover select-none"/>
@@ -42,6 +43,7 @@ import MovieMeta from "~/components/widgets/web/movie/MovieMeta.vue";
 import {useMovieDetails} from "~/composables/movie/useMovieDetails";
 import MovieGetRoleByMovieSection from "~/components/widgets/web/movie/MovieGetRoleByMovieSection.vue";
 import MovieDescription from "~/components/widgets/web/movie/MovieDescription.vue";
+import {imageCheck} from "~/utils/imageCheck";
 
 const {
   pending,

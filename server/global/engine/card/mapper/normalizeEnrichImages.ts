@@ -1,9 +1,10 @@
+
 import {filterTheMovie} from "~/utils/media/filterTheMovie";
 import {sortByRating} from "~/utils/media/sortByRating";
 import {dateConvert} from "~/utils/convert/dateConvert";
 import {dateIsoConvert} from "~/utils/convert/dateIsoConvert";
 import {convertTranslateKnowForDepartment} from "#server/global/helpers/person/convert/translateKnowForDepartment";
-import type {typeRichCard} from "#server/global/engine/card/engineRichCard";
+import type {typeRichCard} from "#server/global/engine/card/enum/types";
 
 const normalizeMediaCredits = (data: any[]) =>
     data.map((dataItem: any) => ({

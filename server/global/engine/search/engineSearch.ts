@@ -1,3 +1,4 @@
+
 import {executeSearchStrategy} from "#server/global/engine/search/strategy/executeSearchStrategy";
 import {loadGenres} from "#server/bot/consts/media/genresConvert";
 import {parseSearchQuery} from "#server/global/engine/search/mapper/parseSearchQuery";

@@ -1,3 +1,4 @@
+
 import {Telegraf} from "telegraf";
 import {registerCommands} from "#server/bot/services/registerFunctions/registerCommands";
 import {registerActions} from "#server/bot/services/registerFunctions/registerActions";

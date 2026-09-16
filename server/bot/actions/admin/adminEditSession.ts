@@ -1,3 +1,4 @@
+
 import type {ContentType} from "#server/global/engine/search/strategy/enums";
 
 type modeEditSession = 'media' | 'text' | 'overview' | 'publish' | 'type'

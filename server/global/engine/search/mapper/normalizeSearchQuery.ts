@@ -1,3 +1,4 @@
+
 import {findGenre} from "~/utils/media/findGenre";
 import type {NormalizedSearchQuery, SearchQuery} from "#server/global/engine/search/mapper/typesSearch";
 

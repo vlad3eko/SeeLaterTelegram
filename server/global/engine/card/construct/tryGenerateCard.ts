@@ -1,3 +1,4 @@
+
 import {Markup} from "telegraf";
 import {SearchButtonBot} from "#server/bot/consts/buttons/buttonsBot";
 import type {queryCTX} from "#server/global/engine/card/enum/types";

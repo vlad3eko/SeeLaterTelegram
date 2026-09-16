@@ -13,3 +13,4 @@ export const tmdbFetch = async <T>(
         options
     )
 }
+

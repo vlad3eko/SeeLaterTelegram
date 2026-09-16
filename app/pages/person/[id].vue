@@ -1,3 +1,4 @@
+
 <template>
   <Loader v-if="pending"/>
   <div v-if="!pending && data" class=" px-4 py-16 mx-10">

@@ -1,3 +1,4 @@
+
 export const saveTelegramUser = async (ctx: any) => {
     await $fetch('/api/auth/telegram', {
         method: 'POST',

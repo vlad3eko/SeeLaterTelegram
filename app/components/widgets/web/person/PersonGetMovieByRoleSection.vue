@@ -1,3 +1,4 @@
+
 <template>
 
   <div v-if="awardMovies.length" class="w-full">

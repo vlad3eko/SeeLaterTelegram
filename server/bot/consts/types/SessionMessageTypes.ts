@@ -1,3 +1,4 @@
+
 import {NOTIFICATION_MESSAGE} from "#server/global/notifications/sendNotificationMessage";
 
 export enum SessionMessageType {

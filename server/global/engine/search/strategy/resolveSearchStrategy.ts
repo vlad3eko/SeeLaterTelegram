@@ -1,3 +1,4 @@
+
 import {NormalizedSearchQuery} from "#server/global/engine/search/mapper/typesSearch";
 import {SearchStrategy} from "#server/global/engine/search/strategy/enums";
 

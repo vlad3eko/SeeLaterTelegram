@@ -20,6 +20,7 @@ export const chosenCard = async (ctx: any) => {
     const admin = isAdmin(result.from.id)
 
 
+
     try {
 
     await engineRichCard({

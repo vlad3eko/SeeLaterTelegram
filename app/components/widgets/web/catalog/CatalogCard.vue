@@ -1,3 +1,4 @@
+
 <template>
   <NuxtLink
       v-if="props.media"

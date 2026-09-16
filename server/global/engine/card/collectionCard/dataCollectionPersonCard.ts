@@ -1,3 +1,4 @@
+
 import {personBiography} from "~/utils/person/caption/personBiography";
 import {CardData} from "#server/global/engine/card/enum/types";
 

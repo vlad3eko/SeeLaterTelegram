@@ -1,3 +1,4 @@
+
 import {checkChannelSubscriber} from "#server/bot/handlers/auth/check/checkChannelSubscriber";
 import {NOTIFICATION_MESSAGE} from "#server/global/notifications/sendNotificationMessage";
 

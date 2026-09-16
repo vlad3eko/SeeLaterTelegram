@@ -1,3 +1,4 @@
+
 export async function deleteMessages(ctx: any, offsets: number[]) {
 
     const chatId = ctx.chat.id;
