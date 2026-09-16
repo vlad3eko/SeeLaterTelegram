@@ -12,6 +12,7 @@
 
 .animate-from-right { animation: from-right 1s none; }
 
+
 @keyframes from-right {
     0% { transform: translateX(50px); opacity: 0; }
     50% { transform: translateX(-10px); opacity: 0.7; }
