@@ -1,4 +1,4 @@
-import {normalizeTmdbMedia} from "~/utils/media/normalizeTmdbMedia";
+import {normalizeTmdbMedia} from "#server/global/engine/search/mapper/normalizeTmdbMedia";
 
 export const personSearch = (result: any, cacheOptions: any) => {
     result.results = (result.results || [])

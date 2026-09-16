@@ -1,5 +1,5 @@
 import {genresConvert} from "~/utils/convert/genresConvert";
-import {FormatDate, FormatRating} from "~/utils/formatMoviesData";
+import {FormatDate, FormatRating} from "#server/global/engine/search/mapper/formatMoviesData";
 import {CONTENT_TYPE_LABELS} from "~/utils/convert/library/enumsLibrary";
 import {ContentType} from "#server/global/engine/search/strategy/enums";
 

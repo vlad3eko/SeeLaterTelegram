@@ -1,4 +1,4 @@
-import {buildTmdbParams} from "~/utils/media/buildTmdbParams";
+import {buildTmdbParams} from "#server/global/engine/search/mapper/buildTmdbParams";
 import {tmdbFetch} from "#server/utils/api/tmdbFetch";
 import type {NormalizedSearchQuery} from "#server/global/engine/search/mapper/typesSearch";
 import {getKeyTrailer} from "#server/bot/consts/media/getKeyTrailer";

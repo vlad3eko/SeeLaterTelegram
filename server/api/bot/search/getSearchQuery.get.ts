@@ -6,7 +6,7 @@ export default defineEventHandler(async (event) => {
 
     const supabase = await serverSupabaseClient(event)
 
-    const telegramId = query.user_id
+    const telegramId = Number(query.user_id)
     if (!telegramId) return
 
     const {data} = await supabase
@@ -14,6 +14,8 @@ export default defineEventHandler(async (event) => {
         .select('last_search_query')
         .eq('telegram_id', telegramId)
         .single()
+
+    if (!data?.last_search_query) return
 
     return JSON.parse(data.last_search_query)
 })

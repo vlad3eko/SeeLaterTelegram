@@ -1,5 +1,5 @@
 import {filterMediaQuality} from "#server/global/engine/search/mapper/filterMediaQuality";
-import {isLiquidMedia} from "~/utils/media/isLiquidMedia";
+import {isLiquidMedia} from "#server/global/engine/search/mapper/isLiquidMedia";
 
 export const sortMediaResults = (
     medias: any[],

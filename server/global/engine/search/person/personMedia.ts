@@ -1,6 +1,6 @@
-import { normalizeTmdbMedia } from "~/utils/media/normalizeTmdbMedia"
+import { normalizeTmdbMedia } from "#server/global/engine/search/mapper/normalizeTmdbMedia"
 import { filterMediaResults } from "#server/global/engine/search/mapper/filterMediaResults"
-import { sortMediaResults } from "~/utils/media/sortMediaResults"
+import { sortMediaResults } from "#server/global/engine/search/mapper/sortMediaResults"
 
 export const personMedia = (
     result: any,
