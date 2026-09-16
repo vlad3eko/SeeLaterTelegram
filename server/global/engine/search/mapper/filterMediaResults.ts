@@ -1,4 +1,4 @@
-import {filterTmdbMediaResults} from "~/utils/media/filterTmdbMediaResults";
+import {filterTmdbMediaResults} from "#server/global/engine/search/mapper/filterTmdbMediaResults";
 import {normalizeMediaGenres} from "#server/bot/consts/media/normalizeMediaGenres";
 import {SearchStrategy} from "#server/global/engine/search/strategy/enums";
 import {filterContentType} from "#server/global/engine/search/mapper/filterContentType";

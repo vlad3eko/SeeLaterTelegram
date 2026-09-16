@@ -9,27 +9,34 @@ export const contentTypeToTag: Record<ContentType, string> = {
     person: 'человек',
 }
 
-export const contentTypeConvert = (mediaType: any, contentType: ContentType) => {
+export const contentTypeConvert = (
+    mediaType: any,
+    contentType: ContentType | undefined
+) => {
 
-    if (!mediaType || !contentType) return
+    if (!mediaType || !contentType)
+        return
 
-    let convert
+    switch (contentType) {
+        case 'cartoon':
+            return 'мультфильм'
 
-        switch (contentType) {
-            case 'cartoon':
-                return convert = 'мультфильм'
-            case 'cartoonSeries':
-                return convert = 'мультсериал'
-            case 'movie':
-                return convert = 'фильм'
-            case 'series':
-                return convert = 'сериал'
-            case 'anime':
-                return convert = 'аниме'
-            case 'person':
-                return convert = 'человек'
+        case 'cartoonSeries':
+            return 'мультсериал'
 
-            default:
-                return convert = mediaType
-            }
+        case 'movie':
+            return 'фильм'
+
+        case 'series':
+            return 'сериал'
+
+        case 'anime':
+            return 'аниме'
+
+        case 'person':
+            return 'человек'
+
+        default:
+            return mediaType
+    }
 }

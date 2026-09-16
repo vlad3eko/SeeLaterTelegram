@@ -1,7 +1,5 @@
-import type { NormalizedSearchQuery } from "#server/bot/services/engines/global/engine/search/mapper/typesSearch"
-
 export const buildTmdbParams = (
-    query: NormalizedSearchQuery,
+    query: any,
     page = 1
 ) => {
 

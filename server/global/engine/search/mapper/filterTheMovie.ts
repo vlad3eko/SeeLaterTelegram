@@ -1,6 +1,4 @@
-import type {TmdbMovieDetails} from "~/types/tmdb.types";
-
-export const filterTheMovie = (movie: TmdbMovieDetails) => {
+export const filterTheMovie = (movie: any) => {
     return (
         movie.media_type === 'movie'
         && movie.overview

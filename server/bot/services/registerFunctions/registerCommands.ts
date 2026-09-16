@@ -12,7 +12,6 @@ import {genresConvert} from "~/utils/convert/genresConvert";
 import {commandStart} from "#server/bot/commands/commandStart";
 import {commandHelp} from "#server/bot/commands/commandHelp";
 import {commandClear} from "#server/bot/commands/commandClear";
-import {commandContent} from "#server/bot/commands/commandContent";
 import {menuBot} from "#server/bot/handlers/commands/start/menuBot";
 import {contentTypeToTag} from "~/utils/convert/contentTypeConvert";
 
@@ -164,6 +163,5 @@ export function registerCommands(bot: Telegraf) {
 
     bot.command('help', commandHelp)
     bot.command('clear', commandClear)
-    bot.command('x', commandContent)
     bot.action('menu_bot', menuBot)
 }

@@ -1,4 +1,4 @@
-import {normalizeTmdbMedia} from "~/utils/media/normalizeTmdbMedia";
+import {normalizeTmdbMedia} from "#server/global/engine/search/mapper/normalizeTmdbMedia";
 import {personSearch} from "#server/global/engine/search/person/personSearch";
 
 export const creditsSearch = (

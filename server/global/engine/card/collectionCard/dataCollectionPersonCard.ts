@@ -1,4 +1,4 @@
-import {personBiography} from "~/utils/person/caption/personBiography";
+import {personBiography} from "#server/global/engine/card/collectionCard/personBiography";
 import {CardData} from "#server/global/engine/card/enum/types";
 
 export const dataCollectionPersonCard = (
