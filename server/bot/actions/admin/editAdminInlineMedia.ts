@@ -86,7 +86,7 @@ export const editAdminInlineMedia = async (ctx: any) => {
                 contentType,
                 keyTrailer,
                 mediaOverride:
-                getAdminEditSession(ctx.from.id)?.currentMedia
+                    getAdminEditSession(ctx.from.id)?.currentMedia
             }
         )
 
