@@ -6,6 +6,7 @@ export const tryGenerateCard = async (ctx: queryCTX | undefined, constructCaptio
 
     if (!ctx) return
 
+    try {
         return await ctx.ctx.telegram.callApi(
             'editMessageText',
             {
@@ -14,4 +15,19 @@ export const tryGenerateCard = async (ctx: queryCTX | undefined, constructCaptio
                 reply_markup: constructKeyboard
             }
         )
+    } catch (error: any) {
+        const description =
+            error?.response?.description || ''
+
+        if (
+            error?.response?.error_code === 400 &&
+            description.includes('message is not modified')
+        ) {
+            return
+        }
+
+        throw error
+    }
+
+
 }
