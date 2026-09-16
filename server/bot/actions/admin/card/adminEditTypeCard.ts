@@ -14,7 +14,6 @@ export const adminEditTypeCard = async (ctx: any) => {
     }
 
     session.mode = 'type'
-    session.isRichTypeCard = !session.isRichTypeCard
     await ctx.answerCbQuery(NOTIFICATION_MESSAGE.CbQ.SuccessProcessEditType)
 
     return adminEditActionInlineMessage(ctx, session)

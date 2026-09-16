@@ -1,3 +1,4 @@
+
 import slugify from "slugify";
 
 export const createSlug = (id: number, title: string) => {

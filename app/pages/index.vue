@@ -1,3 +1,4 @@
+
 <template>
   <SearchPanel v-model="searchInput" @search="searchMovies"/>
   <CatalogList

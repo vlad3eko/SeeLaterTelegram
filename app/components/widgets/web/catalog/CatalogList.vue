@@ -1,3 +1,4 @@
+
 <template>
   <Transition name="fade" mode="out-in">
     <section class="media-grid">

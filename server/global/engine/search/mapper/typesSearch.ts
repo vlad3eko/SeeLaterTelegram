@@ -1,3 +1,4 @@
+
 import type {ContentType} from "#server/global/engine/search/strategy/enums";
 
 export interface SearchFilters {

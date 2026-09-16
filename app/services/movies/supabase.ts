@@ -1,1 +1,2 @@
+
 export const supabase = useSupabaseClient()

@@ -1,3 +1,4 @@
+
 export const deleteFavorite = async (
     supabase: any,
     userId: number,

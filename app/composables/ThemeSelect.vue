@@ -1,3 +1,4 @@
+
 <template>
   <select v-model="$colorMode.preference" class="text-muted-foreground text-[1rem] cursor-pointer">
     <option value="light" class="cursor-pointer ">Светлая</option>

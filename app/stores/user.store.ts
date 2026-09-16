@@ -1,3 +1,4 @@
+
 import type {UserTelegramTypes} from "~/types/user/telegram/user-telegram.types";
 
 export const useUserStore = defineStore('user', () => {

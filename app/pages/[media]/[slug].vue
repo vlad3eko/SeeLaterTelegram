@@ -1,3 +1,4 @@
+
 <template>
   <NuxtImg :src="imageCheck(data)"
            class="absolute inset-0 w-full h-full object-cover select-none"/>

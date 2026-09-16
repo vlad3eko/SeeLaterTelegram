@@ -1,3 +1,4 @@
+
 export const FormatRating = (rating?: number, fractionDigits: number = 1) => {
 
     if (!rating) return

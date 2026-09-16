@@ -1,3 +1,4 @@
+
 import {useUserStore} from "~/stores/user.store";
 import type {TelegramResponse} from "~/types/auth/telegram/telegram.types";
 import {telegramBotShortLink} from "#server/global/oneLinkApp";

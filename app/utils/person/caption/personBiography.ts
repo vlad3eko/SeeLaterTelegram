@@ -1,3 +1,4 @@
+
 import {formatPersonBiography} from "#server/global/helpers/person/formatPersonBiography";
 
 export interface PersonBiographyData {

@@ -1,3 +1,4 @@
+
 import {checkChannelSubscriber} from "#server/bot/handlers/auth/check/checkChannelSubscriber";
 import {failedChannelSubscriber} from "#server/bot/handlers/auth/fail/failedChannelSubscriber";
 import {updateSubscriber} from "#server/bot/services/auth/updateSubscriber";

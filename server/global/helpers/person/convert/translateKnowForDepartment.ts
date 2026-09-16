@@ -1,3 +1,4 @@
+
 const departmentsRegistry: Record<string, string> = {
     'Acting': 'Актёр',
     'Directing': 'Режиссёр',

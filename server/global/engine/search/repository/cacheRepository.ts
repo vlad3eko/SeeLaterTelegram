@@ -1,3 +1,4 @@
+
 import {serverSupabaseClient, serverSupabaseServiceRole} from "#supabase/server"
 
 const DEFAULT_TTL_DAYS = 7

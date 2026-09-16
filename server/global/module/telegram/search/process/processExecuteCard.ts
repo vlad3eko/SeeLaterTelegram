@@ -1,3 +1,4 @@
+
 import {Markup} from "telegraf";
 import {LoadingButtonTelegramCard} from "#server/bot/consts/buttons/buttonsBot";
 import {createMediaCaption} from "#server/global/engine/card/variant/createMediaCaption";

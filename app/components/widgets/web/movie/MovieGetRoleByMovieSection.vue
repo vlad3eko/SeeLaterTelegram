@@ -1,3 +1,4 @@
+
 <template>
     <div>
       <UiHorizontalScroller title="Актёрский состав" :items="castConverter || []" v-slot="{item}">

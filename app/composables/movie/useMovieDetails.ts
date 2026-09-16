@@ -1,3 +1,4 @@
+
 import type {TmdbMovieDetails, TmdbTrailer} from "~/types/tmdb.types";
 import type {TmdbPersonMovieCrew} from "~/types/tmdb.person.types";
 import {useMovieStore} from "~/stores/movies.store";

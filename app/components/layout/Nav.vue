@@ -1,3 +1,4 @@
+
 <template>
   <div class="text-accent-foreground bg-accent py-3 text-center">
     <ul class="flex gap-6 justify-center items-center">

@@ -1,3 +1,4 @@
+
 export const formatPersonBiography = (text: string): any[] => {
 
     if (!text) return []

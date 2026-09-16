@@ -1,3 +1,4 @@
+
 export interface MediaTypesSupabase {
     user_id: number
     tmdb_id: number

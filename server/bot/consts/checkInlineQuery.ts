@@ -1,3 +1,4 @@
+
 import {keyboardSearchBot} from "#server/bot/consts/buttons/keyboardBot";
 
 export const checkInlineQuery = async (ctx: any) => {

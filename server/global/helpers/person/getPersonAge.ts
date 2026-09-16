@@ -1,3 +1,4 @@
+
 export const getPersonAge = (
     birthday: string | undefined,
     deathday?: string | undefined

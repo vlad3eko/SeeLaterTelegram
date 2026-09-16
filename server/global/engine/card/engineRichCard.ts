@@ -23,5 +23,6 @@ export const engineRichCard = async (
     const {caption, keyboard} =
         await resolveRichCard(ctx, query)
 
+
     return tryGenerateCard(ctx, caption, keyboard)
 }

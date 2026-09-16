@@ -1,3 +1,4 @@
+
 import {sendSubscriptionSuccessMessage} from "#server/bot/handlers/auth/success/sendSubscriptionSuccessMessage";
 import {isSubscriber} from "#server/bot/handlers/channel/isSubscriber";
 import {addMessageSession} from "#server/bot/services/session/addMessageSession";

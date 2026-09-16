@@ -1,3 +1,4 @@
+
 export const imageCheck = (data: Record<string, any> | undefined) => {
 
     if (!data) return '/assets/errorImageMovie/errorImage.jpg'

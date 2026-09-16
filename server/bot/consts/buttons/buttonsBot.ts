@@ -1,3 +1,4 @@
+
 import {Markup} from "telegraf";
 import type {TypeButtonContext} from "#server/bot/consts/buttons/admin/keyboardAdmin";
 import {ContentType} from "#server/global/engine/search/strategy/enums";

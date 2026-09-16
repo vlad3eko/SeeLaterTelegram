@@ -1,3 +1,4 @@
+
 import {isAdmin} from "#server/bot/consts/admins";
 import {engineRichCard} from "#server/global/engine/card/engineRichCard";
 import type {ContentType} from "#server/global/engine/search/strategy/enums";

@@ -1,3 +1,5 @@
+
+
 import type {TmdbMovieDetails} from "~/types/tmdb.types";
 
 export const sortByRating = (a: TmdbMovieDetails, b: TmdbMovieDetails) =>

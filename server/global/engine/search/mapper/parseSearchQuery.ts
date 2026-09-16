@@ -1,3 +1,4 @@
+
 import {ContentType} from "#server/global/engine/search/strategy/enums";
 import type {SearchQuery} from "#server/global/engine/search/mapper/typesSearch";
 
