@@ -1,5 +1,3 @@
-
-
 import type {TmdbBaseMedia} from "~/types/movie.types";
 
 export interface TmdbCredits extends TmdbPerson{

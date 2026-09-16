@@ -1,5 +1,3 @@
-
-
 export const tmdbGenres = {
     movie: {
         боевик: 28,

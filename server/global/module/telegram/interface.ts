@@ -20,6 +20,7 @@ interface TelegramUpdate {
     callback_query?: CallbackQuery;
 }
 
+
 interface TelegramOptions {
     apiRoot: string;
     apiMode: string;

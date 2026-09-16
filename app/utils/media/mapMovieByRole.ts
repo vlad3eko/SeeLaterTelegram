@@ -1,5 +1,3 @@
-
-
 import type {TmdbPersonMovieCrew} from "~/types/tmdb.person.types";
 
 export const getMovieByJob = (data: TmdbPersonMovieCrew[], job: string) => {

@@ -11,6 +11,7 @@ export const processInlineSearch = async (
 
     try {
 
+
         await ctx.answerInlineQuery(
             results.results,
             {

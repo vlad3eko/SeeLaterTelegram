@@ -1,5 +1,3 @@
-
-
 import {Telegraf} from "telegraf";
 import {deleteMessages} from "#server/bot/actions/delete/deleteMessages";
 

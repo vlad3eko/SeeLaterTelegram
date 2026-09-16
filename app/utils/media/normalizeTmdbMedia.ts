@@ -1,5 +1,3 @@
-
-
 import {ContentType} from "#server/global/engine/search/strategy/enums";
 import {convertTranslateKnowForDepartment} from "#server/global/helpers/person/convert/translateKnowForDepartment";
 

@@ -1,5 +1,3 @@
-
-
 export enum SearchStrategy {
     PERSON = "PERSON",
     CREDITS = 'CREDITS',

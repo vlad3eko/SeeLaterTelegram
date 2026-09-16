@@ -1,4 +1,3 @@
-
 export interface Movie {
     id: number
     created_at: string

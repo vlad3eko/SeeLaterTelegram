@@ -1,5 +1,3 @@
-
-
 import type {TmdbGenre} from "~/types/tmdb.types";
 
 export const genresConvert = (
