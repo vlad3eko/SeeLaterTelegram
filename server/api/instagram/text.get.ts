@@ -10,6 +10,7 @@ export default defineEventHandler(async () => {
         })
     }
 
+
     return await $fetch(
         `https://graph.instagram.com/${accountId}`,
         {
