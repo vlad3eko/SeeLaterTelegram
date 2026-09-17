@@ -1,10 +1,10 @@
-export const publishInstagram = async ({
-                                           imageUrl,
-                                           caption
-                                       }: {
-    imageUrl: string
-    caption: string
-}) => {
+export const publishInstagram = async (
+    {
+        imageUrl, caption
+    }: {
+        imageUrl: string
+        caption: string
+    }) => {
 
     const token =
         process.env.INSTAGRAM_ACCESS_TOKEN
