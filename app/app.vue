@@ -1,7 +1,6 @@
 
 <template>
   <NuxtLayout>
-    123123check
     <NuxtPage/>
   </NuxtLayout>
 </template>
