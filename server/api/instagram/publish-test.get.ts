@@ -12,6 +12,7 @@ export default defineEventHandler(async () => {
     const imageUrl =
         'https://image.tmdb.org/t/p/w1080/nuNOKDt0mVWhwq2HZ9ytczuUFSf.jpg'
 
+
     const caption =
         'Тестовая публикация KinomanovNet'
 
