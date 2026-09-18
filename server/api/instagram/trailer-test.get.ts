@@ -40,6 +40,5 @@ export default defineEventHandler(
                     'Trailer processing failed'
             })
         }
-
     }
 )
