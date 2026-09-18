@@ -18,15 +18,17 @@ export const publishInstagram = async (
         )
     }
 
+    const headers = {
+        Authorization:
+            `Bearer ${token}`
+    }
+
     const container =
         await $fetch<{ id: string }>(
             `https://graph.instagram.com/v26.0/${accountId}/media`,
             {
                 method: 'POST',
-                headers: {
-                    Authorization:
-                        `Bearer ${token}`
-                },
+                headers,
                 body: {
                     image_url: imageUrl,
                     caption
@@ -39,10 +41,7 @@ export const publishInstagram = async (
             `https://graph.instagram.com/v26.0/${accountId}/media_publish`,
             {
                 method: 'POST',
-                headers: {
-                    Authorization:
-                        `Bearer ${token}`
-                },
+                headers,
                 body: {
                     creation_id: container.id
                 }
