@@ -39,7 +39,7 @@ export default defineEventHandler(
                     error?.message ||
                     'Trailer processing failed'
             })
-
         }
+
     }
 )
