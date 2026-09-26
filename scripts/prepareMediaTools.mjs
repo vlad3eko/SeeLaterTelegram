@@ -265,6 +265,27 @@ if (process.platform === 'win32') {
 }
 
 console.log(
+	'[ENV] npm exists:',
+	await access('/usr/bin/npm')
+		.then(() => true)
+		.catch(() => false)
+)
+
+console.log(
+	'[ENV] node exists:',
+	await access('/usr/bin/node')
+		.then(() => true)
+		.catch(() => false)
+)
+
+console.log(
+	'[ENV] node24 exists:',
+	await access('/node24/bin/node')
+		.then(() => true)
+		.catch(() => false)
+)
+
+console.log(
 	'[BGUTIL] Build completed'
 )
 
