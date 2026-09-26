@@ -2,6 +2,9 @@
   "name": "see-later-telegram",
   "type": "module",
   "private": true,
+  "workspaces": [
+    "bgutil-ytdlp-pot-provider/server"
+  ],
   "scripts": {
     "build": "nuxt build",
     "prebuild": "node scripts/prepareMediaTools.mjs",
