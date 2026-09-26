@@ -47,15 +47,6 @@ const getBgutilMainPath = () => {
     )
 }
 
-const getBgutilPluginPath = () => {
-    return path.join(
-        process.cwd(),
-        'node_modules',
-        'bgutil-ytdlp-pot-provider',
-        'plugin'
-    )
-}
-
 const isBgutilRunning = async () => {
     try {
         const response = await fetch(
@@ -182,12 +173,8 @@ export const runYtDlp = async (
     await startBgutil()
 
     const ytDlpPath = getYtDlpPath()
-    const pluginPath = getBgutilPluginPath()
 
     const finalArgs = [
-        '--plugin-dirs',
-        pluginPath,
-
         '--extractor-args',
         `youtubepot-bgutilhttp:base_url=${BGUTIL_URL}`,
 

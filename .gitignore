@@ -39,3 +39,6 @@ bgutil-ytdlp-pot-provider/server/node_modules/
 # OS
 Thumbs.db
 cookies.txt
+
+.vercel
+.env*
