@@ -124,11 +124,6 @@ if (!ytDlpReady) {
 		download(ytDlpUrl)
 	})
 
-	await chmod(
-		ytDlpPath,
-		0o755
-	)
-
 	const fileStat =
 		await stat(ytDlpPath)
 
@@ -143,6 +138,23 @@ if (!ytDlpReady) {
 		'[YTDLP] Installed:',
 		ytDlpPath,
 		`(${fileStat.size} bytes)`
+	)
+}
+
+
+// ─────────────────────────────────────────────
+// YT-DLP PERMISSIONS
+// ─────────────────────────────────────────────
+
+if (process.platform === 'linux') {
+
+	await chmod(
+		ytDlpPath,
+		0o755
+	)
+
+	console.log(
+		'[YTDLP] Executable permission set: 755'
 	)
 }
 
