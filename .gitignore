@@ -26,7 +26,6 @@ logs
 #yt-dlp
 server/assets/media-tools/
 bgutil-ytdlp-pot-provider/server/node_modules/
-bgutil-ytdlp-pot-provider/server/build/
 
 cookies.txt
 
