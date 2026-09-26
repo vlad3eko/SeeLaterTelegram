@@ -15,12 +15,14 @@ export default defineNuxtConfig({
 
             vercel: {
                 functions: {
-                    includeFiles: [
-                        'media-tools/yt-dlp',
-                        'bgutil-ytdlp-pot-provider/server/build/**',
-                        'bgutil-ytdlp-pot-provider/server/node_modules/**',
-                        'bgutil-ytdlp-pot-provider/plugin/**',
-                    ],
+                    '*': {
+                        includeFiles: [
+                            'media-tools/yt-dlp',
+                            'bgutil-ytdlp-pot-provider/server/build/**',
+                            'bgutil-ytdlp-pot-provider/server/node_modules/**',
+                            'bgutil-ytdlp-pot-provider/plugin/**',
+                        ],
+                    },
                 },
             },
         },
