@@ -18,17 +18,24 @@ logs
 .fleet
 .idea
 
-# Local env files
+# yt-dlp
+server/assets/media-tools/
+
+# bgutil dependencies
+bgutil-ytdlp-pot-provider/server/node_modules/
+
+# Environment
 .env
 .env.*
 !.env.example
 
-#yt-dlp
-server/assets/media-tools/
-bgutil-ytdlp-pot-provider/server/node_modules/
+# Nuxt
+.nuxt/
+.output/
 
+# Vercel
+.vercel/
+
+# OS
+Thumbs.db
 cookies.txt
-
-#BUNDLE
-.vercel
-
