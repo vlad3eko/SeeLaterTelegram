@@ -29,66 +29,6 @@ const bgutilDir =
 		'server'
 	)
 
-const npmExecPath =
-	process.env.npm_execpath
-
-const getNodeExecutable = () => {
-
-	if (process.platform === 'linux') {
-		return '/proc/self/exe'
-	}
-
-	return process.execPath
-}
-
-const runNpm = async (
-	args,
-	options = {}
-) => {
-
-	if (!npmExecPath) {
-
-		throw new Error(
-			'[BGUTIL] npm_execpath is not available'
-		)
-	}
-
-	const nodeExecutable =
-		getNodeExecutable()
-
-	console.log(
-		'[BGUTIL] Node executable:',
-		nodeExecutable
-	)
-
-	console.log(
-		'[BGUTIL] npm executable:',
-		npmExecPath
-	)
-
-	console.log(
-		'[BGUTIL] Running:',
-		[
-			nodeExecutable,
-			npmExecPath,
-			...args
-		].join(' ')
-	)
-
-	return execFileAsync(
-		nodeExecutable,
-		[
-			npmExecPath,
-			...args
-		],
-		{
-			...options,
-			maxBuffer:
-				options.maxBuffer ??
-				50 * 1024 * 1024
-		}
-	)
-}
 
 console.log('[MEDIA TOOLS] Preparing...')
 
@@ -256,32 +196,35 @@ if (process.platform === 'linux') {
 	)
 }
 
-
-// ─────────────────────────────────────────────
-// BGUTIL
-// ─────────────────────────────────────────────
 console.log(
-	'[BGUTIL] Build completed'
+	'[BGUTIL] Building provider...'
 )
 
+const tscPath =
+	path.join(
+		bgutilDir,
+		'node_modules',
+		'.bin',
+		process.platform === 'win32'
+			? 'tsc.cmd'
+			: 'tsc'
+	)
+
 console.log(
-	'[BGUTIL] Installing provider dependencies...'
+	'[BGUTIL] TypeScript compiler:',
+	tscPath
 )
 
 if (process.platform === 'win32') {
 
 	await execFileAsync(
 		'cmd.exe',
-		['/d', '/s', '/c', 'npm ci'],
-		{
-			cwd: bgutilDir,
-			maxBuffer: 50 * 1024 * 1024
-		}
-	)
-
-	await execFileAsync(
-		'cmd.exe',
-		['/d', '/s', '/c', 'npx tsc'],
+		[
+			'/d',
+			'/s',
+			'/c',
+			tscPath,
+		],
 		{
 			cwd: bgutilDir,
 			maxBuffer: 50 * 1024 * 1024
@@ -290,20 +233,19 @@ if (process.platform === 'win32') {
 
 } else {
 
-	await runNpm(
-		['ci'],
+	await execFileAsync(
+		tscPath,
+		[],
 		{
-			cwd: bgutilDir
-		}
-	)
-
-	await runNpm(
-		['exec', '--', 'tsc'],
-		{
-			cwd: bgutilDir
+			cwd: bgutilDir,
+			maxBuffer: 50 * 1024 * 1024
 		}
 	)
 }
+
+console.log(
+	'[BGUTIL] Build completed'
+)
 
 console.log(
 	'[MEDIA TOOLS] Ready'
