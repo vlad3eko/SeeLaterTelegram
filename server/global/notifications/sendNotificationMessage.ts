@@ -52,6 +52,7 @@ export const NOTIFICATION_MESSAGE = {
 
         SuccessProcessEditCard: '✅ Редактирование карты',
         ErrorProcessSession: '❌ Сессия не найдена',
+        SuccessProcessDownloadTrailer: '✅ Загрузка трейлера',
         SuccessProcessEditImage: '✅ Редактирование изображения',
         SuccessProcessEditText: '✅ Редактирование комментария',
         SuccessProcessEditOverview: '✅ Редактирование описания',

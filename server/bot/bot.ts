@@ -20,7 +20,9 @@ export const CHANEL_LINK =
         ? TELEGRAM_DEV_CHANEL_LINK
         : TELEGRAM_CHANEL_LINK
 
-export const bot = new Telegraf(BOT_LINK!)
+export const bot = new Telegraf(BOT_LINK!, {
+    handlerTimeout: 5 * 60 * 1000
+})
 
 registerActions(bot)
 registerCommands(bot)

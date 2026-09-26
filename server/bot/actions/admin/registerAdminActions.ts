@@ -8,10 +8,12 @@ import {adminEditActionInlineMessage} from "#server/bot/actions/admin/adminEditA
 import {Telegraf} from "telegraf";
 import {adminEditOverview} from "#server/bot/actions/admin/adminEditOverview";
 import {adminEditTypeCard} from "#server/bot/actions/admin/card/adminEditTypeCard";
+import {adminDownloadTrailer} from "#server/bot/actions/admin/adminDownloadTrailer";
 
 export const registerAdminActions = (bot: Telegraf) => {
     bot.action(/^edit_media_(\d+)_(movie|tv)_([^_]+)(?:_(.+))?$/, editAdminInlineMedia)
     bot.action(/^publish_media_(\d+)_(movie|tv)_([^_]+)(?:_(.+?))?(?:_(true|false))?$/, publishAdminInlineMedia)
+    bot.action(/^download_trailer$/, adminDownloadTrailer)
     bot.action(/^admin_edit_media$/, adminEditMedia)
     bot.action(/^admin_edit_text$/, adminEditText)
     bot.action(/^admin_edit_overview$/, adminEditOverview)

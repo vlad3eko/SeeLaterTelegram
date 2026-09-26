@@ -4,12 +4,14 @@
   "private": true,
   "scripts": {
     "build": "nuxt build",
-    "dev": "nuxt dev",
+    "prebuild": "node scripts/prepareMediaTools.mjs",
+    "dev": "nuxt dev --host 127.0.0.1",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1136.0",
     "@nuxt/image": "^2.0.0",
     "@nuxtjs/color-mode": "^4.0.0",
     "@nuxtjs/supabase": "^2.0.6",
@@ -17,6 +19,7 @@
     "@supabase/supabase-js": "^2.105.1",
     "@tailwindcss/vite": "^4.2.4",
     "dotenv": "^17.4.2",
+    "ffmpeg-static": "^5.3.0",
     "nuxt": "^4.4.4",
     "nuxt-easy-lightbox": "^1.1.0",
     "nuxt-swiper": "^2.0.1",
@@ -29,5 +32,8 @@
   },
   "devDependencies": {
     "typescript": "^6.0.3"
+  },
+  "engines": {
+    "node": "24.x"
   }
 }

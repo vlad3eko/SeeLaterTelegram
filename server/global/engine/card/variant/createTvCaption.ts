@@ -104,7 +104,7 @@ export const createTvCaption = (
                                     type: 'video',
                                     video: {
                                         type: 'video',
-                                        media: data.mediaOverride.fileId
+                                        media: data.mediaOverride.fileId,
                                     }
                                 }
                                 : {

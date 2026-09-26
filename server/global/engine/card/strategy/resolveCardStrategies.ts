@@ -1,4 +1,3 @@
-
 import {
     getEnrichMediaApi,
     getPersonApi
@@ -67,7 +66,6 @@ const mediaCardStrategy = {
             data.keyTrailer
         )
 }
-
 const tvCardStrategy = {
 
     resolve: (query: queryRichCard) =>
@@ -122,7 +120,6 @@ const tvCardStrategy = {
             data.keyTrailer
         )
 }
-
 const personCardStrategy = {
 
     resolve: (query: queryRichCard) =>

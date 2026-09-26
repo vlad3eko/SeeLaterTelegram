@@ -103,16 +103,12 @@ export const editAdminInlineMedia = async (ctx: any) => {
         )
 
 
-        await ctx.editMessageReplyMarkup(
-            editMediaChoiceKeyboard()
-        )
+        await ctx.editMessageReplyMarkup(editMediaChoiceKeyboard())
 
 
     } catch (e) {
         console.log('[ERROR editAdminInlineMedia: ]', e)
     }
 
-    await ctx.answerCbQuery(
-        NOTIFICATION_MESSAGE.CbQ.SuccessProcessEditCard
-    )
+    await ctx.answerCbQuery(NOTIFICATION_MESSAGE.CbQ.SuccessProcessEditCard)
 }

@@ -1,4 +1,3 @@
-
 import {telegramBotShortLink, telegramChannelShortLink} from "#server/global/oneLinkApp";
 import {runtimeConvert} from "~/utils/convert/runtimeConvert";
 import {dateConvert} from "~/utils/convert/dateConvert";
@@ -101,7 +100,7 @@ export const createMediaCaption = (
                                     type: 'video',
                                     video: {
                                         type: 'video',
-                                        media: data.mediaOverride.fileId
+                                        media: data.mediaOverride.fileId,
                                     }
                                 }
                                 : {
