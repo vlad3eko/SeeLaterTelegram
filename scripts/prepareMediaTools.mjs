@@ -37,17 +37,11 @@ const runNpm = async (
 	options = {}
 ) => {
 
-	if (!npmExecPath) {
-		throw new Error(
-			'npm_execpath is not defined'
-		)
-	}
-
 	return execFileAsync(
-		process.execPath,
+		'sh',
 		[
-			npmExecPath,
-			...args
+			'-c',
+			`npm ${args.join(' ')}`
 		],
 		{
 			...options,
@@ -263,7 +257,7 @@ if (process.platform === 'win32') {
 	)
 
 	await runNpm(
-		['exec', 'tsc'],
+		['exec', '--', 'tsc'],
 		{
 			cwd: bgutilDir
 		}
