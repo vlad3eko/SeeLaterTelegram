@@ -32,16 +32,54 @@ const bgutilDir =
 const npmExecPath =
 	process.env.npm_execpath
 
+const getNodeExecutable = () => {
+
+	if (process.platform === 'linux') {
+		return '/proc/self/exe'
+	}
+
+	return process.execPath
+}
+
 const runNpm = async (
 	args,
 	options = {}
 ) => {
 
-	return execFileAsync(
-		'sh',
+	if (!npmExecPath) {
+
+		throw new Error(
+			'[BGUTIL] npm_execpath is not available'
+		)
+	}
+
+	const nodeExecutable =
+		getNodeExecutable()
+
+	console.log(
+		'[BGUTIL] Node executable:',
+		nodeExecutable
+	)
+
+	console.log(
+		'[BGUTIL] npm executable:',
+		npmExecPath
+	)
+
+	console.log(
+		'[BGUTIL] Running:',
 		[
-			'-c',
-			`npm ${args.join(' ')}`
+			nodeExecutable,
+			npmExecPath,
+			...args
+		].join(' ')
+	)
+
+	return execFileAsync(
+		nodeExecutable,
+		[
+			npmExecPath,
+			...args
 		],
 		{
 			...options,
@@ -222,28 +260,6 @@ if (process.platform === 'linux') {
 // ─────────────────────────────────────────────
 // BGUTIL
 // ─────────────────────────────────────────────
-
-console.log(
-	'[ENV] npm exists:',
-	await access('/usr/bin/npm')
-		.then(() => true)
-		.catch(() => false)
-)
-
-console.log(
-	'[ENV] node exists:',
-	await access('/usr/bin/node')
-		.then(() => true)
-		.catch(() => false)
-)
-
-console.log(
-	'[ENV] node24 exists:',
-	await access('/node24/bin/node')
-		.then(() => true)
-		.catch(() => false)
-)
-
 console.log(
 	'[BGUTIL] Build completed'
 )
