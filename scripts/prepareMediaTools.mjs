@@ -197,56 +197,5 @@ if (process.platform === 'linux') {
 }
 
 console.log(
-	'[BGUTIL] Building provider...'
-)
-
-const tscPath =
-	path.join(
-		bgutilDir,
-		'node_modules',
-		'.bin',
-		process.platform === 'win32'
-			? 'tsc.cmd'
-			: 'tsc'
-	)
-
-console.log(
-	'[BGUTIL] TypeScript compiler:',
-	tscPath
-)
-
-if (process.platform === 'win32') {
-
-	await execFileAsync(
-		'cmd.exe',
-		[
-			'/d',
-			'/s',
-			'/c',
-			tscPath,
-		],
-		{
-			cwd: bgutilDir,
-			maxBuffer: 50 * 1024 * 1024
-		}
-	)
-
-} else {
-
-	await execFileAsync(
-		tscPath,
-		[],
-		{
-			cwd: bgutilDir,
-			maxBuffer: 50 * 1024 * 1024
-		}
-	)
-}
-
-console.log(
-	'[BGUTIL] Build completed'
-)
-
-console.log(
 	'[MEDIA TOOLS] Ready'
 )
