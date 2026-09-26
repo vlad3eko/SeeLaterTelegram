@@ -15,6 +15,13 @@ export const adminPublishInlineCard = (mediaId: number, mediaType: string, conte
     )
 }
 
+export const adminDownloadTrailerInlineCard = () => {
+    return Markup.button.callback(
+        "⏬ Скачать трейлер",
+        `download_trailer`
+    )
+}
+
 export const adminEditMediaInlineCard = () => {
     return Markup.button.callback(
         "🖼 Медиа",

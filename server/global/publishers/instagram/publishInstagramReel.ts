@@ -1,4 +1,4 @@
-export const publishInstagramReel = async ({
+export const    publishInstagramReel = async ({
                                                videoUrl,
                                                caption
                                            }: {
@@ -36,6 +36,11 @@ export const publishInstagramReel = async ({
             }
         )
 
+    console.log(
+        '[INSTAGRAM REEL CREATE]',
+        JSON.stringify(container, null, 2)
+    )
+
     const maxAttempts = 20
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -45,10 +50,7 @@ export const publishInstagramReel = async ({
         )
 
         const status =
-            await $fetch<{
-                status_code?: string
-                status?: string
-            }>(
+            await $fetch<Record<string, any>>(
                 `https://graph.instagram.com/v26.0/${container.id}`,
                 {
                     query: {
@@ -60,6 +62,11 @@ export const publishInstagramReel = async ({
                     }
                 }
             )
+
+        console.log(
+            '[INSTAGRAM REEL STATUS]',
+            JSON.stringify(status, null, 2)
+        )
 
         if (status.status_code === 'FINISHED') {
             break

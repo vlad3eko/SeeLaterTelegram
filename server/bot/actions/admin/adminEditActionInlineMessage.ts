@@ -1,6 +1,8 @@
-
 import {engineRichCard} from "#server/global/engine/card/engineRichCard";
 import type {AdminEditSession} from "#server/bot/actions/admin/adminEditSession";
+import {prepareReel} from "#server/global/engine/instagram/prepareReel";
+import {createInstagramHook} from "#server/global/engine/instagram/reel/caption/getInstagramMediaType";
+import {sessionCurrentMedia} from "#server/bot/actions/admin/helpers/sessionCurrentMedia";
 
 export const adminEditActionInlineMessage = async (
     ctx: any,
@@ -8,48 +10,11 @@ export const adminEditActionInlineMessage = async (
 ) => {
 
     if (session.mode === 'media') {
-        const photo = ctx.message.photo?.at(-1)
-        const video = ctx.message.video
+        await sessionCurrentMedia(ctx, session)
 
-        if (!photo && !video) return
-
-        const newMedia = photo
-            ? {
-                type: 'photo' as const,
-                fileId: photo.file_id
-            }
-            : {
-                type: 'video' as const,
-                fileId: video.file_id
-            }
-
-        session.currentMedia = newMedia
-
-        try {
-            await engineRichCard(
-                {
-                    ctx,
-                    inlineMessageId: session.inlineMessageId,
-                    isAdmin: true
-                },
-                {
-                    id: session.mediaId,
-                    type: session.mediaType,
-                    status: 'ready',
-                    contentType: session.contentType,
-                    addComment: session.comment,
-                    addOverview: session.overview,
-                    keyTrailer: session.keyTrailer,
-                    mediaOverride: newMedia
-                }
-            )
-
-            session.mode = undefined
-        } catch (error) {
-            console.error('EDIT MEDIA ERROR:', error)
-        }
-
+        session.mode = undefined
         return
+
     }
 
     if (session.mode === 'text') {
@@ -141,6 +106,45 @@ export const adminEditActionInlineMessage = async (
             console.error('EDIT TYPE CARD ERROR:', error)
         }
 
+        return
+    }
+
+    if (session.mode === 'download') {
+
+        const [, keyTrailer] =
+            ctx.message.text.split('=')
+
+        if (!keyTrailer)
+            await ctx.reply('Не удалось определить keyTrailer')
+
+
+        session.keyTrailer = keyTrailer
+
+        const instagramHook =
+            createInstagramHook(
+                session.mediaType,
+                session.contentType
+            )
+
+        const prepared =
+            await prepareReel(
+                keyTrailer,
+                instagramHook,
+                ctx,
+                {id: session.mediaId, type: session.mediaType},
+                session.mode
+            )
+
+        if (!prepared.telegramFileId)
+            await ctx.reply('Не удалось получить Telegram file_id')
+
+        session.preparedInstagram = {
+            keyTrailer,
+            reelR2: prepared.reelR2,
+            telegramFileId: prepared.telegramFileId
+        }
+
+        session.mode = undefined
         return
     }
 }
