@@ -22,3 +22,11 @@ logs
 .env
 .env.*
 !.env.example
+
+#yt-dlp
+server/assets/media-tools/
+bgutil-ytdlp-pot-provider/server/node_modules/
+bgutil-ytdlp-pot-provider/server/build/
+
+#BUNDLE
+.vercel
