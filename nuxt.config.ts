@@ -10,22 +10,15 @@ export default defineNuxtConfig({
         telegramKey: process.env.TELEGRAM_TOKEN,
         telegramStorageChanel: process.env.TELEGRAM_MEDIA_STORAGE_CHAT_ID
     },
-        nitro: {
-            preset: 'vercel',
+    nitro: {
+        preset: 'vercel',
 
-            vercel: {
-                functions: {
-                    '*': {
-                        includeFiles: [
-                            'media-tools/yt-dlp',
-                            'bgutil-ytdlp-pot-provider/server/build/**',
-                            'bgutil-ytdlp-pot-provider/server/node_modules/**',
-                            'bgutil-ytdlp-pot-provider/plugin/**',
-                        ],
-                    },
-                },
-            },
+        externals: {
+            traceInclude: [
+                './node_modules/bgutil-ytdlp-pot-provider/build/main.js',
+            ],
         },
+    },
     supabase: {
         url: process.env.SUPABASE_URL,
         key: process.env.SUPABASE_SERVICE_ROLE_KEY,

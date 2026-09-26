@@ -40,8 +40,8 @@ export const getYtDlpPath = () => {
 const getBgutilMainPath = () => {
     return path.join(
         process.cwd(),
+        'node_modules',
         'bgutil-ytdlp-pot-provider',
-        'server',
         'build',
         'main.js'
     )
@@ -50,6 +50,7 @@ const getBgutilMainPath = () => {
 const getBgutilPluginPath = () => {
     return path.join(
         process.cwd(),
+        'node_modules',
         'bgutil-ytdlp-pot-provider',
         'plugin'
     )

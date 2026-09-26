@@ -26,8 +26,8 @@ const isBgutilAlive = async () => {
 const getBgutilMainPath = () =>
     path.join(
         process.cwd(),
+        'node_modules',
         'bgutil-ytdlp-pot-provider',
-        'server',
         'build',
         'main.js'
     )
