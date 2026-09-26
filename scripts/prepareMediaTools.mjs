@@ -29,6 +29,35 @@ const bgutilDir =
 		'server'
 	)
 
+const npmExecPath =
+	process.env.npm_execpath
+
+const runNpm = async (
+	args,
+	options = {}
+) => {
+
+	if (!npmExecPath) {
+		throw new Error(
+			'npm_execpath is not defined'
+		)
+	}
+
+	return execFileAsync(
+		process.execPath,
+		[
+			npmExecPath,
+			...args
+		],
+		{
+			...options,
+			maxBuffer:
+				options.maxBuffer ??
+				50 * 1024 * 1024
+		}
+	)
+}
+
 console.log('[MEDIA TOOLS] Preparing...')
 
 await mkdir(
@@ -52,6 +81,7 @@ try {
 		await stat(ytDlpPath)
 
 	if (fileStat.size > 1024) {
+
 		ytDlpReady = true
 
 		console.log(
@@ -59,13 +89,16 @@ try {
 			ytDlpPath,
 			`(${fileStat.size} bytes)`
 		)
+
 	} else {
+
 		console.log(
 			'[YTDLP] Existing binary is empty or invalid; redownloading...'
 		)
 	}
 
 } catch {
+
 	console.log(
 		'[YTDLP] Linux binary is missing; downloading...'
 	)
@@ -91,9 +124,11 @@ if (!ytDlpReady) {
 						response.statusCode < 400 &&
 						response.headers.location
 					) {
+
 						download(
 							response.headers.location
 						)
+
 						return
 					}
 
@@ -220,21 +255,17 @@ if (process.platform === 'win32') {
 
 } else {
 
-	await execFileAsync(
-		'npm',
+	await runNpm(
 		['ci'],
 		{
-			cwd: bgutilDir,
-			maxBuffer: 50 * 1024 * 1024
+			cwd: bgutilDir
 		}
 	)
 
-	await execFileAsync(
-		'npx',
-		['tsc'],
+	await runNpm(
+		['exec', 'tsc'],
 		{
-			cwd: bgutilDir,
-			maxBuffer: 50 * 1024 * 1024
+			cwd: bgutilDir
 		}
 	)
 }
