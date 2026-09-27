@@ -6,7 +6,7 @@
     "bgutil-ytdlp-pot-provider/server"
   ],
   "scripts": {
-    "build": "nuxt build",
+    "build": "nuxt build && node scripts/copy-bgutil-to-vercel.mjs",
     "prebuild": "node scripts/prepareMediaTools.mjs",
     "dev": "nuxt dev --host 127.0.0.1",
     "generate": "nuxt generate",
