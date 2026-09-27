@@ -35,6 +35,9 @@ export const downloadTrailer = async (
     try {
         const {stdout, stderr} =
             await runYtDlp([
+                '--js-runtimes',
+                `node:${process.execPath}`,
+
                 '--no-playlist',
 
                 '-f',
