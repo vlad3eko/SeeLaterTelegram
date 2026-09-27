@@ -2,6 +2,7 @@ import {execFile, spawn} from 'node:child_process'
 import {promisify} from 'node:util'
 import path from 'node:path'
 import {existsSync} from 'node:fs'
+import {writeFile} from 'node:fs/promises'
 
 const execFileAsync = promisify(execFile)
 
@@ -10,6 +11,10 @@ const BGUTIL_URL = `http://127.0.0.1:${BGUTIL_PORT}`
 
 let bgutilProcess: ReturnType<typeof import('node:child_process').spawn> | null = null
 let bgutilStarting: Promise<void> | null = null
+
+const YOUTUBE_COOKIES_PATH =
+    '/tmp/youtube-cookies.txt'
+
 
 export const getYtDlpPath = () => {
     if (process.env.YTDLP_PATH) {
@@ -166,12 +171,13 @@ const startBgutil = async () => {
     }
 }
 
-export const runYtDlp = async (
-    args: string[]
-) => {
+export const runYtDlp = async (args: string[]) => {
     await startBgutil()
 
     const ytDlpPath = getYtDlpPath()
+
+    const cookiesPath =
+        await ensureYoutubeCookies()
 
     const finalArgs = [
         '--plugin-dirs',
@@ -183,6 +189,9 @@ export const runYtDlp = async (
         '--extractor-args',
         `youtubepot-bgutilhttp:base_url=${BGUTIL_URL}`,
 
+        '--cookies',
+        cookiesPath,
+
         ...args
     ]
 
@@ -191,8 +200,7 @@ export const runYtDlp = async (
             ytDlpPath,
             finalArgs,
             {
-                maxBuffer:
-                    50 * 1024 * 1024
+                maxBuffer: 50 * 1024 * 1024
             }
         )
     } catch (error: any) {
@@ -205,4 +213,35 @@ export const runYtDlp = async (
 
         throw error
     }
+}
+const ensureYoutubeCookies = async () => {
+    if (existsSync(YOUTUBE_COOKIES_PATH)) {
+        return YOUTUBE_COOKIES_PATH
+    }
+
+    const encoded = process.env.YOUTUBE_COOKIES_B64
+
+    if (!encoded) {
+        throw new Error(
+            'YOUTUBE_COOKIES_B64 environment variable is not set'
+        )
+    }
+
+    const cookies = Buffer.from(
+        encoded,
+        'base64'
+    )
+
+    await writeFile(
+        YOUTUBE_COOKIES_PATH,
+        cookies
+    )
+
+    console.log(
+        '[YOUTUBE COOKIES] Written to',
+        YOUTUBE_COOKIES_PATH,
+        `(${cookies.length} bytes)`
+    )
+
+    return YOUTUBE_COOKIES_PATH
 }
