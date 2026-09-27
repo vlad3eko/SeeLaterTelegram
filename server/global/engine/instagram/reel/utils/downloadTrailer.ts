@@ -54,6 +54,9 @@ export const downloadTrailer = async (
                 url
             ])
 
+        console.log('[stdout]', stdout)
+        console.log('[stderr]', stderr)
+
         console.log(
             '[YTDLP DOWNLOAD]',
             stdout
