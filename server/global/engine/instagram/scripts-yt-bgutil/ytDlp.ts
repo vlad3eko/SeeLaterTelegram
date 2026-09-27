@@ -187,7 +187,7 @@ export const runYtDlp = async (args: string[]) => {
         ),
 
         '--extractor-args',
-        'youtube:player_client=mweb',
+        'youtube:player_client=tv',
 
         '--extractor-args',
         `youtubepot-bgutilhttp:base_url=${BGUTIL_URL}`,
