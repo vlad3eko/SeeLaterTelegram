@@ -66,7 +66,8 @@ const pluginTarget = path.join(
 	'functions',
 	'__fallback.func',
 	'media-tools',
-	'yt-dlp-plugins'
+	'yt-dlp-plugins',
+	'bgutil-ytdlp-pot-provider'
 )
 await fs.cp(
 	pluginSource,
