@@ -88,3 +88,41 @@ console.log(
 	'[BGUTIL COPY] copied to:',
 	target
 )
+
+const ytDlpSource = path.join(
+	root,
+	'media-tools',
+	'yt-dlp'
+)
+
+const ytDlpTarget = path.join(
+	root,
+	'.vercel',
+	'output',
+	'functions',
+	'__fallback.func',
+	'media-tools',
+	'yt-dlp'
+)
+
+await fs.mkdir(
+	path.dirname(ytDlpTarget),
+	{
+		recursive: true
+	}
+)
+
+await fs.copyFile(
+	ytDlpSource,
+	ytDlpTarget
+)
+
+await fs.chmod(
+	ytDlpTarget,
+	0o755
+)
+
+console.log(
+	'[YTDLP COPY] copied to:',
+	ytDlpTarget
+)
