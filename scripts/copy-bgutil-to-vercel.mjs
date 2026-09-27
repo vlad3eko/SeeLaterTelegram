@@ -65,11 +65,9 @@ const pluginTarget = path.join(
 	'output',
 	'functions',
 	'__fallback.func',
-	'node_modules',
-	'bgutil-ytdlp-pot-provider',
-	'plugin'
+	'media-tools',
+	'yt-dlp-plugins'
 )
-
 await fs.cp(
 	pluginSource,
 	pluginTarget,

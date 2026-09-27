@@ -1,8 +1,7 @@
-import {execFile} from 'node:child_process'
+import {execFile, spawn} from 'node:child_process'
 import {promisify} from 'node:util'
 import path from 'node:path'
 import {existsSync} from 'node:fs'
-import {spawn} from 'node:child_process'
 
 const execFileAsync = promisify(execFile)
 
@@ -175,6 +174,12 @@ export const runYtDlp = async (
     const ytDlpPath = getYtDlpPath()
 
     const finalArgs = [
+        '--plugin-dirs',
+        path.join(
+            path.dirname(ytDlpPath),
+            'yt-dlp-plugins'
+        ),
+
         '--extractor-args',
         `youtubepot-bgutilhttp:base_url=${BGUTIL_URL}`,
 
@@ -182,17 +187,14 @@ export const runYtDlp = async (
     ]
 
     try {
-        const result =
-            await execFileAsync(
-                ytDlpPath,
-                finalArgs,
-                {
-                    maxBuffer:
-                        50 * 1024 * 1024
-                }
-            )
-
-        return result
+        return await execFileAsync(
+            ytDlpPath,
+            finalArgs,
+            {
+                maxBuffer:
+                    50 * 1024 * 1024
+            }
+        )
     } catch (error: any) {
         console.error(
             '[YTDLP ERROR]',
