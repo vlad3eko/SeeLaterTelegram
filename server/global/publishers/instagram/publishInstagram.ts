@@ -16,7 +16,6 @@ export const publishInstagram = async (
         throw new Error(
             'Instagram environment variables are missing'
         )
-
     }
 
     const headers = {
