@@ -4,8 +4,7 @@
   "private": true,
 
   "scripts": {
-    "build": "nuxt build",
-    "prebuild": "node scripts/prepareMediaTools.mjs",
+    "build": "nuxt build && node scripts/prepareMediaTools.mjs",
     "dev": "nuxt dev --host 127.0.0.1",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
