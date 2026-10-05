@@ -123,7 +123,7 @@ export const runYtDlp = async (
      * DEV:
      * запускает локальный bgutil,
      * если его ещё нет.
-
+     *
      * PROD:
      * прогревает / проверяет
      * отдельный Vercel Service.
@@ -146,6 +146,17 @@ export const runYtDlp = async (
 
     const finalArgs = [
 
+        /*
+         * YouTube EJS теперь требует
+         * внешний JavaScript runtime.
+         *
+         * Vercel уже предоставляет Node,
+         * поэтому используем тот же Node,
+         * которым выполняется Function.
+         */
+        '--js-runtimes',
+        `node:${process.execPath}`,
+
         '--plugin-dirs',
         pluginPath,
 
@@ -159,6 +170,11 @@ export const runYtDlp = async (
     console.log(
         '[YTDLP] Binary:',
         ytDlpPath
+    )
+
+    console.log(
+        '[YTDLP] JS runtime:',
+        process.execPath
     )
 
     console.log(
