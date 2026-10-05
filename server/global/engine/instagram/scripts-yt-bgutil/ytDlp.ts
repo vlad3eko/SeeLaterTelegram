@@ -145,15 +145,8 @@ export const runYtDlp = async (
 
 
     const finalArgs = [
+        '--verbose',
 
-        /*
-         * YouTube EJS теперь требует
-         * внешний JavaScript runtime.
-         *
-         * Vercel уже предоставляет Node,
-         * поэтому используем тот же Node,
-         * которым выполняется Function.
-         */
         '--js-runtimes',
         `node:${process.execPath}`,
 
@@ -161,11 +154,12 @@ export const runYtDlp = async (
         pluginPath,
 
         '--extractor-args',
-        `youtubepot-bgutilhttp:base_url=${bgutilUrl}`,
+        'youtube:player_client=mweb',
 
+        '--extractor-args',
+        `youtubepot-bgutilhttp:base_url=${bgutilUrl}`,
         ...args
     ]
-
 
     console.log(
         '[YTDLP] Binary:',
