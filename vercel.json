@@ -28,7 +28,6 @@
 
     "bgutil": {
       "root": "bgutil-ytdlp-pot-provider/server/",
-
       "runtime": "container",
 
       "entrypoint": "Dockerfile.vercel"
