@@ -9,7 +9,7 @@ export const generateContentEntry = async (ctx: any) => {
     const strategy = ctx.match[1] as ContentStrategy
     const userId = ctx.match[2]
 
-    const executeProvider = await executeDataProvider(strategy, userId)
+    const executeProvider = await executeDataProvider(ctx, strategy, userId)
 }
 
 // Data Provider

@@ -17,16 +17,26 @@ export const prepareInstagramVideo = async (
             `${keyTrailer}_instagram_prepared.mp4`
         )
 
+    const backgroundPath =
+        path.join(
+            process.cwd(),
+            'public',
+            'instagram',
+            'bg.jpg'
+        )
+
     const filterComplex = [
         // Исходное видео увеличиваем до 180%
         '[0:v]scale=1944:1094,crop=1080:845[video]',
 
-        // Чёрный canvas Reel 1080x1920
-        'color=c=black:s=1080x1920[canvas]',
+        // Фон увеличиваем пропорционально до полного покрытия 1080x1920
+        // force_original_aspect_ratio=increase
+        // сохраняет пропорции и увеличивает картинку до тех пор,
+        // пока она полностью не закроет canvas
+        '[1:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920[background]',
 
         // Размещаем видео по центру canvas
-        // shortest=1 обязательно, иначе color создаёт бесконечный поток
-        '[canvas][video]overlay=0:537:shortest=1[prepared]',
+        '[background][video]overlay=0:537:shortest=1[prepared]',
 
         '[prepared]setsar=1[vout]'
     ].join(';')
@@ -38,8 +48,18 @@ export const prepareInstagramVideo = async (
             [
                 '-y',
 
+                // Основное видео
                 '-i',
                 inputPath,
+
+                // Фоновая картинка
+                // loop нужен, чтобы фон существовал
+                // на протяжении всего видео
+                '-loop',
+                '1',
+
+                '-i',
+                backgroundPath,
 
                 '-filter_complex',
                 filterComplex,
@@ -50,7 +70,7 @@ export const prepareInstagramVideo = async (
                 '-map',
                 '0:a?',
 
-                // Дополнительная защита от бесконечного вывода
+                // Защита от бесконечного вывода
                 '-shortest',
 
                 '-r',

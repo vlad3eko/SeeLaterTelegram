@@ -1,28 +1,22 @@
-import {type AdminEditSession, clearAdminEditSession, getAdminEditSession
+import {
+    type AdminEditSession, clearAdminEditSession, getAdminEditSession
 } from "#server/bot/actions/admin/adminEditSession";
 import {CHANEL_LINK} from "#server/bot/bot";
 import {prepareReel} from "#server/global/engine/instagram/prepareReel";
 import {getMediaSaveCount} from "#server/bot/consts/keyboardVersion/getMediaSaveCount";
-import {resolveRichCard} from "#server/global/engine/card/engineRichCard";
 import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBot";
 import {NOTIFICATION_MESSAGE} from "#server/global/notifications/sendNotificationMessage";
 import {CURRENT_KEYBOARD_VERSION} from "#server/bot/consts/keyboardVersion/keyboardVersion";
 import {createInstagramCaption} from "#server/global/engine/instagram/reel/caption/createInstagramCaption";
 import {publishInstagramReel} from "#server/global/publishers/instagram/publishInstagramReel";
 import {createInstagramHook} from "#server/global/engine/instagram/reel/caption/getInstagramMediaType";
+import {constructRichCard} from "#server/global/engine/card/construct/constructRichCard";
 
 export const publishAdminInlineMedia = async (ctx: any) => {
 
-    const [
-        ,
-        mediaId,
-        mediaType,
-        contentType,
-        keyTrailer
-    ] = ctx.match
+    const [, mediaId, mediaType, contentType, keyTrailer] = ctx.match
 
-    const channelId =
-        CHANEL_LINK
+    const channelId = CHANEL_LINK
 
     const media =
         await tmdbFetch('/api/bot/getMediaBot', {
@@ -34,27 +28,16 @@ export const publishAdminInlineMedia = async (ctx: any) => {
 
     const session: AdminEditSession =
         getAdminEditSession(ctx.from.id) ?? {
-            inlineMessageId:
-            ctx.callbackQuery.inline_message_id,
-
-            mediaId:
-                Number(mediaId),
-
+            inlineMessageId: ctx.callbackQuery.inline_message_id,
+            mediaId: Number(mediaId),
             mediaType,
-
             media,
-
             contentType,
-
             keyTrailer,
-
             comment: undefined,
-
             overview: undefined,
-
             currentMedia: {
                 type: 'photo',
-
                 fileId:
                     `https://image.tmdb.org/t/p/original${
                         media.poster_path ||
@@ -73,12 +56,16 @@ export const publishAdminInlineMedia = async (ctx: any) => {
 
         try {
             session.mode = 'publish'
-
-            const instagramHook =
-                createInstagramHook(session.mediaType, session.contentType)
-
-            const prepared =
-                await prepareReel(session.keyTrailer, instagramHook, ctx, {id: session.mediaId, type: session.mediaType}, session.mode)
+            const instagramHook = createInstagramHook(session.mediaType, session.contentType)
+            const prepared = await prepareReel(
+                session.keyTrailer,
+                instagramHook,
+                ctx,
+                {
+                    id: session.mediaId,
+                    type: session.mediaType
+                },
+                session.mode)
 
             preparedInstagram = {
                 keyTrailer: session.keyTrailer,
@@ -86,256 +73,93 @@ export const publishAdminInlineMedia = async (ctx: any) => {
                 telegramFileId: prepared.telegramFileId
             }
 
-
-            session.preparedInstagram =
-                preparedInstagram
+            session.preparedInstagram = preparedInstagram
 
 
         } catch (error) {
 
-            console.error(
-                '[PUBLICATION MEDIA PREPARE ERROR]',
-                error
-            )
-
-
-            await ctx.answerCbQuery(
-                'Не удалось подготовить трейлер'
-            )
-
+            console.error('[PUBLICATION MEDIA PREPARE ERROR]', error)
+            await ctx.answerCbQuery('Не удалось подготовить трейлер')
 
             return
         }
     }
 
-
-    /*
-     * =========================
-     * CURRENT MEDIA
-     * =========================
-     *
-     * Здесь берём именно то,
-     * что сейчас прикреплено
-     * к редактируемой карточке.
-     *
-     * Если sessionCurrentMedia()
-     * уже получил видео:
-     *
-     * {
-     *     type: 'video',
-     *     fileId: '...'
-     * }
-     *
-     * то именно это видео попадёт
-     * в публикуемую Rich Card.
-     */
-
     const currentMedia =
         session.currentMedia?.type === 'video'
             ? {
                 type: 'video' as const,
-
-                fileId:
-                session.currentMedia.fileId
+                fileId: session.currentMedia.fileId
             }
             : {
                 type: 'photo' as const,
-
-                fileId:
-                    `https://image.tmdb.org/t/p/original${
-                        media.poster_path ||
-                        media.backdrop_path
-                    }`
+                fileId: `https://image.tmdb.org/t/p/original${
+                    media.poster_path
+                    || media.backdrop_path}`
             }
 
+    const saveCount = await getMediaSaveCount(session.mediaId)
 
-    /*
-     * =========================
-     * SAVE COUNT
-     * =========================
-     */
-
-    const saveCount =
-        await getMediaSaveCount(
-            session.mediaId
-        )
-
-
-    /*
-     * =========================
-     * BUILD TELEGRAM CARD
-     * =========================
-     *
-     * ВАЖНО:
-     *
-     * resolveRichCard() здесь НЕ меняем.
-     *
-     * Просто передаём ему текущий mediaOverride.
-     *
-     * Если это video —
-     * resolveRichCard() построит:
-     *
-     * caption
-     * +
-     * video block
-     * +
-     * остальные блоки карточки.
-     *
-     * Если это photo —
-     * будет обычная карточка с постером.
-     */
-
-    const {
-        caption
-    } =
-        await resolveRichCard(
+    const {caption} =
+        await constructRichCard(
             {
                 ctx,
-
-                inlineMessageId:
-                session.inlineMessageId,
-
+                inlineMessageId: session.inlineMessageId,
                 isAdmin: false
             },
             {
-                id:
-                session.mediaId,
-
-                type:
-                session.mediaType,
-
-                status:
-                    'ready',
-
-                contentType:
-                session.contentType,
-
-                addComment:
-                session.comment,
-
-                addOverview:
-                session.overview,
-
-                keyTrailer:
-                session.keyTrailer,
-
-                mediaOverride:
-                currentMedia
+                id: session.mediaId,
+                type: session.mediaType,
+                status: 'ready',
+                contentType: session.contentType,
+                addComment: session.comment,
+                addOverview: session.overview,
+                keyTrailer: session.keyTrailer,
+                mediaOverride: currentMedia
             }
         )
 
-
-    /*
-     * =========================
-     * CHANNEL KEYBOARD
-     * =========================
-     */
-
-    const channelReplyMarkup =
-        keyboardSendMediaCardInline(
-            session.mediaId,
-            session.mediaType,
-            session.contentType,
-            session.media.genres,
-            false,
-            'channel',
-            saveCount,
-            session.keyTrailer
-        )
-
-
-    /*
-     * =========================
-     * TELEGRAM PUBLISH
-     * =========================
-     *
-     * Всегда используем sendRichMessage.
-     *
-     * Не sendVideo().
-     *
-     * Потому что caption здесь —
-     * это не обычный Telegram caption,
-     * а полноценная Rich Message структура.
-     *
-     * Если currentMedia = video,
-     * видео уже находится внутри
-     * caption, сформированного
-     * resolveRichCard().
-     */
+    const channelReplyMarkup = keyboardSendMediaCardInline(
+        session.mediaId,
+        session.mediaType,
+        session.contentType,
+        session.media.genres,
+        false,
+        'channel',
+        saveCount,
+        session.keyTrailer
+    )
 
     let publishedMessage
 
-
     try {
-
-        publishedMessage =
-            await ctx.telegram.callApi(
-                'sendRichMessage',
-                {
-                    chat_id:
-                    channelId,
-
-                    rich_message:
-                    caption,
-
-                    reply_markup:
-                    channelReplyMarkup
-                }
-            )
-
-
+        publishedMessage = await ctx.telegram.callApi('sendRichMessage', {
+                chat_id: channelId,
+                rich_message: caption,
+                reply_markup: channelReplyMarkup
+            }
+        )
     } catch (error) {
 
-        console.error(
-            '[RICH MESSAGE PUBLISH ERROR]',
-            error
-        )
-
-
-        await ctx.answerCbQuery(
-            NOTIFICATION_MESSAGE.CbQ.ErrorPublished
-        )
-
+        console.error('[RICH MESSAGE PUBLISH ERROR]', error)
+        await ctx.answerCbQuery(NOTIFICATION_MESSAGE.CbQ.ErrorPublished)
 
         return
     }
 
-
-    /*
-     * =========================
-     * SAVE TELEGRAM PUBLICATION
-     * =========================
-     */
-
     try {
-
         await $fetch(
             '/api/bot/publishedMedia/create',
             {
                 method: 'POST',
-
                 body: {
-
-                    telegramChatId:
-                    channelId,
-
-                    telegramMessageId:
-                    publishedMessage.message_id,
-
-                    mediaId:
-                    session.mediaId,
-
-                    mediaType:
-                    session.mediaType,
-
-                    contentType:
-                    session.contentType,
-
-                    keyboardVersion:
-                    CURRENT_KEYBOARD_VERSION,
-
-                    keyTrailer:
-                    session.keyTrailer
+                    telegramChatId: channelId,
+                    telegramMessageId: publishedMessage.message_id,
+                    mediaId: session.mediaId,
+                    mediaType: session.mediaType,
+                    contentType: session.contentType,
+                    keyboardVersion: CURRENT_KEYBOARD_VERSION,
+                    keyTrailer: session.keyTrailer
                 }
             }
         )
@@ -343,102 +167,38 @@ export const publishAdminInlineMedia = async (ctx: any) => {
 
     } catch (error) {
 
-        console.error(
-            '[PUBLISHED MEDIA SAVE ERROR]',
-            error
-        )
-
-
-        /*
-         * Telegram уже опубликован.
-         *
-         * Поэтому его не удаляем.
-         */
-
-        await ctx.answerCbQuery(
-            'Карточка опубликована, но не сохранена в истории'
-        )
-
-
-        clearAdminEditSession(
-            ctx.from.id
-        )
-
+        console.error('[PUBLISHED MEDIA SAVE ERROR]', error)
+        await ctx.answerCbQuery('Карточка опубликована, но не сохранена в истории')
+        clearAdminEditSession(ctx.from.id)
 
         return
     }
 
-
-    /*
-     * =========================
-     * INSTAGRAM
-     * =========================
-     *
-     * Если трейлер был подготовлен,
-     * используем уже существующий reelR2.
-     *
-     * Повторного скачивания
-     * и обработки нет.
-     */
-
-    if (
-        preparedInstagram?.reelR2
-    ) {
+    if (preparedInstagram?.reelR2) {
 
         try {
-
-            const instagramCaption =
-                createInstagramCaption({
-                    media,
-
-                    comment:
-                    session.comment,
-
-                    overview:
-                    session.overview,
-
-                    contentType:
-                    session.contentType
-                })
-
+            const instagramCaption = createInstagramCaption({
+                media,
+                comment: session.comment,
+                overview: session.overview,
+                contentType: session.contentType
+            })
 
             const instagram =
                 await publishInstagramReel({
-                    videoUrl:
-                    preparedInstagram.reelR2,
-
-                    caption:
-                    instagramCaption
-                })
-
-
-            console.log(
-                '[INSTAGRAM PUBLISHED]',
-                JSON.stringify(
-                    instagram,
-                    null,
-                    2
+                        videoUrl: preparedInstagram.reelR2,
+                        caption: instagramCaption
+                    }
                 )
-            )
 
+            console.log('[INSTAGRAM PUBLISHED]', JSON.stringify(instagram, null, 2))
+            await ctx.reply('[INSTAGRAM PUBLISHED]')
 
         } catch (error) {
 
-            console.error(
-                '[INSTAGRAM PUBLISH ERROR]',
-                error
-            )
-
-
-            await ctx.answerCbQuery(
-                'Telegram опубликован, Instagram не удалось опубликовать'
-            )
-
-
-            clearAdminEditSession(
-                ctx.from.id
-            )
-
+            console.error('[INSTAGRAM PUBLISH ERROR]', error)
+            await ctx.answerCbQuery('Telegram опубликован, Instagram не удалось опубликовать')
+            clearAdminEditSession(ctx.from.id)
 
             return
         }
@@ -456,39 +216,20 @@ export const publishAdminInlineMedia = async (ctx: any) => {
 
     try {
 
-        await $fetch(
-            '/api/bot/publishedMedia/syncKeyboards',
-            {
-                method: 'POST'
-            }
-        )
+        await $fetch('/api/bot/publishedMedia/syncKeyboards', {
+            method: 'POST'
+        })
 
 
     } catch (error) {
 
-        console.log(
-            '[KEYBOARD SYNC ERROR]',
-            error
-        )
+        console.log('[KEYBOARD SYNC ERROR]', error)
     }
-
-
-    /*
-     * =========================
-     * RESTORE INLINE KEYBOARD
-     * =========================
-     */
 
     try {
 
-        if (
-            session.inlineMessageId
-        ) {
-
-            await ctx.telegram.editMessageReplyMarkup(
-                undefined,
-                undefined,
-                session.inlineMessageId,
+        if (session.inlineMessageId) {
+            await ctx.telegram.editMessageReplyMarkup(undefined, undefined, session.inlineMessageId,
                 {
                     reply_markup:
                         keyboardSendMediaCardInline(
@@ -508,26 +249,10 @@ export const publishAdminInlineMedia = async (ctx: any) => {
 
     } catch (error: any) {
 
-        if (
-            error?.response?.description !==
-            'Bad Request: message is not modified'
-        ) {
-
-            console.log(
-                '[PUBLISHED MEDIA session.inlineMessageID ERROR]',
-                error
-            )
+        if (error?.response?.description !== 'Bad Request: message is not modified') {
+            console.log('[PUBLISHED MEDIA session.inlineMessageID ERROR]', error)
         }
     }
 
-
-    /*
-     * =========================
-     * CLEAN SESSION
-     * =========================
-     */
-
-    clearAdminEditSession(
-        ctx.from.id
-    )
+    clearAdminEditSession(ctx.from.id)
 }

@@ -25,7 +25,7 @@ export function registerHandlers(bot: Telegraf) {
         const textId = ctx.message.message_id
 
         if (text.startsWith('/')) return
-        if (text.startsWith('bot: ')) return chosenCard(ctx)
+        if (text.startsWith('bot:')) return chosenCard(ctx)
         if ((text.startsWith('message: '))) return
 
         await addMessageSession(ctx.from.id, SessionMessageType.SearchInline, {messageId: textId})

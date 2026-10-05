@@ -1,4 +1,3 @@
-
 import {addMessageSession} from "#server/bot/services/session/addMessageSession";
 import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
 
@@ -10,8 +9,6 @@ export async function commandHelp(ctx: any) {
         `📖 Доступные команды:
 
         /start — открыть меню
-        /help — помощь
-        /profile — профиль
         `)
     await addMessageSession(
         ctx.from.id,

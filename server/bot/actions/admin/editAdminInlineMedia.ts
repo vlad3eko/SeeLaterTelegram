@@ -1,113 +1,30 @@
-
-import {getAdminEditSession, setAdminEditSession} from "#server/bot/actions/admin/adminEditSession"
-import {tmdbFetch} from "#server/utils/api/tmdbFetch"
-import {editMediaChoiceKeyboard} from "#server/bot/consts/buttons/admin/keyboardAdmin";
-import {NOTIFICATION_MESSAGE} from "#server/global/notifications/sendNotificationMessage";
-import {engineRichCard} from "#server/global/engine/card/engineRichCard";
-import {getTelegramMediaImages} from "#server/global/engine/card/construct/getTelegramPosterFileId";
+import {editMediaChoiceKeyboard} from "#server/bot/consts/buttons/admin/keyboardAdmin"
+import {NOTIFICATION_MESSAGE} from "#server/global/notifications/sendNotificationMessage"
+import {engineAdminEditCard} from "#server/bot/actions/admin/helpers/engineAdminEditCard"
+import {ensureAdminEditSession} from "#server/bot/actions/admin/helpers/ensureAdminEditSession"
+import {ensureBgutilRunning} from "#server/global/engine/instagram/scripts-yt-bgutil/bgutil";
 
 export const editAdminInlineMedia = async (ctx: any) => {
-
-    const inlineMessageId =
-        ctx.callbackQuery.inline_message_id
-
-    if (!inlineMessageId) {
-        await ctx.answerCbQuery(
-            NOTIFICATION_MESSAGE.CbQ.ErrorProcessSession
-        )
-        return
-    }
-
-    const [
-        ,
-        mediaId,
-        mediaType,
-        contentType,
-        keyTrailer
-    ] = ctx.match
-
-    const parsedMediaId =
-        Number(mediaId)
-
-    const session =
-        getAdminEditSession(ctx.from.id)
-
-    const isCurrentSession =
-        session &&
-        session.inlineMessageId === inlineMessageId &&
-        session.mediaId === parsedMediaId
-
-    if (!isCurrentSession) {
-        const media =
-            await tmdbFetch(
-                "/api/bot/getMediaBot",
-                {
-                    query: {
-                        media: mediaType,
-                        id: parsedMediaId
-                    }
-                }
-            )
-
-        const telegramImages =
-            await getTelegramMediaImages(
-                ctx,
-                parsedMediaId,
-                mediaType,
-                {
-                    poster: [
-                        media.poster_path ||
-                        media.backdrop_path
-                    ],
-                    postersList: []
-                }
-            )
-
-        setAdminEditSession(
-            ctx.from.id,
-            {
-                inlineMessageId,
-                mediaId: parsedMediaId,
-                mediaType,
-                media,
-                contentType,
-                keyTrailer,
-                comment: undefined,
-                overview: undefined,
-                mode: undefined,
-                currentMedia: {
-                    type: "photo",
-                    fileId: telegramImages.poster[0]!
-                }
-            }
-        )
-    }
+    const session = await ensureAdminEditSession(ctx)
+    if (!session) return
 
     try {
 
-        await engineRichCard(
-            {
-                ctx,
-                inlineMessageId,
-                isAdmin: true
-            },
-            {
-                id: parsedMediaId,
-                type: mediaType,
-                status: 'ready',
-                contentType,
-                keyTrailer,
-                mediaOverride:
-                    getAdminEditSession(ctx.from.id)?.currentMedia
-            }
-        )
+        if (session.keyTrailer)
+            await ensureBgutilRunning()
 
+        await engineAdminEditCard(ctx, session, {
+            id: session.mediaId,
+            type: session.mediaType,
+            status: 'ready',
+            contentType: session.contentType,
+            keyTrailer: session.keyTrailer,
+            mediaOverride: session.currentMedia
+        })
 
         await ctx.editMessageReplyMarkup(editMediaChoiceKeyboard())
-
-
-    } catch (e) {
-        console.log('[ERROR editAdminInlineMedia: ]', e)
+    } catch (error) {
+        console.error('[ERROR editAdminInlineMedia]', error)
     }
 
     await ctx.answerCbQuery(NOTIFICATION_MESSAGE.CbQ.SuccessProcessEditCard)
