@@ -44,6 +44,7 @@ const rootDir =
  * Всё, что находится внутри этой директории,
  * попадает внутрь Vercel Function.
  */
+
 const vercelFunctionDir =
 	path.join(
 		rootDir,
@@ -96,8 +97,9 @@ const bgutilPluginSource =
 const bgutilPluginTarget =
 	path.join(
 		vercelFunctionDir,
-		'bgutil-ytdlp-pot-provider',
-		'plugin'
+		'media-tools',
+		'yt-dlp-plugins',
+		'bgutil-ytdlp-pot-provider'
 	)
 
 

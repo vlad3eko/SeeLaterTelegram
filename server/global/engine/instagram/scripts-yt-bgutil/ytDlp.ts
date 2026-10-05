@@ -3,9 +3,7 @@ import {promisify} from 'node:util'
 import path from 'node:path'
 import {existsSync} from 'node:fs'
 
-import {
-    ensureBgutilRunning
-} from "#server/global/engine/instagram/scripts-yt-bgutil/bgutil"
+import {ensureBgutilRunning} from "#server/global/engine/instagram/scripts-yt-bgutil/bgutil"
 
 
 const execFileAsync =
@@ -90,31 +88,6 @@ export const getYtDlpPath = () => {
     )
 }
 
-
-const getBgutilPluginPath = () => {
-
-    const pluginPath =
-        path.join(
-            process.cwd(),
-            'bgutil-ytdlp-pot-provider',
-            'plugin'
-        )
-
-
-    if (
-        !existsSync(pluginPath)
-    ) {
-
-        throw new Error(
-            `[BGUTIL] Plugin directory not found: ${pluginPath}`
-        )
-    }
-
-
-    return pluginPath
-}
-
-
 export const runYtDlp = async (
     args: string[]
 ) => {
@@ -135,29 +108,23 @@ export const runYtDlp = async (
     const ytDlpPath =
         getYtDlpPath()
 
-
-    const pluginPath =
-        getBgutilPluginPath()
-
-
     const bgutilUrl =
         getBgutilUrl()
 
 
     const finalArgs = [
+
         '--verbose',
 
         '--js-runtimes',
         `node:${process.execPath}`,
-
-        '--plugin-dirs',
-        pluginPath,
 
         '--extractor-args',
         'youtube:player_client=mweb',
 
         '--extractor-args',
         `youtubepot-bgutilhttp:base_url=${bgutilUrl}`,
+
         ...args
     ]
 
@@ -179,18 +146,14 @@ export const runYtDlp = async (
 
     try {
 
-        const result =
-            await execFileAsync(
-                ytDlpPath,
-                finalArgs,
-                {
-                    maxBuffer:
-                        50 * 1024 * 1024
-                }
-            )
-
-
-        return result
+        return await execFileAsync(
+            ytDlpPath,
+            finalArgs,
+            {
+                maxBuffer:
+                    50 * 1024 * 1024
+            }
+        )
 
     } catch (
         error: any
