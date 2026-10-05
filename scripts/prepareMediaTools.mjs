@@ -9,19 +9,19 @@ import {fileURLToPath} from 'node:url'
 const __dirname =
 	path.dirname(fileURLToPath(import.meta.url))
 
+
 const rootDir =
 	path.resolve(__dirname, '..')
 
 
 /*
- * Важно:
+ * Nitro preset=vercel в текущей сборке
+ * создаёт Function:
  *
- * Nitro preset=vercel собирает серверную функцию сюда:
+ * .vercel/output/functions/__fallback.func
  *
- * .vercel/output/functions/__server.func
- *
- * Именно содержимое этой директории потом попадает
- * внутрь /var/task на Vercel.
+ * Всё, что находится внутри неё,
+ * будет доступно runtime как /var/task/*
  */
 const vercelFunctionDir =
 	path.join(
@@ -29,7 +29,7 @@ const vercelFunctionDir =
 		'.vercel',
 		'output',
 		'functions',
-		'__server.func'
+		'__fallback.func'
 	)
 
 
@@ -46,10 +46,7 @@ const ytDlpUrl =
 
 
 /*
- * Локальный Windows ничего не скачивает.
- *
- * Vercel build работает на Linux,
- * поэтому binary устанавливается только там.
+ * На Windows ничего не скачиваем.
  */
 if (process.platform !== 'linux') {
 
@@ -63,21 +60,19 @@ if (process.platform !== 'linux') {
 
 
 /*
- * Проверяем, что Nuxt/Nitro уже создал
- * Vercel Function.
- *
- * Скрипт ОБЯЗАТЕЛЬНО должен запускаться
- * после `nuxt build`.
+ * К этому моменту nuxt build уже должен
+ * закончить создание Vercel output.
  */
 try {
 
-	await access(vercelFunctionDir)
+	await access(
+		vercelFunctionDir
+	)
 
 } catch {
 
 	throw new Error(
-		`[YTDLP] Vercel Function directory not found: ${vercelFunctionDir}\n` +
-		`[YTDLP] This script must run AFTER "nuxt build".`
+		`[YTDLP] Vercel Function directory not found: ${vercelFunctionDir}`
 	)
 }
 
@@ -95,12 +90,20 @@ let ready = false
 
 try {
 
-	await access(ytDlpPath)
+	await access(
+		ytDlpPath
+	)
+
 
 	const fileStat =
-		await stat(ytDlpPath)
+		await stat(
+			ytDlpPath
+		)
 
-	if (fileStat.size > 1024) {
+
+	if (
+		fileStat.size > 1024
+	) {
 
 		ready = true
 
@@ -134,7 +137,7 @@ if (!ready) {
 						response => {
 
 							/*
-							 * GitHub может вернуть redirect.
+							 * GitHub redirect.
 							 */
 							if (
 								response.statusCode >= 300 &&
@@ -170,7 +173,9 @@ if (!ready) {
 
 							pipeline(
 								response,
-								createWriteStream(ytDlpPath)
+								createWriteStream(
+									ytDlpPath
+								)
 							)
 								.then(resolve)
 								.catch(reject)
@@ -183,16 +188,22 @@ if (!ready) {
 				}
 
 
-			download(ytDlpUrl)
+			download(
+				ytDlpUrl
+			)
 		}
 	)
 
 
 	const fileStat =
-		await stat(ytDlpPath)
+		await stat(
+			ytDlpPath
+		)
 
 
-	if (fileStat.size <= 1024) {
+	if (
+		fileStat.size <= 1024
+	) {
 
 		throw new Error(
 			`[YTDLP] Downloaded binary is invalid: ${ytDlpPath}`
