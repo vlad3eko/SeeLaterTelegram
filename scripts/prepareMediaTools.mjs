@@ -44,6 +44,7 @@ const rootDir =
  * Всё, что находится внутри этой директории,
  * попадает внутрь Vercel Function.
  */
+
 const vercelFunctionDir =
 	path.join(
 		rootDir,
