@@ -2,8 +2,58 @@ import {execFile} from 'node:child_process'
 import {promisify} from 'node:util'
 import path from 'node:path'
 import {existsSync} from 'node:fs'
-
+import {writeFile} from 'node:fs/promises'
 import {ensureBgutilRunning} from "#server/global/engine/instagram/scripts-yt-bgutil/bgutil"
+
+const YOUTUBE_COOKIES_PATH =
+    '/tmp/youtube-cookies.txt'
+
+
+const prepareYoutubeCookies =
+    async () => {
+
+        const encoded =
+            process.env.YOUTUBE_COOKIES_B64?.trim()
+
+
+        if (
+            !encoded
+        ) {
+
+            return []
+        }
+
+
+        if (
+            !existsSync(
+                YOUTUBE_COOKIES_PATH
+            )
+        ) {
+
+            const cookies =
+                Buffer
+                    .from(
+                        encoded,
+                        'base64'
+                    )
+                    .toString(
+                        'utf8'
+                    )
+
+
+            await writeFile(
+                YOUTUBE_COOKIES_PATH,
+                cookies,
+                'utf8'
+            )
+        }
+
+
+        return [
+            '--cookies',
+            YOUTUBE_COOKIES_PATH
+        ]
+    }
 
 
 const execFileAsync =
@@ -111,6 +161,8 @@ export const runYtDlp = async (
     const bgutilUrl =
         getBgutilUrl()
 
+    const youtubeCookiesArgs =
+        await prepareYoutubeCookies()
 
     const finalArgs = [
 
@@ -125,6 +177,7 @@ export const runYtDlp = async (
         '--extractor-args',
         `youtubepot-bgutilhttp:base_url=${bgutilUrl}`,
 
+        ...youtubeCookiesArgs,
         ...args
     ]
 
