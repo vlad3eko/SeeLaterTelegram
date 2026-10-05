@@ -21,16 +21,7 @@
       "functions": {
         "**": {
           "maxDuration": 300,
-
-          "includeFiles": [
-            "media-tools/yt-dlp",
-            "bgutil-ytdlp-pot-provider/plugin/**",
-
-            "public/instagram/**",
-            "public/assets/**",
-
-            "node_modules/ffmpeg-static/**"
-          ]
+          "includeFiles": "{media-tools/yt-dlp,bgutil-ytdlp-pot-provider/plugin/**,public/instagram/**,public/assets/**,node_modules/ffmpeg-static/**}"
         }
       }
     },
