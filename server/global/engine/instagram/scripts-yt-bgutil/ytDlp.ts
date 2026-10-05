@@ -3,9 +3,7 @@ import {promisify} from 'node:util'
 import path from 'node:path'
 import {existsSync} from 'node:fs'
 
-import {
-    ensureBgutilRunning
-} from "#server/global/engine/instagram/scripts-yt-bgutil/bgutil"
+import {ensureBgutilRunning} from "#server/global/engine/instagram/scripts-yt-bgutil/bgutil"
 
 
 const execFileAsync =
@@ -148,18 +146,14 @@ export const runYtDlp = async (
 
     try {
 
-        const result =
-            await execFileAsync(
-                ytDlpPath,
-                finalArgs,
-                {
-                    maxBuffer:
-                        50 * 1024 * 1024
-                }
-            )
-
-
-        return result
+        return await execFileAsync(
+            ytDlpPath,
+            finalArgs,
+            {
+                maxBuffer:
+                    50 * 1024 * 1024
+            }
+        )
 
     } catch (
         error: any
