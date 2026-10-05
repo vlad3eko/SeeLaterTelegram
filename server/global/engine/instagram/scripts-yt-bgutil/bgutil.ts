@@ -89,17 +89,9 @@ export const ensureBgutilRunning = async () => {
     ) {
 
         const data =
-            await pingBgutil(
-                30_000
-            )
+            await pingBgutil(30_000)
 
-
-        console.log(
-            '[BGUTIL] Production ready:',
-            data
-        )
-
-
+        console.log('[BGUTIL] Production ready:', data)
         return
     }
 
