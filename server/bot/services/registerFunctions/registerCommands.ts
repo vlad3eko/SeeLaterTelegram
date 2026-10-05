@@ -165,6 +165,6 @@ export function registerCommands(bot: Telegraf) {
 
     bot.command('help', commandHelp)
     bot.command('clear', commandClear)
-    bot.command('x', commandContent)
+    bot.command('g', commandContent)
     bot.action('menu_bot', menuBot)
 }

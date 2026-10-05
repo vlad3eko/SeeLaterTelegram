@@ -1,5 +1,6 @@
 
 import type {ContentType} from "#server/global/engine/search/strategy/enums";
+import type {typeRichCard} from "#server/global/engine/card/enum/types";
 
 export interface SearchFilters {
     id: number[]
@@ -9,7 +10,7 @@ export interface SearchFilters {
     providers: string[]
     countries: string[]
     companies: string[]
-    mediaTypes: ("movie" | "tv" | "person")[]
+    mediaTypes: (typeRichCard)[]
     creditType: "cast" | "crew" | undefined
     contentType?: ContentType
     sort?: string
@@ -31,7 +32,7 @@ export interface NormalizedSearchFilters {
     providers: number[]
     countries: string[]
     companies: number[]
-    mediaTypes: ("movie" | "tv" | "person")[]
+    mediaTypes: (typeRichCard)[]
     creditType: ("cast" | "crew" | undefined)
     contentType?: ContentType
     sort?: string

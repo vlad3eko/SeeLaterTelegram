@@ -10,16 +10,11 @@ export const chosenCard = async (ctx: any) => {
     const result = ctx.update.chosen_inline_result
     const inlineMessageId = result?.inline_message_id
 
-    if (!inlineMessageId)
-        return
-
-    if (result.result_id === 'no_search_results' || result.result_id === 'empty_collection')
-        return
+    if (!inlineMessageId) return
+    if (result.result_id === 'no_search_results' || result.result_id === 'empty_collection') return
 
     const [, mediaType, contentType, mediaId] = result.result_id.split('_')
     const admin = isAdmin(result.from.id)
-
-
 
     try {
 
@@ -33,8 +28,11 @@ export const chosenCard = async (ctx: any) => {
             status: 'ready',
             contentType: contentType as ContentType
         })
+
     }  catch (error) {
+
         console.error('[CHOSEN CARD ERROR]', error)
+
         try {
             await ctx.telegram.editMessageText(
                 undefined,

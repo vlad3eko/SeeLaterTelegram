@@ -1,28 +1,27 @@
-
-import {tryGenerateCard} from "#server/global/engine/card/construct/tryGenerateCard";
-import {resolveCardStrategies} from "#server/global/engine/card/strategy/resolveCardStrategies";
-import type {queryCTX, queryRichCard} from "#server/global/engine/card/enum/types";
-
-export const resolveRichCard = async (
-    ctx: queryCTX | undefined,
-    query: queryRichCard
-) => {
-    const strategy = resolveCardStrategies[query.type]
-    const data = await strategy.resolve(query)
-    const enrichData = await strategy.enrich(ctx, query, data)
-
-    return {
-        caption: strategy.caption(query, enrichData),
-        keyboard: strategy.keyboard(ctx, query, enrichData)
-    }
-}
+import type {queryCTX, queryRichCard} from "#server/global/engine/card/enum/types"
+import {constructRichCard} from "#server/global/engine/card/construct/constructRichCard"
+import {tryGenerateCard} from "#server/global/engine/card/construct/tryGenerateCard"
+import {sendRichMessage} from "#server/global/engine/card/transport/sendRichMessage"
+import {normalizeRichContext} from "#server/global/engine/card/construct/normalizeRichContext"
 
 export const engineRichCard = async (
-    ctx: queryCTX | undefined,
+    ctx: queryCTX | any | undefined,
     query: queryRichCard
 ) => {
-    const {caption, keyboard} =
-        await resolveRichCard(ctx, query)
 
-    return tryGenerateCard(ctx, caption, keyboard)
+    const richCtx = normalizeRichContext(ctx)
+    if (!richCtx) return
+
+    const {caption, keyboard} =
+        await constructRichCard(richCtx, query)
+
+    const canEditMessage =
+        Boolean(richCtx.inlineMessageId)
+        || (richCtx.chatId !== undefined && richCtx.messageId !== undefined)
+
+    if (canEditMessage) {
+        return tryGenerateCard(richCtx, caption, keyboard)
+    }
+
+    return sendRichMessage(richCtx.ctx, caption, keyboard)
 }

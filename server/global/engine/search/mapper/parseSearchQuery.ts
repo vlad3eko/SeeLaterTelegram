@@ -1,6 +1,7 @@
 
 import {ContentType} from "#server/global/engine/search/strategy/enums";
 import type {SearchQuery} from "#server/global/engine/search/mapper/typesSearch";
+import type {typeRichCard} from "#server/global/engine/card/enum/types";
 
 export const parseSearchQuery = (
     query: string,
@@ -29,7 +30,7 @@ export const parseSearchQuery = (
         number | null = null
 
     const mediaTypes:
-        ("movie" | "tv" | "person")[] = []
+        (typeRichCard)[] = []
 
     let creditType:
         "cast" | "crew" | undefined

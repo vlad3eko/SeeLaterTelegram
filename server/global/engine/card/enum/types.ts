@@ -1,8 +1,10 @@
 
-import {ContentType} from "#server/global/engine/search/strategy/enums";
+import {ContentType} from "#server/global/engine/search/strategy/enums"
 
 export type statusRichCard = "pending" | "ready" | "error"
+export type RichCardMode = 'item' | 'list'
 export type typeRichCard = "person" | "movie" | "tv"
+export type typeOverride = 'photo' | 'video'
 
 export interface queryRichCard {
     id: number
@@ -13,14 +15,16 @@ export interface queryRichCard {
     addOverview?: string
     keyTrailer?: string
     mediaOverride?: {
-        type: 'photo' | 'video'
+        type: typeOverride
         fileId: string
     }
 }
 
 export interface queryCTX {
     ctx: any
-    inlineMessageId: string
+    inlineMessageId?: string
+    chatId?: number | string
+    messageId?: number
     isAdmin: boolean
 }
 

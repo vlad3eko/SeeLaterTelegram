@@ -22,7 +22,7 @@ export enum ContentTelegramMenu {
 
 // Связываем стратегии с их текстами в одном месте
 export const STRATEGY_LABELS: Record<ContentStrategy, string> = {
-    [ContentStrategy.WHAT_WATCH_TODAY]: "Что посмотреть сегодня",
+    [ContentStrategy.WHAT_WATCH_TODAY]: "Популярное недели",
     [ContentStrategy.RELEASE_THIS_MONTH]: "Этот месяц",
     [ContentStrategy.RELEASE_LAST_WEEK]: "Прошлой недели",
     [ContentStrategy.RELEASE_TODAY]: "Этой недели",
@@ -30,7 +30,7 @@ export const STRATEGY_LABELS: Record<ContentStrategy, string> = {
     [ContentStrategy.MOST_WAITING_MOVIE]: "Фильмы",
     [ContentStrategy.MOST_WAITING_SERIES]: "Сериалы",
     [ContentStrategy.MOST_WAITING_CARTOON]: "Мультфильмы",
-    [ContentStrategy.BEST_MOVIES_BY_ACTOR]: "Лучшие роли актёра",
+    [ContentStrategy.BEST_MOVIES_BY_ACTOR]: "Лучшие работы актёра",
     [ContentStrategy.BEST_MOVIES_BY_GENRE]: "Лучшее по жанрам",
     [ContentStrategy.LOOKALIKE_AT_MEDIA_NAME]: "Похожее по названию",
 }
@@ -51,7 +51,7 @@ export const SUBMENUS = {
     [ContentTelegramMenu.BEST]: [
         ContentStrategy.BEST_MOVIES_BY_ACTOR,
         ContentStrategy.BEST_MOVIES_BY_GENRE,
-    ]
+    ],
 } as const
 
 

@@ -9,7 +9,6 @@ import {
     bestButton
 } from "./buttonsRepository"
 
-// Главное меню
 export const startContentKeyboard = (userId: number) => {
     return Markup.inlineKeyboard([
         [releaseButton()],
@@ -20,9 +19,8 @@ export const startContentKeyboard = (userId: number) => {
     ]).reply_markup
 }
 
-const createSubmenuKeyboard = (menuType: Exclude<ContentTelegramMenu, ContentTelegramMenu.START>, userId: number) => {
+export const createSubmenuKeyboard = (menuType: Exclude<ContentTelegramMenu, ContentTelegramMenu.START>, userId: number) => {
     return Markup.inlineKeyboard([
-        // Автоматически строит строки кнопок на основе массивов из SUBMENUS
         ...SUBMENUS[menuType].map(strategy => [createStrategyButton(strategy, userId)]),
         [backButton()],
     ]).reply_markup
