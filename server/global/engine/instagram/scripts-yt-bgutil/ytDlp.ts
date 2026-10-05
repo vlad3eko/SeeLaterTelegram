@@ -90,31 +90,6 @@ export const getYtDlpPath = () => {
     )
 }
 
-
-const getBgutilPluginPath = () => {
-
-    const pluginPath =
-        path.join(
-            process.cwd(),
-            'bgutil-ytdlp-pot-provider',
-            'plugin'
-        )
-
-
-    if (
-        !existsSync(pluginPath)
-    ) {
-
-        throw new Error(
-            `[BGUTIL] Plugin directory not found: ${pluginPath}`
-        )
-    }
-
-
-    return pluginPath
-}
-
-
 export const runYtDlp = async (
     args: string[]
 ) => {
@@ -135,29 +110,23 @@ export const runYtDlp = async (
     const ytDlpPath =
         getYtDlpPath()
 
-
-    const pluginPath =
-        getBgutilPluginPath()
-
-
     const bgutilUrl =
         getBgutilUrl()
 
 
     const finalArgs = [
+
         '--verbose',
 
         '--js-runtimes',
         `node:${process.execPath}`,
-
-        '--plugin-dirs',
-        pluginPath,
 
         '--extractor-args',
         'youtube:player_client=mweb',
 
         '--extractor-args',
         `youtubepot-bgutilhttp:base_url=${bgutilUrl}`,
+
         ...args
     ]
 
