@@ -731,7 +731,13 @@ export const decorateInstagramVideo = async (
     const finalBeforeBottom =
         fireFilters.finalLabel
 
-
+    const bottomFontPath =
+        path.join(
+            process.cwd(),
+            'public',
+            'assets',
+            'Natural_Mono_ Regular.ttf'
+        )
     /**
      * Нижний текст.
      *
@@ -741,7 +747,7 @@ export const decorateInstagramVideo = async (
 
         `[${finalBeforeBottom}]` +
         `drawtext=` +
-        `fontfile='public/assets/Natural_Mono_ Regular.ttf':` +
+        `fontfile='${escapeFilterPath(bottomFontPath)}'':` +
         `text='${safeBottomText}':` +
         `fontcolor=white:` +
         `fontsize=42:` +
