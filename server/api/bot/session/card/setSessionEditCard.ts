@@ -21,7 +21,7 @@ export default defineEventHandler(async (event) => {
         throw createError({statusCode: 404, message: "Пользователь не найден [setSessionEditCard.post]"})
 
     const {error} = await supabase
-        .from('admin_edit_sessions')
+        .from('card_edit_session')
         .upsert(
             {
                 user_id: user.id,
