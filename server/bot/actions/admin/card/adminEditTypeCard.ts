@@ -6,7 +6,7 @@ import {adminEditActionInlineMessage} from "#server/bot/actions/admin/adminEditA
 export const adminEditTypeCard = async (ctx: any) => {
 
     const session =
-        getAdminEditSession(ctx.from.id)
+       await getAdminEditSession(ctx.from.id)
 
 
     if (!session) {

@@ -1,4 +1,3 @@
-
 import {serverSupabaseClient} from "#supabase/server";
 import {deleteFavorite} from "#server/bot/services/supabase/deleteFavorite";
 

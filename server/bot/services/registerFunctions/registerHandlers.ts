@@ -15,7 +15,7 @@ export function registerHandlers(bot: Telegraf) {
     bot.on("text", async (ctx) => {
 
         const session =
-            getAdminEditSession(ctx.from.id)
+           await getAdminEditSession(ctx.from.id)
 
         if (session?.mode) {
             return

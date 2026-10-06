@@ -58,7 +58,7 @@ export const ensureAdminEditSession = async (ctx: any): Promise<AdminEditSession
         }
     }
 
-    setAdminEditSession(ctx.from.id, newSession)
+    await setAdminEditSession(ctx.from.id, newSession)
 
     return newSession
 }
