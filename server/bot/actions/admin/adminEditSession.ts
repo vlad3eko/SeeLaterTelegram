@@ -38,7 +38,7 @@ export const setAdminEditSession = async (userId: number, data: AdminEditSession
     // sessions.set(userId, data)
 
     await $fetch(
-        '/api/bot/session/card/setCardEditSession',
+        '/api/bot/session/card/setSessionEditCard',
         {
             method: 'POST',
             body: {
@@ -49,14 +49,14 @@ export const setAdminEditSession = async (userId: number, data: AdminEditSession
     )
 }
 
-export const getAdminEditSession = async (userId: number) => {
+export const getAdminEditSession = async (userId: number):Promise<AdminEditSession | null> => {
     // return sessions.get(userId)
 
-    return await $fetch(
-        '/api/bot/session/card/getCardEditSession',
+    return await $fetch<AdminEditSession | null>(
+        '/api/bot/session/card/getSessionEditCard',
         {
             method: 'GET',
-            body: {
+            query: {
                 telegram_id: userId,
             }
         }
@@ -67,7 +67,7 @@ export const clearAdminEditSession = async (userId: number) => {
     // sessions.delete(userId)
 
     await $fetch(
-        '/api/bot/session/card/clearCardEditSession',
+        '/api/bot/session/card/clearSessionEditCard',
         {
             method: 'POST',
             body: {
