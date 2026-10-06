@@ -27,7 +27,7 @@ export const publishAdminInlineMedia = async (ctx: any) => {
         })
 
     const session: AdminEditSession =
-        getAdminEditSession(ctx.from.id) ?? {
+       await getAdminEditSession(ctx.from.id) ?? {
             inlineMessageId: ctx.callbackQuery.inline_message_id,
             mediaId: Number(mediaId),
             mediaType,
@@ -169,7 +169,7 @@ export const publishAdminInlineMedia = async (ctx: any) => {
 
         console.error('[PUBLISHED MEDIA SAVE ERROR]', error)
         await ctx.answerCbQuery('Карточка опубликована, но не сохранена в истории')
-        clearAdminEditSession(ctx.from.id)
+       await clearAdminEditSession(ctx.from.id)
 
         return
     }
@@ -198,7 +198,7 @@ export const publishAdminInlineMedia = async (ctx: any) => {
 
             console.error('[INSTAGRAM PUBLISH ERROR]', error)
             await ctx.answerCbQuery('Telegram опубликован, Instagram не удалось опубликовать')
-            clearAdminEditSession(ctx.from.id)
+          await  clearAdminEditSession(ctx.from.id)
 
             return
         }
@@ -254,5 +254,5 @@ export const publishAdminInlineMedia = async (ctx: any) => {
         }
     }
 
-    clearAdminEditSession(ctx.from.id)
+   await clearAdminEditSession(ctx.from.id)
 }

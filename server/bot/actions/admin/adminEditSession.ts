@@ -1,4 +1,5 @@
 import type {ContentType} from "#server/global/engine/search/strategy/enums"
+import {tmdbFetch} from "#server/utils/api/tmdbFetch";
 
 type modeEditSession =
     | 'media'
@@ -33,14 +34,45 @@ export type AdminEditSession = {
 
 const sessions = new Map<number, AdminEditSession>()
 
-export const setAdminEditSession = (userId: number, data: AdminEditSession) => {
-    sessions.set(userId, data)
+export const setAdminEditSession = async (userId: number, data: AdminEditSession) => {
+    // sessions.set(userId, data)
+
+    await $fetch(
+        '/api/bot/session/card/setCardEditSession',
+        {
+            method: 'POST',
+            body: {
+                telegram_id: userId,
+                data
+            }
+        }
+    )
 }
 
-export const getAdminEditSession = (userId: number) => {
-    return sessions.get(userId)
+export const getAdminEditSession = async (userId: number) => {
+    // return sessions.get(userId)
+
+    return await $fetch(
+        '/api/bot/session/card/getCardEditSession',
+        {
+            method: 'GET',
+            body: {
+                telegram_id: userId,
+            }
+        }
+    )
 }
 
-export const clearAdminEditSession = (userId: number) => {
-    sessions.delete(userId)
+export const clearAdminEditSession = async (userId: number) => {
+    // sessions.delete(userId)
+
+    await $fetch(
+        '/api/bot/session/card/clearCardEditSession',
+        {
+            method: 'POST',
+            body: {
+                telegram_id: userId,
+            }
+        }
+    )
 }

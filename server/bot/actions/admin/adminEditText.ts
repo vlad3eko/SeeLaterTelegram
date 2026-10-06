@@ -5,7 +5,7 @@ import {NOTIFICATION_MESSAGE} from "#server/global/notifications/sendNotificatio
 export const adminEditText = async (ctx: any) => {
 
     const session =
-        getAdminEditSession(ctx.from.id)
+       await getAdminEditSession(ctx.from.id)
 
     if (!session) {
         await ctx.answerCbQuery(NOTIFICATION_MESSAGE.CbQ.ErrorProcessSession)

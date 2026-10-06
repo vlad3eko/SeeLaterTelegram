@@ -22,7 +22,7 @@ export const registerAdminActions = (bot: Telegraf) => {
     bot.on('message', async (ctx: any, next) => {
 
         const session =
-            getAdminEditSession(ctx.from.id)
+           await getAdminEditSession(ctx.from.id)
 
         if (!session?.mode) {
             return next()

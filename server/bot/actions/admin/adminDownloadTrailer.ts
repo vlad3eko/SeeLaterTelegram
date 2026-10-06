@@ -3,7 +3,7 @@ import {getAdminEditSession} from "#server/bot/actions/admin/adminEditSession";
 
 export const adminDownloadTrailer = async (ctx: any) => {
     const session =
-        getAdminEditSession(ctx.from.id)
+       await getAdminEditSession(ctx.from.id)
 
     if (!session) {
         await ctx.answerCbQuery(NOTIFICATION_MESSAGE.CbQ.ErrorProcessSession)
