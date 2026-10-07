@@ -4,7 +4,7 @@ import type {AdminEditSession} from "#server/bot/actions/admin/adminEditSession"
 export default defineEventHandler(async (event) => {
 
     const supabase = await serverSupabaseClient(event)
-    const query = await getQuery(event)
+    const query = getQuery(event)
 
     const telegramId = query.telegram_id
 

@@ -1,5 +1,5 @@
 
-import {getAdminEditSession} from "#server/bot/actions/admin/adminEditSession";
+import {getAdminEditSession, updateAdminEditSession} from "#server/bot/actions/admin/adminEditSession";
 import {NOTIFICATION_MESSAGE} from "#server/global/notifications/sendNotificationMessage";
 
 export const adminEditText = async (ctx: any) => {
@@ -11,6 +11,9 @@ export const adminEditText = async (ctx: any) => {
         await ctx.answerCbQuery(NOTIFICATION_MESSAGE.CbQ.ErrorProcessSession)
         return
     }
+
+    await updateAdminEditSession(ctx.from.id, {mode: 'text'})
     session.mode = 'text'
+
     await ctx.answerCbQuery(NOTIFICATION_MESSAGE.CbQ.SuccessProcessEditText)
 }
