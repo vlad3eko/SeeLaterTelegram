@@ -1,5 +1,5 @@
 import {NOTIFICATION_MESSAGE} from "#server/global/notifications/sendNotificationMessage";
-import {getAdminEditSession} from "#server/bot/actions/admin/adminEditSession";
+import {getAdminEditSession, updateAdminEditSession} from "#server/bot/actions/admin/adminEditSession";
 
 export const adminDownloadTrailer = async (ctx: any) => {
     const session =
@@ -9,6 +9,8 @@ export const adminDownloadTrailer = async (ctx: any) => {
         await ctx.answerCbQuery(NOTIFICATION_MESSAGE.CbQ.ErrorProcessSession)
         return
     }
+
+    await updateAdminEditSession(ctx.from.id, {mode: 'download'})
     session.mode = 'download'
     await ctx.answerCbQuery(NOTIFICATION_MESSAGE.CbQ.SuccessProcessDownloadTrailer)
 }

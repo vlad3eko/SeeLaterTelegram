@@ -1,4 +1,4 @@
-import type { AdminEditSession } from "#server/bot/actions/admin/adminEditSession"
+import {type AdminEditSession, updateAdminEditSession} from "#server/bot/actions/admin/adminEditSession"
 import { prepareReel } from "#server/global/engine/instagram/prepareReel"
 import { createInstagramHook } from "#server/global/engine/instagram/reel/caption/getInstagramMediaType"
 import { sessionCurrentMedia } from "#server/bot/actions/admin/helpers/sessionCurrentMedia"
@@ -7,6 +7,7 @@ import { engineAdminEditCard } from "#server/bot/actions/admin/helpers/engineAdm
 export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditSession) => {
     if (session.mode === 'media') {
         await sessionCurrentMedia(ctx, session)
+        await updateAdminEditSession(ctx.from.id, {mode: null})
         session.mode = undefined
         return
     }
@@ -27,7 +28,10 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
                 mediaOverride: session.currentMedia
             })
 
+            await updateAdminEditSession(ctx.from.id, {comment: text})
             session.comment = text
+
+            await updateAdminEditSession(ctx.from.id, {mode: null})
             session.mode = undefined
         } catch (error) {
             console.error('EDIT CAPTION ERROR:', error)
@@ -51,7 +55,10 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
                 mediaOverride: session.currentMedia
             })
 
+            await updateAdminEditSession(ctx.from.id, {overview})
             session.overview = overview
+
+            await updateAdminEditSession(ctx.from.id, {mode: null})
             session.mode = undefined
         } catch (error) {
             console.error('EDIT OVERVIEW ERROR:', error)
@@ -72,7 +79,9 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
                 mediaOverride: session.currentMedia
             })
 
+            await updateAdminEditSession(ctx.from.id, {mode: null})
             session.mode = undefined
+
         } catch (error) {
             console.error('EDIT TYPE CARD ERROR:', error)
         }
@@ -89,6 +98,7 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
             return
         }
 
+        await updateAdminEditSession(ctx.from.id, {keyTrailer})
         session.keyTrailer = keyTrailer
 
         const instagramHook = createInstagramHook(session.mediaType, session.contentType)
@@ -108,6 +118,7 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
             telegramFileId: prepared.telegramFileId
         }
 
+        await updateAdminEditSession(ctx.from.id, {mode: null})
         session.mode = undefined
         return
     }

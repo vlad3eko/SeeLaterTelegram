@@ -32,6 +32,13 @@ export type AdminEditSession = {
     }
 }
 
+export type AdminEditSessionUpdate = {
+    mode?: modeEditSession | null
+    keyTrailer?: string | null
+    comment?: string | null
+    overview?: string | null
+}
+
 const sessions = new Map<number, AdminEditSession>()
 
 export const setAdminEditSession = async (userId: number, data: AdminEditSession) => {
@@ -72,6 +79,23 @@ export const clearAdminEditSession = async (userId: number) => {
             method: 'POST',
             body: {
                 telegram_id: userId,
+            }
+        }
+    )
+}
+
+export const updateAdminEditSession = async (
+    userId: number,
+    data: Partial<AdminEditSessionUpdate>
+) => {
+
+    await $fetch(
+        '/api/bot/session/card/updateSessionEditCard',
+        {
+            method: 'PATCH',
+            body: {
+                telegram_id: userId,
+                data
             }
         }
     )
