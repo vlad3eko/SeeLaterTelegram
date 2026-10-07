@@ -83,7 +83,7 @@ export default defineEventHandler(async (event) => {
     update.updated_at = new Date().toISOString()
 
     const {error} = await supabase
-        .from('admin_edit_sessions')
+        .from('card_edit_sessions')
         .update(update)
         .eq('user_id', user.id)
 
