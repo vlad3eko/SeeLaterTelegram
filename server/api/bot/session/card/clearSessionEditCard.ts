@@ -1,5 +1,4 @@
 import {serverSupabaseClient} from "#supabase/server";
-import {readBody} from "#build/types/nitro-imports";
 
 export default defineEventHandler(async (event) => {
 
