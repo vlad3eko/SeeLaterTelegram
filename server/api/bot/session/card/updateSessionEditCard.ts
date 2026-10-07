@@ -1,8 +1,8 @@
-import {serverSupabaseServiceRole} from "#supabase/server"
+import {serverSupabaseClient} from "#supabase/server"
 
 export default defineEventHandler(async (event) => {
 
-    const supabase = serverSupabaseServiceRole(event)
+    const supabase = await serverSupabaseClient(event)
     const body = await readBody(event)
 
     const telegramId = body?.telegram_id
@@ -83,7 +83,7 @@ export default defineEventHandler(async (event) => {
     update.updated_at = new Date().toISOString()
 
     const {error} = await supabase
-        .from('card_edit_sessions')
+        .from('card_edit_session')
         .update(update)
         .eq('user_id', user.id)
 
