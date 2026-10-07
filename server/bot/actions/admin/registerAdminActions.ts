@@ -28,9 +28,6 @@ export const registerAdminActions = (bot: Telegraf) => {
             return next()
         }
 
-        return adminEditActionInlineMessage(
-            ctx,
-            session
-        )
+        return adminEditActionInlineMessage(ctx, session)
     })
 }

@@ -1,5 +1,5 @@
 import {
-    type AdminEditSession, clearAdminEditSession, getAdminEditSession
+    type AdminEditSession, clearAdminEditSession, getAdminEditSession, updateAdminEditSession
 } from "#server/bot/actions/admin/adminEditSession";
 import {CHANEL_LINK} from "#server/bot/bot";
 import {prepareReel} from "#server/global/engine/instagram/prepareReel";
@@ -55,6 +55,9 @@ export const publishAdminInlineMedia = async (ctx: any) => {
     if (!preparedInstagram && session.keyTrailer) {
 
         try {
+
+            await updateAdminEditSession(ctx.from.id, {mode: 'publish'})
+
             session.mode = 'publish'
             const instagramHook = createInstagramHook(session.mediaType, session.contentType)
             const prepared = await prepareReel(

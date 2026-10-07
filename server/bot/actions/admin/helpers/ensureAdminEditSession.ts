@@ -19,7 +19,7 @@ export const ensureAdminEditSession = async (ctx: any): Promise<AdminEditSession
 
     const [, mediaId, mediaType, contentType, keyTrailer] = ctx.match
     const parsedMediaId = Number(mediaId)
-    const session = getAdminEditSession(ctx.from.id)
+    const session = await getAdminEditSession(ctx.from.id)
 
     const isCurrentSession = session &&
         session.mediaId === parsedMediaId &&
