@@ -2,7 +2,7 @@ import {
     type AdminEditSession, clearAdminEditSession, getAdminEditSession, setAdminEditSession, updateAdminEditSession
 } from "#server/bot/actions/admin/adminEditSession";
 import {CHANEL_LINK} from "#server/bot/bot";
-import {prepareReel} from "#server/global/engine/instagram/prepareReel";
+import {prepareReel} from "#server/global/engine/instagram/reel/prepareReel";
 import {getMediaSaveCount} from "#server/bot/consts/keyboardVersion/getMediaSaveCount";
 import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBot";
 import {NOTIFICATION_MESSAGE} from "#server/global/notifications/sendNotificationMessage";
@@ -54,7 +54,6 @@ export const publishAdminInlineMedia = async (ctx: any) => {
     }
 
     if (!preparedInstagram && session.keyTrailer) {
-        session.mode = 'publish'
         await updateAdminEditSession(ctx.from.id, { mode: 'publish' })
         try {
             const instagramHook = createInstagramHook(session.mediaType, session.contentType)
