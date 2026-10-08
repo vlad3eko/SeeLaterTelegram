@@ -1,52 +1,284 @@
 import {execFile} from 'node:child_process'
 import {promisify} from 'node:util'
 import path from 'node:path'
+import {chmod, readFile, writeFile} from 'node:fs/promises'
 import {existsSync} from 'node:fs'
-import {writeFile} from 'node:fs/promises'
 import {ensureBgutilRunning} from "#server/global/engine/instagram/scripts-yt-bgutil/bgutil"
+
 
 const YOUTUBE_COOKIES_PATH =
     '/tmp/youtube-cookies.txt'
 
+const normalizeAndValidateYoutubeCookies = (
+    value: string
+) => {
 
-const prepareYoutubeCookies =
-    async () => {
+    const cookies =
+        value
+            .replace(
+                /^\uFEFF/,
+                ''
+            )
+            .replace(
+                /\r\n/g,
+                '\n'
+            )
+            .replace(
+                /\r/g,
+                '\n'
+            )
 
-        const encoded =
-            process.env.YOUTUBE_COOKIES_B64?.trim()
+    const lines =
+        cookies.split('\n')
+
+    const firstLine =
+        lines[0]?.trim()
+
+
+    if (
+        firstLine !== '# Netscape HTTP Cookie File' &&
+        firstLine !== '# HTTP Cookie File'
+    ) {
+
+        throw new Error(
+            '[YOUTUBE COOKIES] Invalid Netscape cookie header'
+        )
+    }
+
+
+    let cookieCount =
+        0
+
+
+    for (
+        let i = 0;
+        i < lines.length;
+        i++
+    ) {
+
+        const line =
+            lines[i]
 
 
         if (
-            !encoded
+            !line ||
+            line.trim() === '' ||
+            line.startsWith('#')
         ) {
 
-            return []
+            continue
         }
 
 
+        const fields =
+            line.split('\t')
+
+
         if (
-            !existsSync(
-                YOUTUBE_COOKIES_PATH
+            fields.length !== 7
+        ) {
+
+            throw new Error(
+                `[YOUTUBE COOKIES] Invalid Netscape cookie line ${i + 1}: expected 7 tab-separated fields, got ${fields.length}`
+            )
+        }
+
+
+        cookieCount++
+    }
+
+
+    if (
+        cookieCount === 0
+    ) {
+
+        throw new Error(
+            '[YOUTUBE COOKIES] Cookie file contains no cookies'
+        )
+    }
+
+
+    return cookies.endsWith('\n')
+        ? cookies
+        : `${cookies}\n`
+}
+
+
+const decodeYoutubeCookies =
+    (
+        value: string
+    ) => {
+
+        const trimmed =
+            value.trim()
+
+
+        /*
+         * Позволяем передать обычный
+         * Netscape cookies.txt.
+         *
+         * Это удобно как защита от
+         * неправильного значения env.
+         */
+
+        if (
+            trimmed.startsWith(
+                '# Netscape HTTP Cookie File'
+            ) ||
+            trimmed.startsWith(
+                '# HTTP Cookie File'
             )
         ) {
 
-            const cookies =
+            console.warn(
+                '[YOUTUBE COOKIES] Environment variable contains plain Netscape cookies, not Base64'
+            )
+
+            return normalizeAndValidateYoutubeCookies(
+                trimmed
+            )
+        }
+
+
+        /*
+         * Нормальный production-вариант:
+         * env содержит Base64.
+         */
+
+        let decoded: string
+
+        try {
+
+            decoded =
                 Buffer
                     .from(
-                        encoded,
+                        trimmed,
                         'base64'
                     )
                     .toString(
                         'utf8'
                     )
 
+        } catch (
+            error
+            ) {
 
-            await writeFile(
-                YOUTUBE_COOKIES_PATH,
-                cookies,
-                'utf8'
+            throw new Error(
+                `[YOUTUBE COOKIES] Base64 decode failed: ${error}`
             )
         }
+
+
+        return normalizeAndValidateYoutubeCookies(
+            decoded
+        )
+    }
+
+
+const prepareYoutubeCookies =
+    async () => {
+
+        const value =
+            process.env.YOUTUBE_COOKIES_B64?.trim()
+
+
+        if (
+            !value
+        ) {
+
+            console.log(
+                '[YOUTUBE COOKIES] Not configured'
+            )
+
+            return []
+        }
+
+
+        /*
+         * Если файл уже существует,
+         * пытаемся использовать его.
+         *
+         * Это важно для Vercel warm instance.
+         */
+
+        if (
+            existsSync(
+                YOUTUBE_COOKIES_PATH
+            )
+        ) {
+
+            try {
+
+                const existing =
+                    await readFile(
+                        YOUTUBE_COOKIES_PATH,
+                        'utf8'
+                    )
+
+
+                normalizeAndValidateYoutubeCookies(
+                    existing
+                )
+
+
+                console.log(
+                    '[YOUTUBE COOKIES] Existing file is valid'
+                )
+
+
+                return [
+                    '--cookies',
+                    YOUTUBE_COOKIES_PATH
+                ]
+
+            } catch {
+
+                console.warn(
+                    '[YOUTUBE COOKIES] Existing file is invalid, recreating'
+                )
+            }
+        }
+
+
+        const cookies =
+            decodeYoutubeCookies(
+                value
+            )
+
+
+        await writeFile(
+            YOUTUBE_COOKIES_PATH,
+            cookies,
+            'utf8'
+        )
+
+
+        await chmod(
+            YOUTUBE_COOKIES_PATH,
+            0o600
+        )
+
+
+        const cookieCount =
+            cookies
+                .split('\n')
+                .filter(
+                    line =>
+                        line &&
+                        !line.startsWith('#')
+                )
+                .length
+
+
+        console.log(
+            '[YOUTUBE COOKIES] Prepared:',
+            {
+                path:
+                YOUTUBE_COOKIES_PATH,
+
+                cookieCount
+            }
+        )
 
 
         return [
@@ -54,7 +286,6 @@ const prepareYoutubeCookies =
             YOUTUBE_COOKIES_PATH
         ]
     }
-
 
 const execFileAsync =
     promisify(execFile)

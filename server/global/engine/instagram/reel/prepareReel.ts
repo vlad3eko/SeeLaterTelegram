@@ -1,8 +1,8 @@
-import {trimVideo} from "./reel/utils/trimVideo"
+import {trimVideo} from "./utils/trimVideo"
 import {
     deleteFromCloudflareR2, existsInCloudflareR2, getCloudflareR2Url,
     storageCloudflareR2
-} from "./storageCloudflareR2"
+} from "./utils/storageCloudflareR2"
 import {normalizeTrailer} from "#server/global/engine/instagram/reel/utils/normalizeTrailer"
 import {telegramSendVideo} from "#server/global/engine/instagram/reel/utils/telegramSendVideo"
 import {downloadTrailer} from "#server/global/engine/instagram/reel/utils/downloadTrailer"

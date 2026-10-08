@@ -1,27 +1,9 @@
-import {
-	mkdir,
-	chmod,
-	access,
-	stat,
-	cp
-} from 'node:fs/promises'
-
-import {
-	createWriteStream
-} from 'node:fs'
-
-import {
-	pipeline
-} from 'node:stream/promises'
-
+import {mkdir, chmod, access, stat, cp} from 'node:fs/promises'
+import {createWriteStream} from 'node:fs'
+import {pipeline} from 'node:stream/promises'
 import path from 'node:path'
-
 import https from 'node:https'
-
-import {
-	fileURLToPath
-} from 'node:url'
-
+import {fileURLToPath} from 'node:url'
 
 const __dirname =
 	path.dirname(
