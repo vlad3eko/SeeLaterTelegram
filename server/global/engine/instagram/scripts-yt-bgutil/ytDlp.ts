@@ -403,7 +403,7 @@ export const runYtDlp = async (
         `node:${process.execPath}`,
 
         '--extractor-args',
-        'youtube:player_client=mweb',
+        'youtube:player_client=mweb,tv,web_safari',
 
         '--extractor-args',
         `youtubepot-bgutilhttp:base_url=${bgutilUrl}`,
