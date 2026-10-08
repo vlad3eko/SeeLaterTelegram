@@ -28,7 +28,7 @@ export default defineEventHandler(async (event) => {
 
                 inline_message_id: data.inlineMessageId ?? null,
                 chat_id: data.chatId != null
-                    ? String(data.chatId)
+                    ? data.chatId
                     : null,
                 message_id: data.messageId ?? null,
 

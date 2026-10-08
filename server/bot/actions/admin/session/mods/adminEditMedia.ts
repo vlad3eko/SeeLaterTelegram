@@ -2,8 +2,7 @@
 import {getAdminEditSession, updateAdminEditSession} from "#server/bot/actions/admin/adminEditSession";
 import {NOTIFICATION_MESSAGE} from "#server/global/notifications/sendNotificationMessage";
 
-export const adminEditText = async (ctx: any) => {
-
+export const adminEditMedia = async (ctx:any) => {
     const session =
        await getAdminEditSession(ctx.from.id)
 
@@ -12,8 +11,6 @@ export const adminEditText = async (ctx: any) => {
         return
     }
 
-    await updateAdminEditSession(ctx.from.id, {mode: 'text'})
-    session.mode = 'text'
-
-    await ctx.answerCbQuery(NOTIFICATION_MESSAGE.CbQ.SuccessProcessEditText)
+    await updateAdminEditSession(ctx.from.id, {mode: 'media'})
+    await ctx.answerCbQuery(NOTIFICATION_MESSAGE.CbQ.SuccessProcessEditImage)
 }

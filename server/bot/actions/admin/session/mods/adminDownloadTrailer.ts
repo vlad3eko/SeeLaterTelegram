@@ -11,6 +11,5 @@ export const adminDownloadTrailer = async (ctx: any) => {
     }
 
     await updateAdminEditSession(ctx.from.id, {mode: 'download'})
-    session.mode = 'download'
     await ctx.answerCbQuery(NOTIFICATION_MESSAGE.CbQ.SuccessProcessDownloadTrailer)
 }
