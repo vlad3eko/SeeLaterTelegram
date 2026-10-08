@@ -1,7 +1,6 @@
 import type {ContentType} from "#server/global/engine/search/strategy/enums"
-import {tmdbFetch} from "#server/utils/api/tmdbFetch";
 
-type modeEditSession =
+export type ModeEditSession =
     | 'media'
     | 'text'
     | 'overview'
@@ -13,19 +12,26 @@ export type AdminEditSession = {
     inlineMessageId?: string
     chatId?: number | string
     messageId?: number
+
     mediaId: number
     mediaType: 'movie' | 'tv'
+
     media: any
+
     contentType: ContentType
-    keyTrailer: string | undefined
-    comment?: string | undefined
-    overview?: string | undefined
-    mode?: modeEditSession
+
+    keyTrailer?: string
+    comment?: string
+    overview?: string
+
+    mode?: ModeEditSession
+
     preparedInstagram?: {
         keyTrailer: string
         reelR2: string
         telegramFileId?: string
     }
+
     currentMedia: {
         type: 'photo' | 'video'
         fileId: string
@@ -33,17 +39,37 @@ export type AdminEditSession = {
 }
 
 export type AdminEditSessionUpdate = {
-    mode?: modeEditSession | null
+    inlineMessageId?: string | null
+    chatId?: number | string | null
+    messageId?: number | null
+
+    mediaId?: number
+    mediaType?: 'movie' | 'tv'
+    media?: any
+    contentType?: ContentType
+
     keyTrailer?: string | null
     comment?: string | null
     overview?: string | null
+
+    mode?: ModeEditSession | null
+
+    preparedInstagram?: {
+        keyTrailer: string
+        reelR2: string
+        telegramFileId?: string
+    } | null
+
+    currentMedia?: {
+        type: 'photo' | 'video'
+        fileId: string
+    }
 }
 
-const sessions = new Map<number, AdminEditSession>()
-
-export const setAdminEditSession = async (userId: number, data: AdminEditSession) => {
-    // sessions.set(userId, data)
-
+export const setAdminEditSession = async (
+    userId: number,
+    data: AdminEditSession
+) =>
     await $fetch(
         '/api/bot/session/card/setSessionEditCard',
         {
@@ -54,41 +80,37 @@ export const setAdminEditSession = async (userId: number, data: AdminEditSession
             }
         }
     )
-}
 
-export const getAdminEditSession = async (userId: number):Promise<AdminEditSession | null> => {
-    // return sessions.get(userId)
-
-    return await $fetch<AdminEditSession | null>(
+export const getAdminEditSession = async (
+    userId: number
+): Promise<AdminEditSession | null> =>
+    await $fetch<AdminEditSession | null>(
         '/api/bot/session/card/getSessionEditCard',
         {
             method: 'GET',
             query: {
-                telegram_id: userId,
+                telegram_id: userId
             }
         }
     )
-}
 
-export const clearAdminEditSession = async (userId: number) => {
-    // sessions.delete(userId)
-
+export const clearAdminEditSession = async (
+    userId: number
+) =>
     await $fetch(
         '/api/bot/session/card/clearSessionEditCard',
         {
             method: 'POST',
             body: {
-                telegram_id: userId,
+                telegram_id: userId
             }
         }
     )
-}
 
 export const updateAdminEditSession = async (
     userId: number,
-    data: Partial<AdminEditSessionUpdate>
-) => {
-
+    data: AdminEditSessionUpdate
+) =>
     await $fetch(
         '/api/bot/session/card/updateSessionEditCard',
         {
@@ -99,4 +121,3 @@ export const updateAdminEditSession = async (
             }
         }
     )
-}

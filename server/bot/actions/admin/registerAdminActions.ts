@@ -1,14 +1,14 @@
 
 import {publishAdminInlineMedia} from "#server/bot/actions/admin/publishAdminInlineMedia";
 import {editAdminInlineMedia} from "#server/bot/actions/admin/editAdminInlineMedia";
-import {adminEditMedia} from "#server/bot/actions/admin/adminEditMedia";
-import {adminEditText} from "#server/bot/actions/admin/adminEditText";
+import {adminEditMedia} from "#server/bot/actions/admin/session/mods/adminEditMedia";
+import {adminEditText} from "#server/bot/actions/admin/session/mods/adminEditText";
 import {getAdminEditSession} from "#server/bot/actions/admin/adminEditSession";
 import {adminEditActionInlineMessage} from "#server/bot/actions/admin/adminEditActionInlineMessage";
 import {Telegraf} from "telegraf";
-import {adminEditOverview} from "#server/bot/actions/admin/adminEditOverview";
+import {adminEditOverview} from "#server/bot/actions/admin/session/mods/adminEditOverview";
 import {adminEditTypeCard} from "#server/bot/actions/admin/card/adminEditTypeCard";
-import {adminDownloadTrailer} from "#server/bot/actions/admin/adminDownloadTrailer";
+import {adminDownloadTrailer} from "#server/bot/actions/admin/session/mods/adminDownloadTrailer";
 
 export const registerAdminActions = (bot: Telegraf) => {
     bot.action(/^edit_media_(\d+)_(movie|tv)_([^_]+)(?:_(.+))?$/, editAdminInlineMedia)

@@ -48,6 +48,7 @@ export const NOTIFICATION_MESSAGE = {
         ErrorDoesNotExist: '❌ Нечего удалять',
 
         SuccessPublished: '✅ Публикация',
+        SuccessPublishedDone: '✅ Опубликовано',
         ErrorPublished: '❌ Публикация',
 
         SuccessProcessEditCard: '✅ Редактирование карты',
