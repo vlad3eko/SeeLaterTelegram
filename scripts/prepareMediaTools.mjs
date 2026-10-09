@@ -1,4 +1,13 @@
-import {mkdir, chmod, access, stat, cp} from 'node:fs/promises'
+import {
+	mkdir,
+	chmod,
+	access,
+	stat,
+	cp,
+	unlink
+} from 'node:fs/promises'
+
+import {execFileSync} from 'node:child_process'
 import {createWriteStream} from 'node:fs'
 import {pipeline} from 'node:stream/promises'
 import path from 'node:path'
@@ -466,3 +475,144 @@ console.log(
 	'[STATIC ASSETS] Background ready:',
 	backgroundPath
 )
+/*
+ * =========================================================
+ * 2.1. PREPARE BGUTIL SCRIPT PROVIDER FOR VERCEL
+ * =========================================================
+ *
+ * HTTP provider не нужен в Production.
+ * Генерация PO Token будет выполняться локальным Node.js
+ * через server/build/generate_once.js.
+ */
+
+const bgutilServerSource =
+	path.join(
+		rootDir,
+		'bgutil-ytdlp-pot-provider',
+		'server'
+	)
+
+const bgutilServerTarget =
+	path.join(
+		vercelFunctionDir,
+		'media-tools',
+		'bgutil-ytdlp-pot-provider',
+		'server'
+	)
+
+try {
+	await access(bgutilServerSource)
+} catch {
+	throw new Error(
+		`[BGUTIL] Server source not found: ${bgutilServerSource}`
+	)
+}
+
+await mkdir(
+	path.dirname(bgutilServerTarget),
+	{
+		recursive: true
+	}
+)
+
+/*
+ * Не переносим node_modules с исходной машины.
+ * Они будут установлены заново на Linux-сборке Vercel.
+ */
+
+await cp(
+	bgutilServerSource,
+	bgutilServerTarget,
+	{
+		recursive: true,
+		force: true,
+		filter: source =>
+			!source.split(path.sep).includes('node_modules')
+	}
+)
+
+/*
+ * Устанавливаем зависимости именно в целевой папке
+ * Vercel Function и компилируем скрипты.
+ */
+
+execFileSync(
+	'npm',
+	['ci'],
+	{
+		cwd: bgutilServerTarget,
+		stdio: 'inherit'
+	}
+)
+
+execFileSync(
+	'npx',
+	['tsc'],
+	{
+		cwd: bgutilServerTarget,
+		stdio: 'inherit'
+	}
+)
+
+/*
+ * Удаляем devDependencies после компиляции.
+ */
+
+execFileSync(
+	'npm',
+	['prune', '--omit=dev'],
+	{
+		cwd: bgutilServerTarget,
+		stdio: 'inherit'
+	}
+)
+
+const bgutilGenerateOnce =
+	path.join(
+		bgutilServerTarget,
+		'build',
+		'generate_once.js'
+	)
+
+try {
+	await access(bgutilGenerateOnce)
+} catch {
+	throw new Error(
+		`[BGUTIL] generate_once.js was not built: ${bgutilGenerateOnce}`
+	)
+}
+
+console.log(
+	'[BGUTIL] Script provider ready:',
+	bgutilGenerateOnce
+)
+
+/*
+ * Отключаем HTTP provider только внутри Production Function.
+ * Иначе официальный плагин предпочитает HTTP provider,
+ * когда доступны оба варианта.
+ */
+
+const bgutilHttpPlugin =
+	path.join(
+		bgutilPluginTarget,
+		'yt_dlp_plugins',
+		'extractor',
+		'getpot_bgutil_http.py'
+	)
+
+try {
+	await unlink(bgutilHttpPlugin)
+
+	console.log(
+		'[BGUTIL] HTTP provider removed from Production bundle'
+	)
+} catch (error) {
+	if (error?.code !== 'ENOENT') {
+		throw error
+	}
+
+	throw new Error(
+		`[BGUTIL] Expected HTTP plugin file not found: ${bgutilHttpPlugin}`
+	)
+}
