@@ -383,17 +383,33 @@ export const runYtDlp = async (
      * отдельный Vercel Service.
      */
 
-    await ensureBgutilRunning()
+    const isProduction =
+        process.env.VERCEL === '1'
+
+    if (!isProduction) {
+        await ensureBgutilRunning()
+    }
 
 
     const ytDlpPath =
         getYtDlpPath()
 
-    const bgutilUrl =
-        getBgutilUrl()
-
     const youtubeCookiesArgs =
         await prepareYoutubeCookies()
+
+    const bgutilArgs = isProduction
+        ? [
+            '--extractor-args',
+            `youtubepot-bgutilscript:server_home=${path.join(
+                path.dirname(ytDlpPath),
+                'bgutil-ytdlp-pot-provider',
+                'server'
+            )}`
+        ]
+        : [
+            '--extractor-args',
+            `youtubepot-bgutilhttp:base_url=${getBgutilUrl()}`
+        ]
 
     const finalArgs = [
 
@@ -405,8 +421,7 @@ export const runYtDlp = async (
         '--extractor-args',
         'youtube:player_client=mweb,tv,web_safari',
 
-        '--extractor-args',
-        `youtubepot-bgutilhttp:base_url=${bgutilUrl}`,
+        ...bgutilArgs,
 
         ...youtubeCookiesArgs,
         ...args
@@ -423,8 +438,8 @@ export const runYtDlp = async (
     )
 
     console.log(
-        '[YTDLP] BGUTIL:',
-        bgutilUrl
+        '[BGUTIL] Provider mode:',
+        isProduction ? 'script-node' : 'http'
     )
 
 
