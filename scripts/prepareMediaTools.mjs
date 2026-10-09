@@ -367,3 +367,102 @@ console.log(
 	'[BGUTIL] Plugin ready:',
 	bgutilPluginTarget
 )
+
+/*
+ * =========================================================
+ * 3. COPY RUNTIME PUBLIC ASSETS
+ * =========================================================
+ *
+ * FFmpeg читает эти файлы через fs из /var/task/public.
+ * Поэтому они должны физически находиться внутри Vercel
+ * Function, а не только в статическом public output.
+ */
+
+const publicSourceDir =
+	path.join(
+		rootDir,
+		'public'
+	)
+
+const publicTargetDir =
+	path.join(
+		vercelFunctionDir,
+		'public'
+	)
+
+for (const folder of ['instagram', 'assets']) {
+
+	const source =
+		path.join(
+			publicSourceDir,
+			folder
+		)
+
+	const target =
+		path.join(
+			publicTargetDir,
+			folder
+		)
+
+	try {
+
+		await access(source)
+
+	} catch {
+
+		throw new Error(
+			`[STATIC ASSETS] Source directory not found: ${source}`
+		)
+	}
+
+	await mkdir(
+		path.dirname(target),
+		{
+			recursive: true
+		}
+	)
+
+	await cp(
+		source,
+		target,
+		{
+			recursive: true,
+			force: true
+		}
+	)
+
+	console.log(
+		'[STATIC ASSETS] Copied:',
+		source,
+		'->',
+		target
+	)
+}
+
+
+/*
+ * Проверяем конкретно тот файл, на котором сейчас падает FFmpeg.
+ */
+
+const backgroundPath =
+	path.join(
+		publicTargetDir,
+		'instagram',
+		'bg.jpg'
+	)
+
+try {
+
+	await access(backgroundPath)
+
+} catch {
+
+	throw new Error(
+		`[STATIC ASSETS] Required background file not found after copy: ${backgroundPath}. Check the filename in the project's public/instagram directory.`
+	)
+}
+
+console.log(
+	'[STATIC ASSETS] Background ready:',
+	backgroundPath
+)
