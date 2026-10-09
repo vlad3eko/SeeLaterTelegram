@@ -369,27 +369,33 @@ export const getYtDlpPath = () => {
     )
 }
 
+
 export const runYtDlp = async (
     args: string[]
 ) => {
 
-    /*
-     * DEV:
-     * запускает локальный bgutil,
-     * если его ещё нет.
-     *
-     * PROD:
-     * прогревает / проверяет
-     * отдельный Vercel Service.
-     */
+    const providerMode =
+        process.env.YTDLP_BGUTIL_MODE?.trim()
 
-    const isProduction =
-        process.env.VERCEL === '1'
-
-    if (!isProduction) {
-        await ensureBgutilRunning()
+    if (
+        providerMode !== 'script' &&
+        providerMode !== 'http'
+    ) {
+        throw new Error(
+            '[BGUTIL] Invalid YTDLP_BGUTIL_MODE. Set it to "script" in Vercel or "http" locally.'
+        )
     }
 
+    const useScriptProvider =
+        providerMode === 'script'
+
+    /*
+     * Локальный HTTP-сервер запускаем
+     * только в режиме http.
+     */
+    if (!useScriptProvider) {
+        await ensureBgutilRunning()
+    }
 
     const ytDlpPath =
         getYtDlpPath()
@@ -397,19 +403,42 @@ export const runYtDlp = async (
     const youtubeCookiesArgs =
         await prepareYoutubeCookies()
 
-    const bgutilArgs = isProduction
-        ? [
-            '--extractor-args',
-            `youtubepot-bgutilscript:server_home=${path.join(
+    let bgutilArgs: string[]
+
+    if (useScriptProvider) {
+
+        const serverHome =
+            path.join(
                 path.dirname(ytDlpPath),
                 'bgutil-ytdlp-pot-provider',
                 'server'
-            )}`
+            )
+
+        const generateOncePath =
+            path.join(
+                serverHome,
+                'build',
+                'generate_once.js'
+            )
+
+        if (!existsSync(generateOncePath)) {
+            throw new Error(
+                `[BGUTIL] Script not found: ${generateOncePath}`
+            )
+        }
+
+        bgutilArgs = [
+            '--extractor-args',
+            `youtubepot-bgutilscript:server_home=${serverHome}`
         ]
-        : [
+
+    } else {
+
+        bgutilArgs = [
             '--extractor-args',
             `youtubepot-bgutilhttp:base_url=${getBgutilUrl()}`
         ]
+    }
 
     const finalArgs = [
 
@@ -439,9 +468,8 @@ export const runYtDlp = async (
 
     console.log(
         '[BGUTIL] Provider mode:',
-        isProduction ? 'script-node' : 'http'
+        providerMode
     )
-
 
     try {
 
@@ -454,9 +482,7 @@ export const runYtDlp = async (
             }
         )
 
-    } catch (
-        error: any
-        ) {
+    } catch (error: any) {
 
         console.error(
             '[YTDLP ERROR]',
@@ -464,7 +490,6 @@ export const runYtDlp = async (
             error?.message ||
             error
         )
-
 
         throw error
     }
