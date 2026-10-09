@@ -17,3 +17,4 @@ jobs:
         run: |
           vercel link --yes --token ${{ secrets.VERCEL_TOKEN }}
           vercel vcr rm vlad3ekos-projects/see-later-telegram/bgutil --yes --token ${{ secrets.VERCEL_TOKEN }}
+          
