@@ -7,9 +7,13 @@ jobs:
   clear-registry:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Install Vercel CLI
         run: npm install -g vercel
 
-      - name: Force Delete Vercel Container Registry
-        run: vercel vcr rm vlad3ekos-projects/see-later-telegram/bgutil -t ${{ secrets.VERCEL_TOKEN }} --scope vlad3ekos-projects --project see-later-telegram --yes
-
+      - name: Force Link and Delete Registry
+        run: |
+          vercel link --yes --token ${{ secrets.VERCEL_TOKEN }}
+          vercel vcr rm vlad3ekos-projects/see-later-telegram/bgutil --yes --token ${{ secrets.VERCEL_TOKEN }}
