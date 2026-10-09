@@ -400,7 +400,6 @@ export const runYtDlp = async (
         '--verbose',
 
         '--compat-options',
-        'no-certifi',
 
         '--js-runtimes',
         `node:${process.execPath}`,
