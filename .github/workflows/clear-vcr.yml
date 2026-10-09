@@ -1,0 +1,14 @@
+name: Emergency Clear Vercel Container Registry
+
+on:
+  workflow_dispatch: # Позволяет запустить очистку вручную одной кнопкой
+
+jobs:
+  clear-registry:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Vercel CLI
+        run: npm install -g vercel
+
+      - name: Force Delete Vercel Container Registry
+        run: vercel vcr rm vlad3ekos-projects/see-later-telegram/bgutil -t ${{ secrets.VERCEL_TOKEN }} --yes
