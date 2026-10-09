@@ -83,9 +83,34 @@ const normalizeAndValidateYoutubeCookies = (
             )
         }
 
+        const invalidChar =
+            [...line].find(char => {
+                const code =
+                    char.codePointAt(0)!
+
+                return (
+                    code === 0xfffd ||
+                    code > 0x7e ||
+                    (code < 0x20 && char !== '\t')
+                )
+            })
+
+        if (invalidChar) {
+            const code =
+                invalidChar
+                    .codePointAt(0)!
+                    .toString(16)
+                    .toUpperCase()
+                    .padStart(4, '0')
+
+            throw new Error(
+                `[YOUTUBE COOKIES] Invalid character U+${code} in cookie line ${i + 1}. Re-export cookies.txt. Cookie values are not logged.`
+            )
+        }
 
         cookieCount++
     }
+
 
 
     if (
