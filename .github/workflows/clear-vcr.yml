@@ -11,4 +11,4 @@ jobs:
         run: npm install -g vercel
 
       - name: Force Delete Vercel Container Registry
-        run: vercel vcr rm vlad3ekos-projects/see-later-telegram/bgutil -t ${{ secrets.VERCEL_TOKEN }} --yes
+        run: vercel vcr rm vlad3ekos-projects/see-later-telegram/bgutil -t ${{ secrets.VERCEL_TOKEN }} --scope vlad3ekos-projects --project see-later-telegram --yes
