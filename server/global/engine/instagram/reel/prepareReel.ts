@@ -33,22 +33,30 @@ export const prepareReel = async (
     let preparedInstagramPath: string | undefined
 
     let telegramFileId: string | undefined
+    let sourceUploadedToR2 = false
+    let reelPath: string | undefined
 
     try {
 
-        const cacheExist =
-           await existsInCloudflareR2(reelR2Path)
+        if (mode === 'download') {
 
-        if (cacheExist) {
-            sourcePath =
-                await downloadTrailer(keyTrailer)
-                await storageCloudflareR2(sourcePath, sourceR2Path)
+            sourcePath = await downloadTrailer(keyTrailer)
+            normalizePath = await normalizeTrailer(sourcePath, keyTrailer)
+            telegramFileId = await telegramSendVideo(ctx, normalizePath)
 
-            if (mode === 'download')
-                telegramFileId = await telegramSendVideo(ctx, sourcePath)
+            await ctx.reply('скачан, нормализован, отправлен')
 
             return {
-                telegramFileId,
+                telegramFileId
+            }
+        }
+
+        const cacheExist =
+            await existsInCloudflareR2(reelR2Path)
+
+        if (cacheExist) {
+
+            return {
                 reelR2: getCloudflareR2Url(reelR2Path)
             }
         }
@@ -56,12 +64,10 @@ export const prepareReel = async (
         sourcePath =
             await downloadTrailer(keyTrailer)
             await storageCloudflareR2(sourcePath, sourceR2Path)
+            sourceUploadedToR2 = true
 
         normalizePath =
             await normalizeTrailer(sourcePath, keyTrailer)
-
-        if (mode === 'download')
-            telegramFileId = await telegramSendVideo(ctx, normalizePath)
 
         trimmedPath =
             await trimVideo(normalizePath, keyTrailer)
@@ -70,7 +76,7 @@ export const prepareReel = async (
             await prepareInstagramVideo(trimmedPath, keyTrailer)
             await storageCloudflareR2(preparedInstagramPath, cleanR2Path)
 
-        const reelPath =
+        reelPath =
             await decorateInstagramVideo(preparedInstagramPath, keyTrailer, hook)
 
         const reelR2 =
@@ -82,11 +88,21 @@ export const prepareReel = async (
         }
 
     } finally {
-        try {
-            await deleteFromCloudflareR2(sourceR2Path)
 
-        } catch (error) {
-            console.error('[R2 SOURCE DELETE ERROR]', error)
+        if (sourceUploadedToR2) {
+            try {
+
+                await deleteFromCloudflareR2(
+                    sourceR2Path
+                )
+
+            } catch (error) {
+
+                console.error(
+                    '[R2 SOURCE DELETE ERROR]',
+                    error
+                )
+            }
         }
 
         const temporaryFiles = [
@@ -94,6 +110,7 @@ export const prepareReel = async (
             normalizePath,
             trimmedPath,
             preparedInstagramPath,
+            reelPath
         ]
 
         for (const filePath of temporaryFiles) {
@@ -106,16 +123,21 @@ export const prepareReel = async (
 
                 await unlink(filePath)
 
-                console.log('[LOCAL TEMP DELETE]', filePath)
+                console.log(
+                    '[LOCAL TEMP DELETE]',
+                    filePath
+                )
 
             } catch (error: any) {
 
-                if (error?.code !== 'ENOENT')
-                    console.error('[LOCAL TEMP DELETE ERROR]', filePath, error)
+                if (error?.code !== 'ENOENT') {
+                    console.error(
+                        '[LOCAL TEMP DELETE ERROR]',
+                        filePath,
+                        error
+                    )
+                }
             }
         }
-
-        if (mode === 'download')
-            await ctx.reply('процесс окончен')
     }
 }
