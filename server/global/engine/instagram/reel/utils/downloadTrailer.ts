@@ -1,7 +1,8 @@
 import {mkdir} from 'node:fs/promises'
 import path from 'node:path'
 import os from 'node:os'
-import {getYtDlpPath, runYtDlp} from "#server/global/engine/instagram/scripts-yt-bgutil/ytDlp";
+import {runYtDlp} from "#server/global/engine/instagram/scripts-yt-bgutil/ytDlp";
+import ffmpegPath from "ffmpeg-static";
 
 export const downloadTrailer = async (
     keyTrailer: string
@@ -35,6 +36,9 @@ export const downloadTrailer = async (
     try {
         const {stdout, stderr} =
             await runYtDlp([
+                '--ffmpeg-location',
+                ffmpegPath!,
+
                 '--no-playlist',
 
                 '-f',
