@@ -5,7 +5,6 @@ import {chmod, readFile, writeFile} from 'node:fs/promises'
 import {existsSync} from 'node:fs'
 import {ensureBgutilRunning} from "#server/global/engine/instagram/scripts-yt-bgutil/bgutil"
 
-
 const YOUTUBE_COOKIES_PATH =
     '/tmp/youtube-cookies.txt'
 
@@ -60,12 +59,7 @@ const normalizeAndValidateYoutubeCookies = (
             lines[i]
 
 
-        if (
-            !line ||
-            line.trim() === '' ||
-            line.startsWith('#')
-        ) {
-
+        if (!line || line.trim() === '' || line.startsWith('#')) {
             continue
         }
 
@@ -74,13 +68,8 @@ const normalizeAndValidateYoutubeCookies = (
             line.split('\t')
 
 
-        if (
-            fields.length !== 7
-        ) {
-
-            throw new Error(
-                `[YOUTUBE COOKIES] Invalid Netscape cookie line ${i + 1}: expected 7 tab-separated fields, got ${fields.length}`
-            )
+        if (fields.length !== 7) {
+            throw new Error(`[YOUTUBE COOKIES] Invalid Netscape cookie line ${i + 1}: expected 7 tab-separated fields, got ${fields.length}`)
         }
 
         const invalidChar =
@@ -468,7 +457,6 @@ export const runYtDlp = async (
     const finalArgs = [
 
         '--verbose',
-
         '--js-runtimes',
         `node:${process.execPath}`,
 

@@ -83,7 +83,6 @@ export const prepareReel = async (
             await storageCloudflareR2(reelPath, reelR2Path)
 
         return {
-            telegramFileId,
             reelR2
         }
 

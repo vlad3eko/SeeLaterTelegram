@@ -168,8 +168,7 @@ export const adminEditActionInlineMessage = async (
             const preparedInstagram = {
                 keyTrailer,
                 reelR2: prepared.reelR2,
-                telegramFileId:
-                prepared.telegramFileId
+                telegramFileId: prepared.telegramFileId
             }
 
             await updateAdminEditSession(ctx.from.id, {
