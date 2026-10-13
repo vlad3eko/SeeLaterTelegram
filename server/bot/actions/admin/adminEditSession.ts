@@ -56,7 +56,7 @@ export type AdminEditSessionUpdate = {
 
     preparedInstagram?: {
         keyTrailer: string
-        reelR2: string
+        reelR2?: string
         telegramFileId?: string
     } | null
 
