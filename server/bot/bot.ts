@@ -1,4 +1,3 @@
-
 import {Telegraf} from "telegraf";
 import {registerCommands} from "#server/bot/services/registerFunctions/registerCommands";
 import {registerActions} from "#server/bot/services/registerFunctions/registerActions";
@@ -19,6 +18,11 @@ export const CHANEL_LINK =
     isDevelopment
         ? TELEGRAM_DEV_CHANEL_LINK
         : TELEGRAM_CHANEL_LINK
+
+export const URL_ACTIVE =
+    isDevelopment
+        ? 'http://127.0.0.1:3000'
+        : 'https://kinomanov.net'
 
 export const bot = new Telegraf(BOT_LINK!, {
     handlerTimeout: 5 * 60 * 1000
