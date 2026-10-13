@@ -836,7 +836,7 @@ export const decorateInstagramVideo = async (
                 'yuv420p',
 
                 '-preset',
-                'fast',
+                'ultrafast',
 
                 '-crf',
                 '23',

@@ -89,7 +89,7 @@ export const prepareInstagramVideo = async (
                 'yuv420p',
 
                 '-preset',
-                'fast',
+                'ultrafast',
 
                 '-crf',
                 '23',

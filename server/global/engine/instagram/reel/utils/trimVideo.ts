@@ -32,7 +32,7 @@ export const trimVideo = async (inputPath: string, keyTrailer: string) => {
             'libx264',
 
             '-preset',
-            'medium',
+            'ultrafast',
 
             '-crf',
             '23',

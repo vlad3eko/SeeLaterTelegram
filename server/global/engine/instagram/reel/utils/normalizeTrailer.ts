@@ -36,7 +36,7 @@ export const normalizeTrailer = async (
                 'libx264',
 
                 '-preset',
-                'medium',
+                'ultrafast', // Вместо 'medium'
 
                 '-crf',
                 '23',
