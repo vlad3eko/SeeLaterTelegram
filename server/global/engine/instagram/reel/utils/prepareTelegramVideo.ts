@@ -42,7 +42,7 @@ export const prepareTelegramVideo = async (inputPath: string) => {
                     '-map', '0:a:0?',
                     '-vf', `scale=${profile.width}:${profile.height}:force_original_aspect_ratio=decrease`,
                     '-c:v', 'libx264',
-                    '-preset', 'fast',
+                    '-preset', 'ultrafast',
                     '-crf', String(profile.crf),
                     '-pix_fmt', 'yuv420p',
                     '-c:a', 'aac',
