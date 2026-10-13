@@ -1,4 +1,5 @@
 import type {ContentType} from "#server/global/engine/search/strategy/enums"
+import {URL_ACTIVE} from "#server/bot/bot";
 
 export type ModeEditSession =
     | 'media'
@@ -114,6 +115,7 @@ export const updateAdminEditSession = async (
     await $fetch(
         '/api/bot/session/card/updateSessionEditCard',
         {
+            baseURL: URL_ACTIVE,
             method: 'PATCH',
             body: {
                 telegram_id: userId,
