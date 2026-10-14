@@ -19,7 +19,12 @@ export const publishAdminInlineMedia = async (ctx: any) => {
     const parsedMediaId = Number(mediaId)
     const existingSession = await getAdminEditSession(ctx.from.id)
     let session = existingSession && isAdminEditSessionForContext(ctx, existingSession, parsedMediaId, mediaType, contentType) ? existingSession : null
-    const media = session?.media ?? await tmdbFetch('/api/bot/getMediaBot', { query: { id: parsedMediaId, media: mediaType } })
+    const media = session?.media ?? await tmdbFetch('/api/bot/getMediaBot', {
+        query: {
+            id: parsedMediaId,
+            media: mediaType
+        }
+    })
 
     if (!session) {
         session = {
@@ -43,51 +48,132 @@ export const publishAdminInlineMedia = async (ctx: any) => {
     if (keyTrailer !== undefined && session.keyTrailer !== keyTrailer) {
         session.keyTrailer = keyTrailer || undefined
         session.preparedInstagram = undefined
-        await updateAdminEditSession(ctx.from.id, { keyTrailer: keyTrailer || null, preparedInstagram: null })
+        await updateAdminEditSession(ctx.from.id, {keyTrailer: keyTrailer || null, preparedInstagram: null})
     }
 
     let preparedInstagram = session.preparedInstagram
-    if (preparedInstagram && preparedInstagram.keyTrailer !== session.keyTrailer) {
+
+// Проверяем, соответствует ли сохранённый результат
+// текущему трейлеру и содержит ли готовый Reel в R2.
+    if (preparedInstagram
+        && (preparedInstagram.keyTrailer !== session.keyTrailer
+            || typeof preparedInstagram.reelR2 !== 'string'
+            || !preparedInstagram.reelR2.trim())) {
+
         preparedInstagram = undefined
         session.preparedInstagram = undefined
-        await updateAdminEditSession(ctx.from.id, { preparedInstagram: null })
+
+        await updateAdminEditSession(ctx.from.id, {preparedInstagram: null})
     }
 
+// Если готового Reel нет, создаём его.
+// Одного telegramFileId недостаточно для Instagram.
     if (!preparedInstagram && session.keyTrailer) {
-        await updateAdminEditSession(ctx.from.id, { mode: 'publish' })
+        const trailerKey = session.keyTrailer
+
+        await updateAdminEditSession(ctx.from.id, {mode: 'publish'})
+
         try {
             const instagramHook = createInstagramHook(session.mediaType, session.contentType)
-            const prepared = await prepareReel(session.keyTrailer, instagramHook, ctx, { id: session.mediaId, type: session.mediaType }, 'publish')
-            preparedInstagram = { keyTrailer: session.keyTrailer, reelR2: prepared.reelR2, telegramFileId: prepared.telegramFileId }
+
+            const prepared = await prepareReel(trailerKey, instagramHook, ctx, {
+                    id: session.mediaId,
+                    type: session.mediaType
+                },
+                'publish'
+            )
+
+            // Защита от ситуации, когда prepareReel
+            // не вернул URL готового Reel.
+            if (typeof prepared.reelR2 !== 'string' || !prepared.reelR2.trim()) {
+                throw createError({
+                    statusCode: 400,
+                    message: '[PUBLICATION MEDIA PREPARE ERROR] prepareReel did not return reelR2'
+                    }
+                )
+            }
+
+            preparedInstagram = {
+                keyTrailer: trailerKey,
+                reelR2: prepared.reelR2,
+                telegramFileId: prepared.telegramFileId
+            }
+
             session.preparedInstagram = preparedInstagram
-            await updateAdminEditSession(ctx.from.id, { preparedInstagram })
+
+            await updateAdminEditSession(ctx.from.id, {
+                preparedInstagram
+            })
+
         } catch (error) {
-            console.error('[PUBLICATION MEDIA PREPARE ERROR]', error)
-            await updateAdminEditSession(ctx.from.id, { mode: null })
+            console.error(
+                '[PUBLICATION MEDIA PREPARE ERROR]',
+                error
+            )
+
+            await updateAdminEditSession(ctx.from.id, {
+                mode: null
+            })
+
             session.mode = undefined
-            await ctx.answerCbQuery('Не удалось подготовить трейлер')
+
+            await ctx.answerCbQuery(
+                'Не удалось подготовить трейлер'
+            )
+
             return
         }
     }
 
-    const currentMedia = session.currentMedia ?? { type: 'photo' as const, fileId: `https://image.tmdb.org/t/p/original${media.poster_path || media.backdrop_path}` }
+    const currentMedia = session.currentMedia ?? {
+        type: 'photo' as const,
+        fileId: `https://image.tmdb.org/t/p/original${media.poster_path || media.backdrop_path}`
+    }
     const saveCount = await getMediaSaveCount(session.mediaId)
-    const {caption} = await constructRichCard({ ctx, inlineMessageId: session.inlineMessageId, isAdmin: false }, { id: session.mediaId, type: session.mediaType, status: 'ready', contentType: session.contentType, addComment: session.comment, addOverview: session.overview, keyTrailer: session.keyTrailer, mediaOverride: currentMedia })
+    const {caption} = await constructRichCard({
+        ctx,
+        inlineMessageId: session.inlineMessageId,
+        isAdmin: false
+    }, {
+        id: session.mediaId,
+        type: session.mediaType,
+        status: 'ready',
+        contentType: session.contentType,
+        addComment: session.comment,
+        addOverview: session.overview,
+        keyTrailer: session.keyTrailer,
+        mediaOverride: currentMedia
+    })
     const channelReplyMarkup = keyboardSendMediaCardInline(session.mediaId, session.mediaType, session.contentType, session.media.genres, false, 'channel', saveCount, session.keyTrailer)
     let publishedMessage
 
     try {
-        publishedMessage = await ctx.telegram.callApi('sendRichMessage', { chat_id: channelId, rich_message: caption, reply_markup: channelReplyMarkup })
+        publishedMessage = await ctx.telegram.callApi('sendRichMessage', {
+            chat_id: channelId,
+            rich_message: caption,
+            reply_markup: channelReplyMarkup
+        })
     } catch (error) {
         console.error('[RICH MESSAGE PUBLISH ERROR]', error)
-        await updateAdminEditSession(ctx.from.id, { mode: null })
+        await updateAdminEditSession(ctx.from.id, {mode: null})
         session.mode = undefined
         await ctx.answerCbQuery(NOTIFICATION_MESSAGE.CbQ.ErrorPublished)
         return
     }
 
     try {
-        await $fetch('/api/bot/publishedMedia/create', { method: 'POST', body: { telegramChatId: channelId, telegramMessageId: publishedMessage.message_id, mediaId: session.mediaId, mediaType: session.mediaType, contentType: session.contentType, keyboardVersion: CURRENT_KEYBOARD_VERSION, keyTrailer: session.keyTrailer } })
+        await $fetch('/api/bot/publishedMedia/create', {
+            method: 'POST',
+            body: {
+                telegramChatId: channelId,
+                telegramMessageId: publishedMessage.message_id,
+                mediaId: session.mediaId,
+                mediaType: session.mediaType,
+                contentType: session.contentType,
+                keyboardVersion: CURRENT_KEYBOARD_VERSION,
+                keyTrailer: session.keyTrailer
+            }
+        })
     } catch (error) {
         console.error('[PUBLISHED MEDIA SAVE ERROR]', error)
         await ctx.answerCbQuery('Карточка опубликована, но не сохранена в истории')
@@ -97,8 +183,16 @@ export const publishAdminInlineMedia = async (ctx: any) => {
 
     if (preparedInstagram?.reelR2) {
         try {
-            const instagramCaption = createInstagramCaption({ media, comment: session.comment, overview: session.overview, contentType: session.contentType })
-            const instagram = await publishInstagramReel({ videoUrl: preparedInstagram.reelR2, caption: instagramCaption })
+            const instagramCaption = createInstagramCaption({
+                media,
+                comment: session.comment,
+                overview: session.overview,
+                contentType: session.contentType
+            })
+            const instagram = await publishInstagramReel({
+                videoUrl: preparedInstagram.reelR2,
+                caption: instagramCaption
+            })
             console.log('[INSTAGRAM PUBLISHED]', JSON.stringify(instagram, null, 2))
             await ctx.reply('[INSTAGRAM PUBLISHED]')
         } catch (error) {
@@ -110,14 +204,23 @@ export const publishAdminInlineMedia = async (ctx: any) => {
     }
 
     try {
-        await $fetch('/api/bot/publishedMedia/syncKeyboards', { method: 'POST' })
+        await $fetch('/api/bot/publishedMedia/syncKeyboards', {method: 'POST'})
     } catch (error) {
         console.log('[KEYBOARD SYNC ERROR]', error)
     }
 
     try {
         if (session.inlineMessageId) {
-            await ctx.telegram.editMessageReplyMarkup(undefined, undefined, session.inlineMessageId, { reply_markup: keyboardSendMediaCardInline(session.mediaId, session.mediaType, session.contentType, session.media.genres, false, 'inline', saveCount, session.keyTrailer) })
+            await ctx.telegram.editMessageReplyMarkup(undefined, undefined, session.inlineMessageId, {
+                reply_markup: keyboardSendMediaCardInline(
+                    session.mediaId,
+                    session.mediaType,
+                    session.contentType,
+                    session.media.genres,
+                    false,
+                    'inline',
+                    saveCount,
+                    session.keyTrailer)})
         }
     } catch (error: any) {
         if (error?.response?.description !== 'Bad Request: message is not modified') {
