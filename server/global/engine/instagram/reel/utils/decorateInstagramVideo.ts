@@ -672,29 +672,15 @@ export const decorateInstagramVideo = async (inputPath: string, keyTrailer: stri
     )
 
 
-    const finalBeforeBottom =
+    const finalLabel =
         fireFilters.finalLabel
 
     /**
-     * Нижний текст.
-     *
-     * Оставляем полностью как у тебя.
+     * Нижний текст уже добавлен в ASS-файл
+     * и накладывается фильтром subtitles.
      */
     filterComplexParts.push(
-        `fontcolor=white:` +
-        `fontsize=42:` +
-        `box=1:` +
-        `boxcolor=black@0:` +
-        `boxw=1080:` +
-        `text_align=center:` +
-        `x=0:` +
-        `y=1535` +
-        `[withBottomText]`
-    )
-
-
-    filterComplexParts.push(
-        `[${finalBeforeBottom}]setsar=1[vout]`
+        `[${finalLabel}]setsar=1[vout]`
     )
 
 
@@ -817,3 +803,4 @@ export const decorateInstagramVideo = async (inputPath: string, keyTrailer: stri
 
     return outputPath
 }
+
