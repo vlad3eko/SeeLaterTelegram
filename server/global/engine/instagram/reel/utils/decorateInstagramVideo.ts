@@ -5,42 +5,21 @@ import path from "node:path";
 import {existsSync} from "node:fs";
 import ffmpegPath from "ffmpeg-static";
 
-const execFileAsync =
-    promisify(execFile)
+const execFileAsync = promisify(execFile)
 
-
-const escapeDrawtext = (
-    text: string
-) =>
-    text
-        .replace(/\\/g, '\\\\')
-        .replace(/:/g, '\\:')
-        .replace(/'/g, "\\'")
-        .replace(/%/g, '\\%')
-
-
-const escapeFilterPath = (
-    value: string
-) =>
+const escapeFilterPath = (value: string) =>
     value
         .replace(/\\/g, '/')
         .replace(/:/g, '\\:')
         .replace(/'/g, "\\'")
 
-
-const escapeAssText = (
-    text: string
-) =>
+const escapeAssText = (text: string) =>
     text
         .replace(/\\/g, '')
         .replace(/[{}]/g, '')
         .replace(/\r/g, '')
 
-
-const wrapText = (
-    text: string,
-    maxChars = 28
-) => {
+const wrapText = (text: string, maxChars = 28) => {
 
     const words =
         text
@@ -82,9 +61,7 @@ const wrapText = (
  * Убираем emoji из hook.
  * Они будут добавлены как PNG.
  */
-const removeStickerEmoji = (
-    text: string
-) =>
+const removeStickerEmoji = (text: string) =>
     text
         .replace(/🔥/gu, '')
         .replace(/\s{2,}/g, ' ')
@@ -96,9 +73,7 @@ const removeStickerEmoji = (
  *
  * 200 centiseconds = 2 секунды.
  */
-const createCharacterDurations = (
-    count: number
-) => {
+const createCharacterDurations = (count: number) => {
 
     if (count <= 0) {
         return []
@@ -133,9 +108,7 @@ const createCharacterDurations = (
  *
  * Блок начинается на y=350 — как в старой версии.
  */
-const createAnimatedAssText = (
-    hook: string
-) => {
+const createAnimatedAssText = (hook: string) => {
 
     const cleanHook =
         removeStickerEmoji(
@@ -354,10 +327,12 @@ YCbCr Matrix: None
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Hook,Roboto Condensed,58,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,0,0,8,40,40,0,1
+Style: BottomText,Natural Mono,42,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,8,0,0,0,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 Dialogue: 0,0:00:00.00,0:59:59.00,Hook,,0,0,0,,{\\an8\\pos(540,350)}${renderedLines}
+Dialogue: 1,0:00:00.00,0:59:59.00,BottomText,,0,0,0,,{\\an8\\pos(540,1535)}НАЗВАНИЕ В ОПИСАНИИ
 `
 }
 
@@ -368,10 +343,7 @@ Dialogue: 0,0:00:00.00,0:59:59.00,Hook,,0,0,0,,{\\an8\\pos(540,350)}${renderedLi
  * Нужна только для того, чтобы поставить
  * 3 fire.png сразу после последнего слова.
  */
-const estimateTextWidth = (
-    text: string,
-    fontSize = 58
-) => {
+const estimateTextWidth = (text: string, fontSize = 58) => {
 
     let width = 0
 
@@ -410,10 +382,7 @@ const estimateTextWidth = (
  * Они располагаются сразу после последнего
  * слова последней строки.
  */
-const createFireFilters = (
-    hook: string,
-    inputStartIndex = 2
-) => {
+const createFireFilters = (hook: string, inputStartIndex = 2) => {
 
     const cleanHook =
         removeStickerEmoji(
@@ -579,11 +548,7 @@ const createFireFilters = (
 }
 
 
-export const decorateInstagramVideo = async (
-    inputPath: string,
-    keyTrailer: string,
-    hook: string
-) => {
+export const decorateInstagramVideo = async (inputPath: string, keyTrailer: string, hook: string) => {
 
     const outputPath =
         path.join(
@@ -611,20 +576,6 @@ export const decorateInstagramVideo = async (
             'assets'
         )
 
-
-    const hookFontPath =
-        path.join(
-            hookFontDir,
-            'RobotoCondensed-Bold.ttf'
-        )
-
-
-    const hookFontName =
-        existsSync(hookFontPath)
-            ? 'Roboto Condensed'
-            : 'DejaVu Sans Condensed'
-
-
     /**
      * ASS временный файл.
      */
@@ -646,13 +597,6 @@ export const decorateInstagramVideo = async (
         assContent,
         'utf8'
     )
-
-
-    const safeBottomText =
-        escapeDrawtext(
-            'НАЗВАНИЕ В ОПИСАНИИ'
-        )
-
 
     /**
      * fire.png
@@ -731,24 +675,12 @@ export const decorateInstagramVideo = async (
     const finalBeforeBottom =
         fireFilters.finalLabel
 
-    const bottomFontPath =
-        path.join(
-            process.cwd(),
-            'public',
-            'assets',
-            'Natural_Mono_ Regular.ttf'
-        )
     /**
      * Нижний текст.
      *
      * Оставляем полностью как у тебя.
      */
     filterComplexParts.push(
-
-        `[${finalBeforeBottom}]` +
-        `drawtext=` +
-        `fontfile='${escapeFilterPath(bottomFontPath)}'':` +
-        `text='${safeBottomText}':` +
         `fontcolor=white:` +
         `fontsize=42:` +
         `box=1:` +
@@ -762,7 +694,7 @@ export const decorateInstagramVideo = async (
 
 
     filterComplexParts.push(
-        '[withBottomText]setsar=1[vout]'
+        `[${finalBeforeBottom}]setsar=1[vout]`
     )
 
 
@@ -879,7 +811,8 @@ export const decorateInstagramVideo = async (
 
         await unlink(
             assPath
-        ).catch(() => {})
+        ).catch(() => {
+        })
     }
 
     return outputPath
