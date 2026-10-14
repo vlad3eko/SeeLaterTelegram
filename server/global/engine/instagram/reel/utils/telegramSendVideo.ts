@@ -6,7 +6,9 @@ export const telegramSendVideo = async (ctx: any, inputPath: string) => {
     let telegramPath = inputPath
     try {
         telegramPath = await prepareTelegramVideo(inputPath)
+
         console.log('[TELEGRAM SEND VIDEO]', telegramPath)
+
         const sendVideo = await ctx.telegram.sendVideo(
             ctx.chat.id,
             Input.fromLocalFile(telegramPath),

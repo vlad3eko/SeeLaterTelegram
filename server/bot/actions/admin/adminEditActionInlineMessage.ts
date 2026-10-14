@@ -144,6 +144,14 @@ export const adminEditActionInlineMessage = async (
 
         try {
 
+            console.log('[ADMIN EDIT DISPATCH]', {
+                updateId: ctx.update?.update_id,
+                messageId: ctx.message?.message_id,
+                userId: ctx.from?.id,
+                mode: session?.mode,
+                text: ctx.message?.text?.slice(0, 100)
+            })
+
             await updateAdminEditSession(ctx.from.id, {
                     keyTrailer,
                     preparedInstagram: null
@@ -157,9 +165,7 @@ export const adminEditActionInlineMessage = async (
                 )
 
             if (!prepared.telegramFileId) {
-                await updateAdminEditSession(ctx.from.id, {
-                        mode: null
-                    })
+                await updateAdminEditSession(ctx.from.id, {mode: null})
 
                 await ctx.reply('Не удалось получить Telegram file_id')
                 return

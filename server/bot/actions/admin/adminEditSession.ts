@@ -29,8 +29,8 @@ export type AdminEditSession = {
 
     preparedInstagram?: {
         keyTrailer: string
-        reelR2: string
-        telegramFileId?: string
+        reelR2: string | undefined
+        telegramFileId?: string | undefined
     }
 
     currentMedia: {
@@ -57,8 +57,8 @@ export type AdminEditSessionUpdate = {
 
     preparedInstagram?: {
         keyTrailer: string
-        reelR2?: string
-        telegramFileId?: string
+        reelR2: string | undefined
+        telegramFileId?: string | undefined
     } | null
 
     currentMedia?: {
