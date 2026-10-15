@@ -22,6 +22,13 @@ export const adminDownloadTrailerInlineCard = () => {
     )
 }
 
+export const adminAddTrailerKeyInlineCard = () => {
+    return Markup.button.callback(
+        "Изменить ключ трейлера",
+        `update_trailer_key`
+    )
+}
+
 export const adminEditMediaInlineCard = () => {
     return Markup.button.callback(
         "🖼 Медиа",

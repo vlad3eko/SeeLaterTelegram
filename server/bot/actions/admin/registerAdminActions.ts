@@ -9,11 +9,14 @@ import {Telegraf} from "telegraf";
 import {adminEditOverview} from "#server/bot/actions/admin/session/mods/adminEditOverview";
 import {adminEditTypeCard} from "#server/bot/actions/admin/card/adminEditTypeCard";
 import {adminDownloadTrailer} from "#server/bot/actions/admin/session/mods/adminDownloadTrailer";
+import {adminAddTrailerKeyInlineCard} from "#server/bot/consts/buttons/admin/buttonsAdmin";
+import {adminAddTrailerKey} from "#server/bot/actions/admin/session/adminAddTrailerKey";
 
 export const registerAdminActions = (bot: Telegraf) => {
     bot.action(/^edit_media_(\d+)_(movie|tv)_([^_]+)(?:_(.+))?$/, editAdminInlineMedia)
     bot.action(/^publish_media_(\d+)_(movie|tv)_([^_]+)(?:_(.+?))?(?:_(true|false))?$/, publishAdminInlineMedia)
     bot.action(/^download_trailer$/, adminDownloadTrailer)
+    bot.action(/^update_trailer_key$/, adminAddTrailerKey)
     bot.action(/^admin_edit_media$/, adminEditMedia)
     bot.action(/^admin_edit_text$/, adminEditText)
     bot.action(/^admin_edit_overview$/, adminEditOverview)

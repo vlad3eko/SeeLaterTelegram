@@ -1,6 +1,7 @@
 
 import {Markup} from "telegraf";
 import {
+    adminAddTrailerKeyInlineCard,
     adminDownloadTrailerInlineCard,
     adminEditMediaInlineCard,
     adminEditMessageInlineCard,
@@ -18,5 +19,6 @@ export const editMediaChoiceKeyboard = () => {
         [adminEditOverviewInlineCard()],
         [adminEditTypeInlineCard()],
         [adminDownloadTrailerInlineCard()],
+        [adminAddTrailerKeyInlineCard()]
     ]).reply_markup
 }

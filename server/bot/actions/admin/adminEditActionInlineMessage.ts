@@ -130,8 +130,6 @@ export const adminEditActionInlineMessage = async (
 
         const text = ctx.message?.text
 
-
-
         if (!text)
             return
 
@@ -196,6 +194,22 @@ export const adminEditActionInlineMessage = async (
         return
     }
 
+        case 'update_trailer_key': {
+            const text = ctx.message?.text
+
+            const [, keyTrailer] = text?.includes('=') ? text.split('=') : [null, text]
+
+            if (!keyTrailer) {
+                await ctx.reply('Не удалось определить keyTrailer. Попробуйте еще раз.')
+                return
+            }
+
+            await updateAdminEditSession(ctx.from.id, { keyTrailer, preparedInstagram: null, mode: null })
+            await ctx.reply('Ключ трейлера изменен')
+
+            return
+
+        }
         default:
             return
     }
