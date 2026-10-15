@@ -9,8 +9,6 @@ export const adminAddTrailerKey = async (ctx: any) => {
         return
     }
 
-    // 1. Переводим сессию в режим ожидания ключа
-    await updateAdminEditSession(ctx.from.id, { mode: 'update_trailer_key' })
-    await ctx.answerCbQuery()
-    await ctx.reply('Отправьте ключ трейлера в формате: https://www.youtube.com/watch?v=ВАШ_КЛЮЧ (отправьте ссылку на трейлер)')
+    await updateAdminEditSession(ctx.from.id, {mode: 'trailer'})
+    await ctx.answerCbQuery(NOTIFICATION_MESSAGE.CbQ.SuccessAddTrailerKey)
 }
