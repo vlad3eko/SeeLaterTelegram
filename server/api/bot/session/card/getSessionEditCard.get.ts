@@ -45,6 +45,10 @@ export default defineEventHandler(async (event) => {
         return null
 
     const session: AdminEditSession = {
+
+        publishStartedAt:
+            row.publish_started_at ?? undefined,
+
         inlineMessageId:
             row.inline_message_id ?? undefined,
 
