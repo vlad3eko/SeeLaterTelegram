@@ -10,6 +10,7 @@ export type ModeEditSession =
     | 'download'
 
 export type AdminEditSession = {
+    publishStartedAt?: number
     inlineMessageId?: string
     chatId?: number | string
     messageId?: number
@@ -40,6 +41,7 @@ export type AdminEditSession = {
 }
 
 export type AdminEditSessionUpdate = {
+    publishStartedAt?: number | null
     inlineMessageId?: string | null
     chatId?: number | string | null
     messageId?: number | null
