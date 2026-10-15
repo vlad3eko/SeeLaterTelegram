@@ -117,7 +117,6 @@ export const updateAdminEditSession = async (
     await $fetch(
         '/api/bot/session/card/updateSessionEditCard',
         {
-            baseURL: URL_ACTIVE,
             method: 'PATCH',
             body: {
                 telegram_id: userId,
