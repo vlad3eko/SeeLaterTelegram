@@ -9,7 +9,6 @@ import {Telegraf} from "telegraf";
 import {adminEditOverview} from "#server/bot/actions/admin/session/mods/adminEditOverview";
 import {adminEditTypeCard} from "#server/bot/actions/admin/card/adminEditTypeCard";
 import {adminDownloadTrailer} from "#server/bot/actions/admin/session/mods/adminDownloadTrailer";
-import {adminAddTrailerKeyInlineCard} from "#server/bot/consts/buttons/admin/buttonsAdmin";
 import {adminAddTrailerKey} from "#server/bot/actions/admin/session/adminAddTrailerKey";
 
 export const registerAdminActions = (bot: Telegraf) => {
