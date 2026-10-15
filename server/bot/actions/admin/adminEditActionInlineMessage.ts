@@ -7,6 +7,7 @@ import {prepareReel} from "#server/global/engine/instagram/reel/prepareReel"
 import {createInstagramHook} from "#server/global/engine/instagram/reel/caption/getInstagramMediaType"
 import {sessionCurrentMedia} from "#server/bot/actions/admin/helpers/sessionCurrentMedia"
 import {engineAdminEditCard} from "#server/bot/actions/admin/helpers/engineAdminEditCard"
+import {extractYouTubeVideoId} from "#server/global/engine/instagram/reel/utils/extractYouTubeVideoId";
 
 export const adminEditActionInlineMessage = async (
     ctx: any,
@@ -193,16 +194,75 @@ export const adminEditActionInlineMessage = async (
     }
 
         case 'trailer': {
+            const text = ctx.message?.text?.trim()
 
-            const text = ctx.message?.text
+            if (!text) {
+                await ctx.reply('Отправь ссылку на YouTube или ID ролика.')
+                return
+            }
 
-            if (!text) return
+            const keyTrailer = extractYouTubeVideoId(text)
 
-            const [, keyTrailer] = text.split('=')
+            if (!keyTrailer) {
+                await ctx.reply(
+                    'Не удалось определить ID YouTube-ролика.\n\n' +
+                    'Отправь ссылку вида https://www.youtube.com/watch?v=ID ' +
+                    'или ID из 11 символов.'
+                )
+                return
+            }
 
-            if (!keyTrailer) await ctx.reply('Не удалось определить keyTrailer')
+            try {
+                // Сначала сохраняем новый ключ в Supabase.
+                // Старый подготовленный Reel больше использовать нельзя.
+                await updateAdminEditSession(ctx.from.id, {
+                    keyTrailer,
+                    preparedInstagram: null,
+                    mode: null,
+                    publishStartedAt: null
+                })
 
-            await updateAdminEditSession(ctx.from.id, {keyTrailer, preparedInstagram: null, mode: null})
+            } catch (error) {
+                console.error(
+                    '[SAVE TRAILER KEY ERROR]',
+                    error
+                )
+
+                await ctx.reply(
+                    'Не удалось сохранить новый ключ. Попробуй ещё раз.'
+                )
+                return
+            }
+
+            // Синхронизируем локальный объект с Supabase.
+            session.keyTrailer = keyTrailer
+            session.preparedInstagram = undefined
+            session.mode = undefined
+            session.publishStartedAt = undefined
+
+            try {
+                await engineAdminEditCard(ctx, session, {
+                    id: session.mediaId,
+                    type: session.mediaType,
+                    status: 'ready',
+                    contentType: session.contentType,
+                    addComment: session.comment,
+                    addOverview: session.overview,
+                    keyTrailer,
+                    mediaOverride: session.currentMedia
+                })
+
+            } catch (error) {
+                console.error('[UPDATE CARD TRAILER KEY ERROR]', error)
+                await ctx.reply('Новый ключ сохранён, но не удалось обновить карточку. ' + 'Открой редактирование карточки ещё раз.')
+                return
+            }
+
+            await ctx.reply(
+                `Ключ трейлера обновлён: ${keyTrailer}\n\n` +
+                'Теперь нажми кнопку публикации на обновлённой карточке.'
+            )
+
             return
         }
 

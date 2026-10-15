@@ -1,58 +1,95 @@
-import {
-    execFile
-} from 'node:child_process'
-
-import {
-    promisify
-} from 'node:util'
-
+import {execFile} from 'node:child_process'
+import {promisify} from 'node:util'
+import {stat} from 'node:fs/promises'
 import path from 'node:path'
-
 import ffmpegPath from 'ffmpeg-static'
 
 const execFileAsync = promisify(execFile)
 
-export const trimVideo = async (inputPath: string, keyTrailer: string) => {
+export const trimVideo = async (
+    inputPath: string,
+    keyTrailer: string
+) => {
+    if (!ffmpegPath) {
+        throw new Error('[TRIM VIDEO] ffmpeg-static binary not found')
+    }
 
     const outputPath =
-        path.join(path.dirname(inputPath), `${keyTrailer}_trimmed.mp4`)
+        path.join(
+            path.dirname(inputPath),
+            `${keyTrailer}_trimmed.mp4`
+        )
 
-    await execFileAsync(
-        ffmpegPath!,
-        [
-            '-y',
+    const startedAt = Date.now()
 
-            '-i',
-            inputPath,
+    console.log('[TRIM START]', {
+        inputPath,
+        outputPath
+    })
 
-            '-t',
-            '40',
+    try {
+        await execFileAsync(
+            ffmpegPath,
+            [
+                '-y',
+                '-hide_banner',
+                '-loglevel',
+                'error',
 
-            '-c:v',
-            'libx264',
+                '-i',
+                inputPath,
 
-            '-preset',
-            'ultrafast',
+                '-t',
+                '40',
 
-            '-crf',
-            '23',
+                '-map',
+                '0:v:0',
 
-            '-c:a',
-            'aac',
+                '-map',
+                '0:a?',
 
-            '-b:a',
-            '128k',
+                // Обрезаем без повторного кодирования.
+                // Нормализация будет выполнена следующим шагом.
+                '-c',
+                'copy',
 
-            '-movflags',
-            '+faststart',
+                '-avoid_negative_ts',
+                'make_zero',
 
-            outputPath
-        ],
-        {
-            maxBuffer:
-                10 * 1024 * 1024
+                '-movflags',
+                '+faststart',
+
+                outputPath
+            ],
+            {
+                timeout: 60_000,
+                maxBuffer: 10 * 1024 * 1024
+            }
+        )
+
+        const outputStat = await stat(outputPath)
+
+        if (outputStat.size === 0) {
+            throw new Error('[TRIM VIDEO] Output file is empty')
         }
-    )
 
-    return outputPath
+        console.log('[TRIM DONE]', {
+            outputPath,
+            sizeBytes: outputStat.size,
+            durationMs: Date.now() - startedAt
+        })
+
+        return outputPath
+
+    } catch (error: any) {
+        console.error('[TRIM ERROR]', {
+            inputPath,
+            outputPath,
+            durationMs: Date.now() - startedAt,
+            message: error?.message,
+            stderr: error?.stderr
+        })
+
+        throw error
+    }
 }
