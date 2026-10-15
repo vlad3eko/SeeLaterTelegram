@@ -196,25 +196,16 @@ export const adminEditActionInlineMessage = async (
 
             const text = ctx.message?.text
 
-            if (!text)
-                return
+            if (!text) return
 
             const [, keyTrailer] = text.split('=')
 
-            if (!keyTrailer) {
-                await ctx.reply('Не удалось определить keyTrailer')
-                return
-            }
+            if (!keyTrailer) await ctx.reply('Не удалось определить keyTrailer')
 
-            await updateAdminEditSession(ctx.from.id, {
-                keyTrailer,
-                preparedInstagram: null,
-                mode: null
-            })
-
+            await updateAdminEditSession(ctx.from.id, {keyTrailer, preparedInstagram: null, mode: null})
             return
-
         }
+
         default:
             return
     }
