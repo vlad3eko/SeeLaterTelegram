@@ -59,6 +59,19 @@ export const NOTIFICATION_MESSAGE = {
         SuccessProcessEditText: '✅ Редактирование комментария',
         SuccessProcessEditOverview: '✅ Редактирование описания',
         SuccessProcessEditType: '✅ Редактирование типа карты',
+
+        ErrorTrailerSession: 'Не удалось включить режим изменения ключа',
+        SendNewTrailerKey: 'Ожидаю новый ключ',
+    },
+    reply: {
+        ErrorUpdateCard: 'Новый ключ сохранён, но не удалось обновить карточку. Открой редактирование карточки ещё раз.',
+        ErrorTrailerKey: 'Не удалось сохранить новый ключ. Попробуй ещё раз.',
+        ErrorTrailerTryAgain: `Не удалось определить ID YouTube-ролика.\n\n Отправь ссылку вида https://www.youtube.com/watch?v=ID\n или ID из 11 символов.`,
+
+        SendNewTrailer: 'Отправь новую ссылку на YouTube или ID ролика.\n\n Пример ссылки: https://youtu.be/XdDomEvrZCc\n Или отправь только ID: XdDomEvrZCc',
+        SendLinkTrailer: 'Отправь ссылку на YouTube или ID ролика.',
+
+        SuccessTrailerUpdated: `Ключ трейлера обновлён\n\n Теперь нажми кнопку публикации на обновлённой карточке.`
     }
 } as const
 

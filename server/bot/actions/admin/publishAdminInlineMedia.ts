@@ -12,6 +12,9 @@ import {publishInstagramReel} from "#server/global/publishers/instagram/publishI
 import {createInstagramHook} from "#server/global/engine/instagram/reel/caption/getInstagramMediaType";
 import {constructRichCard} from "#server/global/engine/card/construct/constructRichCard";
 import {isAdminEditSessionForContext} from "#server/bot/actions/admin/helpers/isAdminEditSessionForContext";
+import {addMessageSession} from "#server/bot/services/session/addMessageSession";
+import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
+import {removeMessageSession} from "#server/bot/services/session/removeMessageSession";
 
 export const publishAdminInlineMedia = async (ctx: any) => {
 
@@ -350,6 +353,6 @@ export const publishAdminInlineMedia = async (ctx: any) => {
     await clearAdminEditSession(ctx.from.id)
     await notifyAdmin(preparedInstagram?.reelR2
         ? 'Опубликовано в Telegram и Instagram'
-        : 'Опубликовано в Telegram'
-    )
+        : 'Опубликовано в Telegram')
+    await removeMessageSession(ctx.from.id, {inlineMessageId: ctx.inlineMessageId})
 }
