@@ -37,7 +37,7 @@ export default defineEventHandler(async (event) => {
     if ('mode' in data) update.mode = data.mode ?? null
     if ('preparedInstagram' in data) update.prepared_instagram = data.preparedInstagram ?? null
     if ('currentMedia' in data) update.current_media = data.currentMedia
-    if ('publishStartedAt' in data) update.publishStartedAt = data.publishStartedAt ?? null
+    if ('publishStartedAt' in data)  update.publish_started_at = data.publishStartedAt ?? null
     if (Object.keys(update).length === 0)
         throw createError({statusCode: 400, message: 'Нет данных для обновления'})
 

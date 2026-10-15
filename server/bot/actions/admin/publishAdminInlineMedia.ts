@@ -34,14 +34,48 @@ export const publishAdminInlineMedia = async (ctx: any) => {
     const answerCallbackQuerySafely = async (text: string) => {
 
         try {
-            await notifyAdmin(text)
+
+            await ctx.answerCbQuery(text)
+
         } catch (error: any) {
-            console.warn('[PUBLISH CALLBACK ACK SKIPPED]', error?.response?.description || error?.message || error)
+
+            console.warn(
+                '[PUBLISH CALLBACK ACK SKIPPED]',
+                error?.response?.description ||
+                error?.message ||
+                error
+            )
         }
     }
     // Отвечаем Telegram сразу, а не после долгой обработки видео.
+    // Подтверждаем нажатие кнопки сразу.
     await answerCallbackQuerySafely('Публикация запущена')
+    const updateId = Number(ctx.update?.update_id)
 
+    let claim: {
+        claimed: boolean
+    }
+
+    try {
+        claim = await $fetch('/api/bot/updates/claim', {
+            method: 'GET',
+            body: {
+                    update_id: updateId,
+                    handler: 'publishAdminInlineMedia'
+                }
+            }
+        )
+
+    } catch (error) {
+        console.error('[PUBLISH IDEMPOTENCY CLAIM ERROR]', error)
+        await notifyAdmin('Не удалось проверить защиту от повторной публикации. Публикация остановлена; попробуй позже.')
+        return
+    }
+
+    if (!claim.claimed) {
+        console.warn('[PUBLISH DUPLICATE IGNORED]', {updateId, callbackQueryId: ctx.callbackQuery?.id})
+        return
+    }
     const existingSession = await getAdminEditSession(ctx.from.id)
 
     const samePublicationSession =
