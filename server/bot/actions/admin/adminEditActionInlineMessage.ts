@@ -9,10 +9,7 @@ import {sessionCurrentMedia} from "#server/bot/actions/admin/helpers/sessionCurr
 import {engineAdminEditCard} from "#server/bot/actions/admin/helpers/engineAdminEditCard"
 import {extractYouTubeVideoId} from "#server/global/engine/instagram/reel/utils/extractYouTubeVideoId";
 
-export const adminEditActionInlineMessage = async (
-    ctx: any,
-    session: AdminEditSession
-) => {
+export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditSession) => {
 
     switch (session.mode) {
         case "media": {
@@ -192,7 +189,6 @@ export const adminEditActionInlineMessage = async (
 
         return
     }
-
         case 'trailer': {
             const text = ctx.message?.text?.trim()
 

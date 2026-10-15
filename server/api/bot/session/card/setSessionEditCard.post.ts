@@ -26,6 +26,7 @@ export default defineEventHandler(async (event) => {
             {
                 user_id: user.id,
 
+                publish_started_at: data.publishStartedAt ?? null,
                 inline_message_id: data.inlineMessageId ?? null,
                 chat_id: data.chatId != null
                     ? data.chatId

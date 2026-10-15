@@ -6,24 +6,17 @@ import {
 import {NOTIFICATION_MESSAGE} from "#server/global/notifications/sendNotificationMessage"
 
 export const adminAddTrailerKey = async (ctx: any) => {
-    const userId = ctx.from?.id
 
-    if (!userId) await ctx.answerCbQuery()
 
-    const session = await getAdminEditSession(userId)
+    const session = await getAdminEditSession(ctx.from.id)
 
     if (!session) {
         await ctx.answerCbQuery(NOTIFICATION_MESSAGE.CbQ.ErrorProcessSession)
         return
     }
 
-    if (session.mode === 'publish') {
-        await ctx.answerCbQuery('Дождись завершения публикации')
-        return
-    }
-
     try {
-        await updateAdminEditSession(userId, {mode: 'trailer'})
+        await updateAdminEditSession(ctx.from.id, {mode: 'trailer'})
     } catch (error) {
         console.error('[UPDATE TRAILER MODE ERROR]', error)
 
@@ -34,7 +27,7 @@ export const adminAddTrailerKey = async (ctx: any) => {
     await ctx.answerCbQuery('Ожидаю новый ключ')
 
     try {
-        await ctx.telegram.sendMessage(userId,
+        await ctx.telegram.sendMessage(ctx.from.id,
             'Отправь новую ссылку на YouTube или ID ролика.\n\n' + 'Пример ссылки: https://youtu.be/XdDomEvrZCc\n' + 'Или отправь только ID: XdDomEvrZCc')
     } catch (error) {
         console.error('[TRAILER KEY PROMPT ERROR]', error)
