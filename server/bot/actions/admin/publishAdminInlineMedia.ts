@@ -58,7 +58,7 @@ export const publishAdminInlineMedia = async (ctx: any) => {
 
     try {
         claim = await $fetch('/api/bot/updates/claim', {
-            method: 'GET',
+            method: 'POST',
             body: {
                     update_id: updateId,
                     handler: 'publishAdminInlineMedia'
