@@ -6,6 +6,7 @@ export enum SessionMessageType {
     Text = 'text',
     Command = 'command',
     Error = 'error',
+    Success = 'success',
     Temp = 'temp',
     Menu = 'menu',
     SearchInline = 'searchInline',

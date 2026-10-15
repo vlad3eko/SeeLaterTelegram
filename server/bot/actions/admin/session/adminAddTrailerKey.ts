@@ -1,6 +1,8 @@
 import {getAdminEditSession, updateAdminEditSession} from "#server/bot/actions/admin/adminEditSession"
 
 import {NOTIFICATION_MESSAGE} from "#server/global/notifications/sendNotificationMessage"
+import {addMessageSession} from "#server/bot/services/session/addMessageSession";
+import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
 
 export const adminAddTrailerKey = async (ctx: any) => {
 
@@ -16,15 +18,16 @@ export const adminAddTrailerKey = async (ctx: any) => {
     } catch (error) {
         console.error('[UPDATE TRAILER MODE ERROR]', error)
 
-        await ctx.answerCbQuery('Не удалось включить режим изменения ключа')
+        await ctx.answerCbQuery(NOTIFICATION_MESSAGE.CbQ.ErrorTrailerSession)
         return
     }
 
-    await ctx.answerCbQuery('Ожидаю новый ключ')
+    await ctx.answerCbQuery(NOTIFICATION_MESSAGE.CbQ.SendNewTrailerKey)
 
     try {
-        await ctx.telegram.sendMessage(ctx.from.id,
-            'Отправь новую ссылку на YouTube или ID ролика.\n\n' + 'Пример ссылки: https://youtu.be/XdDomEvrZCc\n' + 'Или отправь только ID: XdDomEvrZCc')
+        const message = await ctx.telegram.sendMessage(ctx.from.id, NOTIFICATION_MESSAGE.reply.SendNewTrailer)
+        await addMessageSession(ctx.from.id, SessionMessageType.Text, {messageId: message.message_id}
+        )
     } catch (error) {
         console.error('[TRAILER KEY PROMPT ERROR]', error)
     }

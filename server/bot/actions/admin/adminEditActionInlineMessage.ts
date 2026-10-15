@@ -8,6 +8,9 @@ import {createInstagramHook} from "#server/global/engine/instagram/reel/caption/
 import {sessionCurrentMedia} from "#server/bot/actions/admin/helpers/sessionCurrentMedia"
 import {engineAdminEditCard} from "#server/bot/actions/admin/helpers/engineAdminEditCard"
 import {extractYouTubeVideoId} from "#server/global/engine/instagram/reel/utils/extractYouTubeVideoId";
+import {NOTIFICATION_MESSAGE} from "#server/global/notifications/sendNotificationMessage";
+import {addMessageSession} from "#server/bot/services/session/addMessageSession";
+import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
 
 export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditSession) => {
 
@@ -127,6 +130,7 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
         case 'download': {
 
         const text = ctx.message?.text
+        let message
 
         if (!text)
             return
@@ -134,7 +138,8 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
         const [, keyTrailer] = text.split('=')
 
         if (!keyTrailer) {
-            await ctx.reply('Не удалось определить keyTrailer')
+            message = await ctx.reply('Не удалось определить keyTrailer')
+            await addMessageSession(ctx.from.id, SessionMessageType.Error, {messageId: message.message_id})
             return
         }
 
@@ -164,9 +169,12 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
 
             if (!prepared.telegramFileId) {
                 await updateAdminEditSession(ctx.from.id, {mode: null})
-                await ctx.reply('Не удалось получить Telegram file_id')
+                message = await ctx.reply('Не удалось получить Telegram file_id')
+                await addMessageSession(ctx.from.id, SessionMessageType.Error, {messageId: message.message_id})
                 return
             }
+
+
 
             const preparedInstagram = {
                 keyTrailer,
@@ -190,21 +198,22 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
         return
     }
         case 'trailer': {
+
             const text = ctx.message?.text?.trim()
+            await addMessageSession(ctx.from.id, SessionMessageType.Text, {messageId: text.message_id})
+            let message
 
             if (!text) {
-                await ctx.reply('Отправь ссылку на YouTube или ID ролика.')
+                message = await ctx.reply(NOTIFICATION_MESSAGE.reply.SendLinkTrailer)
+                await addMessageSession(ctx.from.id, SessionMessageType.Success, {messageId: message.message_id})
                 return
             }
 
             const keyTrailer = extractYouTubeVideoId(text)
 
             if (!keyTrailer) {
-                await ctx.reply(
-                    'Не удалось определить ID YouTube-ролика.\n\n' +
-                    'Отправь ссылку вида https://www.youtube.com/watch?v=ID ' +
-                    'или ID из 11 символов.'
-                )
+                message = await ctx.reply(NOTIFICATION_MESSAGE.reply.ErrorTrailerTryAgain)
+                await addMessageSession(ctx.from.id, SessionMessageType.Error, {messageId: message.message_id})
                 return
             }
 
@@ -224,9 +233,8 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
                     error
                 )
 
-                await ctx.reply(
-                    'Не удалось сохранить новый ключ. Попробуй ещё раз.'
-                )
+                message = await ctx.reply(NOTIFICATION_MESSAGE.reply.ErrorTrailerKey)
+                await addMessageSession(ctx.from.id, SessionMessageType.Error, {messageId: message.message_id})
                 return
             }
 
@@ -250,15 +258,14 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
 
             } catch (error) {
                 console.error('[UPDATE CARD TRAILER KEY ERROR]', error)
-                await ctx.reply('Новый ключ сохранён, но не удалось обновить карточку. ' + 'Открой редактирование карточки ещё раз.')
+                message = await ctx.reply(NOTIFICATION_MESSAGE.reply.ErrorUpdateCard)
+                await addMessageSession(ctx.from.id, SessionMessageType.Error, {messageId: message.message_id})
+
                 return
             }
 
-            await ctx.reply(
-                `Ключ трейлера обновлён: ${keyTrailer}\n\n` +
-                'Теперь нажми кнопку публикации на обновлённой карточке.'
-            )
-
+            message = await ctx.reply(NOTIFICATION_MESSAGE.reply.SuccessTrailerUpdated)
+            await addMessageSession(ctx.from.id, SessionMessageType.Success, {messageId: message.message_id})
             return
         }
 
