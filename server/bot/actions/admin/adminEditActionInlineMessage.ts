@@ -130,8 +130,12 @@ export const adminEditActionInlineMessage = async (
 
         const text = ctx.message?.text
 
+
+
         if (!text)
             return
+
+        await updateAdminEditSession(ctx.from.id, {mode: null})
 
         const [, keyTrailer] = text.split('=')
 
@@ -165,7 +169,6 @@ export const adminEditActionInlineMessage = async (
                 )
 
             if (!prepared.telegramFileId) {
-                await updateAdminEditSession(ctx.from.id, {mode: null})
 
                 await ctx.reply('Не удалось получить Telegram file_id')
                 return
