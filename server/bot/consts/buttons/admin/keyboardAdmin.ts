@@ -5,7 +5,7 @@ import {
     adminDownloadTrailerInlineCard,
     adminEditMediaInlineCard,
     adminEditMessageInlineCard,
-    adminEditOverviewInlineCard, adminEditTypeInlineCard, adminPublishInlineCard
+    adminEditOverviewInlineCard, adminEditTypeInlineCard
 } from "#server/bot/consts/buttons/admin/buttonsAdmin";
 
 export type TypeButtonContext =

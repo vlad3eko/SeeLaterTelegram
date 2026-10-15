@@ -1,12 +1,8 @@
-import {
-    getAdminEditSession,
-    updateAdminEditSession
-} from "#server/bot/actions/admin/adminEditSession"
+import {getAdminEditSession, updateAdminEditSession} from "#server/bot/actions/admin/adminEditSession"
 
 import {NOTIFICATION_MESSAGE} from "#server/global/notifications/sendNotificationMessage"
 
 export const adminAddTrailerKey = async (ctx: any) => {
-
 
     const session = await getAdminEditSession(ctx.from.id)
 
