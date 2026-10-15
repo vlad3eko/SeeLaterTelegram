@@ -133,7 +133,7 @@ export const adminEditActionInlineMessage = async (
         if (!text)
             return
 
-        await updateAdminEditSession(ctx.from.id, {mode: null})
+        await updateAdminEditSession(ctx.from.id, {mode: 'download'})
 
         const [, keyTrailer] = text.split('=')
 
@@ -167,7 +167,7 @@ export const adminEditActionInlineMessage = async (
                 )
 
             if (!prepared.telegramFileId) {
-
+                await updateAdminEditSession(ctx.from.id, {mode: null})
                 await ctx.reply('Не удалось получить Telegram file_id')
                 return
             }
@@ -194,18 +194,27 @@ export const adminEditActionInlineMessage = async (
         return
     }
 
-        case 'update_trailer_key': {
+        case 'trailer': {
+
             const text = ctx.message?.text
 
-            const [, keyTrailer] = text?.includes('=') ? text.split('=') : [null, text]
+            if (!text)
+                return
+
+            await updateAdminEditSession(ctx.from.id, {mode: 'download'})
+
+            const [, keyTrailer] = text.split('=')
 
             if (!keyTrailer) {
-                await ctx.reply('Не удалось определить keyTrailer. Попробуйте еще раз.')
+                await ctx.reply('Не удалось определить keyTrailer')
                 return
             }
 
-            await updateAdminEditSession(ctx.from.id, { keyTrailer, preparedInstagram: null, mode: null })
-            await ctx.reply('Ключ трейлера изменен')
+            await updateAdminEditSession(ctx.from.id, {
+                keyTrailer,
+                preparedInstagram: null,
+                mode: null
+            })
 
             return
 
