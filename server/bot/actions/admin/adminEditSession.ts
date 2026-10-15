@@ -8,6 +8,7 @@ export type ModeEditSession =
     | 'publish'
     | 'type'
     | 'download'
+    | 'update_trailer_key'
 
 export type AdminEditSession = {
     publishStartedAt?: number
