@@ -133,8 +133,6 @@ export const adminEditActionInlineMessage = async (
         if (!text)
             return
 
-        await updateAdminEditSession(ctx.from.id, {mode: 'download'})
-
         const [, keyTrailer] = text.split('=')
 
         if (!keyTrailer) {
@@ -200,8 +198,6 @@ export const adminEditActionInlineMessage = async (
 
             if (!text)
                 return
-
-            await updateAdminEditSession(ctx.from.id, {mode: 'download'})
 
             const [, keyTrailer] = text.split('=')
 
