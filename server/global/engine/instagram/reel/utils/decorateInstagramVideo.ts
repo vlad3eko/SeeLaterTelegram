@@ -515,7 +515,7 @@ export const decorateInstagramVideo = async (
                 '-t', duration.toFixed(3),
                 '-r', '30',
                 '-c:v', 'libx264',
-                '-preset', 'slow',
+                '-preset', 'ultrafast',
                 '-crf', '18',
                 '-profile:v', 'high',
                 '-pix_fmt', 'yuv420p',
