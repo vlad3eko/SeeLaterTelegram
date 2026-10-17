@@ -4,7 +4,12 @@ import {downloadTrailer} from "#server/global/engine/instagram/reel/utils/downlo
 import {unlink} from "node:fs/promises"
 import {prepareInstagramVideo} from "#server/global/engine/instagram/reel/utils/prepareInstagramVideo"
 import {decorateInstagramVideo} from "#server/global/engine/instagram/reel/utils/decorateInstagramVideo"
-import {deleteFromCloudflareR2, existsInCloudflareR2, getCloudflareR2Url, storageCloudflareR2} from "#server/global/engine/instagram/reel/utils/storageCloudflareR2";
+import {
+    deleteFromCloudflareR2,
+    existsInCloudflareR2,
+    getCloudflareR2Url,
+    storageCloudflareR2
+} from "#server/global/engine/instagram/reel/utils/storageCloudflareR2";
 import {trimVideo} from "#server/global/engine/instagram/reel/utils/trimVideo";
 
 const runReelStep = async <T>(
@@ -38,7 +43,17 @@ export const prepareReel = async (
     keyTrailer: string,
     hook: string,
     ctx: any | undefined,
-    content: {id: number, type: string},
+    content: {
+        id: number
+        type: string
+        genre?: string | Array<{
+            id?: number
+            name?: string
+        } | string>
+        rating?: number | string
+        subtitlesPath?: string
+        highlightWord?: string
+    },
     mode: 'publish' | 'download'
 ) => {
     if (!keyTrailer) {
@@ -161,7 +176,13 @@ export const prepareReel = async (
             () => decorateInstagramVideo(
                 preparedInstagramPath!,
                 keyTrailer,
-                hook
+                hook,
+                {
+                    genre: content.genre,
+                    rating: content.rating,
+                    subtitlesPath: content.subtitlesPath,
+                    highlightWord: content.highlightWord
+                }
             )
         )
 
