@@ -38,29 +38,25 @@ const escapeAssText = (value: string) =>
         .replace(/\r/g, '')
         .replace(/\n/g, '\\N')
 
-const splitHookIntoTwoLines = (hook: string): [string, string] => {
-    const normalized = hook
-        .replace(/[\u1F300-\u1F9FF\u2600-\u26FF\u2700-\u27BF\uFE0F\u200D]/g, '')
-        .replace(/\s+/g, ' ')
+const splitHookIntoTwoLines = (
+    hook: string
+): [string, string] => {
+    const normalized = String(hook ?? '')
         .trim()
         .toLocaleUpperCase('ru-RU')
 
-    // Безопасный нейтральный заголовок, если тип контента
-    // не распознан и createInstagramHook вернул пустую строку.
     if (!normalized) {
-        return [
-            'ЭТОТ ПРОЕКТ',
-            'СТОИТ ПОСМОТРЕТЬ'
-        ]
+        throw new Error(
+            '[DECORATE] Empty Instagram hook. Check createInstagramHook() logs.'
+        )
     }
 
     const words = normalized.split(' ').filter(Boolean)
 
-    if (words.length === 1) {
-        return [
-            words[0]!,
-            'СТОИТ ПОСМОТРЕТЬ'
-        ]
+    if (words.length < 2) {
+        throw new Error(
+            `[DECORATE] Hook must contain at least two words: "${normalized}"`
+        )
     }
 
     let bestIndex = 1
@@ -81,10 +77,7 @@ const splitHookIntoTwoLines = (hook: string): [string, string] => {
 
         const overflow = Math.max(0, longest - 25)
 
-        const score =
-            longest * 4 +
-            imbalance +
-            overflow * 20
+        const score = longest * 4 + imbalance + overflow * 20
 
         if (score < bestScore) {
             bestScore = score
@@ -94,10 +87,9 @@ const splitHookIntoTwoLines = (hook: string): [string, string] => {
 
     return [
         words.slice(0, bestIndex).join(' '),
-        words.slice(bestIndex).join(' ')
+        words.slice(bestIndex).join(' '),
     ]
 }
-
 const formatTitleLineAss = (line: string): string => {
     const category = line.match(
         /^(МУЛЬТСЕРИАЛ|МУЛЬТФИЛЬМ|СЕРИАЛ|ФИЛЬМ|АНИМЕ)(?=\s|$)/u
