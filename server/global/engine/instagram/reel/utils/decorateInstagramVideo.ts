@@ -38,6 +38,85 @@ const escapeAssText = (value: string) =>
         .replace(/\r/g, '')
         .replace(/\n/g, '\\N')
 
+const splitHookIntoTwoLines = (hook: string): [string, string] => {
+    const normalized = hook
+        .replace(/[\u1F300-\u1F9FF\u2600-\u26FF\u2700-\u27BF\uFE0F\u200D]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLocaleUpperCase('ru-RU')
+
+    // Безопасный нейтральный заголовок, если тип контента
+    // не распознан и createInstagramHook вернул пустую строку.
+    if (!normalized) {
+        return [
+            'ЭТОТ ПРОЕКТ',
+            'СТОИТ ПОСМОТРЕТЬ'
+        ]
+    }
+
+    const words = normalized.split(' ').filter(Boolean)
+
+    if (words.length === 1) {
+        return [
+            words[0]!,
+            'СТОИТ ПОСМОТРЕТЬ'
+        ]
+    }
+
+    let bestIndex = 1
+    let bestScore = Number.POSITIVE_INFINITY
+
+    for (let index = 1; index < words.length; index++) {
+        const firstLine = words.slice(0, index).join(' ')
+        const secondLine = words.slice(index).join(' ')
+
+        const longest = Math.max(
+            firstLine.length,
+            secondLine.length
+        )
+
+        const imbalance = Math.abs(
+            firstLine.length - secondLine.length
+        )
+
+        const overflow = Math.max(0, longest - 25)
+
+        const score =
+            longest * 4 +
+            imbalance +
+            overflow * 20
+
+        if (score < bestScore) {
+            bestScore = score
+            bestIndex = index
+        }
+    }
+
+    return [
+        words.slice(0, bestIndex).join(' '),
+        words.slice(bestIndex).join(' ')
+    ]
+}
+
+const formatTitleLineAss = (line: string): string => {
+    const category = line.match(
+        /^(МУЛЬТСЕРИАЛ|МУЛЬТФИЛЬМ|СЕРИАЛ|ФИЛЬМ|АНИМЕ)(?=\s|$)/u
+    )
+
+    if (!category) {
+        return escapeAssText(line)
+    }
+
+    const categoryText = category[1]!
+
+    const rest = line.slice(categoryText.length)
+
+    return (
+        `{\\c&H002B26E0&}${escapeAssText(categoryText)}` +
+        `{\\c&H00EEF2F5&}${escapeAssText(rest)}`
+    )
+}
+
 const clamp = (value: number, min: number, max: number) =>
     Math.max(min, Math.min(max, value))
 
@@ -173,7 +252,7 @@ const readSubtitleCues = async (subtitlesPath: string): Promise<SubtitleCue[]> =
             .slice(timingIndex + 1)
             .join(' ')
             .replace(/<[^>]*>/g, '')
-            .replace(/\{[^}]*\}/g, '')
+            .replace(/\{[^}]*}/g, '')
             .replace(/\s+/g, ' ')
             .trim()
             .toLocaleUpperCase('ru-RU')
@@ -198,7 +277,7 @@ const applyHighlight = (text: string, highlightWord?: string) => {
 
         const escapedWord = escapeAssText(highlightWord.trim().toLocaleUpperCase('ru-RU'))
         const escapedPattern = escapedWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-        const wordPattern = new RegExp(`(^|[\\s\\.,!?;:()])(${escapedPattern})(?=$|[\\s\\.,!?;:()])`, 'u')
+        const wordPattern = new RegExp(`(^|[\\s.,!?;:()])(${escapedPattern})(?=$|[\\s.,!?;:()])`, 'u')
 
         return safePart.replace(
             wordPattern,
@@ -263,20 +342,35 @@ const createSubtitleAss = async (
 
 const createTemplateAss = (
     duration: number,
-    options: DecorateInstagramVideoOptions
+    options: DecorateInstagramVideoOptions,
+    hook: string
 ) => {
     const end = formatAssTime(duration)
     const events: string[] = []
 
-    const firstTitle = 'ФИЛЬМ, КОТОРЫЙ МОЖЕТ'
-    const secondTitle = 'СТАТЬ ВАШИМ ЛЮБИМЫМ'
+    const [firstTitle, secondTitle] = splitHookIntoTwoLines(hook)
 
-    // Soft black title shadow, then the sharp white title.
+    const longestTitleLine = Math.max(
+        firstTitle.length,
+        secondTitle.length
+    )
+
+    const titleFontSize =
+        longestTitleLine > 26 ? 68 :
+            longestTitleLine > 23 ? 72 :
+                longestTitleLine > 20 ? 80 :
+                    longestTitleLine > 18 ? 86 :
+                        92
+
+// Заголовок и мягкая тень. Категория контента выделяется красным.
     events.push(
-        `Dialogue: 0,0:00:00.00,${end},Shadow,,0,0,0,,{\\an8\\pos(540,236)\\fsp1\\blur9\\bord0\\shad0\\1c&H000000&\\1a&HB3&}${firstTitle}`,
-        `Dialogue: 1,0:00:00.00,${end},Title,,0,0,0,,{\\an8\\pos(540,232)\\fsp1} ${firstTitle}`.replace('} ', '}'),
-        `Dialogue: 0,0:00:00.00,${end},Shadow,,0,0,0,,{\\an8\\pos(540,336)\\fsp1\\blur9\\bord0\\shad0\\1c&H000000&\\1a&HB3&}${secondTitle}`,
-        `Dialogue: 1,0:00:00.00,${end},Title,,0,0,0,,{\\an8\\pos(540,332)\\fsp1}{\\c&H002B26E0&}СТАТЬ{\\c&H00EEF2F5&} ВАШИМ ЛЮБИМЫМ`
+        `Dialogue: 0,0:00:00.00,${end},Shadow,,0,0,0,,{\\an8\\pos(540,236)\\fsp1\\fs${titleFontSize}\\blur9\\bord0\\shad0\\1c&H000000&\\1a&HB3&}${escapeAssText(firstTitle)}`,
+
+        `Dialogue: 1,0:00:00.00,${end},Title,,0,0,0,,{\\an8\\pos(540,232)\\fsp1\\fs${titleFontSize}}${formatTitleLineAss(firstTitle)}`,
+
+        `Dialogue: 0,0:00:00.00,${end},Shadow,,0,0,0,,{\\an8\\pos(540,336)\\fsp1\\fs${titleFontSize}\\blur9\\bord0\\shad0\\1c&H000000&\\1a&HB3&}${escapeAssText(secondTitle)}`,
+
+        `Dialogue: 1,0:00:00.00,${end},Title,,0,0,0,,{\\an8\\pos(540,332)\\fsp1\\fs${titleFontSize}}${formatTitleLineAss(secondTitle)}`
     )
 
     const genre = Array.isArray(options.genre)
@@ -429,10 +523,6 @@ export const decorateInstagramVideo = async (
         throw new Error('[DECORATE] ffmpeg-static binary not found')
     }
 
-    // The new design uses a fixed headline and no emoji. Keep the third argument
-    // for compatibility with existing callers that still pass the old hook.
-    void hook
-
     const outputPath = path.join(
         path.dirname(inputPath),
         `${keyTrailer}_reel.mp4`
@@ -456,7 +546,7 @@ export const decorateInstagramVideo = async (
     try {
         await writeFile(
             templateAssPath,
-            createTemplateAss(duration, options),
+            createTemplateAss(duration, options, hook),
             'utf8'
         )
 
