@@ -2,7 +2,7 @@ import {normalizeTrailer} from "#server/global/engine/instagram/reel/utils/norma
 import {telegramSendVideo} from "#server/global/engine/instagram/reel/utils/telegramSendVideo"
 import {downloadTrailer} from "#server/global/engine/instagram/reel/utils/downloadTrailer"
 import {unlink} from "node:fs/promises"
-import {prepareInstagramVideo} from "#server/global/engine/instagram/reel/utils/createInstagramVideo"
+import {prepareInstagramVideo} from "#server/global/engine/instagram/reel/utils/prepareInstagramVideo"
 import {decorateInstagramVideo} from "#server/global/engine/instagram/reel/utils/decorateInstagramVideo"
 import {deleteFromCloudflareR2, existsInCloudflareR2, getCloudflareR2Url, storageCloudflareR2} from "#server/global/engine/instagram/reel/utils/storageCloudflareR2";
 import {trimVideo} from "#server/global/engine/instagram/reel/utils/trimVideo";
@@ -49,14 +49,9 @@ export const prepareReel = async (
         throw new Error('Telegram context is missing for download mode')
     }
 
-    const sourceR2Path =
-        `instagram/reels/temp/${content.id}_${content.type}_${keyTrailer}.mp4`
-
-    const reelR2Path =
-        `instagram/reels/reel/${content.id}_${content.type}_${keyTrailer}_reel.mp4`
-
-    const cleanR2Path =
-        `instagram/reels/clean/${content.id}_${content.type}_${keyTrailer}_clean.mp4`
+    const sourceR2Path = `instagram/reels/temp/${content.id}_${content.type}_${keyTrailer}.mp4`
+    const reelR2Path = `instagram/reels/reel/${content.id}_${content.type}_${keyTrailer}_reel.mp4`
+    const cleanR2Path = `instagram/reels/clean/${content.id}_${content.type}_${keyTrailer}_clean.mp4`
 
     let sourcePath: string | undefined
     let normalizePath: string | undefined

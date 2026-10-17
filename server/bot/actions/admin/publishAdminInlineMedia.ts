@@ -1,20 +1,20 @@
 import {
-    type AdminEditSession, clearAdminEditSession, getAdminEditSession, setAdminEditSession, updateAdminEditSession
+    clearAdminEditSession, getAdminEditSession, setAdminEditSession, updateAdminEditSession
 } from "#server/bot/actions/admin/adminEditSession";
 import {CHANEL_LINK} from "#server/bot/bot";
 import {prepareReel} from "#server/global/engine/instagram/reel/prepareReel";
 import {getMediaSaveCount} from "#server/bot/consts/keyboardVersion/getMediaSaveCount";
 import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBot";
-import {NOTIFICATION_MESSAGE} from "#server/global/notifications/sendNotificationMessage";
+import {NOTIFICATION_MESSAGE, notifyAdmin} from "#server/global/notifications/sendNotificationMessage";
 import {CURRENT_KEYBOARD_VERSION} from "#server/bot/consts/keyboardVersion/keyboardVersion";
 import {createInstagramCaption} from "#server/global/engine/instagram/reel/caption/createInstagramCaption";
 import {publishInstagramReel} from "#server/global/publishers/instagram/publishInstagramReel";
 import {createInstagramHook} from "#server/global/engine/instagram/reel/caption/getInstagramMediaType";
 import {constructRichCard} from "#server/global/engine/card/construct/constructRichCard";
 import {isAdminEditSessionForContext} from "#server/bot/actions/admin/helpers/isAdminEditSessionForContext";
-import {addMessageSession} from "#server/bot/services/session/addMessageSession";
-import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
 import {removeMessageSession} from "#server/bot/services/session/removeMessageSession";
+
+
 
 export const publishAdminInlineMedia = async (ctx: any) => {
 
@@ -23,17 +23,7 @@ export const publishAdminInlineMedia = async (ctx: any) => {
     const channelId = CHANEL_LINK
     const parsedMediaId = Number(mediaId)
 
-    const notifyAdmin = async (text: string) => {
-        try {
-            await ctx.telegram.sendMessage(ctx.from.id, text)
-        } catch (error: any) {
-            console.error('[PUBLISH ADMIN NOTIFICATION ERROR]',
-                error?.response?.description
-                || error?.message
-                || error
-            )
-        }
-    }
+
     const answerCallbackQuerySafely = async (text: string) => {
 
         try {
@@ -61,8 +51,8 @@ export const publishAdminInlineMedia = async (ctx: any) => {
 
     try {
         claim = await $fetch('/api/bot/updates/claim', {
-            method: 'POST',
-            body: {
+                method: 'POST',
+                body: {
                     update_id: updateId,
                     handler: 'publishAdminInlineMedia'
                 }
@@ -71,7 +61,7 @@ export const publishAdminInlineMedia = async (ctx: any) => {
 
     } catch (error) {
         console.error('[PUBLISH IDEMPOTENCY CLAIM ERROR]', error)
-        await notifyAdmin('Не удалось проверить защиту от повторной публикации. Публикация остановлена; попробуй позже.')
+        await notifyAdmin(ctx,'Не удалось проверить защиту от повторной публикации. Публикация остановлена; попробуй позже.')
         return
     }
 
@@ -208,11 +198,7 @@ export const publishAdminInlineMedia = async (ctx: any) => {
             // Защита от ситуации, когда prepareReel
             // не вернул URL готового Reel.
             if (typeof prepared.reelR2 !== 'string' || !prepared.reelR2.trim()) {
-                throw createError({
-                    statusCode: 400,
-                    message: '[PUBLICATION MEDIA PREPARE ERROR] prepareReel did not return reelR2'
-                    }
-                )
+                throw createError({status: 400, message: '[PUBLICATION MEDIA PREPARE ERROR] prepareReel did not return reelR2'})
             }
 
             preparedInstagram = {
@@ -222,28 +208,13 @@ export const publishAdminInlineMedia = async (ctx: any) => {
             }
 
             session.preparedInstagram = preparedInstagram
-
-            await updateAdminEditSession(ctx.from.id, {
-                preparedInstagram
-            })
+            await updateAdminEditSession(ctx.from.id, {preparedInstagram})
 
         } catch (error) {
-            console.error(
-                '[PUBLICATION MEDIA PREPARE ERROR]',
-                error
-            )
-
-            await updateAdminEditSession(ctx.from.id, {
-                mode: null
-            })
-
+            console.error('[PUBLICATION MEDIA PREPARE ERROR]', error)
+            await updateAdminEditSession(ctx.from.id, {mode: null})
             session.mode = undefined
-
-            await notifyAdmin(
-                'Не удалось подготовить трейлер'
-            )
-
-            return
+            await notifyAdmin(ctx, 'Не удалось подготовить трейлер')
         }
     }
 
@@ -279,9 +250,8 @@ export const publishAdminInlineMedia = async (ctx: any) => {
 
         await updateAdminEditSession(ctx.from.id, {mode: null, publishStartedAt: null})
         session.mode = undefined
-        await notifyAdmin(NOTIFICATION_MESSAGE.CbQ.ErrorPublished)
+        await notifyAdmin(ctx, NOTIFICATION_MESSAGE.CbQ.ErrorPublished)
 
-        return
     }
 
     try {
@@ -299,9 +269,8 @@ export const publishAdminInlineMedia = async (ctx: any) => {
         })
     } catch (error) {
         console.error('[PUBLISHED MEDIA SAVE ERROR]', error)
-        await notifyAdmin('Карточка опубликована, но не сохранена в истории')
+        await notifyAdmin(ctx, 'Карточка опубликована, но не сохранена в истории')
         await clearAdminEditSession(ctx.from.id)
-        return
     }
 
     if (preparedInstagram?.reelR2) {
@@ -319,9 +288,8 @@ export const publishAdminInlineMedia = async (ctx: any) => {
             console.log('[INSTAGRAM PUBLISHED]', JSON.stringify(instagram, null, 2))
         } catch (error) {
             console.error('[INSTAGRAM PUBLISH ERROR]', error)
-            await notifyAdmin('Telegram опубликован, Instagram не удалось опубликовать')
+            await notifyAdmin(ctx, 'Telegram опубликован, Instagram не удалось опубликовать')
             await clearAdminEditSession(ctx.from.id)
-            return
         }
     }
 
@@ -342,7 +310,8 @@ export const publishAdminInlineMedia = async (ctx: any) => {
                     false,
                     'inline',
                     saveCount,
-                    session.keyTrailer)})
+                    session.keyTrailer)
+            })
         }
     } catch (error: any) {
         if (error?.response?.description !== 'Bad Request: message is not modified') {
@@ -351,8 +320,8 @@ export const publishAdminInlineMedia = async (ctx: any) => {
     }
 
     await clearAdminEditSession(ctx.from.id)
-    await notifyAdmin(preparedInstagram?.reelR2
-        ? 'Опубликовано в Telegram и Instagram'
-        : 'Опубликовано в Telegram')
+    await notifyAdmin(ctx, preparedInstagram?.reelR2
+        ? NOTIFICATION_MESSAGE.reply.SuccessPublishedEverywhere
+        : NOTIFICATION_MESSAGE.reply.SuccessPublishedTelegram)
     await removeMessageSession(ctx.from.id, {inlineMessageId: ctx.inlineMessageId})
 }

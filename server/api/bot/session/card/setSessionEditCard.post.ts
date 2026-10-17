@@ -9,7 +9,7 @@ export default defineEventHandler(async (event) => {
     const data = body?.data
 
     if (!telegramId || !data)
-        throw createError({statusCode: 400, message: 'telegram_id or data invalid [setSessionEditCard.post]'})
+        throw createError({status: 400, message: 'telegram_id or data invalid [setSessionEditCard.post]'})
 
     const {data: user, error: userError} = await supabase
         .from('users')
@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
         .single()
 
     if (userError || !user)
-        throw createError({statusCode: 404, message: "Пользователь не найден [setSessionEditCard.post]"})
+        throw createError({status: 404, message: "Пользователь не найден [setSessionEditCard.post]"})
 
     const {error} = await supabase
         .from('card_edit_session')
@@ -62,7 +62,7 @@ export default defineEventHandler(async (event) => {
         )
 
     if (error)
-        throw createError({statusCode: 400, message: `Ошибка сохранения сессии: ${error.message} [setSessionEditCard.post]`})
+        throw createError({status: 400, message: `Ошибка сохранения сессии: ${error.message} [setSessionEditCard.post]`})
 
     return {
         success: true

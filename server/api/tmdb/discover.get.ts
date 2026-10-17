@@ -59,8 +59,8 @@ export default defineEventHandler(async (event) => {
 
     if (!res.ok) {
         throw createError({
-            statusCode: res.status,
-            statusMessage: await res.text()
+            status: res.status,
+            message: await res.text()
         })
     }
 

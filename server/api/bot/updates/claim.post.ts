@@ -8,7 +8,7 @@ export default defineEventHandler(async (event) => {
     const handler = body?.handler
 
     if (!Number.isSafeInteger(updateId) || updateId < 0 || typeof handler !== 'string' || !handler) {
-        throw createError({statusCode: 400, message: 'Некорректный update_id или handler'})
+        throw createError({status: 400, message: 'Некорректный update_id или handler'})
     }
 
     const { error } = await supabase
@@ -32,5 +32,5 @@ export default defineEventHandler(async (event) => {
     }
 
     console.error('[TELEGRAM UPDATE CLAIM ERROR]', error)
-    throw createError({statusCode: 500, message: 'Не удалось зарегистрировать Telegram update'})
+    throw createError({status: 500, message: 'Не удалось зарегистрировать Telegram update'})
 })

@@ -6,10 +6,7 @@ import ffmpegPath from "ffmpeg-static";
 const execFileAsync =
     promisify(execFile)
 
-export const prepareInstagramVideo = async (
-    inputPath: string,
-    keyTrailer: string
-) => {
+export const prepareInstagramVideo = async (inputPath: string, keyTrailer: string) => {
 
     const outputPath =
         path.join(

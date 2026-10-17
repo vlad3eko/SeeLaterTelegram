@@ -24,8 +24,8 @@ export default defineEventHandler(async (event) => {
     if (!personId) {
 
         throw createError({
-            statusCode: 400,
-            statusMessage: "Person ID is required"
+            status: 400,
+            message: "Person ID is required"
         })
 
     }
@@ -116,8 +116,8 @@ export default defineEventHandler(async (event) => {
     if (!personResponse.ok) {
 
         throw createError({
-            statusCode: personResponse.status,
-            statusMessage:
+            status: personResponse.status,
+            message:
                 await personResponse.text()
         })
 
@@ -133,8 +133,8 @@ export default defineEventHandler(async (event) => {
     if (!creditsResponse.ok) {
 
         throw createError({
-            statusCode: creditsResponse.status,
-            statusMessage:
+            status: creditsResponse.status,
+            message:
                 await creditsResponse.text()
         })
 
