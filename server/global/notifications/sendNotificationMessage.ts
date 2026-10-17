@@ -1,6 +1,6 @@
  import {bot} from "#server/bot/bot";
 import {addMessageSession} from "#server/bot/services/session/addMessageSession";
-import {SessionMessageNotificationType} from "#server/bot/consts/types/SessionMessageTypes";
+import {SessionMessageNotificationType, SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
 import {tmdbFetch} from "#server/utils/api/tmdbFetch";
 import {linkOfMedia} from "#server/global/helpers/linkOfMedia";
 import {Markup} from "telegraf";
@@ -71,25 +71,29 @@ export const NOTIFICATION_MESSAGE = {
         SendNewTrailer: 'Отправь новую ссылку на YouTube или ID ролика.\n\n Пример ссылки: https://youtu.be/XdDomEvrZCc\n Или отправь только ID: XdDomEvrZCc',
         SendLinkTrailer: 'Отправь ссылку на YouTube или ID ролика.',
 
-        SuccessTrailerUpdated: `Ключ трейлера обновлён\n\n Теперь нажми кнопку публикации на обновлённой карточке.`
+        SuccessTrailerUpdated: `Ключ трейлера обновлён\n\n Теперь нажми кнопку публикации на обновлённой карточке.`,
+        SuccessPublishedEverywhere: 'Опубликовано в Telegram и Instagram',
+        SuccessPublishedTelegram: 'Опубликовано в Telegram'
     }
 } as const
-
-export const SHARE_CHANNEL_LINKS = {
-    Group: `
-🤖 <a href="${telegramBotShortLink}">Киноманов BOT | Ищи и Сохраняй</a>
-📢 <a href="${telegramChannelShortLink}">Киноманов NET | Фильмы и сериалы</a>
-
-${NOTIFICATION_MESSAGE.ContactUs}
-    `,
-
-    Rich: {}
-}
 
 interface NOTIFICATION_OPTIONS {
     mediaId: number
     mediaType: string
 }
+
+ export const notifyAdmin = async (ctx: any, text: string) => {
+     try {
+         const message = await ctx.telegram.sendMessage(ctx.from.id, text)
+         await addMessageSession(ctx.from.id, SessionMessageType.Command, {messageId: message.message_id})
+     } catch (error: any) {
+         console.error('[PUBLISH ADMIN NOTIFICATION ERROR]',
+             error?.response?.description
+             || error?.message
+             || error
+         )
+     }
+ }
 
 export const sendNotificationTelegramMessage = async (userId: number, description: string, {mediaId, mediaType}: NOTIFICATION_OPTIONS) => {
     try {

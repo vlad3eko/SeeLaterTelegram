@@ -6,7 +6,7 @@ export default defineEventHandler( async (event) => {
 
     if (!token) {
         throw createError({
-            statusCode: 400,
+            status: 400,
             message: 'Token required'
         })
     }
@@ -27,7 +27,7 @@ export default defineEventHandler( async (event) => {
 
     if (error || !data) {
         throw createError({
-            statusCode: 401,
+            status: 401,
             message: 'Invalid token'
         })
     }

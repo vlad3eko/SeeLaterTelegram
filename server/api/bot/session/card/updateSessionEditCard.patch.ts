@@ -8,7 +8,7 @@ export default defineEventHandler(async (event) => {
     const data = body?.data
 
     if (!telegramId || !data) {
-        throw createError({statusCode: 400, message: 'telegram_id и data обязательны'})
+        throw createError({status: 400, message: 'telegram_id и data обязательны'})
     }
 
     const {data: user, error: userError} = await supabase
@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
         .single()
 
     if (userError || !user)
-        throw createError({statusCode: 400, message: 'Пользователь не найден'})
+        throw createError({status: 400, message: 'Пользователь не найден'})
 
     const update: Record<string, any> = {}
 
@@ -39,7 +39,7 @@ export default defineEventHandler(async (event) => {
     if ('currentMedia' in data) update.current_media = data.currentMedia
     if ('publishStartedAt' in data) update.publish_started_at = data.publishStartedAt ?? null
     if (Object.keys(update).length === 0)
-        throw createError({statusCode: 400, message: 'Нет данных для обновления'})
+        throw createError({status: 400, message: 'Нет данных для обновления'})
 
     update.updated_at = new Date().toISOString()
 
@@ -51,10 +51,10 @@ export default defineEventHandler(async (event) => {
         .maybeSingle()
 
     if (error)
-        throw createError({statusCode: 500, message: `Ошибка обновления сессии: ${error.message}`})
+        throw createError({status: 500, message: `Ошибка обновления сессии: ${error.message}`})
 
     if (!updatedSession)
-        throw createError({statusCode: 404, message: 'Сессия редактирования не найдена'})
+        throw createError({status: 404, message: 'Сессия редактирования не найдена'})
 
     return {
         success: true

@@ -32,8 +32,8 @@ export default defineEventHandler(async (event) => {
 
     if (!['movie', 'tv', 'person'].includes(mediaType)) {
         throw createError({
-            statusCode: 400,
-            statusMessage: "Invalid mediaType"
+            status: 400,
+            message: "Invalid mediaType"
         })
     }
 
@@ -121,8 +121,8 @@ export default defineEventHandler(async (event) => {
     if (!res.ok) {
 
         throw createError({
-            statusCode: res.status,
-            statusMessage:
+            status: res.status,
+            message:
                 await res.text()
         })
     }

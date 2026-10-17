@@ -15,8 +15,8 @@ export default defineEventHandler(async (event) => {
 
     if (media !== "movie" && media !== "tv") {
         throw createError({
-            statusCode: 400,
-            statusMessage: "Invalid media variant"
+            status: 400,
+            message: "Invalid media variant"
         })
     }
 
@@ -25,8 +25,8 @@ export default defineEventHandler(async (event) => {
         !["movie", "tv"].includes(String(media))
     ) {
         throw createError({
-            statusCode: 400,
-            statusMessage: "Invalid request"
+            status: 400,
+            message: "Invalid request"
         })
     }
 

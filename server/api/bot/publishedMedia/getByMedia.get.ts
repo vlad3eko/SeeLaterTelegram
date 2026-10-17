@@ -23,9 +23,9 @@ export default defineEventHandler(async (event) => {
 
     if (error) {
         throw createError({
-            statusCode:
+            status:
                 500,
-            statusMessage:
+            message:
             error.message
         })
     }

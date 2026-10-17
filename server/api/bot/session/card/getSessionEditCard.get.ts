@@ -10,7 +10,7 @@ export default defineEventHandler(async (event) => {
 
     if (!telegramId) {
         throw createError({
-            statusCode: 400,
+            status: 400,
             message: 'telegram_id invalid [getSessionEditCard]'
         })
     }
@@ -23,7 +23,7 @@ export default defineEventHandler(async (event) => {
 
     if (userError || !user) {
         throw createError({
-            statusCode: 404,
+            status: 404,
             message: 'Пользователь не найден [getSessionEditCard]'
         })
     }
@@ -36,7 +36,7 @@ export default defineEventHandler(async (event) => {
 
     if (error) {
         throw createError({
-            statusCode: 500,
+            status: 500,
             message: error.message
         })
     }

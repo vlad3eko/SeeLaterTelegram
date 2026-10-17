@@ -13,7 +13,7 @@ export default defineEventHandler(async (event) => {
 
     if (userError || !user) {
         throw createError({
-            statusCode: 404,
+            status: 404,
             message: "Пользователь не найден editAddSessionMessage"
         })
     }
