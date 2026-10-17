@@ -1,11 +1,29 @@
-import {promisify} from "node:util";
-import {execFile} from "node:child_process";
-import {writeFile, unlink} from "node:fs/promises";
-import path from "node:path";
+import {promisify} from 'node:util'
+import {execFile} from 'node:child_process'
+import path from 'node:path'
+import ffmpegPath from 'ffmpeg-static'
+import {randomUUID} from "node:crypto";
+import {readFile, unlink, writeFile} from "node:fs/promises";
+import {ensureReelOverlayAssets} from "#server/global/engine/instagram/reel/utils/prepareInstagramVideo";
 import {existsSync} from "node:fs";
-import ffmpegPath from "ffmpeg-static";
 
 const execFileAsync = promisify(execFile)
+
+type DecorateInstagramVideoOptions = {
+    genre?: string | Array<{
+        id?: number
+        name?: string
+    } | string>
+    rating?: string | number
+    subtitlesPath?: string
+    highlightWord?: string
+}
+
+type SubtitleCue = {
+    start: number
+    end: number
+    text: string
+}
 
 const escapeFilterPath = (value: string) =>
     value
@@ -13,29 +31,63 @@ const escapeFilterPath = (value: string) =>
         .replace(/:/g, '\\:')
         .replace(/'/g, "\\'")
 
-const escapeAssText = (text: string) =>
-    text
+const escapeAssText = (value: string) =>
+    value
         .replace(/\\/g, '')
         .replace(/[{}]/g, '')
         .replace(/\r/g, '')
+        .replace(/\n/g, '\\N')
 
-const wrapText = (text: string, maxChars = 28) => {
+const clamp = (value: number, min: number, max: number) =>
+    Math.max(min, Math.min(max, value))
 
-    const words =
-        text
-            .trim()
-            .split(/\s+/)
+const formatAssTime = (seconds: number) => {
+    const safeSeconds = Math.max(0, seconds)
+    const hours = Math.floor(safeSeconds / 3600)
+    const minutes = Math.floor((safeSeconds % 3600) / 60)
+    const wholeSeconds = Math.floor(safeSeconds % 60)
+    const centiseconds = Math.floor((safeSeconds - Math.floor(safeSeconds)) * 100)
 
+    return `${hours}:${String(minutes).padStart(2, '0')}:${String(wholeSeconds).padStart(2, '0')}.${String(centiseconds).padStart(2, '0')}`
+}
+
+const parseSubtitleTime = (value: string) => {
+    const normalized = value.trim().replace(',', '.')
+    const match = normalized.match(/^(\d{1,2}):(\d{2}):(\d{2})\.(\d{1,3})$/)
+
+    if (!match) {
+        return undefined
+    }
+
+    const hours = Number(match[1])
+    const minutes = Number(match[2])
+    const seconds = Number(match[3])
+    const milliseconds = Number(match[4]!.padEnd(3, '0'))
+// заглушка!
+    return hours * 3600 + minutes * 60 + seconds + milliseconds / 1000
+}
+
+const wrapSubtitleText = (text: string, maxChars = 27) => {
+    const words = text.trim().split(/\s+/).filter(Boolean)
     const lines: string[] = []
-
     let current = ''
 
     for (const word of words) {
+        // Split unusually long words rather than allow them to run outside the canvas.
+        if (word.length > maxChars) {
+            if (current) {
+                lines.push(current)
+                current = ''
+            }
 
-        const candidate =
-            current
-                ? `${current} ${word}`
-                : word
+            for (let offset = 0; offset < word.length; offset += maxChars) {
+                lines.push(word.slice(offset, offset + maxChars))
+            }
+
+            continue
+        }
+
+        const candidate = current ? `${current} ${word}` : word
 
         if (candidate.length <= maxChars) {
             current = candidate
@@ -53,754 +105,461 @@ const wrapText = (text: string, maxChars = 28) => {
         lines.push(current)
     }
 
-    return lines.join('\n')
-}
+    // A subtitle event is limited to two visual lines. Longer cues are split into
+    // consecutive two-line cards while preserving the original cue's time range.
+    const screens: string[] = []
 
-
-/**
- * Убираем emoji из hook.
- * Они будут добавлены как PNG.
- */
-const removeStickerEmoji = (text: string) =>
-    text
-        .replace(/🔥/gu, '')
-        .replace(/\s{2,}/g, ' ')
-        .trim()
-
-
-/**
- * Длительность появления каждой буквы.
- *
- * 200 centiseconds = 2 секунды.
- */
-const createCharacterDurations = (count: number) => {
-
-    if (count <= 0) {
-        return []
+    for (let index = 0; index < lines.length; index += 2) {
+        screens.push(lines.slice(index, index + 2).join('\\N'))
     }
 
-    const total =
-        200
-
-    const base =
-        Math.floor(
-            total / count
-        )
-
-    const remainder =
-        total % count
-
-    return Array.from(
-        {length: count},
-        (_, index) =>
-            base +
-            (
-                index < remainder
-                    ? 1
-                    : 0
-            )
-    )
+    return screens.length ? screens : ['']
 }
 
+const readSubtitleCues = async (subtitlesPath: string): Promise<SubtitleCue[]> => {
+    const extension = path.extname(subtitlesPath).toLowerCase()
+    let subtitleText: string
 
-/**
- * ASS-анимация hook.
- *
- * Блок начинается на y=350 — как в старой версии.
- */
-const createAnimatedAssText = (hook: string) => {
-
-    const cleanHook =
-        removeStickerEmoji(
-            hook
-        )
-
-    const wrappedHook =
-        wrapText(
-            cleanHook,
-            28
-        )
-
-    const lines =
-        wrappedHook
-            .split('\n')
-            .map(line =>
-                escapeAssText(line)
-            )
-            .filter(Boolean)
-
-    if (!lines.length) {
-        return ''
-    }
-
-
-    /**
-     * Сохраняем слова для выбора случайного
-     * красного слова.
-     */
-    const wordPositions: {
-        lineIndex: number
-        wordIndex: number
-        word: string
-    }[] = []
-
-
-    lines.forEach(
-        (
-            line,
-            lineIndex
-        ) => {
-
-            const words =
-                line
-                    .split(/\s+/)
-                    .filter(Boolean)
-
-            words.forEach(
-                (
-                    word,
-                    wordIndex
-                ) => {
-
-                    wordPositions.push({
-                        lineIndex,
-                        wordIndex,
-                        word
-                    })
-
-                }
-            )
-
+    if (['.ass', '.ssa', '.vtt'].includes(extension)) {
+        if (!ffmpegPath) {
+            throw new Error('[DECORATE] ffmpeg-static binary not found for subtitle conversion')
         }
-    )
 
-
-    /**
-     * Стараемся выбрать не короткое слово.
-     */
-    const longWords =
-        wordPositions.filter(
-            item =>
-                item.word
-                    .replace(
-                        /[^\p{L}\p{N}]/gu,
-                        ''
-                    )
-                    .length >= 4
-        )
-
-
-    const candidates =
-        longWords.length
-            ? longWords
-            : wordPositions
-
-
-    const randomWord =
-        candidates.length
-            ? candidates[
-                Math.floor(
-                    Math.random() *
-                    candidates.length
-                )
-                ]
-            : null
-
-
-    /**
-     * Общее количество букв.
-     */
-    const visibleCharacters =
-        lines
-            .join('')
-            .replace(/\s/g, '')
-            .length
-
-
-    /**
-     * Весь hook появляется ровно за 2 секунды.
-     */
-    const durations =
-        createCharacterDurations(
-            visibleCharacters
-        )
-
-
-    let durationIndex =
-        0
-
-
-    const renderedLines =
-        lines.map(
-            (
-                line,
-                lineIndex
-            ) => {
-
-                const tokens =
-                    line.split(/(\s+)/)
-
-                let realWordIndex =
-                    0
-
-                let result =
-                    ''
-
-
-                for (const token of tokens) {
-
-                    /**
-                     * Пробелы не анимируем.
-                     */
-                    if (/^\s+$/.test(token)) {
-                        result += token
-                        continue
-                    }
-
-
-                    const isHighlighted =
-                        randomWord &&
-                        lineIndex ===
-                        randomWord.lineIndex &&
-                        realWordIndex ===
-                        randomWord.wordIndex
-
-
-                    if (isHighlighted) {
-
-                        /**
-                         * Красный #FF2638
-                         * в ASS записывается BGR:
-                         * 3826FF
-                         */
-                        result +=
-                            '{\\1c&H3826FF&}'
-                    }
-
-
-                    for (
-                        const char of
-                        escapeAssText(token)
-                        ) {
-
-                        const duration =
-                            durations[
-                                durationIndex
-                                ] ?? 1
-
-                        durationIndex++
-
-
-                        result +=
-                            `{\\k${duration
-                                .toString()
-                                .padStart(2, '0')}}${char}`
-                    }
-
-
-                    if (isHighlighted) {
-
-                        result +=
-                            '{\\1c&HFFFFFF&}'
-                    }
-
-
-                    realWordIndex++
-                }
-
-
-                return result
+        const {stdout} = await execFileAsync(
+            ffmpegPath,
+            [
+                '-hide_banner',
+                '-loglevel', 'error',
+                '-i', subtitlesPath,
+                '-f', 'srt',
+                '-'
+            ],
+            {
+                timeout: 20_000,
+                maxBuffer: 10 * 1024 * 1024
             }
         )
-            .join('\\N')
 
+        subtitleText = stdout
 
-    return `\
-[Script Info]
-ScriptType: v4.00+
-PlayResX: 1080
-PlayResY: 1920
-WrapStyle: 2
-ScaledBorderAndShadow: yes
-YCbCr Matrix: None
-
-[V4+ Styles]
-Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Hook,Roboto Condensed,58,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,0,0,8,40,40,0,1
-Style: BottomText,Natural Mono,42,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,8,0,0,0,1
-
-[Events]
-Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-Dialogue: 0,0:00:00.00,0:59:59.00,Hook,,0,0,0,,{\\an8\\pos(540,350)}${renderedLines}
-Dialogue: 1,0:00:00.00,0:59:59.00,BottomText,,0,0,0,,{\\an8\\pos(540,1535)}НАЗВАНИЕ В ОПИСАНИИ
-`
-}
-
-
-/**
- * Приблизительная ширина последней строки.
- *
- * Нужна только для того, чтобы поставить
- * 3 fire.png сразу после последнего слова.
- */
-const estimateTextWidth = (text: string, fontSize = 58) => {
-
-    let width = 0
-
-    for (const char of text) {
-
-        if (char === ' ') {
-            width += fontSize * 0.30
-            continue
-        }
-
-        if (/[.,!?;:'"()]/.test(char)) {
-            width += fontSize * 0.28
-            continue
-        }
-
-        /**
-         * Узкие буквы.
-         */
-        if (
-            /[ІЇIЙЛЦЩШЖТФ]/.test(char)
-        ) {
-            width += fontSize * 0.58
-            continue
-        }
-
-        width += fontSize * 0.55
+    } else {
+        subtitleText = await readFile(subtitlesPath, 'utf8')
     }
 
-    return width
+    const blocks = subtitleText
+        .replace(/^\uFEFF/, '')
+        .replace(/\r/g, '')
+        .split(/\n\s*\n/)
+
+    const cues: SubtitleCue[] = []
+
+    for (const block of blocks) {
+        const lines = block.split('\n').map(line => line.trim()).filter(Boolean)
+        const timingIndex = lines.findIndex(line => line.includes('-->'))
+
+        if (timingIndex < 0) {
+            continue
+        }
+
+        const timing = lines[timingIndex]!.split('-->')
+        const start = parseSubtitleTime(timing[0] ?? '')
+        const end = parseSubtitleTime((timing[1] ?? '').split(/\s+/)[0] ?? '')
+
+        if (start === undefined || end === undefined || end <= start) {
+            continue
+        }
+
+        const rawText = lines
+            .slice(timingIndex + 1)
+            .join(' ')
+            .replace(/<[^>]*>/g, '')
+            .replace(/\{[^}]*\}/g, '')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .toLocaleUpperCase('ru-RU')
+
+        if (rawText) {
+            cues.push({start, end, text: rawText})
+        }
+    }
+
+    return cues
 }
 
+const applyHighlight = (text: string, highlightWord?: string) => {
+    const parts = text.split('\\N')
 
-/**
- * Фильтры трёх fire.png.
- *
- * Они располагаются сразу после последнего
- * слова последней строки.
- */
-const createFireFilters = (hook: string, inputStartIndex = 2) => {
+    const renderPart = (part: string) => {
+        const safePart = escapeAssText(part)
 
-    const cleanHook =
-        removeStickerEmoji(
-            hook
+        if (!highlightWord?.trim()) {
+            return safePart
+        }
+
+        const escapedWord = escapeAssText(highlightWord.trim().toLocaleUpperCase('ru-RU'))
+        const escapedPattern = escapedWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        const wordPattern = new RegExp(`(^|[\\s\\.,!?;:()])(${escapedPattern})(?=$|[\\s\\.,!?;:()])`, 'u')
+
+        return safePart.replace(
+            wordPattern,
+            (_match, before: string, word: string) =>
+                `${before}{\\c&H002B26E0&}${word}{\\c&H00EEF2F5&}`
         )
+    }
 
-    const wrappedHook =
-        wrapText(
-            cleanHook,
-            28
-        )
+    return parts.map(renderPart).join('\\N')
+}
 
-    const lines =
-        wrappedHook
-            .split('\n')
+const createSubtitleAss = async (
+    subtitlesPath: string,
+    duration: number,
+    highlightWord?: string
+) => {
+    const cues = await readSubtitleCues(subtitlesPath)
+    const events: string[] = []
+
+    for (const cue of cues) {
+        const start = clamp(cue.start, 0, duration)
+        const end = clamp(cue.end, 0, duration)
+
+        if (end <= start) {
+            continue
+        }
+
+        const screens = wrapSubtitleText(cue.text)
+        const screenDuration = (end - start) / screens.length
+
+        screens.forEach((screen, index) => {
+            const screenStart = start + screenDuration * index
+            const screenEnd = index === screens.length - 1
+                ? end
+                : start + screenDuration * (index + 1)
+
+            events.push(
+                `Dialogue: 0,${formatAssTime(screenStart)},${formatAssTime(screenEnd)},Sub,,0,0,0,,${applyHighlight(screen, highlightWord)}`
+            )
+        })
+    }
+
+    return [
+        '[Script Info]',
+        'ScriptType: v4.00+',
+        'PlayResX: 1080',
+        'PlayResY: 1920',
+        'WrapStyle: 2',
+        'ScaledBorderAndShadow: yes',
+        'YCbCr Matrix: None',
+        '',
+        '[V4+ Styles]',
+        'Format: Name,Fontname,Fontsize,PrimaryColour,SecondaryColour,OutlineColour,BackColour,Bold,Italic,Underline,StrikeOut,ScaleX,ScaleY,Spacing,Angle,BorderStyle,Outline,Shadow,Alignment,MarginL,MarginR,MarginV,Encoding',
+        // Exact subtitle style from the supplied layout specification.
+        'Style: Sub,Oswald,62,&H00EEF2F5,&H00EEF2F5,&H00000000,&H64000000,-1,0,0,0,100,100,0,0,1,3,2,2,60,60,536,1',
+        '',
+        '[Events]',
+        'Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text',
+        ...events
+    ].join('\n')
+}
+
+const createTemplateAss = (
+    duration: number,
+    options: DecorateInstagramVideoOptions
+) => {
+    const end = formatAssTime(duration)
+    const events: string[] = []
+
+    const firstTitle = 'ФИЛЬМ, КОТОРЫЙ МОЖЕТ'
+    const secondTitle = 'СТАТЬ ВАШИМ ЛЮБИМЫМ'
+
+    // Soft black title shadow, then the sharp white title.
+    events.push(
+        `Dialogue: 0,0:00:00.00,${end},Shadow,,0,0,0,,{\\an8\\pos(540,236)\\fsp1\\blur9\\bord0\\shad0\\1c&H000000&\\1a&HB3&}${firstTitle}`,
+        `Dialogue: 1,0:00:00.00,${end},Title,,0,0,0,,{\\an8\\pos(540,232)\\fsp1} ${firstTitle}`.replace('} ', '}'),
+        `Dialogue: 0,0:00:00.00,${end},Shadow,,0,0,0,,{\\an8\\pos(540,336)\\fsp1\\blur9\\bord0\\shad0\\1c&H000000&\\1a&HB3&}${secondTitle}`,
+        `Dialogue: 1,0:00:00.00,${end},Title,,0,0,0,,{\\an8\\pos(540,332)\\fsp1}{\\c&H002B26E0&}СТАТЬ{\\c&H00EEF2F5&} ВАШИМ ЛЮБИМЫМ`
+    )
+
+    const genre = Array.isArray(options.genre)
+        ? options.genre
+            .map(item =>
+                typeof item === 'string'
+                    ? item
+                    : item.name ?? ''
+            )
+            .map(name => name.trim())
             .filter(Boolean)
+            .join(' ')
+        : (options.genre ?? '').trim()
 
-    if (!lines.length) {
-        return {
-            filters: [],
-            finalLabel: 'withHook'
+    const rating = options.rating
+
+    if (genre && rating !== undefined && rating !== null && String(rating).trim()) {
+        const normalizedGenre = escapeAssText(genre.toLocaleUpperCase('ru-RU'))
+        const normalizedRating = typeof rating === 'number'
+            ? rating.toFixed(1)
+            : escapeAssText(String(rating).trim())
+
+        events.push(
+            `Dialogue: 1,0:00:00.00,${end},Meta,,0,0,0,,{\\an5\\pos(540,1469)\\fsp5} ${normalizedGenre} · ${normalizedRating}`.replace('} ', '}')
+        )
+    }
+
+    const badgeText = 'НАЗВАНИЕ В ОПИСАНИИ'
+    const callToAction = 'Сохрани, чтобы не потерять'
+
+    events.push(
+        `Dialogue: 1,0:00:00.00,${end},Badge,,0,0,0,,{\\an5\\pos(509,1570)\\fsp3}${badgeText}`,
+        `Dialogue: 1,0:00:00.00,${end},CTA,,0,0,0,,{\\an5\\pos(562,1677)}${callToAction}`
+    )
+
+    return [
+        '[Script Info]',
+        'ScriptType: v4.00+',
+        'PlayResX: 1080',
+        'PlayResY: 1920',
+        'WrapStyle: 2',
+        'ScaledBorderAndShadow: yes',
+        'YCbCr Matrix: None',
+        '',
+        '[V4+ Styles]',
+        'Format: Name,Fontname,Fontsize,PrimaryColour,SecondaryColour,OutlineColour,BackColour,Bold,Italic,Underline,StrikeOut,ScaleX,ScaleY,Spacing,Angle,BorderStyle,Outline,Shadow,Alignment,MarginL,MarginR,MarginV,Encoding',
+        'Style: Shadow,Oswald,92,&H00000000,&H00000000,&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,0,0,8,0,0,0,1',
+        'Style: Title,Oswald,92,&H00EEF2F5,&H00EEF2F5,&H00000000,&H00000000,1,0,0,0,100,100,1,0,1,0,0,8,0,0,0,1',
+        'Style: Meta,PT Sans,36,&HB8EEF2F5,&HB8EEF2F5,&H00000000,&H00000000,0,0,0,0,100,100,5,0,1,0,0,5,0,0,0,1',
+        'Style: Badge,Oswald,54,&H00EEF2F5,&H00EEF2F5,&H00000000,&H00000000,0,0,0,0,100,100,3,0,1,0,0,5,0,0,0,1',
+        'Style: CTA,PT Sans,34,&HD1EEF2F5,&HD1EEF2F5,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1',
+        '',
+        '[Events]',
+        'Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text',
+        ...events
+    ].join('\n')
+}
+
+const getVideoDuration = async (inputPath: string) => {
+    try {
+        const {stdout} = await execFileAsync(
+            process.env.FFPROBE_PATH || 'ffprobe',
+            [
+                '-v', 'error',
+                '-show_entries', 'format=duration',
+                '-of', 'default=noprint_wrappers=1:nokey=1',
+                inputPath
+            ],
+            {
+                timeout: 10_000,
+                maxBuffer: 1024 * 1024
+            }
+        )
+
+        const duration = Number(stdout.trim())
+
+        if (Number.isFinite(duration) && duration > 0) {
+            return duration
+        }
+
+    } catch (error: any) {
+        if (error?.code !== 'ENOENT') {
+            console.warn('[REEL FFPROBE FALLBACK]', error?.message || error)
         }
     }
 
-
-    const lastLine = lines[lines.length - 1]
-    const fontSize = 58
-    const fireSize = 52
-    const gap = 4
-
-    /**
-     * Начало строки.
-     */
-    const lineWidth =
-        estimateTextWidth(
-            lastLine!,
-            fontSize
-        )
-
-
-    const lineStartX =
-        (1080 - lineWidth) / 2
-
-
-    /**
-     * Три огня идут после текста.
-     */
-    const fireStartX =
-        lineStartX +
-        lineWidth +
-        10
-
-
-    /**
-     * Если последняя строка слишком длинная,
-     * чуть уменьшаем размер огней.
-     */
-    const availableWidth =
-        1080 -
-        fireStartX -
-        15
-
-
-    const finalFireSize =
-        Math.max(
-            38,
-            Math.min(
-                fireSize,
-                Math.floor(
-                    (
-                        availableWidth -
-                        gap * 2
-                    ) / 3
-                )
-            )
-        )
-
-
-    /**
-     * Вертикально примерно по центру
-     * относительно последней строки.
-     *
-     * Последняя строка:
-     * 350 + 65 * (lines - 1)
-     */
-    const lineHeight =
-        65
-
-    const lastLineY =
-        350 +
-        lineHeight *
-        (lines.length - 1)
-
-
-    const fireY =
-        Math.round(
-            lastLineY +
-            (
-                fontSize -
-                finalFireSize
-            ) / 2
-        )
-
-
-    const filters: string[] = []
-
-    let previous =
-        'withHook'
-
-
-    for (let i = 0; i < 3; i++) {
-
-        const inputIndex =
-            inputStartIndex + i
-
-        const fireLabel =
-            `fire${i}`
-
-        const outputLabel =
-            `withFire${i}`
-
-
-        /**
-         * Уменьшаем PNG.
-         */
-        filters.push(
-            `[${inputIndex}:v]` +
-            `scale=${finalFireSize}:${finalFireSize}` +
-            `[${fireLabel}]`
-        )
-
-
-        const x =
-            Math.round(
-                fireStartX +
-                i *
-                (
-                    finalFireSize +
-                    gap
-                )
-            )
-
-
-        filters.push(
-            `[${previous}][${fireLabel}]` +
-            `overlay=` +
-            `x=${x}:` +
-            `y=${fireY}:` +
-            `shortest=0` +
-            `[${outputLabel}]`
-        )
-
-
-        previous =
-            outputLabel
+    // ffmpeg-static normally ships without ffprobe. Its input probe prints the
+    // duration in stderr without decoding/encoding the whole video.
+    if (!ffmpegPath) {
+        throw new Error('[DECORATE] ffmpeg-static binary not found')
     }
 
-
-    return {
-        filters,
-        finalLabel: previous
-    }
-}
-
-
-export const decorateInstagramVideo = async (inputPath: string, keyTrailer: string, hook: string) => {
-
-    const outputPath =
-        path.join(
-            path.dirname(inputPath),
-            `${keyTrailer}_reel.mp4`
-        )
-
-
-    const logoPath =
-        path.join(
-            process.cwd(),
-            'public',
-            'instagram',
-            'logo.png'
-        )
-
-
-    /**
-     * Шрифт 700.
-     */
-    const hookFontDir =
-        path.join(
-            process.cwd(),
-            'public',
-            'assets'
-        )
-
-    /**
-     * ASS временный файл.
-     */
-    const assPath =
-        path.join(
-            path.dirname(inputPath),
-            `${keyTrailer}_hook.ass`
-        )
-
-
-    const assContent =
-        createAnimatedAssText(
-            hook
-        )
-
-
-    await writeFile(
-        assPath,
-        assContent,
-        'utf8'
-    )
-
-    /**
-     * fire.png
-     */
-    const firePath =
-        path.join(
-            process.cwd(),
-            'public',
-            'instagram',
-            'stickers',
-            'fire.png'
-        )
-
-
-    if (!existsSync(firePath)) {
-
-        throw new Error(
-            `[DECORATE] fire.png not found: ${firePath}`
-        )
-    }
-
-
-    /**
-     * Inputs:
-     *
-     * 0 = video
-     * 1 = logo
-     * 2 = fire
-     * 3 = fire
-     * 4 = fire
-     */
-    const filterComplexParts = [
-
-        // Logo
-        '[1:v]' +
-        'scale=trunc(iw*0.225/2)*2:' +
-        'trunc(ih*0.225/2)*2,' +
-        'format=rgba,' +
-        'colorchannelmixer=aa=0.1' +
-        '[logo]',
-
-
-        // Logo overlay
-        '[0:v][logo]' +
-        'overlay=' +
-        'x=W-w-40:' +
-        'y=577:' +
-        'shortest=1' +
-        '[videoWithLogo]',
-
-
-        // Animated Hook
-        `[videoWithLogo]` +
-        `subtitles=` +
-        `filename='${escapeFilterPath(assPath)}':` +
-        `fontsdir='${escapeFilterPath(hookFontDir)}'` +
-        `[withHook]`
-    ]
-
-
-    /**
-     * Добавляем 3 огня после последнего слова.
-     */
-    const fireFilters =
-        createFireFilters(
-            hook,
-            2
-        )
-
-
-    filterComplexParts.push(
-        ...fireFilters.filters
-    )
-
-
-    const finalLabel =
-        fireFilters.finalLabel
-
-    /**
-     * Нижний текст уже добавлен в ASS-файл
-     * и накладывается фильтром subtitles.
-     */
-    filterComplexParts.push(
-        `[${finalLabel}]setsar=1[vout]`
-    )
-
-
-    const filterComplex =
-        filterComplexParts.join(';')
-
+    let probeOutput = ''
 
     try {
+        await execFileAsync(
+            ffmpegPath,
+            ['-hide_banner', '-i', inputPath],
+            {
+                timeout: 10_000,
+                maxBuffer: 2 * 1024 * 1024
+            }
+        )
+    } catch (error: any) {
+        probeOutput = String(error?.stderr || '')
+    }
+
+    const match = probeOutput.match(/Duration:\s*(\d+):(\d+):([\d.]+)/)
+
+    if (!match) {
+        throw new Error(`[DECORATE] Could not determine video duration: ${inputPath}`)
+    }
+
+    const duration = Number(match[1]) * 3600
+        + Number(match[2]) * 60
+        + Number(match[3])
+
+    if (!Number.isFinite(duration) || duration <= 0) {
+        throw new Error(`[DECORATE] Invalid video duration: ${inputPath}`)
+    }
+
+    return duration
+}
+
+const verifyFonts = (fontsDirectory: string) => {
+    const requiredFonts = [
+        'Oswald-Bold.ttf',
+        'Oswald-SemiBold.ttf',
+        'PTSans-Regular.ttf'
+    ]
+
+    const missing = requiredFonts.filter(
+        filename => !existsSync(path.join(fontsDirectory, filename))
+    )
+
+    if (missing.length) {
+        throw new Error(
+            `[DECORATE] Missing required font file(s) in ${fontsDirectory}: ${missing.join(', ')}`
+        )
+    }
+}
+
+export const decorateInstagramVideo = async (
+    inputPath: string,
+    keyTrailer: string,
+    hook: string,
+    options: DecorateInstagramVideoOptions = {}
+) => {
+    if (!ffmpegPath) {
+        throw new Error('[DECORATE] ffmpeg-static binary not found')
+    }
+
+    // The new design uses a fixed headline and no emoji. Keep the third argument
+    // for compatibility with existing callers that still pass the old hook.
+    void hook
+
+    const outputPath = path.join(
+        path.dirname(inputPath),
+        `${keyTrailer}_reel.mp4`
+    )
+
+    const fontsDirectory = path.join(process.cwd(), 'fonts')
+    verifyFonts(fontsDirectory)
+
+    const assets = await ensureReelOverlayAssets()
+    const duration = await getVideoDuration(inputPath)
+    const templateAssPath = path.join(
+        path.dirname(inputPath),
+        `${keyTrailer}_${randomUUID()}_template.ass`
+    )
+    const subtitleAssPath = options.subtitlesPath
+        ? path.join(path.dirname(inputPath), `${keyTrailer}_${randomUUID()}_subtitles.ass`)
+        : undefined
+
+    const startedAt = Date.now()
+
+    try {
+        await writeFile(
+            templateAssPath,
+            createTemplateAss(duration, options),
+            'utf8'
+        )
+
+        if (options.subtitlesPath && subtitleAssPath) {
+            const subtitleAss = await createSubtitleAss(
+                options.subtitlesPath,
+                duration,
+                options.highlightWord
+            )
+
+            await writeFile(subtitleAssPath, subtitleAss, 'utf8')
+        }
+
+        const filterParts: string[] = []
+        let currentVideoLabel = '0:v'
+
+        // Layer 5: optional film subtitles.
+        if (subtitleAssPath) {
+            filterParts.push(
+                `[${currentVideoLabel}]ass=filename='${escapeFilterPath(subtitleAssPath)}':fontsdir='${escapeFilterPath(fontsDirectory)}'[withSubtitles]`
+            )
+            currentVideoLabel = 'withSubtitles'
+        }
+
+        // Layer 6: progress track and animated red progress.
+        filterParts.push(
+            `[${currentVideoLabel}]drawbox=x=0:y=1406:w=1080:h=8:color=white@0.22:t=fill[progressTrack]`,
+            '[2:v]format=rgba[progressSource]',
+            `[progressTrack][progressSource]overlay=x='-w+w*t/${duration.toFixed(3)}':y=1406:shortest=1[withProgress]`
+        )
+
+        // Layer 7: static graphics, then the text belonging to that layer.
+        filterParts.push(
+            '[withProgress][1:v]overlay=0:0:shortest=1[withStaticGraphics]',
+            `[withStaticGraphics]ass=filename='${escapeFilterPath(templateAssPath)}':fontsdir='${escapeFilterPath(fontsDirectory)}',format=yuv420p[vout]`
+        )
+
+        const filterComplex = filterParts.join(';')
 
         await execFileAsync(
-            ffmpegPath!,
+            ffmpegPath,
             [
                 '-y',
-
-                // Video
-                '-i',
-                inputPath,
-
-                // Logo
-                '-loop',
-                '1',
-
-                '-i',
-                logoPath,
-
-                // FIRE #1
-                '-loop',
-                '1',
-
-                '-i',
-                firePath,
-
-                // FIRE #2
-                '-loop',
-                '1',
-
-                '-i',
-                firePath,
-
-                // FIRE #3
-                '-loop',
-                '1',
-
-                '-i',
-                firePath,
-
-                '-filter_complex',
-                filterComplex,
-
-                '-map',
-                '[vout]',
-
-                '-map',
-                '0:a?',
-
+                '-hide_banner',
+                '-loglevel', 'error',
+                '-filter_complex_threads', '1',
+                '-i', inputPath,
+                '-loop', '1',
+                '-framerate', '30',
+                '-i', assets.static,
+                '-f', 'lavfi',
+                '-i', `color=c=0xE0262B:s=1080x8:r=30:d=${duration.toFixed(3)}`,
+                '-filter_complex', filterComplex,
+                '-map', '[vout]',
+                '-map', '0:a?',
+                '-t', duration.toFixed(3),
+                '-r', '30',
+                '-c:v', 'libx264',
+                '-preset', 'slow',
+                '-crf', '18',
+                '-profile:v', 'high',
+                '-pix_fmt', 'yuv420p',
+                '-c:a', 'aac',
+                '-b:a', '160k',
+                '-ar', '48000',
+                '-af', 'loudnorm=I=-14:TP=-1.5:LRA=11',
+                '-movflags', '+faststart',
                 '-shortest',
-
-                '-r',
-                '30',
-
-                '-c:v',
-                'libx264',
-
-                '-profile:v',
-                'high',
-
-                '-level',
-                '4.0',
-
-                '-pix_fmt',
-                'yuv420p',
-
-                '-preset',
-                'ultrafast',
-
-                '-crf',
-                '23',
-
-                '-c:a',
-                'aac',
-
-                '-b:a',
-                '96k',
-
-                '-ar',
-                '48000',
-
-                '-ac',
-                '1',
-
-                '-movflags',
-                '+faststart',
-
                 outputPath
             ],
             {
-                maxBuffer:
-                    50 * 1024 * 1024
+                timeout: 240_000,
+                maxBuffer: 30 * 1024 * 1024
             }
         )
 
-    } catch (error: any) {
+        console.log('[DECORATE INSTAGRAM VIDEO DONE]', {
+            outputPath,
+            durationSeconds: Number(duration.toFixed(3)),
+            genre: options.genre ?? null,
+            rating: options.rating ?? null,
+            subtitles: Boolean(options.subtitlesPath),
+            durationMs: Date.now() - startedAt
+        })
 
-        console.error(
-            '[DECORATE INSTAGRAM VIDEO ERROR]',
-            error?.stderr ||
-            error?.message ||
-            error
-        )
+    } catch (error: any) {
+        console.error('[DECORATE INSTAGRAM VIDEO ERROR]', {
+            inputPath,
+            outputPath,
+            durationMs: Date.now() - startedAt,
+            message: error?.message,
+            stderr: error?.stderr
+        })
 
         throw error
 
     } finally {
+        await unlink(templateAssPath).catch(() => undefined)
 
-        await unlink(
-            assPath
-        ).catch(() => {
-        })
+        if (subtitleAssPath) {
+            await unlink(subtitleAssPath).catch(() => undefined)
+        }
     }
 
     return outputPath
 }
-

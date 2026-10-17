@@ -15,7 +15,6 @@ import {isAdminEditSessionForContext} from "#server/bot/actions/admin/helpers/is
 import {removeMessageSession} from "#server/bot/services/session/removeMessageSession";
 
 
-
 export const publishAdminInlineMedia = async (ctx: any) => {
 
     const [, mediaId, mediaType, contentType, keyTrailer] = ctx.match
@@ -61,7 +60,7 @@ export const publishAdminInlineMedia = async (ctx: any) => {
 
     } catch (error) {
         console.error('[PUBLISH IDEMPOTENCY CLAIM ERROR]', error)
-        await notifyAdmin(ctx,'Не удалось проверить защиту от повторной публикации. Публикация остановлена; попробуй позже.')
+        await notifyAdmin(ctx, 'Не удалось проверить защиту от повторной публикации. Публикация остановлена; попробуй позже.')
         return
     }
 
@@ -130,6 +129,7 @@ export const publishAdminInlineMedia = async (ctx: any) => {
             }
         )
 
+
     if (!session) {
         session = {
             inlineMessageId: ctx.callbackQuery.inline_message_id,
@@ -190,7 +190,9 @@ export const publishAdminInlineMedia = async (ctx: any) => {
 
             const prepared = await prepareReel(trailerKey, instagramHook, ctx, {
                     id: session.mediaId,
-                    type: session.mediaType
+                    type: session.mediaType,
+                    genre: session.media?.genres ?? [],
+                    rating: session.media?.vote_average ?? session.media?.rating ?? '-',
                 },
                 'publish'
             )
@@ -198,7 +200,10 @@ export const publishAdminInlineMedia = async (ctx: any) => {
             // Защита от ситуации, когда prepareReel
             // не вернул URL готового Reel.
             if (typeof prepared.reelR2 !== 'string' || !prepared.reelR2.trim()) {
-                throw createError({status: 400, message: '[PUBLICATION MEDIA PREPARE ERROR] prepareReel did not return reelR2'})
+                throw createError({
+                    status: 400,
+                    message: '[PUBLICATION MEDIA PREPARE ERROR] prepareReel did not return reelR2'
+                })
             }
 
             preparedInstagram = {
