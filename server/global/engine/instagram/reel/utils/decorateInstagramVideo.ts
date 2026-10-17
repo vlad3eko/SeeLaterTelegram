@@ -438,7 +438,7 @@ export const decorateInstagramVideo = async (
         `${keyTrailer}_reel.mp4`
     )
 
-    const fontsDirectory = path.join(process.cwd(), 'fonts')
+    const fontsDirectory = path.join(process.cwd(), 'public', 'instagram', 'fonts')
     verifyFonts(fontsDirectory)
 
     const assets = await ensureReelOverlayAssets()
