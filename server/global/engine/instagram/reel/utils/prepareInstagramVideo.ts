@@ -606,7 +606,7 @@ export const prepareInstagramVideo = async (
                 '-map', '[vout]',
                 '-map', '0:a?',
                 '-c:v', 'libx264',
-                '-preset', 'fast',
+                '-preset', 'ultrafast',
                 '-crf', '18',
                 '-profile:v', 'high',
                 '-pix_fmt', 'yuv420p',

@@ -1,7 +1,7 @@
 import {normalizeTrailer} from "#server/global/engine/instagram/reel/utils/normalizeTrailer"
 import {telegramSendVideo} from "#server/global/engine/instagram/reel/utils/telegramSendVideo"
 import {downloadTrailer} from "#server/global/engine/instagram/reel/utils/downloadTrailer"
-import {unlink} from "node:fs/promises"
+import {mkdir, unlink, writeFile} from "node:fs/promises"
 import {prepareInstagramVideo} from "#server/global/engine/instagram/reel/utils/prepareInstagramVideo"
 import {decorateInstagramVideo} from "#server/global/engine/instagram/reel/utils/decorateInstagramVideo"
 import {
@@ -11,11 +11,11 @@ import {
     storageCloudflareR2
 } from "#server/global/engine/instagram/reel/utils/storageCloudflareR2";
 import {trimVideo} from "#server/global/engine/instagram/reel/utils/trimVideo";
+import path from "node:path";
+import {randomUUID} from "node:crypto";
+import os from "node:os";
 
-const runReelStep = async <T>(
-    name: string,
-    action: () => Promise<T>
-): Promise<T> => {
+const runReelStep = async <T>(name: string, action: () => Promise<T>): Promise<T> => {
     const startedAt = Date.now()
 
     console.log(`[REEL STEP START] ${name}`)
@@ -37,6 +37,36 @@ const runReelStep = async <T>(
 
         throw error
     }
+}
+const downloadR2ObjectToFile = async (url: string, outputPath: string): Promise<void> => {
+    if (!url) {
+        throw new Error('[R2 CLEAN CACHE] URL is missing')
+    }
+
+    const response = await fetch(url)
+
+    if (!response.ok) {
+        throw new Error(
+            `[R2 CLEAN CACHE] Download failed: HTTP ${response.status}`
+        )
+    }
+
+    const buffer = Buffer.from(await response.arrayBuffer())
+
+    if (buffer.length === 0) {
+        throw new Error('[R2 CLEAN CACHE] Downloaded file is empty')
+    }
+
+    await mkdir(path.dirname(outputPath), {
+        recursive: true
+    })
+
+    await writeFile(outputPath, buffer)
+
+    console.log('[R2 CLEAN CACHE DOWNLOADED]', {
+        outputPath,
+        sizeBytes: buffer.length
+    })
 }
 
 export const prepareReel = async (
@@ -108,68 +138,120 @@ export const prepareReel = async (
             }
         }
 
-        sourcePath = await runReelStep(
-            'DOWNLOAD_TRAILER',
-            () => downloadTrailer(keyTrailer)
+        const cleanCacheExists = await runReelStep(
+            'CHECK_CLEAN_VIDEO_CACHE',
+            () => existsInCloudflareR2(cleanR2Path)
         )
 
-        // Загружаем исходник во временное хранилище.
-        sourceR2CleanupNeeded = true
+        if (cleanCacheExists) {
+            console.log('[REEL CLEAN CACHE HIT]', cleanR2Path)
 
-        await runReelStep(
-            'UPLOAD_SOURCE_TO_R2',
-            () => storageCloudflareR2(sourcePath!, sourceR2Path)
-        )
+            // В режиме download сохраняем прежнее поведение:
+            // отправляем пользователю полный нормализованный трейлер.
+            if (mode === 'download') {
+                sourcePath = await runReelStep(
+                    'DOWNLOAD_TRAILER_FOR_TELEGRAM',
+                    () => downloadTrailer(keyTrailer)
+                )
 
-        let instagramInputPath: string
+                normalizePath = await runReelStep(
+                    'NORMALIZE_FULL_TRAILER',
+                    () => normalizeTrailer(sourcePath!, keyTrailer)
+                )
 
-        if (mode === 'download') {
-            // Сохраняем прежнее поведение:
-            // пользователю отправляется полный нормализованный трейлер.
-            normalizePath = await runReelStep(
-                'NORMALIZE_FULL_TRAILER',
-                () => normalizeTrailer(sourcePath!, keyTrailer)
+                telegramFileId = await runReelStep(
+                    'SEND_TRAILER_TO_TELEGRAM',
+                    () => telegramSendVideo(ctx, normalizePath!)
+                )
+            }
+
+            // Чистая композиция уже существует в R2.
+            // Повторно скачивать исходный трейлер и строить композицию не нужно.
+            preparedInstagramPath = path.join(
+                os.tmpdir(),
+                'instagram',
+                `${content.id}_${content.type}_${keyTrailer}_clean_cache_${randomUUID()}.mp4`
             )
 
-            telegramFileId = await runReelStep(
-                'SEND_TRAILER_TO_TELEGRAM',
-                () => telegramSendVideo(ctx, normalizePath!)
+            await runReelStep(
+                'DOWNLOAD_CLEAN_VIDEO_FROM_R2',
+                () => downloadR2ObjectToFile(
+                    getCloudflareR2Url(cleanR2Path),
+                    preparedInstagramPath!
+                )
             )
-
-            // Для Reel нам по-прежнему нужны только первые 40 секунд.
-            trimmedPath = await runReelStep(
-                'TRIM_NORMALIZED_TRAILER',
-                () => trimVideo(normalizePath!, keyTrailer)
-            )
-
-            instagramInputPath = trimmedPath
 
         } else {
-            // Главный фикс:
-            // сначала вырезаем 40 секунд без перекодирования,
-            // а уже потом нормализуем короткий фрагмент.
-            trimmedPath = await runReelStep(
-                'TRIM_SOURCE_BEFORE_NORMALIZE',
-                () => trimVideo(sourcePath!, keyTrailer)
+            // Кэш чистого видео отсутствует — выполняем полную подготовку.
+            sourcePath = await runReelStep(
+                'DOWNLOAD_TRAILER',
+                () => downloadTrailer(keyTrailer)
             )
 
-            normalizePath = await runReelStep(
-                'NORMALIZE_40_SECOND_CLIP',
-                () => normalizeTrailer(trimmedPath!, keyTrailer)
+            sourceR2CleanupNeeded = true
+
+            await runReelStep(
+                'UPLOAD_SOURCE_TO_R2',
+                () => storageCloudflareR2(
+                    sourcePath!,
+                    sourceR2Path
+                )
             )
 
-            instagramInputPath = normalizePath
+            let instagramInputPath: string
+
+            if (mode === 'download') {
+                // Сохраняем прежнее поведение:
+                // пользователю отправляется полный нормализованный трейлер.
+                normalizePath = await runReelStep(
+                    'NORMALIZE_FULL_TRAILER',
+                    () => normalizeTrailer(sourcePath!, keyTrailer)
+                )
+
+                telegramFileId = await runReelStep(
+                    'SEND_TRAILER_TO_TELEGRAM',
+                    () => telegramSendVideo(ctx, normalizePath!)
+                )
+
+                trimmedPath = await runReelStep(
+                    'TRIM_NORMALIZED_TRAILER',
+                    () => trimVideo(normalizePath!, keyTrailer)
+                )
+
+                instagramInputPath = trimmedPath
+
+            } else {
+                // Для публикации сначала сокращаем исходник до 40 секунд,
+                // затем нормализуем только этот фрагмент.
+                trimmedPath = await runReelStep(
+                    'TRIM_SOURCE_BEFORE_NORMALIZE',
+                    () => trimVideo(sourcePath!, keyTrailer)
+                )
+
+                normalizePath = await runReelStep(
+                    'NORMALIZE_40_SECOND_CLIP',
+                    () => normalizeTrailer(trimmedPath!, keyTrailer)
+                )
+
+                instagramInputPath = normalizePath
+            }
+
+            preparedInstagramPath = await runReelStep(
+                'PREPARE_INSTAGRAM_VIDEO',
+                () => prepareInstagramVideo(
+                    instagramInputPath,
+                    keyTrailer
+                )
+            )
+
+            await runReelStep(
+                'UPLOAD_CLEAN_VIDEO_TO_R2',
+                () => storageCloudflareR2(
+                    preparedInstagramPath!,
+                    cleanR2Path
+                )
+            )
         }
-
-        preparedInstagramPath = await runReelStep(
-            'PREPARE_INSTAGRAM_VIDEO',
-            () => prepareInstagramVideo(instagramInputPath, keyTrailer)
-        )
-
-        await runReelStep(
-            'UPLOAD_CLEAN_VIDEO_TO_R2',
-            () => storageCloudflareR2(preparedInstagramPath!, cleanR2Path)
-        )
 
         reelPath = await runReelStep(
             'DECORATE_INSTAGRAM_VIDEO',
