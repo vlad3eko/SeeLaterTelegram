@@ -170,7 +170,9 @@ export const prepareReel = async (
             preparedInstagramPath = path.join(
                 os.tmpdir(),
                 'instagram',
-                `${content.id}_${content.type}_${keyTrailer}_clean_cache_${randomUUID()}.mp4`
+                'reels',
+                'clean',
+                `${content.id}_${content.type}_${keyTrailer}_clean.mp4`
             )
 
             await runReelStep(
