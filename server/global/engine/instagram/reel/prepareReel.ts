@@ -171,7 +171,7 @@ export const prepareReel = async (
                 'instagram',
                 'reels',
                 'clean',
-                `${content.id}_${content.type}_${keyTrailer}_clean_cache_${randomUUID()}.mp4`
+                `${content.id}_${content.type}_${keyTrailer}_clean.mp4`
             )
 
             await runReelStep(
