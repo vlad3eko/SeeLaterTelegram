@@ -9,13 +9,15 @@ import {
     existsInCloudflareR2,
     getCloudflareR2Url,
     storageCloudflareR2
-} from "#server/global/engine/instagram/reel/utils/storageCloudflareR2";
-import {trimVideo} from "#server/global/engine/instagram/reel/utils/trimVideo";
-import path from "node:path";
-import {randomUUID} from "node:crypto";
-import os from "node:os";
+} from "#server/global/engine/instagram/reel/utils/storageCloudflareR2"
+import path from "node:path"
+import {randomUUID} from "node:crypto"
+import os from "node:os"
 
-const runReelStep = async <T>(name: string, action: () => Promise<T>): Promise<T> => {
+const runReelStep = async <T>(
+    name: string,
+    action: () => Promise<T>
+): Promise<T> => {
     const startedAt = Date.now()
 
     console.log(`[REEL STEP START] ${name}`)
@@ -28,7 +30,6 @@ const runReelStep = async <T>(name: string, action: () => Promise<T>): Promise<T
         })
 
         return result
-
     } catch (error) {
         console.error(`[REEL STEP ERROR] ${name}`, {
             durationMs: Date.now() - startedAt,
@@ -38,7 +39,11 @@ const runReelStep = async <T>(name: string, action: () => Promise<T>): Promise<T
         throw error
     }
 }
-const downloadR2ObjectToFile = async (url: string, outputPath: string): Promise<void> => {
+
+const downloadR2ObjectToFile = async (
+    url: string,
+    outputPath: string
+): Promise<void> => {
     if (!url) {
         throw new Error('[R2 CLEAN CACHE] URL is missing')
     }
@@ -57,10 +62,7 @@ const downloadR2ObjectToFile = async (url: string, outputPath: string): Promise<
         throw new Error('[R2 CLEAN CACHE] Downloaded file is empty')
     }
 
-    await mkdir(path.dirname(outputPath), {
-        recursive: true
-    })
-
+    await mkdir(path.dirname(outputPath), {recursive: true})
     await writeFile(outputPath, buffer)
 
     console.log('[R2 CLEAN CACHE DOWNLOADED]', {
@@ -100,12 +102,10 @@ export const prepareReel = async (
 
     let sourcePath: string | undefined
     let normalizePath: string | undefined
-    let trimmedPath: string | undefined
     let preparedInstagramPath: string | undefined
     let reelPath: string | undefined
 
     let telegramFileId: string | undefined
-
     let sourceR2CleanupNeeded = false
     let completed = false
 
@@ -115,8 +115,8 @@ export const prepareReel = async (
             () => existsInCloudflareR2(reelR2Path)
         )
 
-        // Готовый Reel уже есть в R2.
-        // Для download всё ещё отправляем исходный трейлер в Telegram.
+        // Готовый Reel уже есть. В download-режиме дополнительно отправляем
+        // пользователю исходный полный трейлер, как и раньше.
         if (cacheExist) {
             if (mode === 'download') {
                 sourcePath = await runReelStep(
@@ -146,8 +146,7 @@ export const prepareReel = async (
         if (cleanCacheExists) {
             console.log('[REEL CLEAN CACHE HIT]', cleanR2Path)
 
-            // В режиме download сохраняем прежнее поведение:
-            // отправляем пользователю полный нормализованный трейлер.
+            // В download-режиме Telegram по-прежнему получает полный трейлер.
             if (mode === 'download') {
                 sourcePath = await runReelStep(
                     'DOWNLOAD_TRAILER_FOR_TELEGRAM',
@@ -165,14 +164,14 @@ export const prepareReel = async (
                 )
             }
 
-            // Чистая композиция уже существует в R2.
-            // Повторно скачивать исходный трейлер и строить композицию не нужно.
+            // Восстанавливаем промежуточный clean локально и выполняем только
+            // decorate + загрузку финального Reel. UUID предотвращает коллизии.
             preparedInstagramPath = path.join(
                 os.tmpdir(),
                 'instagram',
                 'reels',
                 'clean',
-                `${content.id}_${content.type}_${keyTrailer}_clean.mp4`
+                `${content.id}_${content.type}_${keyTrailer}_clean_cache_${randomUUID()}.mp4`
             )
 
             await runReelStep(
@@ -184,7 +183,7 @@ export const prepareReel = async (
             )
 
         } else {
-            // Кэш чистого видео отсутствует — выполняем полную подготовку.
+            // Кэш clean отсутствует — загружаем полный исходник.
             sourcePath = await runReelStep(
                 'DOWNLOAD_TRAILER',
                 () => downloadTrailer(keyTrailer)
@@ -194,17 +193,13 @@ export const prepareReel = async (
 
             await runReelStep(
                 'UPLOAD_SOURCE_TO_R2',
-                () => storageCloudflareR2(
-                    sourcePath!,
-                    sourceR2Path
-                )
+                () => storageCloudflareR2(sourcePath!, sourceR2Path)
             )
 
-            let instagramInputPath: string
-
             if (mode === 'download') {
-                // Сохраняем прежнее поведение:
-                // пользователю отправляется полный нормализованный трейлер.
+                // Нормализуем полный трейлер только для Telegram.
+                // Для Instagram берём исходник и выбираем сегмент внутри
+                // prepareInstagramVideo, не обрезая первые 40 секунд заранее.
                 normalizePath = await runReelStep(
                     'NORMALIZE_FULL_TRAILER',
                     () => normalizeTrailer(sourcePath!, keyTrailer)
@@ -214,36 +209,13 @@ export const prepareReel = async (
                     'SEND_TRAILER_TO_TELEGRAM',
                     () => telegramSendVideo(ctx, normalizePath!)
                 )
-
-                trimmedPath = await runReelStep(
-                    'TRIM_NORMALIZED_TRAILER',
-                    () => trimVideo(normalizePath!, keyTrailer)
-                )
-
-                instagramInputPath = trimmedPath
-
-            } else {
-                // Для публикации сначала сокращаем исходник до 40 секунд,
-                // затем нормализуем только этот фрагмент.
-                trimmedPath = await runReelStep(
-                    'TRIM_SOURCE_BEFORE_NORMALIZE',
-                    () => trimVideo(sourcePath!, keyTrailer)
-                )
-
-                normalizePath = await runReelStep(
-                    'NORMALIZE_40_SECOND_CLIP',
-                    () => normalizeTrailer(trimmedPath!, keyTrailer)
-                )
-
-                instagramInputPath = normalizePath
             }
 
+            // Критично: передаём ПОЛНЫЙ трейлер. Нарезка по времени и
+            // композиция clean выполняются одним FFmpeg-проходом внутри prepare.
             preparedInstagramPath = await runReelStep(
                 'PREPARE_INSTAGRAM_VIDEO',
-                () => prepareInstagramVideo(
-                    instagramInputPath,
-                    keyTrailer
-                )
+                () => prepareInstagramVideo(sourcePath!, keyTrailer)
             )
 
             await runReelStep(
@@ -286,9 +258,7 @@ export const prepareReel = async (
         if (sourceR2CleanupNeeded) {
             try {
                 await deleteFromCloudflareR2(sourceR2Path)
-
                 console.log('[R2 SOURCE DELETED]', sourceR2Path)
-
             } catch (error) {
                 console.error('[R2 SOURCE DELETE ERROR]', error)
             }
@@ -297,7 +267,6 @@ export const prepareReel = async (
         const temporaryFiles = [
             sourcePath,
             normalizePath,
-            trimmedPath,
             preparedInstagramPath,
             reelPath
         ]
@@ -309,21 +278,15 @@ export const prepareReel = async (
 
             try {
                 await unlink(filePath)
-
                 console.log('[LOCAL TEMP DELETE]', filePath)
-
             } catch (error: any) {
                 if (error?.code !== 'ENOENT') {
-                    console.error(
-                        '[LOCAL TEMP DELETE ERROR]',
-                        filePath,
-                        error
-                    )
+                    console.error('[LOCAL TEMP DELETE ERROR]', filePath, error)
                 }
             }
         }
 
-        // Не сообщаем об успешном завершении, если подготовка упала.
+        // Сообщение об окончании отправляем только после успешного завершения.
         if (mode === 'download' && completed && ctx) {
             try {
                 await ctx.reply('процесс окончен')

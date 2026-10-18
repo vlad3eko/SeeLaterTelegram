@@ -517,7 +517,7 @@ export const decorateInstagramVideo = async (
 
     const outputPath = path.join(
         path.dirname(inputPath),
-        `${keyTrailer}_reel.mp4`
+        `${keyTrailer}_${randomUUID()}_reel.mp4`
     )
 
     const fontsDirectory = path.join(process.cwd(), 'public', 'instagram', 'fonts')
@@ -584,7 +584,7 @@ export const decorateInstagramVideo = async (
                 '-y',
                 '-hide_banner',
                 '-loglevel', 'error',
-                '-filter_complex_threads', '1',
+                '-filter_complex_threads', '2',
                 '-i', inputPath,
                 '-loop', '1',
                 '-framerate', '30',
@@ -598,7 +598,8 @@ export const decorateInstagramVideo = async (
                 '-r', '30',
                 '-c:v', 'libx264',
                 '-preset', 'ultrafast',
-                '-crf', '18',
+                '-crf', '20',
+                '-threads', '2',
                 '-profile:v', 'high',
                 '-pix_fmt', 'yuv420p',
                 '-c:a', 'aac',
