@@ -610,7 +610,7 @@ export const decorateInstagramVideo = async (inputPath: string, keyTrailer: stri
 
         // Layer 7: static graphics, then the text belonging to that layer.
         filterParts.push(
-            '[withProgress][1:v]overlay=0:0:shortest=1[withStaticGraphics]',
+            '[withProgress][1:v]overlay=0:0:eof_action=repeat:repeatlast=1[withStaticGraphics]',
             `[withStaticGraphics]ass=filename='${escapeFilterPath(templateAssPath)}':fontsdir='${escapeFilterPath(fontsDirectory)}',format=yuv420p[vout]`
         )
 
@@ -625,9 +625,8 @@ export const decorateInstagramVideo = async (inputPath: string, keyTrailer: stri
                 '-filter_complex_threads', '1',
                 '-filter_threads', '1',
                 '-i', inputPath,
-                '-loop', '1',
-                '-framerate', '30',
                 '-i', assets.static,
+                '-f', 'lavfi',
                 '-f', 'lavfi',
                 '-i', `color=c=0xE0262B:s=1080x8:r=30:d=${duration.toFixed(3)}`,
                 '-filter_complex', filterComplex,
