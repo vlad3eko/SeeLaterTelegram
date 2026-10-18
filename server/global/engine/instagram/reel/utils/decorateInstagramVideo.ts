@@ -3,7 +3,7 @@ import {execFile} from 'node:child_process'
 import path from 'node:path'
 import ffmpegPath from 'ffmpeg-static'
 import {randomUUID} from "node:crypto";
-import {readFile, unlink, writeFile} from "node:fs/promises";
+import {mkdir, readFile, unlink, writeFile} from "node:fs/promises";
 import {ensureReelOverlayAssets} from "#server/global/engine/instagram/reel/utils/prepareInstagramVideo";
 import {existsSync} from "node:fs";
 
@@ -505,12 +505,49 @@ const verifyFonts = (fontsDirectory: string) => {
     }
 }
 
-export const decorateInstagramVideo = async (
-    inputPath: string,
-    keyTrailer: string,
-    hook: string,
-    options: DecorateInstagramVideoOptions = {}
-) => {
+const escapeXml = (value: string) =>
+    value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;')
+
+const ensureFontConfig = async (
+    fontsDirectory: string,
+    configDirectory: string
+): Promise<string> => {
+    const fontConfigPath = path.join(configDirectory, 'fonts.conf')
+    const fontCacheDirectory = path.join(
+        configDirectory,
+        'fontconfig-cache'
+    )
+
+    await mkdir(configDirectory, {recursive: true})
+    await mkdir(fontCacheDirectory, {recursive: true})
+
+    const config = [
+        '<?xml version="1.0"?>',
+        '<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">',
+        '<fontconfig>',
+        `  <dir>${escapeXml(fontsDirectory)}</dir>`,
+        `  <cachedir>${escapeXml(fontCacheDirectory)}</cachedir>`,
+        '</fontconfig>',
+        ''
+    ].join('\n')
+
+    await writeFile(fontConfigPath, config, 'utf8')
+
+    console.log('[DECORATE FONTCONFIG READY]', {
+        fontConfigPath,
+        fontsDirectory,
+        fontCacheDirectory
+    })
+
+    return fontConfigPath
+}
+
+export const decorateInstagramVideo = async (inputPath: string, keyTrailer: string, hook: string, options: DecorateInstagramVideoOptions = {}) => {
     if (!ffmpegPath) {
         throw new Error('[DECORATE] ffmpeg-static binary not found')
     }
@@ -524,6 +561,7 @@ export const decorateInstagramVideo = async (
     verifyFonts(fontsDirectory)
 
     const assets = await ensureReelOverlayAssets()
+    const fontConfigPath = await ensureFontConfig(fontsDirectory, path.dirname(assets.static))
     const duration = await getVideoDuration(inputPath)
     const templateAssPath = path.join(
         path.dirname(inputPath),
@@ -584,7 +622,8 @@ export const decorateInstagramVideo = async (
                 '-y',
                 '-hide_banner',
                 '-loglevel', 'error',
-                '-filter_complex_threads', '2',
+                '-filter_complex_threads', '1',
+                '-filter_threads', '1',
                 '-i', inputPath,
                 '-loop', '1',
                 '-framerate', '30',
@@ -599,7 +638,7 @@ export const decorateInstagramVideo = async (
                 '-c:v', 'libx264',
                 '-preset', 'ultrafast',
                 '-crf', '20',
-                '-threads', '2',
+                '-threads', '1',
                 '-profile:v', 'high',
                 '-pix_fmt', 'yuv420p',
                 '-c:a', 'aac',
@@ -612,7 +651,12 @@ export const decorateInstagramVideo = async (
             ],
             {
                 timeout: 240_000,
-                maxBuffer: 30 * 1024 * 1024
+                maxBuffer: 30 * 1024 * 1024,
+                env: {
+                    ...process.env,
+                    FONTCONFIG_FILE: fontConfigPath,
+                    FONTCONFIG_PATH: path.dirname(fontConfigPath)
+                }
             }
         )
 
