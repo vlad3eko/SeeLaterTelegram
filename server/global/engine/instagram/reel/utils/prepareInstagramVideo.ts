@@ -1,11 +1,11 @@
 import {promisify} from 'node:util'
 import {execFile} from 'node:child_process'
 import {mkdir, writeFile, stat} from 'node:fs/promises'
-
 import path from 'node:path'
 import os from 'node:os'
 import {deflateSync} from 'node:zlib'
 import ffmpegPath from 'ffmpeg-static'
+import {randomUUID} from 'node:crypto'
 
 const execFileAsync = promisify(execFile)
 
@@ -130,6 +130,122 @@ const blendPixel = (
 
 const clamp = (value: number, min: number, max: number) =>
     Math.max(min, Math.min(max, value))
+
+
+export type ReelSegment = {
+    totalDurationSeconds: number
+    startSeconds: number
+    durationSeconds: number
+    endSeconds: number
+}
+
+const getInputVideoDuration = async (inputPath: string): Promise<number> => {
+    try {
+        const {stdout} = await execFileAsync(
+            process.env.FFPROBE_PATH || 'ffprobe',
+            [
+                '-v', 'error',
+                '-show_entries', 'format=duration',
+                '-of', 'default=noprint_wrappers=1:nokey=1',
+                inputPath
+            ],
+            {
+                timeout: 10_000,
+                maxBuffer: 1024 * 1024
+            }
+        )
+
+        const duration = Number(stdout.trim())
+        if (Number.isFinite(duration) && duration > 0) {
+            return duration
+        }
+    } catch (error: any) {
+        console.log('[REEL DURATION] ffprobe unavailable or failed; using ffmpeg probe', {
+            code: error?.code,
+            message: error?.message
+        })
+    }
+
+    if (!ffmpegPath) {
+        throw new Error('[REEL DURATION] ffmpeg-static binary not found')
+    }
+
+    let probeOutput = ''
+    try {
+        await execFileAsync(
+            ffmpegPath,
+            ['-hide_banner', '-i', inputPath],
+            {
+                timeout: 10_000,
+                maxBuffer: 2 * 1024 * 1024
+            }
+        )
+    } catch (error: any) {
+        probeOutput = String(error?.stderr || '')
+    }
+
+    const match = probeOutput.match(/Duration:\s*(\d+):(\d+):([\d.]+)/)
+    if (!match) {
+        throw new Error(`[REEL DURATION] Could not determine source duration: ${inputPath}`)
+    }
+
+    const duration = Number(match[1]) * 3600
+        + Number(match[2]) * 60
+        + Number(match[3])
+
+    if (!Number.isFinite(duration) || duration <= 0) {
+        throw new Error(`[REEL DURATION] Invalid source duration: ${inputPath}`)
+    }
+
+    return duration
+}
+
+/**
+ * Selects the most useful middle section while reserving the trailer ending.
+ * Long trailers: 40s, usually starting around midpoint - 10s.
+ * 60-70s trailers: use the maximum duration that leaves 18s intro + 12s ending.
+ * Short teasers: target 30s where possible, while leaving 20% (max 12s) at the end.
+ */
+export const calculateReelSegment = (totalDurationSeconds: number): ReelSegment => {
+    if (!Number.isFinite(totalDurationSeconds) || totalDurationSeconds <= 0) {
+        throw new Error(`[REEL SEGMENT] Invalid duration: ${totalDurationSeconds}`)
+    }
+
+    const total = totalDurationSeconds
+    const endGuard = total >= 60
+        ? 12
+        : Math.min(12, Math.max(2, total * 0.2))
+
+    let durationSeconds: number
+    let preferredMinimumStart = 0
+
+    if (total >= 70) {
+        durationSeconds = 40
+        preferredMinimumStart = 18
+    } else if (total >= 60) {
+        durationSeconds = Math.min(40, total - 30)
+        preferredMinimumStart = 18
+    } else if (total >= 37.5) {
+        durationSeconds = Math.min(30, total - endGuard)
+    } else {
+        durationSeconds = total - endGuard
+    }
+
+    durationSeconds = Math.max(1, Math.min(total, durationSeconds))
+
+    const maxStart = Math.max(0, total - endGuard - durationSeconds)
+    const minStart = Math.min(preferredMinimumStart, maxStart)
+    const targetStart = total / 2 - 10
+    const startSeconds = clamp(targetStart, minStart, maxStart)
+    const endSeconds = Math.min(total, startSeconds + durationSeconds)
+
+    return {
+        totalDurationSeconds: total,
+        startSeconds: Number(startSeconds.toFixed(3)),
+        durationSeconds: Number((endSeconds - startSeconds).toFixed(3)),
+        endSeconds: Number(endSeconds.toFixed(3))
+    }
+}
 
 const drawLine = (
     pixels: Buffer,
@@ -447,86 +563,80 @@ export const ensureReelOverlayAssets = async (): Promise<ReelOverlayAssets> => {
     return paths
 }
 
-const getAverageY = async (inputPath: string) => {
-    if (!ffmpegPath) {
-        throw new Error('[PREPARE INSTAGRAM VIDEO] ffmpeg-static binary not found')
-    }
-
-    const {stderr = '', stdout = ''} = await execFileAsync(
-        ffmpegPath,
-        [
-            '-hide_banner',
-            '-loglevel', 'info',
-            '-ss', '0',
-            '-i', inputPath,
-            '-t', '5',
-            '-vf', 'signalstats,metadata=print',
-            '-an',
-            '-f', 'null',
-            '-'
-        ],
-        {
-            timeout: 45_000,
-            maxBuffer: 10 * 1024 * 1024
-        }
-    ).catch((error: any) => {
-        if (error?.killed) {
-            throw new Error('[PREPARE INSTAGRAM VIDEO] Brightness analysis timed out')
-        }
-        throw error
-    })
-
-    const values = [...`${stderr}\n${stdout}`.matchAll(/lavfi\.signalstats\.YAVG\s*[:=]\s*([\d.]+)/g)]
-        .map(match => Number(match[1]))
-        .filter(Number.isFinite)
-
-    if (!values.length) {
-        console.warn('[REEL BRIGHTNESS] YAVG unavailable; applying normal color correction')
-        return 0
-    }
-
-    return values.reduce((sum, value) => sum + value, 0) / values.length
+type SourceAnalysis = {
+    crop?: string
+    averageY: number
 }
 
-const detectBlackBars = async (inputPath: string) => {
+/**
+ * Анализируем только выбранный фрагмент и только один раз:
+ * cropdetect находит чёрные полосы, signalstats оценивает яркость.
+ * Это заменяет два отдельных запуска FFmpeg.
+ */
+const analyzeSelectedSegment = async (
+    inputPath: string,
+    segment: ReelSegment
+): Promise<SourceAnalysis> => {
     if (!ffmpegPath) {
         throw new Error('[PREPARE INSTAGRAM VIDEO] ffmpeg-static binary not found')
     }
 
     try {
+        const sampleDuration = Math.min(5, segment.durationSeconds)
         const {stderr = '', stdout = ''} = await execFileAsync(
             ffmpegPath,
             [
                 '-hide_banner',
                 '-loglevel', 'info',
-                '-ss', '0',
+                '-ss', segment.startSeconds.toFixed(3),
                 '-i', inputPath,
-                '-t', '20',
-                '-vf', 'cropdetect=24:16:0',
+                '-t', sampleDuration.toFixed(3),
+                '-vf', 'cropdetect=24:16:0,signalstats,metadata=print',
                 '-an',
                 '-f', 'null',
                 '-'
             ],
             {
-                timeout: 60_000,
+                timeout: 30_000,
                 maxBuffer: 10 * 1024 * 1024
             }
         )
 
-        const matches = [...`${stderr}\n${stdout}`.matchAll(/crop=(\d+:\d+:\d+:\d+)/g)]
-        const crop = matches.at(-1)?.[1]
+        const output = `${stderr}\n${stdout}`
+        const cropMatches = [...output.matchAll(/crop=(\d+:\d+:\d+:\d+)/g)]
+        const crop = cropMatches.at(-1)?.[1]
+        const values = [...output.matchAll(/lavfi\.signalstats\.YAVG\s*[:=]\s*([\d.]+)/g)]
+            .map(match => Number(match[1]))
+            .filter(Number.isFinite)
+
+        const averageY = values.length
+            ? values.reduce((sum, value) => sum + value, 0) / values.length
+            : 0
 
         if (!crop) {
             console.log('[REEL CROPDETECT] No black bars detected; keeping source dimensions')
-            return undefined
+        } else {
+            console.log('[REEL CROPDETECT] Detected crop:', crop)
         }
 
-        console.log('[REEL CROPDETECT] Detected crop:', crop)
-        return crop
+        if (!values.length) {
+            console.warn('[REEL BRIGHTNESS] YAVG unavailable; applying normal color correction')
+        }
+
+        return {crop, averageY}
 
     } catch (error: any) {
-        console.warn('[REEL CROPDETECT] Detection failed; keeping source dimensions', error?.message || error)
-        return undefined
+        // Анализ вспомогательный: не допускаем, чтобы неудачный cropdetect
+        // полностью останавливал генерацию Reel.
+        console.warn('[REEL SOURCE ANALYSIS FALLBACK]', {
+            message: error?.message || error,
+            stderr: error?.stderr
+        })
+
+        return {
+            crop: undefined,
+            averageY: 0
+        }
     }
 }
 
@@ -538,36 +648,50 @@ export const prepareInstagramVideo = async (
         throw new Error('[PREPARE INSTAGRAM VIDEO] ffmpeg-static binary not found')
     }
 
+    // UUID исключает конфликт временных файлов при повторных/параллельных вызовах.
     const outputPath = path.join(
         path.dirname(inputPath),
-        `${keyTrailer}_instagram_prepared.mp4`
+        `${keyTrailer}_${randomUUID()}_instagram_prepared.mp4`
     )
 
     const startedAt = Date.now()
 
     try {
-        const [assets, crop, averageY] = await Promise.all([
+        // Важно: inputPath должен быть ПОЛНЫМ исходным трейлером, а не заранее
+        // обрезанным первым фрагментом.
+        const totalDurationSeconds = await getInputVideoDuration(inputPath)
+        const segment = calculateReelSegment(totalDurationSeconds)
+
+        console.log('[REEL SEGMENT SELECTED]', {
+            ...segment,
+            reservedStartSeconds: segment.startSeconds,
+            reservedEndSeconds: Number(
+                (segment.totalDurationSeconds - segment.endSeconds).toFixed(3)
+            )
+        })
+
+        const [assets, analysis] = await Promise.all([
             ensureReelOverlayAssets(),
-            detectBlackBars(inputPath),
-            getAverageY(inputPath)
+            analyzeSelectedSegment(inputPath, segment)
         ])
 
-        const cropFilter = crop ? `crop=${crop},` : ''
-        const colorCorrection = averageY >= 110
+        const cropFilter = analysis.crop ? `crop=${analysis.crop},` : ''
+        const colorCorrection = analysis.averageY >= 110
             ? ''
             : ',eq=gamma=1.25:contrast=1.1:saturation=1.1'
 
         console.log('[REEL SOURCE ANALYSIS]', {
-            averageY: Number(averageY.toFixed(2)),
-            applyColorCorrection: averageY < 110,
-            crop: crop ?? null
+            averageY: Number(analysis.averageY.toFixed(2)),
+            applyColorCorrection: analysis.averageY < 110,
+            crop: analysis.crop ?? null
         })
 
         const filterComplex = [
             // Убираем обнаруженные чёрные полосы до разделения источника.
             `[0:v]${cropFilter}split=2[backgroundSource][videoSource]`,
 
-            // Размытый фон из того же видео: уменьшение до 270x480 ускоряет blur.
+            // Размытый фон из того же фрагмента. Blur выполняется в низком
+            // разрешении, затем фон растягивается до размеров вертикального холста.
             '[backgroundSource]scale=270:480:force_original_aspect_ratio=increase,' +
             'crop=270:480,gblur=sigma=11.5,scale=1080:1920,' +
             "eq=saturation=1.25,lutrgb=r='val*0.42':g='val*0.42':b='val*0.42'[backgroundBase]",
@@ -594,7 +718,10 @@ export const prepareInstagramVideo = async (
                 '-y',
                 '-hide_banner',
                 '-loglevel', 'error',
-                '-filter_complex_threads', '1',
+                '-filter_complex_threads', '2',
+                // Обрезаем фрагмент на входе в том же проходе, в котором
+                // строится clean-видеокомпозиция. Отдельный trim/encode не нужен.
+                '-ss', segment.startSeconds.toFixed(3),
                 '-i', inputPath,
                 '-loop', '1',
                 '-framerate', '30',
@@ -605,16 +732,20 @@ export const prepareInstagramVideo = async (
                 '-filter_complex', filterComplex,
                 '-map', '[vout]',
                 '-map', '0:a?',
+                '-t', segment.durationSeconds.toFixed(3),
                 '-c:v', 'libx264',
                 '-preset', 'ultrafast',
-                '-crf', '18',
+                // Clean — промежуточный файл для последующего декорирования/повтора.
+                // CRF 21 заметно экономнее прежнего CRF 18, сохраняя хорошее качество.
+                '-crf', '21',
+                '-threads', '2',
                 '-profile:v', 'high',
                 '-pix_fmt', 'yuv420p',
                 '-r', '30',
                 '-c:a', 'aac',
-                '-b:a', '160k',
+                '-b:a', '128k',
                 '-ar', '48000',
-                '-af', 'loudnorm=I=-14:TP=-1.5:LRA=11',
+                // Громкость нормализуется один раз в decorateInstagramVideo.ts.
                 '-movflags', '+faststart',
                 '-shortest',
                 outputPath
@@ -627,11 +758,18 @@ export const prepareInstagramVideo = async (
 
         console.log('[PREPARE INSTAGRAM VIDEO DONE]', {
             outputPath,
+            totalDurationSeconds: segment.totalDurationSeconds,
+            segmentStartSeconds: segment.startSeconds,
+            durationSeconds: segment.durationSeconds,
+            segmentEndSeconds: segment.endSeconds,
+            sizeBytes: (await stat(outputPath)).size,
             durationMs: Date.now() - startedAt
         })
 
     } catch (error: any) {
         console.error('[PREPARE INSTAGRAM VIDEO ERROR]', {
+            inputPath,
+            outputPath,
             durationMs: Date.now() - startedAt,
             stderr: error?.stderr,
             message: error?.message
