@@ -162,7 +162,8 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
 
             const prepared = await prepareReel(keyTrailer, instagramHook, ctx, {
                         id: session.mediaId,
-                        type: session.mediaType
+                        type: session.mediaType,
+                        title: session.media.title || session.media.name
                     },
                     'download'
                 )

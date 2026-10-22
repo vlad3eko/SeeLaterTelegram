@@ -11,13 +11,9 @@ import {
     storageCloudflareR2
 } from "#server/global/engine/instagram/reel/utils/storageCloudflareR2"
 import path from "node:path"
-import {randomUUID} from "node:crypto"
 import os from "node:os"
 
-const runReelStep = async <T>(
-    name: string,
-    action: () => Promise<T>
-): Promise<T> => {
+const runReelStep = async <T>(name: string, action: () => Promise<T>): Promise<T> => {
     const startedAt = Date.now()
 
     console.log(`[REEL STEP START] ${name}`)
@@ -40,10 +36,7 @@ const runReelStep = async <T>(
     }
 }
 
-const downloadR2ObjectToFile = async (
-    url: string,
-    outputPath: string
-): Promise<void> => {
+const downloadR2ObjectToFile = async (url: string, outputPath: string): Promise<void> => {
     if (!url) {
         throw new Error('[R2 CLEAN CACHE] URL is missing')
     }
@@ -78,6 +71,7 @@ export const prepareReel = async (
     content: {
         id: number
         type: string
+        title: string,
         genre?: string | Array<{
             id?: number
             name?: string
@@ -234,6 +228,7 @@ export const prepareReel = async (
                 keyTrailer,
                 hook,
                 {
+                    title: content.title,
                     genre: content.genre,
                     rating: content.rating,
                     subtitlesPath: content.subtitlesPath,

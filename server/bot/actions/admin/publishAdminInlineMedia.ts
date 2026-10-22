@@ -191,6 +191,7 @@ export const publishAdminInlineMedia = async (ctx: any) => {
             const prepared = await prepareReel(trailerKey, instagramHook, ctx, {
                     id: session.mediaId,
                     type: session.mediaType,
+                    title: session.media.title || session.media.name,
                     genre: session.media?.genres ?? [],
                     rating: session.media?.vote_average ?? session.media?.rating ?? '-',
                 },
