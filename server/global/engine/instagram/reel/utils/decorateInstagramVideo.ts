@@ -482,7 +482,7 @@ const createTemplateAss = (duration: number, options: DecorateInstagramVideoOpti
         })
     }
 
-    const badgeText = options.title
+    const badgeText = (options.title)?.toUpperCase()
     const callToAction = 'Сохрани, чтобы не потерять'
 
     events.push(
