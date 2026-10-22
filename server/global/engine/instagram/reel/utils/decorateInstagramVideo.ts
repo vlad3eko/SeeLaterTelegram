@@ -430,11 +430,10 @@ const createTemplateAss = (duration: number, options: DecorateInstagramVideoOpti
     )
 
     const titleFontSize =
-        longestTitleLine > 26 ? 68 :
-            longestTitleLine > 23 ? 72 :
-                longestTitleLine > 20 ? 84 :
-                    longestTitleLine > 18 ? 92 :
-                        150
+        longestTitleLine > 26 ? 90 :
+            longestTitleLine > 23 ? 100 :
+                longestTitleLine > 20 ? 112 :
+                    longestTitleLine > 18 ? 124 : 132
 
     const firstTitleY = 232
     const secondTitleY = firstTitleY + Math.round(50 + titleFontSize * 0.36)
