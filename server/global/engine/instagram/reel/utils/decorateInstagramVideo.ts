@@ -10,6 +10,7 @@ import {existsSync} from "node:fs";
 const execFileAsync = promisify(execFile)
 
 type DecorateInstagramVideoOptions = {
+    title?: string
     genre?: string | Array<{
         id?: number
         name?: string
@@ -38,9 +39,7 @@ const escapeAssText = (value: string) =>
         .replace(/\r/g, '')
         .replace(/\n/g, '\\N')
 
-const splitHookIntoTwoLines = (
-    hook: string
-): [string, string] => {
+const splitHookIntoTwoLines = (hook: string): [string, string] => {
     const normalized = String(hook ?? '')
         .trim()
         .toLocaleUpperCase('ru-RU')
@@ -281,11 +280,7 @@ const applyHighlight = (text: string, highlightWord?: string) => {
     return parts.map(renderPart).join('\\N')
 }
 
-const createSubtitleAss = async (
-    subtitlesPath: string,
-    duration: number,
-    highlightWord?: string
-) => {
+const createSubtitleAss = async (subtitlesPath: string, duration: number, highlightWord?: string) => {
     const cues = await readSubtitleCues(subtitlesPath)
     const events: string[] = []
 
@@ -332,11 +327,7 @@ const createSubtitleAss = async (
     ].join('\n')
 }
 
-const estimateAssTextWidth = (
-    text: string,
-    fontSize: number,
-    spacing = 2
-): number => {
+const estimateAssTextWidth = (text: string, fontSize: number, spacing = 2): number => {
     let width = 0
 
     for (const char of text) {
@@ -356,12 +347,7 @@ const estimateAssTextWidth = (
     return width + Math.max(0, Array.from(text).length - 1) * spacing
 }
 
-const wrapAssTextByWidth = (
-    text: string,
-    fontSize: number,
-    maxWidth = 960,
-    spacing = 2
-): string[] => {
+const wrapAssTextByWidth = (text: string, fontSize: number, maxWidth = 960, spacing = 2): string[] => {
     const words = text.trim().split(/\s+/u).filter(Boolean)
     const lines: string[] = []
     let current = ''
@@ -401,10 +387,7 @@ const wrapAssTextByWidth = (
     return lines
 }
 
-const fitMetadataToTwoLines = (text: string): {
-    lines: string[]
-    fontSize: number
-} => {
+const fitMetadataToTwoLines = (text: string): { lines: string[], fontSize: number } => {
     const maxWidth = 960
     const spacing = 2
 
@@ -435,11 +418,7 @@ const fitMetadataToTwoLines = (text: string): {
     return {lines: visible, fontSize}
 }
 
-const createTemplateAss = (
-    duration: number,
-    options: DecorateInstagramVideoOptions,
-    hook: string
-) => {
+const createTemplateAss = (duration: number, options: DecorateInstagramVideoOptions, hook: string) => {
     const end = formatAssTime(duration)
     const events: string[] = []
 
@@ -455,7 +434,7 @@ const createTemplateAss = (
             longestTitleLine > 23 ? 72 :
                 longestTitleLine > 20 ? 84 :
                     longestTitleLine > 18 ? 92 :
-                        100
+                        150
 
     const firstTitleY = 232
     const secondTitleY = firstTitleY + Math.round(50 + titleFontSize * 0.36)
@@ -504,7 +483,7 @@ const createTemplateAss = (
         })
     }
 
-    const badgeText = 'НАЗВАНИЕ В ОПИСАНИИ'
+    const badgeText = options.title
     const callToAction = 'Сохрани, чтобы не потерять'
 
     events.push(
@@ -627,10 +606,7 @@ const escapeXml = (value: string) =>
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&apos;')
 
-const ensureFontConfig = async (
-    fontsDirectory: string,
-    configDirectory: string
-): Promise<string> => {
+const ensureFontConfig = async (fontsDirectory: string, configDirectory: string): Promise<string> => {
     const fontConfigPath = path.join(configDirectory, 'fonts.conf')
     const fontCacheDirectory = path.join(
         configDirectory,
