@@ -332,6 +332,109 @@ const createSubtitleAss = async (
     ].join('\n')
 }
 
+const estimateAssTextWidth = (
+    text: string,
+    fontSize: number,
+    spacing = 2
+): number => {
+    let width = 0
+
+    for (const char of text) {
+        if (char === ' ') {
+            width += fontSize * 0.28
+        } else if (/[.,:;·]/u.test(char)) {
+            width += fontSize * 0.28
+        } else if (/[ІЇIТЛГ]/u.test(char)) {
+            width += fontSize * 0.36
+        } else if (/[МШЖЩФЮЫЪ]/u.test(char)) {
+            width += fontSize * 0.72
+        } else {
+            width += fontSize * 0.52
+        }
+    }
+
+    return width + Math.max(0, Array.from(text).length - 1) * spacing
+}
+
+const wrapAssTextByWidth = (
+    text: string,
+    fontSize: number,
+    maxWidth = 960,
+    spacing = 2
+): string[] => {
+    const words = text.trim().split(/\s+/u).filter(Boolean)
+    const lines: string[] = []
+    let current = ''
+
+    for (const word of words) {
+        // Защита для необычно длинного слова без пробелов.
+        if (estimateAssTextWidth(word, fontSize, spacing) > maxWidth) {
+            if (current) {
+                lines.push(current)
+                current = ''
+            }
+
+            let chunk = ''
+            for (const char of Array.from(word)) {
+                const candidate = chunk + char
+                if (chunk && estimateAssTextWidth(candidate, fontSize, spacing) > maxWidth) {
+                    lines.push(chunk)
+                    chunk = char
+                } else {
+                    chunk = candidate
+                }
+            }
+            current = chunk
+            continue
+        }
+
+        const candidate = current ? `${current} ${word}` : word
+        if (estimateAssTextWidth(candidate, fontSize, spacing) <= maxWidth) {
+            current = candidate
+        } else {
+            if (current) lines.push(current)
+            current = word
+        }
+    }
+
+    if (current) lines.push(current)
+    return lines
+}
+
+const fitMetadataToTwoLines = (text: string): {
+    lines: string[]
+    fontSize: number
+} => {
+    const maxWidth = 960
+    const spacing = 2
+
+    for (const fontSize of [36, 34, 32, 30, 28, 26, 24]) {
+        const lines = wrapAssTextByWidth(text, fontSize, maxWidth, spacing)
+        if (lines.length <= 2) {
+            return {lines, fontSize}
+        }
+    }
+
+    // Крайний случай с аномально длинным списком жанров: две строки
+    // важнее выхода текста за ширину кадра. Вторая строка получает многоточие.
+    const fontSize = 24
+    const lines = wrapAssTextByWidth(text, fontSize, maxWidth, spacing)
+    const visible = lines.slice(0, 2)
+
+    if (lines.length > 2 && visible.length === 2) {
+        let second = visible[1]!
+        while (
+            second.length > 0 &&
+            estimateAssTextWidth(`${second}…`, fontSize, spacing) > maxWidth
+            ) {
+            second = Array.from(second).slice(0, -1).join('')
+        }
+        visible[1] = `${second.trimEnd()}…`
+    }
+
+    return {lines: visible, fontSize}
+}
+
 const createTemplateAss = (
     duration: number,
     options: DecorateInstagramVideoOptions,
@@ -350,52 +453,63 @@ const createTemplateAss = (
     const titleFontSize =
         longestTitleLine > 26 ? 68 :
             longestTitleLine > 23 ? 72 :
-                longestTitleLine > 20 ? 80 :
-                    longestTitleLine > 18 ? 86 :
-                        92
+                longestTitleLine > 20 ? 84 :
+                    longestTitleLine > 18 ? 92 :
+                        100
 
-// Заголовок и мягкая тень. Категория контента выделяется красным.
+    const firstTitleY = 232
+    const secondTitleY = firstTitleY + Math.round(50 + titleFontSize * 0.36)
+
     events.push(
-        `Dialogue: 0,0:00:00.00,${end},Shadow,,0,0,0,,{\\an8\\pos(540,236)\\fsp1\\fs${titleFontSize}\\blur9\\bord0\\shad0\\1c&H000000&\\1a&HB3&}${escapeAssText(firstTitle)}`,
-
-        `Dialogue: 1,0:00:00.00,${end},Title,,0,0,0,,{\\an8\\pos(540,232)\\fsp1\\fs${titleFontSize}}${formatTitleLineAss(firstTitle)}`,
-
-        `Dialogue: 0,0:00:00.00,${end},Shadow,,0,0,0,,{\\an8\\pos(540,336)\\fsp1\\fs${titleFontSize}\\blur9\\bord0\\shad0\\1c&H000000&\\1a&HB3&}${escapeAssText(secondTitle)}`,
-
-        `Dialogue: 1,0:00:00.00,${end},Title,,0,0,0,,{\\an8\\pos(540,332)\\fsp1\\fs${titleFontSize}}${formatTitleLineAss(secondTitle)}`
+        `Dialogue: 0,0:00:00.00,${end},Shadow,,0,0,0,,{\\an8\\pos(540,${firstTitleY + 4})\\fsp0\\fs${titleFontSize}\\blur8\\bord0\\shad0\\1c&H000000&\\1a&HB3&}${escapeAssText(firstTitle)}`,
+        `Dialogue: 1,0:00:00.00,${end},Title,,0,0,0,,{\\an8\\pos(540,${firstTitleY})\\fsp0\\fs${titleFontSize}\\bord1.2\\3c&H000000&}${formatTitleLineAss(firstTitle)}`,
+        `Dialogue: 0,0:00:00.00,${end},Shadow,,0,0,0,,{\\an8\\pos(540,${secondTitleY + 4})\\fsp0\\fs${titleFontSize}\\blur8\\bord0\\shad0\\1c&H000000&\\1a&HB3&}${escapeAssText(secondTitle)}`,
+        `Dialogue: 1,0:00:00.00,${end},Title,,0,0,0,,{\\an8\\pos(540,${secondTitleY})\\fsp0\\fs${titleFontSize}\\bord1.2\\3c&H000000&}${formatTitleLineAss(secondTitle)}`
     )
 
     const genre = Array.isArray(options.genre)
         ? options.genre
-            .map(item =>
-                typeof item === 'string'
-                    ? item
-                    : item.name ?? ''
-            )
+            .map(item => typeof item === 'string' ? item : item.name ?? '')
             .map(name => name.trim())
             .filter(Boolean)
             .join(' ')
-        : (options.genre ?? '').trim()
+        : String(options.genre ?? '').trim()
 
-    const rating = options.rating
+    const rawRating = typeof options.rating === 'number'
+        ? options.rating
+        : Number(String(options.rating ?? '').trim().replace(',', '.'))
 
-    if (genre && rating !== undefined && rating !== null && String(rating).trim()) {
-        const normalizedGenre = escapeAssText(genre.toLocaleUpperCase('ru-RU'))
-        const normalizedRating = typeof rating === 'number'
-            ? rating.toFixed(1)
-            : escapeAssText(String(rating).trim())
+    // Ноль, пустая строка, прочерк и некорректное значение означают
+    // отсутствие рейтинга. Не рисуем ложные 0.0 и не оставляем лишнюю точку.
+    const rating = Number.isFinite(rawRating) && rawRating > 0 && rawRating <= 10
+        ? rawRating.toFixed(1)
+        : ''
 
-        events.push(
-            `Dialogue: 1,0:00:00.00,${end},Meta,,0,0,0,,{\\an5\\pos(540,1469)\\fsp5} ${normalizedGenre} · ${normalizedRating}`.replace('} ', '}')
-        )
+    const metadataText = [
+        escapeAssText(genre.toLocaleUpperCase('ru-RU')),
+        rating
+    ].filter(Boolean).join(' · ')
+
+    if (metadataText) {
+        const {lines, fontSize} = fitMetadataToTwoLines(metadataText)
+
+        lines.forEach((line, index) => {
+            const y = lines.length === 1
+                ? 1469
+                : index === 0 ? 1442 : 1478
+
+            events.push(
+                `Dialogue: 1,0:00:00.00,${end},Meta,,0,0,0,,{\\an5\\pos(540,${y})\\fsp2\\fs${fontSize}}${escapeAssText(line)}`
+            )
+        })
     }
 
     const badgeText = 'НАЗВАНИЕ В ОПИСАНИИ'
     const callToAction = 'Сохрани, чтобы не потерять'
 
     events.push(
-        `Dialogue: 1,0:00:00.00,${end},Badge,,0,0,0,,{\\an5\\pos(509,1570)\\fsp3}${badgeText}`,
-        `Dialogue: 1,0:00:00.00,${end},CTA,,0,0,0,,{\\an5\\pos(562,1677)}${callToAction}`
+        `Dialogue: 1,0:00:00.00,${end},Badge,,0,0,0,,{\\an5\\pos(518,1570)\\fsp3}${badgeText}`,
+        `Dialogue: 1,0:00:00.00,${end},CTA,,0,0,0,,{\\an5\\pos(555,1677)}${callToAction}`
     )
 
     return [
@@ -627,8 +741,7 @@ export const decorateInstagramVideo = async (inputPath: string, keyTrailer: stri
                 '-i', inputPath,
                 '-i', assets.static,
                 '-f', 'lavfi',
-                '-f', 'lavfi',
-                '-i', `color=c=0xE0262B:s=1080x8:r=30:d=${duration.toFixed(3)}`,
+                '-i', `color=c=0x262626:s=1080x8:r=30:d=${duration.toFixed(3)}`,
                 '-filter_complex', filterComplex,
                 '-map', '[vout]',
                 '-map', '0:a?',
@@ -676,7 +789,7 @@ export const decorateInstagramVideo = async (inputPath: string, keyTrailer: stri
             message: error?.message,
             stderr: error?.stderr
         })
-
+        await unlink(outputPath).catch(() => undefined)
         throw error
 
     } finally {

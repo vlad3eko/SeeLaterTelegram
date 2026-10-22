@@ -452,18 +452,8 @@ const estimateTextWidth = (text: string, fontSize: number, tracking = 0) => {
 const makeStaticOverlay = () => {
     const pixels = newPixels(WIDTH, HEIGHT)
 
-    // Красные границы видеоблока.
-    for (let y = 478; y < 482; y++) {
-        for (let x = 0; x < WIDTH; x++) {
-            blendPixel(pixels, WIDTH, HEIGHT, x, y, 224, 38, 43, 255)
-        }
-    }
-
-    for (let y = 1414; y < 1418; y++) {
-        for (let x = 0; x < WIDTH; x++) {
-            blendPixel(pixels, WIDTH, HEIGHT, x, y, 224, 38, 43, 255)
-        }
-    }
+    // Красные линии по границам видеоблока удалены.
+    // Остаётся только отдельная шкала прогресса, которую рисует декоратор.
 
     // Полупрозрачная капсула с красной обводкой.
     const left = 150
@@ -491,9 +481,10 @@ const makeStaticOverlay = () => {
 
     // Стрелка вниз справа от текста капсулы.
     const badgeTextWidth = estimateTextWidth('НАЗВАНИЕ В ОПИСАНИИ', 54, 3)
-    const badgeGroupWidth = badgeTextWidth + 22 + 40
+    const badgeGap = 4
+    const badgeGroupWidth = badgeTextWidth + badgeGap + 40
     const badgeLeft = (WIDTH - badgeGroupWidth) / 2
-    const arrowLeft = badgeLeft + badgeTextWidth + 22
+    const arrowLeft = badgeLeft + badgeTextWidth + badgeGap
     const arrowTop = 1550
     const red: [number, number, number] = [224, 38, 43]
 
@@ -509,7 +500,9 @@ const makeStaticOverlay = () => {
 
     // Иконка закладки слева от CTA.
     const ctaTextWidth = estimateTextWidth('Сохрани, чтобы не потерять', 34)
-    const ctaGroupWidth = 30 + 14 + ctaTextWidth
+    // Обычный пробел между видимой иконкой закладки и текстом.
+    const ctaGap = 0
+    const ctaGroupWidth = 30 + ctaGap + ctaTextWidth
     const bookmarkLeft = (WIDTH - ctaGroupWidth) / 2
     const bookmarkTop = 1662
     const bookmarkPoints: [number, number, number, number][] = [
@@ -533,7 +526,9 @@ export const ensureReelOverlayAssets = async (): Promise<ReelOverlayAssets> => {
     const paths: ReelOverlayAssets = {
         background: path.join(assetDirectory, 'ov_bg.png'),
         video: path.join(assetDirectory, 'ov_video.png'),
-        static: path.join(assetDirectory, 'ov_static.png')
+        // Новое имя обязательно: иначе в тёплом runtime может остаться PNG
+        // со старыми красными границами видеоблока.
+        static: path.join(assetDirectory, 'ov_static_v2.png')
     }
 
     const generators: [keyof ReelOverlayAssets, () => Buffer][] = [
