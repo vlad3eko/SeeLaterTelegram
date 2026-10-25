@@ -687,17 +687,14 @@ export const prepareInstagramVideo = async (
             'crop=270:480,gblur=sigma=11.5,scale=1080:1920,' +
             "eq=saturation=1.25,lutrgb=r='val*0.42':g='val*0.42':b='val*0.42'[backgroundBase]",
 
-            // Чёрная подложка под видеоблок.
-            '[backgroundDecorated]drawbox=x=0:y=478:w=1080:h=940:color=black:t=fill[canvas]',
-
             // Слой 3: видеоблок 1080x932, fill/cover по центру.
             `[videoSource]scale=1080:932:force_original_aspect_ratio=increase,` +
             `crop=1080:932:(iw-1080)*0.5:(ih-932)*0.5${colorCorrection}[mainVideo]`,
 
             '[canvas][mainVideo]overlay=0:482:shortest=1[videoPlaced]',
 
-            // // Слой 4: виньетка и нижний градиент на видеоблоке.
-            // '[videoPlaced][2:v]overlay=0:482:shortest=1,setsar=1,format=yuv420p[vout]'
+            // Слой 4: виньетка и нижний градиент на видеоблоке.
+            '[videoPlaced][2:v]overlay=0:482:shortest=1,setsar=1,format=yuv420p[vout]'
         ].join(';')
 
         await execFileAsync(
@@ -711,7 +708,9 @@ export const prepareInstagramVideo = async (
                 // строится clean-видеокомпозиция. Отдельный trim/encode не нужен.
                 '-ss', segment.startSeconds.toFixed(3),
                 '-i', inputPath,
-
+                '-loop', '1',
+                '-framerate', '30',
+                '-i', assets.background,
                 '-loop', '1',
                 '-framerate', '30',
                 '-i', assets.video,
