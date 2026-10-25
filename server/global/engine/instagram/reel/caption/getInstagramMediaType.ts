@@ -64,27 +64,18 @@ const HOOK_TEMPLATES: Record<string, string[]> = {
 export const createInstagramHook = (
     mediaType: string,
     contentType: ContentType
-) => {
-    const type =
-        contentTypeConvert(
-            mediaType,
-            contentType
-        )
-
-    if (!type) {
+): string => {
+    if (!mediaType || !contentType) {
         return ''
     }
 
-    const hooks =
-        HOOK_TEMPLATES[type]
+    const hooks = HOOK_TEMPLATES[contentType]
 
     if (!hooks?.length) {
         return ''
     }
 
-    return hooks[
-        Math.floor(
-            Math.random() * hooks.length
-        )
-        ]!
+    const randomIndex = Math.floor(Math.random() * hooks.length)
+
+    return hooks[randomIndex] ?? ''
 }
