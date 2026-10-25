@@ -2,7 +2,7 @@ import {ContentType} from "#server/global/engine/search/strategy/enums"
 import {contentTypeConvert} from "~/utils/convert/contentTypeConvert";
 
 const HOOK_TEMPLATES: Record<string, string[]> = {
-    фильм: [
+    movie: [
         'ИЩЕШЬ ЧТО ПОСМОТРЕТЬ ВЕЧЕРОМ? ВОТ ОТВЕТ',
         'ЭТОТ ФИЛЬМ ЗАСТАВИТ ТЕБЯ ЗАБЫТЬ ПРО ТЕЛЕФОН',
         'ТЫ ТОЧНО НЕ СМОЖЕШЬ УГАДАТЬ КОНЦОВКУ ЭТОГО ФИЛЬМА',
@@ -16,7 +16,7 @@ const HOOK_TEMPLATES: Record<string, string[]> = {
         'ВКЛЮЧИ ЭТОТ ФИЛЬМ, ЕСЛИ ОСТАЛСЯ ОДИН ДОМА'
     ],
 
-    сериал: [
+    series: [
         'ОСТОРОЖНО: ТЫ ЗАЛИПНЕШЬ НА ВСЮ НОЧЬ',
         'СЕРИАЛ, КОТОРЫЙ ЗАТЯГИВАЕТ С ПЕРВЫХ ДВУХ МИНУТ',
         'ПОЧЕМУ ВСЕ СЕЙЧАС ГОВОРЯТ ТОЛЬКО ПРО ЭТОТ СЕРИАЛ?',
@@ -28,7 +28,7 @@ const HOOK_TEMPLATES: Record<string, string[]> = {
         'СЕРИАЛ, КОТОРЫЙ ОСТАВИТ ТЕБЯ С ОТКРЫТЫМ РТОМ'
     ],
 
-    мультфильм: [
+    cartoon: [
         'МУЛЬТФИЛЬМ С СОВСЕМ НЕ ДЕТСКИМ СМЫСЛОМ',
         'ЭТА ИСТОРИЯ ЗАСТАВИТ ПЛАКАТЬ ДАЖЕ ВЗРОСЛЫХ',
         'МУЛЬТФИЛЬМ, КОТОРЫЙ ПОДАРИТ ЧИСТЫЕ ЭМОЦИИ',
@@ -39,7 +39,7 @@ const HOOK_TEMPLATES: Record<string, string[]> = {
         'МУЛЬТФИЛЬМ, КОТОРЫЙ ПОМОЖЕТ ТЕБЕ РАССЛАБИТЬСЯ'
     ],
 
-    мультсериал: [
+    cartoonSeries: [
         'МУЛЬТСЕРИАЛ, КОТОРЫЙ ДАСТ ФОРУ ЛЮБОМУ КИНО',
         'ЭТОТ СЮЖЕТ НАМНОГО ГЛУБЖЕ, ЧЕМ КАЖЕТСЯ',
         'ЗАЛИПНЕШЬ ВСЕЙ СЕМЬЕЙ И НЕ ЗАМЕТИШЬ ВРЕМЕНИ',
@@ -49,7 +49,7 @@ const HOOK_TEMPLATES: Record<string, string[]> = {
         'ЭТОТ МУЛЬТСЕРИАЛ ЗАСЛУЖИВАЕТ ГОРАЗДО БОЛЬШЕЙ ПОПУЛЯРНОСТИ'
     ],
 
-    аниме: [
+    anime: [
         'АНИМЕ, КОТОРОЕ СМОТРИТСЯ НА ОДНОМ ДЫХАНИИ',
         'ОТ ЭТОГО СЮЖЕТА У ТЕБЯ ВЗОРВЕТСЯ МОЗГ',
         'АНИМЕ, ПОСЛЕ КОТОРОГО СЛОЖНО СМОТРЕТЬ ЧТО-ТО ДРУГОЕ',
@@ -64,89 +64,27 @@ const HOOK_TEMPLATES: Record<string, string[]> = {
 export const createInstagramHook = (
     mediaType: string,
     contentType: ContentType
-): string => {
-    const convertedType = String(
-        contentTypeConvert(mediaType, contentType) ?? ''
-    )
-        .trim()
-        .toLocaleLowerCase('ru-RU')
-
-    const aliases: Record<string, string> = {
-        film: 'фильм',
-        movie: 'фильм',
-        фильм: 'фильм',
-
-        tv: 'сериал',
-        series: 'сериал',
-        miniseries: 'сериал',
-        сериал: 'сериал',
-
-        cartoon: 'мультфильм',
-        animation: 'мультфильм',
-        мультфильм: 'мультфильм',
-
-        'animated series': 'мультсериал',
-        мультсериал: 'мультсериал',
-
-        anime: 'аниме',
-        аниме: 'аниме',
-    }
-
-    // Сначала учитываем результат конвертации, чтобы сохранить
-    // различия между сериалами, мультсериалами и аниме.
-    let type = HOOK_TEMPLATES[convertedType]
-        ? convertedType
-        : aliases[convertedType]
-
-    // Если конвертер вернул неизвестное значение,
-    // используем хотя бы тип TMDB movie/tv.
-    if (!type) {
-        const normalizedMediaType = String(mediaType)
-            .trim()
-            .toLowerCase()
-
-        if (['movie', 'film'].includes(normalizedMediaType)) {
-            type = 'фильм'
-        } else if (
-            ['tv', 'series', 'miniseries'].includes(normalizedMediaType)
-        ) {
-            type = 'сериал'
-        }
-    }
-
-    const hooks = type
-        ? HOOK_TEMPLATES[type]
-        : undefined
-
-    if (!hooks?.length) {
-        console.error('[INSTAGRAM HOOK TYPE NOT FOUND]', {
+) => {
+    const type =
+        contentTypeConvert(
             mediaType,
-            contentType,
-            convertedType,
-            resolvedType: type ?? null,
-        })
+            contentType
+        )
 
+    if (!type) {
         return ''
     }
 
-    const selectedHook = hooks[
-        Math.floor(Math.random() * hooks.length)
+    const hooks =
+        HOOK_TEMPLATES[type]
+
+    if (!hooks?.length) {
+        return ''
+    }
+
+    return hooks[
+        Math.floor(
+            Math.random() * hooks.length
+        )
         ]!
-
-    // Удаляем огонь ещё до передачи строки в декоратор.
-    const hook = selectedHook
-        .replace(/🔥+/gu, ' ')
-        .replace(/[\uFE0F\u200D]/gu, '')
-        .replace(/\s+/g, ' ')
-        .trim()
-
-    console.log('[INSTAGRAM HOOK RESOLVED]', {
-        mediaType,
-        contentType,
-        convertedType,
-        resolvedType: type,
-        hook,
-    })
-
-    return hook
 }
