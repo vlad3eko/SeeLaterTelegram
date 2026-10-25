@@ -456,6 +456,7 @@ const makeStaticOverlay = () => {
     // Остаётся только отдельная шкала прогресса, которую рисует декоратор.
 
     // Полупрозрачная капсула с красной обводкой.
+    // Полупрозрачная тёмная капсула без красной обводки.
     const left = 150
     const top = 1514
     const right = 930
@@ -466,36 +467,31 @@ const makeStaticOverlay = () => {
         for (let x = left; x < right; x++) {
             const px = x + 0.5
             const py = y + 0.5
-            const outer = isInsideRoundedRect(px, py, left, top, right, bottom, radius)
-            const inner = isInsideRoundedRect(px, py, left + 3, top + 3, right - 3, bottom - 3, radius - 3)
+
+            const outer = isInsideRoundedRect(
+                px,
+                py,
+                left,
+                top,
+                right,
+                bottom,
+                radius
+            )
 
             if (outer) {
-                if (inner) {
-                    blendPixel(pixels, WIDTH, HEIGHT, x, y, 0, 0, 0, 153)
-                } else {
-                    blendPixel(pixels, WIDTH, HEIGHT, x, y, 224, 38, 43, 255)
-                }
+                blendPixel(
+                    pixels,
+                    WIDTH,
+                    HEIGHT,
+                    x,
+                    y,
+                    0,
+                    0,
+                    0,
+                    153
+                )
             }
         }
-    }
-
-    // Стрелка вниз справа от текста капсулы.
-    const badgeTextWidth = estimateTextWidth('НАЗВАНИЕ В ОПИСАНИИ', 54, 3)
-    const badgeGap = 4
-    const badgeGroupWidth = badgeTextWidth + badgeGap + 40
-    const badgeLeft = (WIDTH - badgeGroupWidth) / 2
-    const arrowLeft = badgeLeft + badgeTextWidth + badgeGap
-    const arrowTop = 1550
-    const red: [number, number, number] = [224, 38, 43]
-
-    const arrowPoints: [number, number, number, number][] = [
-        [arrowLeft + 20, arrowTop + 7, arrowLeft + 20, arrowTop + 32],
-        [arrowLeft + 8, arrowTop + 20, arrowLeft + 20, arrowTop + 32],
-        [arrowLeft + 20, arrowTop + 32, arrowLeft + 32, arrowTop + 20]
-    ]
-
-    for (const [x1, y1, x2, y2] of arrowPoints) {
-        drawLine(pixels, WIDTH, HEIGHT, x1, y1, x2, y2, 4.3, red)
     }
 
     // Иконка закладки слева от CTA.
@@ -528,7 +524,7 @@ export const ensureReelOverlayAssets = async (): Promise<ReelOverlayAssets> => {
         video: path.join(assetDirectory, 'ov_video.png'),
         // Новое имя обязательно: иначе в тёплом runtime может остаться PNG
         // со старыми красными границами видеоблока.
-        static: path.join(assetDirectory, 'ov_static_v2.png')
+        static: path.join(assetDirectory, 'ov_static_v3.png')
     }
 
     const generators: [keyof ReelOverlayAssets, () => Buffer][] = [
@@ -691,9 +687,6 @@ export const prepareInstagramVideo = async (
             'crop=270:480,gblur=sigma=11.5,scale=1080:1920,' +
             "eq=saturation=1.25,lutrgb=r='val*0.42':g='val*0.42':b='val*0.42'[backgroundBase]",
 
-            // Слой 2: виньетка и линии паутины.
-            '[backgroundBase][1:v]overlay=0:0:shortest=1[backgroundDecorated]',
-
             // Чёрная подложка под видеоблок.
             '[backgroundDecorated]drawbox=x=0:y=478:w=1080:h=940:color=black:t=fill[canvas]',
 
@@ -703,8 +696,8 @@ export const prepareInstagramVideo = async (
 
             '[canvas][mainVideo]overlay=0:482:shortest=1[videoPlaced]',
 
-            // Слой 4: виньетка и нижний градиент на видеоблоке.
-            '[videoPlaced][2:v]overlay=0:482:shortest=1,setsar=1,format=yuv420p[vout]'
+            // // Слой 4: виньетка и нижний градиент на видеоблоке.
+            // '[videoPlaced][2:v]overlay=0:482:shortest=1,setsar=1,format=yuv420p[vout]'
         ].join(';')
 
         await execFileAsync(
@@ -718,9 +711,7 @@ export const prepareInstagramVideo = async (
                 // строится clean-видеокомпозиция. Отдельный trim/encode не нужен.
                 '-ss', segment.startSeconds.toFixed(3),
                 '-i', inputPath,
-                '-loop', '1',
-                '-framerate', '30',
-                '-i', assets.background,
+
                 '-loop', '1',
                 '-framerate', '30',
                 '-i', assets.video,
