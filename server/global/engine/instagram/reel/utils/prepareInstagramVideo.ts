@@ -678,23 +678,23 @@ export const prepareInstagramVideo = async (
         })
 
         const filterComplex = [
-            // Убираем обнаруженные чёрные полосы до разделения источника.
+            // Разделяем исходное видео на фон и основной видеоблок.
             `[0:v]${cropFilter}split=2[backgroundSource][videoSource]`,
 
-            // Размытый фон из того же фрагмента. Blur выполняется в низком
-            // разрешении, затем фон растягивается до размеров вертикального холста.
+            // Размытый фон из исходного видео на весь вертикальный холст.
             '[backgroundSource]scale=270:480:force_original_aspect_ratio=increase,' +
             'crop=270:480,gblur=sigma=11.5,scale=1080:1920,' +
             "eq=saturation=1.25,lutrgb=r='val*0.42':g='val*0.42':b='val*0.42'[backgroundBase]",
 
-            // Слой 3: видеоблок 1080x932, fill/cover по центру.
+            // Основное видео 1080x932.
             `[videoSource]scale=1080:932:force_original_aspect_ratio=increase,` +
             `crop=1080:932:(iw-1080)*0.5:(ih-932)*0.5${colorCorrection}[mainVideo]`,
 
-            '[canvas][mainVideo]overlay=0:482:shortest=1[videoPlaced]',
+            // Основное видео поверх размытого фона.
+            '[backgroundBase][mainVideo]overlay=0:482:shortest=1[videoPlaced]',
 
-            // Слой 4: виньетка и нижний градиент на видеоблоке.
-            '[videoPlaced][2:v]overlay=0:482:shortest=1,setsar=1,format=yuv420p[vout]'
+            // Виньетка и нижний градиент основного видеоблока.
+            '[videoPlaced][1:v]overlay=0:482:shortest=1,setsar=1,format=yuv420p[vout]'
         ].join(';')
 
         await execFileAsync(
@@ -708,9 +708,7 @@ export const prepareInstagramVideo = async (
                 // строится clean-видеокомпозиция. Отдельный trim/encode не нужен.
                 '-ss', segment.startSeconds.toFixed(3),
                 '-i', inputPath,
-                '-loop', '1',
-                '-framerate', '30',
-                '-i', assets.background,
+
                 '-loop', '1',
                 '-framerate', '30',
                 '-i', assets.video,
