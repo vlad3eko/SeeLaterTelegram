@@ -431,31 +431,9 @@ const isInsideRoundedRect = (
     return Math.hypot(x - nearestX, y - nearestY) <= radius
 }
 
-const estimateTextWidth = (text: string, fontSize: number, tracking = 0) => {
-    let width = 0
-
-    for (const char of text) {
-        if (char === ' ') {
-            width += fontSize * 0.30
-        } else if (/[.,!?;:'"()]/.test(char)) {
-            width += fontSize * 0.28
-        } else if (/[ІЇIЙЛЦЩШЖТФ]/.test(char)) {
-            width += fontSize * 0.58
-        } else {
-            width += fontSize * 0.55
-        }
-    }
-
-    return width + Math.max(0, text.length - 1) * tracking
-}
-
 const makeStaticOverlay = () => {
     const pixels = newPixels(WIDTH, HEIGHT)
 
-    // Красные линии по границам видеоблока удалены.
-    // Остаётся только отдельная шкала прогресса, которую рисует декоратор.
-
-    // Полупрозрачная капсула с красной обводкой.
     // Полупрозрачная тёмная капсула без красной обводки.
     const left = 150
     const top = 1514
@@ -495,9 +473,12 @@ const makeStaticOverlay = () => {
     }
 
     // Иконка закладки слева от CTA.
-    const ctaTextWidth = estimateTextWidth('Сохрани, чтобы не потерять', 34)
-    // Обычный пробел между видимой иконкой закладки и текстом.
+    // Реальная ширина текста PT Sans Regular, 34px.
+    const ctaTextWidth = 322
+
+    // Минимальный отступ между иконкой и текстом.
     const ctaGap = 0
+
     const ctaGroupWidth = 30 + ctaGap + ctaTextWidth
     const bookmarkLeft = (WIDTH - ctaGroupWidth) / 2
     const bookmarkTop = 1662
