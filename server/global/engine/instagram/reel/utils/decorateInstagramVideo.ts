@@ -450,7 +450,7 @@ const createTemplateAss = (duration: number, options: DecorateInstagramVideoOpti
             .map(item => typeof item === 'string' ? item : item.name ?? '')
             .map(name => name.trim())
             .filter(Boolean)
-            .join(' ')
+            .join(' · ')
         : String(options.genre ?? '').trim()
 
     const rawRating = typeof options.rating === 'number'
@@ -467,8 +467,7 @@ const createTemplateAss = (duration: number, options: DecorateInstagramVideoOpti
         genre.toLocaleUpperCase('ru-RU')
     )
 
-// Звезда и рейтинг остаются единым элементом при переносе строк.
-    const ratingToken = rating ? `★${rating}` : ''
+    const ratingToken = rating
 
     const metadataText = [
         genreLabel,
@@ -490,7 +489,7 @@ const createTemplateAss = (duration: number, options: DecorateInstagramVideoOpti
             const styledLine = ratingIndex >= 0
                 ? (
                     `${escapeAssText(line.slice(0, ratingIndex))}` +
-                    `{\\c&H003BD4FF&\\b1}★ ${rating}{\\b0\\c&H00F5F5F5&}`
+                    `{\\c&H003BD4FF&\\b1}${rating}{\\b0\\c&H00F5F5F5&}`
                 )
                 : escapeAssText(line)
 
@@ -523,7 +522,7 @@ const createTemplateAss = (duration: number, options: DecorateInstagramVideoOpti
         'Style: Title,Oswald,92,&H00EEF2F5,&H00EEF2F5,&H00000000,&H00000000,1,0,0,0,100,100,1,0,1,0,0,8,0,0,0,1',
         'Style: Meta,PT Sans,36,&H26EEF2F5,&H26EEF2F5,&H00000000,&H00000000,0,0,0,0,100,100,5,0,1,0,0,5,0,0,0,1',
         'Style: Badge,Oswald,54,&H00EEF2F5,&H00EEF2F5,&H00000000,&H00000000,1,0,0,0,100,100,3,0,1,0,0,5,0,0,0,1',
-        'Style: CTA,PT Sans,38,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1',
+        'Style: CTA,PT Sans,38,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1',
         '',
         '[Events]',
         'Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text',
