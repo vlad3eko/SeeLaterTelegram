@@ -391,7 +391,7 @@ const fitMetadataToTwoLines = (text: string): { lines: string[], fontSize: numbe
     const maxWidth = 960
     const spacing = 2
 
-    for (const fontSize of [36, 34, 32, 30, 28, 26, 24]) {
+    for (const fontSize of [40, 38, 36, 34, 32, 30]) {
         const lines = wrapAssTextByWidth(text, fontSize, maxWidth, spacing)
         if (lines.length <= 2) {
             return {lines, fontSize}
@@ -400,7 +400,7 @@ const fitMetadataToTwoLines = (text: string): { lines: string[], fontSize: numbe
 
     // Крайний случай с аномально длинным списком жанров: две строки
     // важнее выхода текста за ширину кадра. Вторая строка получает многоточие.
-    const fontSize = 24
+    const fontSize = 30
     const lines = wrapAssTextByWidth(text, fontSize, maxWidth, spacing)
     const visible = lines.slice(0, 2)
 
@@ -463,9 +463,16 @@ const createTemplateAss = (duration: number, options: DecorateInstagramVideoOpti
         ? rawRating.toFixed(1)
         : ''
 
+    const genreLabel = escapeAssText(
+        genre.toLocaleUpperCase('ru-RU')
+    )
+
+// Звезда и рейтинг остаются единым элементом при переносе строк.
+    const ratingToken = rating ? `★${rating}` : ''
+
     const metadataText = [
-        escapeAssText(genre.toLocaleUpperCase('ru-RU')),
-        rating
+        genreLabel,
+        ratingToken
     ].filter(Boolean).join(' · ')
 
     if (metadataText) {
@@ -476,8 +483,19 @@ const createTemplateAss = (duration: number, options: DecorateInstagramVideoOpti
                 ? 1469
                 : index === 0 ? 1442 : 1478
 
+            const ratingIndex = ratingToken
+                ? line.lastIndexOf(ratingToken)
+                : -1
+
+            const styledLine = ratingIndex >= 0
+                ? (
+                    `${escapeAssText(line.slice(0, ratingIndex))}` +
+                    `{\\c&H003BD4FF&\\b1}★ ${rating}{\\b0\\c&H00F5F5F5&}`
+                )
+                : escapeAssText(line)
+
             events.push(
-                `Dialogue: 1,0:00:00.00,${end},Meta,,0,0,0,,{\\an5\\pos(540,${y})\\fsp2\\fs${fontSize}}${escapeAssText(line)}`
+                `Dialogue: 1,0:00:00.00,${end},Meta,,0,0,0,,{\\an5\\pos(540,${y})\\fsp2\\fs${fontSize}}${styledLine}`
             )
         })
     }
@@ -505,7 +523,7 @@ const createTemplateAss = (duration: number, options: DecorateInstagramVideoOpti
         'Style: Title,Oswald,92,&H00EEF2F5,&H00EEF2F5,&H00000000,&H00000000,1,0,0,0,100,100,1,0,1,0,0,8,0,0,0,1',
         'Style: Meta,PT Sans,36,&HB8EEF2F5,&HB8EEF2F5,&H00000000,&H00000000,0,0,0,0,100,100,5,0,1,0,0,5,0,0,0,1',
         'Style: Badge,Oswald,54,&H00EEF2F5,&H00EEF2F5,&H00000000,&H00000000,0,0,0,0,100,100,3,0,1,0,0,5,0,0,0,1',
-        'Style: CTA,PT Sans,34,&HD1EEF2F5,&HD1EEF2F5,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1',
+        'Style: CTA,PT Sans,38,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1',
         '',
         '[Events]',
         'Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text',
