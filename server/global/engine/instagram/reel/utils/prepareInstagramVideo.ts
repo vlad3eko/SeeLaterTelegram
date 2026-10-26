@@ -474,7 +474,7 @@ const makeStaticOverlay = () => {
 
     // Иконка закладки слева от CTA.
     // Реальная ширина текста PT Sans Regular, 34px.
-    const ctaTextWidth = 322
+    const ctaTextWidth = 352
 
     // Минимальный отступ между иконкой и текстом.
     const ctaGap = 0
