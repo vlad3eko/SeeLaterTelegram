@@ -188,6 +188,7 @@ export const publishAdminInlineMedia = async (ctx: any) => {
         try {
             const instagramHook = createInstagramHook(session.mediaType, session.contentType)
 
+
             const prepared = await prepareReel(trailerKey, instagramHook, ctx, {
                     id: session.mediaId,
                     type: session.mediaType,
