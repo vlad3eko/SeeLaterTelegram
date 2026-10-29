@@ -503,7 +503,7 @@ const createTemplateAss = (duration: number, options: DecorateInstagramVideoOpti
     const callToAction = 'Сохрани, чтобы не потерять'
 
     events.push(
-        `Dialogue: 1,0:00:00.00,${end},Badge,,0,0,0,,{\\an5\\pos(518,1570)\\fsp3}${badgeText}`,
+        `Dialogue: 1,0:00:00.00,${end},Badge,,0,0,0,,{\\an5\\pos(555,1570)\\fsp3}${badgeText}`,
         `Dialogue: 1,0:00:00.00,${end},CTA,,0,0,0,,{\\an5\\pos(555,1677)}${callToAction}`
     )
 
