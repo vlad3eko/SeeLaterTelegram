@@ -13,7 +13,8 @@ import {createInstagramHook} from "#server/global/engine/instagram/reel/caption/
 import {constructRichCard} from "#server/global/engine/card/construct/constructRichCard";
 import {isAdminEditSessionForContext} from "#server/bot/actions/admin/helpers/isAdminEditSessionForContext";
 import {removeMessageSession} from "#server/bot/services/session/removeMessageSession";
-
+import {executeDataProvider} from "~/utils/engines/content/strategy/executeDataProvider";
+import {GoogleGenAI} from "@google/genai";
 
 export const publishAdminInlineMedia = async (ctx: any) => {
 
@@ -186,9 +187,33 @@ export const publishAdminInlineMedia = async (ctx: any) => {
         const trailerKey = session.keyTrailer
 
         try {
-            const instagramHook = createInstagramHook(session.mediaType, session.contentType)
+            // const instagramHook = createInstagramHook(session.mediaType, session.contentType)
 
-            const prepared = await prepareReel(trailerKey, instagramHook, ctx, {
+            const ai = new GoogleGenAI({});
+
+            const instagramHook = await ai.interactions.create({
+                model: "gemini-3.8-flash",
+                input: "Ты — редактор коротких вирусных видеороликов о кино для Instagram Reels.\n" +
+                    "\n" +
+                    "Твоя задача — создавать сильные первые фразы, которые заставляют зрителя остановиться и захотеть посмотреть продолжение.\n" +
+                    "\n" +
+                    "Правила:\n" +
+                    "- Не используй банальные фразы вроде «этот фильм заставит тебя плакать», «ты не сможешь оторваться» и «шедевр, который должен увидеть каждый».\n" +
+                    "- Не выдумывай сюжетные детали, которых нет в предоставленных данных.\n" +
+                    "- Не раскрывай концовку и главные сюжетные повороты.\n" +
+                    "- Не превращай хук в описание фильма.\n" +
+                    "- Пиши естественным русским языком, без канцелярита и искусственного рекламного тона.\n" +
+                    "- Избегай кликбейта, который не соответствует содержанию фильма.\n" +
+                    "- Каждый вариант должен отличаться по смыслу, а не только по формулировке.\n" +
+                    "- Длина одного хука — желательно до 12 слов.\n" +
+                    "\n" +
+                    "Сгенерируй 1 вариант в интригующем стиле. Максимум 7 слов\n" +
+                    "\n" +
+                    `Верни результат в виде сроки, Вот информация о контенте: ${session.media}`
+            });
+            console.log(instagramHook.output_text)
+
+            const prepared = await prepareReel(trailerKey, instagramHook.output_text!, ctx, {
                     id: session.mediaId,
                     type: session.mediaType,
                     title: session.media.title || session.media.name,
