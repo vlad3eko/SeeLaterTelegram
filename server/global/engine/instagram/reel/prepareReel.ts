@@ -12,6 +12,9 @@ import {
 } from "#server/global/engine/instagram/reel/utils/storageCloudflareR2"
 import path from "node:path"
 import os from "node:os"
+import {
+    generateInstagramHookFromVideo
+} from "#server/global/engine/instagram/reel/utils/generateInstagramHookFromVideo";
 
 const runReelStep = async <T>(name: string, action: () => Promise<T>): Promise<T> => {
     const startedAt = Date.now()
@@ -71,7 +74,8 @@ export const prepareReel = async (
     content: {
         id: number
         type: string
-        title: string,
+        title?: string
+        overview?: string
         genre?: string | Array<{
             id?: number
             name?: string
@@ -221,12 +225,43 @@ export const prepareReel = async (
             )
         }
 
+
+        const finalHook = await runReelStep(
+            'GENERATE_INSTAGRAM_HOOK_FROM_VIDEO',
+            async () => {
+                try {
+                    return await generateInstagramHookFromVideo(
+                        preparedInstagramPath!,
+                        {
+                            title: content.title,
+                            overview: content.overview,
+                            genre: content.genre
+                        }
+                    )
+
+                } catch (error) {
+                    console.error('[GEMINI HOOK ERROR]', error)
+
+                    // Если Gemini недоступен, не останавливаем публикацию.
+                    // Используем старый шаблонный хук как резервный вариант.
+                    if (hook?.trim()) {
+                        console.warn('[GEMINI] Using fallback hook:', hook)
+
+                        return hook.trim()
+                    }
+
+                    throw error
+                }
+            }
+        )
+
+
         reelPath = await runReelStep(
             'DECORATE_INSTAGRAM_VIDEO',
             () => decorateInstagramVideo(
                 preparedInstagramPath!,
                 keyTrailer,
-                hook,
+                finalHook,
                 {
                     title: content.title,
                     genre: content.genre,
