@@ -4,7 +4,7 @@ import {
 } from "#server/bot/actions/admin/adminEditSession"
 
 import {prepareReel} from "#server/global/engine/instagram/reel/prepareReel"
-import {createInstagramHook} from "#server/global/engine/instagram/reel/caption/getInstagramMediaType"
+import {createInstagramHook} from "#server/global/engine/instagram/reel/caption/createInstagramHook"
 import {sessionCurrentMedia} from "#server/bot/actions/admin/helpers/sessionCurrentMedia"
 import {engineAdminEditCard} from "#server/bot/actions/admin/helpers/engineAdminEditCard"
 import {extractYouTubeVideoId} from "#server/global/engine/instagram/reel/utils/extractYouTubeVideoId";
