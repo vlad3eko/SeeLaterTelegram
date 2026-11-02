@@ -1,8 +1,7 @@
 import {
     clearAdminEditSession, getAdminEditSession, setAdminEditSession, updateAdminEditSession
 } from "#server/bot/actions/admin/adminEditSession";
-import {CHANEL_LINK} from "#server/bot/bot";
-import {prepareReel} from "#server/global/engine/instagram/reel/prepareReel";
+import {CHANEL_LINK, URL_ACTIVE} from "#server/bot/bot";
 import {getMediaSaveCount} from "#server/bot/consts/keyboardVersion/getMediaSaveCount";
 import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBot";
 import {NOTIFICATION_MESSAGE, notifyAdmin} from "#server/global/notifications/sendNotificationMessage";
@@ -11,63 +10,39 @@ import {createInstagramCaption} from "#server/global/engine/instagram/reel/capti
 import {publishInstagramReel} from "#server/global/publishers/instagram/publishInstagramReel";
 import {isAdminEditSessionForContext} from "#server/bot/actions/admin/helpers/isAdminEditSessionForContext";
 import {removeMessageSession} from "#server/bot/services/session/removeMessageSession";
-import {GoogleGenAI} from "@google/genai";
 import {constructRichCard} from "#server/global/engine/card/construct/constructRichCard";
-import {createInstagramHook} from "#server/global/engine/instagram/reel/caption/createInstagramHook";
+import {dispatchReelJob} from "#server/global/engine/instagram/reel/jobs/dispatchReelJob";
 
 export const publishAdminInlineMedia = async (ctx: any) => {
-
-    const [, mediaId, mediaType, contentType, keyTrailer] = ctx.match
+    const [
+        ,
+        mediaId,
+        mediaType,
+        contentType,
+        keyTrailer,
+        isRichTypeCardValue
+    ] = ctx.match
 
     const channelId = CHANEL_LINK
     const parsedMediaId = Number(mediaId)
-
+    const isRichTypeCard = isRichTypeCardValue === 'true'
 
     const answerCallbackQuerySafely = async (text: string) => {
-
         try {
-
             await ctx.answerCbQuery(text)
-
         } catch (error: any) {
-
             console.warn(
                 '[PUBLISH CALLBACK ACK SKIPPED]',
-                error?.response?.description ||
-                error?.message ||
-                error
+                error?.response?.description || error?.message || error
             )
         }
     }
-    // Отвечаем Telegram сразу, а не после долгой обработки видео.
-    // Подтверждаем нажатие кнопки сразу.
+
+    // Telegram callback подтверждаем сразу: обработка видео больше не выполняется
+    // внутри webhook, а передаётся отдельному Cloud Run Job.
     await answerCallbackQuerySafely('Публикация запущена')
+
     const updateId = Number(ctx.update?.update_id)
-
-    let claim: {
-        claimed: boolean
-    }
-
-    try {
-        claim = await $fetch('/api/bot/updates/claim', {
-                method: 'POST',
-                body: {
-                    update_id: updateId,
-                    handler: 'publishAdminInlineMedia'
-                }
-            }
-        )
-
-    } catch (error) {
-        console.error('[PUBLISH IDEMPOTENCY CLAIM ERROR]', error)
-        await notifyAdmin(ctx, 'Не удалось проверить защиту от повторной публикации. Публикация остановлена; попробуй позже.')
-        return
-    }
-
-    if (!claim.claimed) {
-        console.warn('[PUBLISH DUPLICATE IGNORED]', {updateId, callbackQueryId: ctx.callbackQuery?.id})
-        return
-    }
     const existingSession = await getAdminEditSession(ctx.from.id)
 
     const samePublicationSession =
@@ -77,31 +52,24 @@ export const publishAdminInlineMedia = async (ctx: any) => {
         existingSession.contentType === contentType
 
     const lockStartedAt = Number(existingSession?.publishStartedAt ?? 0)
+    const lockAge = lockStartedAt > 0
+        ? Date.now() - lockStartedAt
+        : Number.POSITIVE_INFINITY
 
-    const lockAge =
-        lockStartedAt > 0
-            ? Date.now() - lockStartedAt
-            : Number.POSITIVE_INFINITY
-
-    // Повторная доставка того же действия не запускает публикацию заново.
-    // Через 10 минут зависшую блокировку можно будет обойти.
+    // Повторная доставка не должна повторно запускать уже выполняющуюся операцию.
+    // После 10 минут можно повторить зависшую публикацию.
     if (
         samePublicationSession &&
         existingSession.mode === 'publish' &&
         lockAge >= 0 &&
         lockAge < 10 * 60 * 1000
     ) {
-
-        console.warn(
-            '[PUBLISH DUPLICATE IGNORED]',
-            {
-                updateId: ctx.update?.update_id,
-                callbackQueryId: ctx.callbackQuery?.id,
-                mediaId: parsedMediaId,
-                lockAge
-            }
-        )
-
+        console.warn('[PUBLISH DUPLICATE IGNORED]', {
+            updateId,
+            callbackQueryId: ctx.callbackQuery?.id,
+            mediaId: parsedMediaId,
+            lockAge
+        })
         return
     }
 
@@ -117,18 +85,15 @@ export const publishAdminInlineMedia = async (ctx: any) => {
             ? existingSession
             : null
 
-    const media =
-        session?.media ??
-        await tmdbFetch(
-            '/api/bot/getMediaBot',
-            {
-                query: {
-                    id: parsedMediaId,
-                    media: mediaType
-                }
+    const media = session?.media ?? await tmdbFetch(
+        '/api/bot/getMediaBot',
+        {
+            query: {
+                id: parsedMediaId,
+                media: mediaType
             }
-        )
-
+        }
+    )
 
     if (!session) {
         session = {
@@ -152,82 +117,125 @@ export const publishAdminInlineMedia = async (ctx: any) => {
     if (keyTrailer !== undefined && session.keyTrailer !== keyTrailer) {
         session.keyTrailer = keyTrailer || undefined
         session.preparedInstagram = undefined
-        await updateAdminEditSession(ctx.from.id, {keyTrailer: keyTrailer || null, preparedInstagram: null})
+        await updateAdminEditSession(ctx.from.id, {
+            keyTrailer: keyTrailer || null,
+            preparedInstagram: null
+        })
     }
-
-    const publishLockStartedAt = Date.now()
-
-    await updateAdminEditSession(ctx.from.id, {
-        mode: 'publish',
-        publishStartedAt: publishLockStartedAt
-    })
-
-    session.mode = 'publish'
-    session.publishStartedAt = publishLockStartedAt
 
     let preparedInstagram = session.preparedInstagram
 
-// Проверяем, соответствует ли сохранённый результат
-// текущему трейлеру и содержит ли готовый Reel в R2.
-    if (preparedInstagram
-        && (preparedInstagram.keyTrailer !== session.keyTrailer
-            || typeof preparedInstagram.reelR2 !== 'string'
-            || !preparedInstagram.reelR2.trim())) {
-
+    // Cached result is usable only for the currently selected trailer.
+    if (
+        preparedInstagram &&
+        (
+            preparedInstagram.keyTrailer !== session.keyTrailer ||
+            typeof preparedInstagram.reelR2 !== 'string' ||
+            !preparedInstagram.reelR2.trim()
+        )
+    ) {
         preparedInstagram = undefined
         session.preparedInstagram = undefined
-
         await updateAdminEditSession(ctx.from.id, {preparedInstagram: null})
-    }
-
-// Если готового Reel нет, создаём его.
-// Одного telegramFileId недостаточно для Instagram.
-    if (!preparedInstagram && session.keyTrailer) {
-        const trailerKey = session.keyTrailer
-
-        try {
-            const instagramHook = createInstagramHook(session.mediaType, session.contentType)
-
-            const prepared = await prepareReel(trailerKey, instagramHook, ctx, {
-                    id: session.mediaId,
-                    type: session.mediaType,
-                    title: session.media.title || session.media.name,
-                    genre: session.media?.genres ?? [],
-                    rating: session.media?.vote_average ?? session.media?.rating ?? '-',
-                },
-                'publish'
-            )
-
-            // Защита от ситуации, когда prepareReel
-            // не вернул URL готового Reel.
-            if (typeof prepared.reelR2 !== 'string' || !prepared.reelR2.trim()) {
-                throw createError({
-                    status: 400,
-                    message: '[PUBLICATION MEDIA PREPARE ERROR] prepareReel did not return reelR2'
-                })
-            }
-
-            preparedInstagram = {
-                keyTrailer: trailerKey,
-                reelR2: prepared.reelR2,
-                telegramFileId: prepared.telegramFileId
-            }
-
-            session.preparedInstagram = preparedInstagram
-            await updateAdminEditSession(ctx.from.id, {preparedInstagram})
-
-        } catch (error) {
-            console.error('[PUBLICATION MEDIA PREPARE ERROR]', error)
-            await updateAdminEditSession(ctx.from.id, {mode: null})
-            session.mode = undefined
-            await notifyAdmin(ctx, 'Не удалось подготовить трейлер')
-        }
     }
 
     const currentMedia = session.currentMedia ?? {
         type: 'photo' as const,
         fileId: `https://image.tmdb.org/t/p/original${media.poster_path || media.backdrop_path}`
     }
+
+    // Единственный долгий этап — подготовка видео. Создаём durable job,
+    // запускаем Cloud Run и выходим из Telegram webhook.
+    if (!preparedInstagram && session.keyTrailer) {
+        const publishLockStartedAt = Date.now()
+        await updateAdminEditSession(ctx.from.id, {
+            mode: 'publish',
+            publishStartedAt: publishLockStartedAt
+        })
+        session.mode = 'publish'
+        session.publishStartedAt = publishLockStartedAt
+
+        try {
+            const result = await dispatchReelJob({
+                adminTelegramId: Number(ctx.from.id),
+                sourceUpdateId: updateId,
+                channelChatId: String(channelId),
+                finalizerUrl: `${URL_ACTIVE.replace(/\/$/, '')}/api/bot/reelJobs/finalize`,
+                session: {
+                    media: session.media,
+                    mediaId: session.mediaId,
+                    mediaType: session.mediaType,
+                    contentType: session.contentType,
+                    keyTrailer: session.keyTrailer,
+                    comment: session.comment,
+                    overview: session.overview,
+                    currentMedia,
+                    inlineMessageId: session.inlineMessageId,
+                    publishStartedAt: publishLockStartedAt,
+                    isRichTypeCard
+                }
+            })
+
+            console.log('[REEL JOB ACCEPTED]', {
+                jobId: result.jobId,
+                status: result.status,
+                reused: result.reused
+            })
+
+            await notifyAdmin(
+                ctx,
+                result.reused
+                    ? 'Эта задача уже существует. Продолжаю её обработку/публикацию.'
+                    : 'Видео поставлено в обработку. После подготовки публикация в Telegram и Instagram выполнится автоматически.'
+            )
+        } catch (error) {
+            console.error('[REEL JOB DISPATCH ERROR]', error)
+            await updateAdminEditSession(ctx.from.id, {
+                mode: null,
+                publishStartedAt: null
+            })
+            session.mode = undefined
+            session.publishStartedAt = undefined
+            await notifyAdmin(ctx, 'Не удалось запустить обработку видео. Задача не отправлена; попробуй ещё раз.')
+        }
+
+        return
+    }
+
+    // Для публикаций без видео и для уже подготовленного Reel сохраняем прежний
+    // синхронный путь. Claim остаётся защитой от повторной обработки update_id.
+    let claim: {claimed: boolean}
+    try {
+        claim = await $fetch('/api/bot/updates/claim', {
+            method: 'POST',
+            body: {
+                update_id: updateId,
+                handler: 'publishAdminInlineMedia'
+            }
+        })
+    } catch (error) {
+        console.error('[PUBLISH IDEMPOTENCY CLAIM ERROR]', error)
+        await notifyAdmin(ctx, 'Не удалось проверить защиту от повторной публикации. Публикация остановлена; попробуй позже.')
+        await updateAdminEditSession(ctx.from.id, {mode: null, publishStartedAt: null})
+        return
+    }
+
+    if (!claim.claimed) {
+        console.warn('[PUBLISH DUPLICATE IGNORED]', {
+            updateId,
+            callbackQueryId: ctx.callbackQuery?.id
+        })
+        return
+    }
+
+    const publishLockStartedAt = Date.now()
+    await updateAdminEditSession(ctx.from.id, {
+        mode: 'publish',
+        publishStartedAt: publishLockStartedAt
+    })
+    session.mode = 'publish'
+    session.publishStartedAt = publishLockStartedAt
+
     const saveCount = await getMediaSaveCount(session.mediaId)
     const {caption} = await constructRichCard({
         ctx,
@@ -243,9 +251,20 @@ export const publishAdminInlineMedia = async (ctx: any) => {
         keyTrailer: session.keyTrailer,
         mediaOverride: currentMedia
     })
-    const channelReplyMarkup = keyboardSendMediaCardInline(session.mediaId, session.mediaType, session.contentType, session.media.genres, false, 'channel', saveCount, session.keyTrailer)
-    let publishedMessage
 
+    const channelReplyMarkup = keyboardSendMediaCardInline(
+        session.mediaId,
+        session.mediaType,
+        session.contentType,
+        session.media.genres,
+        false,
+        'channel',
+        saveCount,
+        session.keyTrailer,
+        isRichTypeCard
+    )
+
+    let publishedMessage: any
     try {
         publishedMessage = await ctx.telegram.callApi('sendRichMessage', {
             chat_id: channelId,
@@ -253,11 +272,11 @@ export const publishAdminInlineMedia = async (ctx: any) => {
             reply_markup: channelReplyMarkup
         })
     } catch (error) {
-
+        console.error('[TELEGRAM CHANNEL PUBLISH ERROR]', error)
         await updateAdminEditSession(ctx.from.id, {mode: null, publishStartedAt: null})
         session.mode = undefined
         await notifyAdmin(ctx, NOTIFICATION_MESSAGE.CbQ.ErrorPublished)
-
+        return
     }
 
     try {
@@ -270,7 +289,8 @@ export const publishAdminInlineMedia = async (ctx: any) => {
                 mediaType: session.mediaType,
                 contentType: session.contentType,
                 keyboardVersion: CURRENT_KEYBOARD_VERSION,
-                keyTrailer: session.keyTrailer
+                keyTrailer: session.keyTrailer,
+                isRichTypeCard
             }
         })
     } catch (error) {
@@ -279,6 +299,7 @@ export const publishAdminInlineMedia = async (ctx: any) => {
         await clearAdminEditSession(ctx.from.id)
     }
 
+    let instagramPublished = false
     if (preparedInstagram?.reelR2) {
         try {
             const instagramCaption = createInstagramCaption({
@@ -287,10 +308,13 @@ export const publishAdminInlineMedia = async (ctx: any) => {
                 overview: session.overview,
                 contentType: session.contentType
             })
+
             const instagram = await publishInstagramReel({
                 videoUrl: preparedInstagram.reelR2,
                 caption: instagramCaption
             })
+
+            instagramPublished = true
             console.log('[INSTAGRAM PUBLISHED]', JSON.stringify(instagram, null, 2))
         } catch (error) {
             console.error('[INSTAGRAM PUBLISH ERROR]', error)
@@ -307,17 +331,24 @@ export const publishAdminInlineMedia = async (ctx: any) => {
 
     try {
         if (session.inlineMessageId) {
-            await ctx.telegram.editMessageReplyMarkup(undefined, undefined, session.inlineMessageId, {
-                reply_markup: keyboardSendMediaCardInline(
-                    session.mediaId,
-                    session.mediaType,
-                    session.contentType,
-                    session.media.genres,
-                    false,
-                    'inline',
-                    saveCount,
-                    session.keyTrailer)
-            })
+            await ctx.telegram.editMessageReplyMarkup(
+                undefined,
+                undefined,
+                session.inlineMessageId,
+                {
+                    reply_markup: keyboardSendMediaCardInline(
+                        session.mediaId,
+                        session.mediaType,
+                        session.contentType,
+                        session.media.genres,
+                        false,
+                        'inline',
+                        saveCount,
+                        session.keyTrailer,
+                        isRichTypeCard
+                    )
+                }
+            )
         }
     } catch (error: any) {
         if (error?.response?.description !== 'Bad Request: message is not modified') {
@@ -326,8 +357,13 @@ export const publishAdminInlineMedia = async (ctx: any) => {
     }
 
     await clearAdminEditSession(ctx.from.id)
-    await notifyAdmin(ctx, preparedInstagram?.reelR2
-        ? NOTIFICATION_MESSAGE.reply.SuccessPublishedEverywhere
-        : NOTIFICATION_MESSAGE.reply.SuccessPublishedTelegram)
+    await notifyAdmin(
+        ctx,
+        preparedInstagram?.reelR2
+            ? instagramPublished
+                ? NOTIFICATION_MESSAGE.reply.SuccessPublishedEverywhere
+                : 'Telegram опубликован. Instagram требует повторной публикации.'
+            : NOTIFICATION_MESSAGE.reply.SuccessPublishedTelegram
+    )
     await removeMessageSession(ctx.from.id, {inlineMessageId: ctx.inlineMessageId})
 }

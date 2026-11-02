@@ -1,0 +1,90 @@
+apiVersion: run.googleapis.com/v1
+kind: Job
+metadata:
+  annotations:
+    run.googleapis.com/launch-stage: BETA
+    run.googleapis.com/creator: vlad3eko@gmail.com
+    run.googleapis.com/lastModifier: vlad3eko@gmail.com
+  labels:
+    cloud.googleapis.com/location: europe-west3
+    run.googleapis.com/lastUpdatedTime: '2026-11-01T19:30:03.622687Z'
+    run.googleapis.com/satisfiesPzs: 'true'
+  name: kinomanov-worker-probe
+  namespace: '1033910936461'
+spec:
+  template:
+    metadata:
+      annotations:
+        run.googleapis.com/client-name: gcloud
+        run.googleapis.com/client-version: 591.0.0
+        run.googleapis.com/execution-environment: gen2
+      labels:
+        client.knative.dev/nonce: mep_nat_nah
+    spec:
+      parallelism: 1
+      taskCount: 1
+      template:
+        spec:
+          containers:
+          - args:
+            - --version
+            command:
+            - node
+            env:
+            - name: SUPABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  key: '1'
+                  name: SUPABASE_URL
+            - name: SUPABASE_SERVICE_ROLE_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: '1'
+                  name: SUPABASE_SERVICE_ROLE_KEY
+            - name: GEMINI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: '1'
+                  name: GEMINI_API_KEY
+            - name: CLOUDFLARE_R2_ACCOUNT_ID
+              valueFrom:
+                secretKeyRef:
+                  key: '1'
+                  name: CLOUDFLARE_R2_ACCOUNT_ID
+            - name: CLOUDFLARE_R2_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  key: '1'
+                  name: CLOUDFLARE_R2_ACCESS_KEY_ID
+            - name: CLOUDFLARE_R2_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: '1'
+                  name: CLOUDFLARE_R2_SECRET_ACCESS_KEY
+            - name: CLOUDFLARE_R2_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  key: '1'
+                  name: CLOUDFLARE_R2_BUCKET
+            - name: CLOUDFLARE_R2_PUBLIC_URL
+              valueFrom:
+                secretKeyRef:
+                  key: '1'
+                  name: CLOUDFLARE_R2_PUBLIC_URL
+            image: europe-west3-docker.pkg.dev/kinomanov-reels-worker/kinomanov-workers/reel-worker:1.0.2
+            resources:
+              limits:
+                cpu: '1'
+                memory: 512Mi
+            volumeMounts:
+            - mountPath: /tmp
+              name: reel-tmp
+          maxRetries: 0
+          sandboxes: {}
+          serviceAccountName: reel-worker-runtime@kinomanov-reels-worker.iam.gserviceaccount.com
+          timeoutSeconds: '60'
+          volumes:
+          - emptyDir:
+              medium: Disk
+              sizeLimit: 10Gi
+            name: reel-tmp

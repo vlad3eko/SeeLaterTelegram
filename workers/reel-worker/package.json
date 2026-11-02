@@ -1,0 +1,26 @@
+{
+  "name": "kinomanov-reel-worker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "24.x"
+  },
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --platform=node --target=node24 --format=esm --packages=external --alias:#server=../../server --outfile=dist/index.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "3.1136.0",
+    "@google/genai": "2.32.0",
+    "@supabase/supabase-js": "2.105.1",
+    "ffmpeg-static": "5.3.0",
+    "telegraf": "4.16.3"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.0"
+  },
+  "allowScripts": {
+    "ffmpeg-static@5.3.0": true,
+    "esbuild@0.28.0": true
+  }
+}
