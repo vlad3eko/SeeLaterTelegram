@@ -8,6 +8,7 @@ import {ContentType} from "#server/global/engine/search/strategy/enums";
 import {CURRENT_KEYBOARD_VERSION} from "#server/bot/consts/keyboardVersion/keyboardVersion";
 import {createInstagramCaption} from "#server/global/engine/instagram/reel/caption/createInstagramCaption";
 import {publishInstagramReel} from "#server/global/publishers/instagram/publishInstagramReel";
+import {deleteCloudflareR2ObjectByUrl} from "#server/global/engine/instagram/reel/utils/storageCloudflareR2";
 
 type TelegramRichMessageResponse = {
     message_id?: number
@@ -27,7 +28,8 @@ type ReelJob = {
     key_trailer: string
     input_payload: Record<string, any>
     result_payload: Record<string, any> | null
-    reel_r2_url: string | null
+    clean_r2_url: string | null
+    instagram_publish_r2_url: string | null
     instagram_caption: string | null
     channel_chat_id: string | null
     channel_message_id: number | null
@@ -250,7 +252,7 @@ export const finalizeReelPublication = async (
         let instagramMediaId = job.instagram_media_id
         let instagramPermalink = job.instagram_permalink
 
-        if (job.reel_r2_url && !instagramMediaId) {
+        if (job.instagram_publish_r2_url && !instagramMediaId) {
             const instagramCaption = job.instagram_caption || createInstagramCaption({
                 media,
                 comment: session.comment ?? undefined,
@@ -267,7 +269,7 @@ export const finalizeReelPublication = async (
                 : undefined
 
             const instagram = await publishInstagramReel({
-                videoUrl: job.reel_r2_url,
+                videoUrl: job.instagram_publish_r2_url,
                 caption: instagramCaption,
                 existingContainerId,
                 onContainerCreated: async (containerId) => {
@@ -327,7 +329,11 @@ export const finalizeReelPublication = async (
 
         await updateOwnedJob({
             status: 'published',
-            step: job.reel_r2_url ? 'published' : 'published_telegram_only',
+            step: instagramMediaId ? 'published' : 'published_telegram_only',
+
+            // Ссылка на оформленный Reel больше не нужна после публикации.
+            instagram_publish_r2_url: null,
+
             published_at: new Date().toISOString(),
             lease_token: null,
             lease_expires_at: null,
@@ -368,7 +374,7 @@ export const finalizeReelPublication = async (
 
         await sendAdminNotice(
             Number(job.admin_telegram_id),
-            job.reel_r2_url
+            instagramMediaId
                 ? 'Опубликовано в Telegram и Instagram'
                 : 'Опубликовано в Telegram. Не удалось подготовить Reel для Instagram.'
         )
@@ -386,12 +392,36 @@ export const finalizeReelPublication = async (
         console.error('[REEL FINALIZER FAILED]', {jobId, error: message})
 
         try {
+
+            let publishReelDeleted = false
+
+            if (job.instagram_publish_r2_url) {
+                try {
+                    await deleteCloudflareR2ObjectByUrl(
+                        job.instagram_publish_r2_url
+                    )
+
+                    publishReelDeleted = true
+
+                } catch (error) {
+                    // Публикация уже завершена.
+                    // Ошибка удаления не должна приводить к повторной публикации.
+                    console.error('[R2 PUBLISHED REEL DELETE ERROR]', {
+                        url: job.instagram_publish_r2_url,
+                        error
+                    })
+                }
+            }
+
             await updateOwnedJob({
                 status: 'failed',
                 last_error: message,
                 failed_at: new Date().toISOString(),
                 lease_token: null,
-                lease_expires_at: null
+                lease_expires_at: null,
+                instagram_publish_r2_url: publishReelDeleted
+                    ? null
+                    : job.instagram_publish_r2_url,
             })
         } catch (updateError) {
             console.error('[REEL FINALIZER FAILED-STATUS UPDATE ERROR]', updateError)

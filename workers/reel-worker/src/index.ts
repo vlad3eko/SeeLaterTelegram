@@ -1,7 +1,12 @@
 import {randomUUID} from 'node:crypto'
 import {existsSync} from 'node:fs'
-import {createClient} from '@supabase/supabase-js'
-import {prepareReel} from '#server/global/engine/instagram/reel/prepareReel'
+import process from 'node:process'
+import {
+    setInterval,
+    clearInterval
+} from 'node:timers'
+import {createClient} from "@supabase/supabase-js";
+import {prepareReel} from "../../../server/global/engine/instagram/reel/prepareReel";
 
 type JsonRecord = Record<string, unknown>
 
@@ -127,8 +132,8 @@ const main = async (): Promise<void> => {
 
     console.log('[REEL WORKER START]', {
         jobId,
-        execution: process.env.CLOUD_RUN_EXECUTION ?? null,
-        taskIndex: process.env.CLOUD_RUN_TASK_INDEX ?? null
+        execution: process.env['CLOUD_RUN_EXECUTION'] ?? null,
+        taskIndex: process.env['CLOUD_RUN_TASK_INDEX'] ?? null
     })
 
     const {data: claimedData, error: claimError} = await supabase.rpc(
@@ -245,31 +250,70 @@ const main = async (): Promise<void> => {
             hook,
             undefined,
             content,
-            'publish'
+            'publish',
+            {
+                onHookGenerated: async (generatedHook: string) => {
+                    const normalizedHook = generatedHook.trim()
+
+                    if (!normalizedHook) {
+                        throw new Error('[GEMINI] Generated hook is empty')
+                    }
+
+                    await updateOwnedJob({
+                        input_payload: {
+                            ...input,
+                            hook: normalizedHook
+                        }
+                    })
+
+                    input.hook = normalizedHook
+
+                    console.log('[REEL JOB HOOK UPDATED]', {
+                        jobId,
+                        hook: normalizedHook
+                    })
+                }
+            }
         )
 
+        const cleanR2 = String(prepared?.cleanR2 ?? '').trim()
         const reelR2 = String(prepared?.reelR2 ?? '').trim()
+
+        if (!cleanR2 || !/^https:\/\//i.test(cleanR2)) {
+            throw new Error('[REEL PREPARE ERROR] Invalid cleanR2 URL')
+        }
+
         if (!reelR2 || !/^https:\/\//i.test(reelR2)) {
-            throw new Error('[REEL PREPARE ERROR] prepareReel did not return a valid HTTPS reelR2 URL')
+            throw new Error('[REEL PREPARE ERROR] Invalid reelR2 URL')
         }
 
         await updateOwnedJob({
             status: 'ready',
             step: 'ready',
-            reel_r2_url: reelR2,
+
+            clean_r2_url: cleanR2,
+
+            // Временная ссылка нужна финализатору для Instagram.
+            // После успешной публикации она будет очищена.
+            instagram_publish_r2_url: reelR2,
+
             result_payload: {
                 keyTrailer,
-                reelR2,
+                cleanR2,
                 telegramFileId: prepared.telegramFileId ?? null,
                 completedAt: new Date().toISOString()
             },
+
             ready_at: new Date().toISOString(),
             lease_token: null,
             lease_expires_at: null,
             last_error: null
         })
 
-        console.log('[REEL WORKER READY]', {jobId, reelR2})
+        console.log('[REEL WORKER READY]', {
+            jobId,
+            cleanR2
+        })
 
         // После снятия lease worker больше не должен обновлять его heartbeat.
         clearInterval(heartbeat)

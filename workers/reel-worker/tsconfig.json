@@ -1,0 +1,29 @@
+
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "types": [
+      "node"
+    ],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "#server/*": [
+        "../../server/*"
+      ]
+    }
+  },
+  "include": [
+    "src/**/*.ts",
+    "../../server/global/engine/instagram/reel/**/*.ts"
+  ]
+}

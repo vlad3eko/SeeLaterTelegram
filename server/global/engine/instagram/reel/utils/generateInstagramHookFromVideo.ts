@@ -58,7 +58,9 @@ const getErrorDetails = (error: unknown) => {
 const isTerminalInteractionStatus = (status?: string): boolean =>
     status === 'completed' ||
     status === 'failed' ||
-    status === 'cancelled'
+    status === 'cancelled' ||
+    status === 'incomplete' ||
+    status === 'budget_exceeded'
 
 export const generateInstagramHookFromVideo = async (
     videoPath: string,
@@ -208,8 +210,12 @@ export const generateInstagramHookFromVideo = async (
             status: interaction.status
         })
 
+        const isPendingInteractionStatus = (status?: string): boolean =>
+            status === 'queued' ||
+            status === 'in_progress'
+
         // Получаем результат отдельными короткими GET-запросами.
-        while (interaction.status === 'in_progress') {
+        while (isPendingInteractionStatus(interaction.status)) {
             if (Date.now() >= interactionDeadline) {
                 throw new Error(
                     `[GEMINI] Background interaction timeout after ${GEMINI_INTERACTION_TIMEOUT_MS / 1_000}s (id: ${interactionId})`

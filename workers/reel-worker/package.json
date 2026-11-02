@@ -17,6 +17,7 @@
     "telegraf": "4.16.3"
   },
   "devDependencies": {
+    "@types/node": "^26.6.6",
     "esbuild": "0.28.0"
   },
   "allowScripts": {

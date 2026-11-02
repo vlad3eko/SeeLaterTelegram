@@ -51,5 +51,10 @@
     "allowScripts": {
         "canvas@3.2.3": true,
         "@swc/core@1.16.0": true
+    },
+    "overrides": {
+        "get-uri": {
+            "basic-ftp": "^6.2.3"
+        }
     }
 }
