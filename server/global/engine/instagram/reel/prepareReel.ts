@@ -240,13 +240,26 @@ export const prepareReel = async (
                     )
 
                 } catch (error) {
-                    console.error('[GEMINI HOOK ERROR]', error)
+                    const geminiError = error instanceof Error
+                        ? error as Error & {
+                            code?: unknown
+                            status?: unknown
+                            statusCode?: unknown
+                        }
+                        : undefined
+
+                    console.error('[GEMINI HOOK ERROR]', {
+                        name: error instanceof Error ? error.name : typeof error,
+                        message: error instanceof Error ? error.message : String(error),
+                        code: geminiError?.code,
+                        status: geminiError?.status ?? geminiError?.statusCode,
+                        stack: error instanceof Error ? error.stack : undefined
+                    })
 
                     // Если Gemini недоступен, не останавливаем публикацию.
                     // Используем старый шаблонный хук как резервный вариант.
                     if (hook?.trim()) {
                         console.warn('[GEMINI] Using fallback hook:', hook)
-
                         return hook.trim()
                     }
 
