@@ -1,3 +1,4 @@
+
 import {normalizeTrailer} from "#server/global/engine/instagram/reel/utils/normalizeTrailer"
 import {telegramSendVideo} from "#server/global/engine/instagram/reel/utils/telegramSendVideo"
 import {downloadTrailer} from "#server/global/engine/instagram/reel/utils/downloadTrailer"
@@ -14,9 +15,18 @@ import path from "node:path"
 import os from "node:os"
 import {
     generateInstagramHookFromVideo
-} from "#server/global/engine/instagram/reel/utils/generateInstagramHookFromVideo";
+} from "#server/global/engine/instagram/reel/utils/generateInstagramHookFromVideo"
 
-const runReelStep = async <T>(name: string, action: () => Promise<T>): Promise<T> => {
+
+type PrepareReelOptions = {
+    onHookGenerated?: (hook: string) => Promise<void> | void
+}
+
+
+const runReelStep = async <T>(
+    name: string,
+    action: () => Promise<T>
+): Promise<T> => {
     const startedAt = Date.now()
 
     console.log(`[REEL STEP START] ${name}`)
@@ -39,7 +49,11 @@ const runReelStep = async <T>(name: string, action: () => Promise<T>): Promise<T
     }
 }
 
-const downloadR2ObjectToFile = async (url: string, outputPath: string): Promise<void> => {
+
+const downloadR2ObjectToFile = async (
+    url: string,
+    outputPath: string
+): Promise<void> => {
     if (!url) {
         throw new Error('[R2 CLEAN CACHE] URL is missing')
     }
@@ -67,6 +81,7 @@ const downloadR2ObjectToFile = async (url: string, outputPath: string): Promise<
     })
 }
 
+
 export const prepareReel = async (
     keyTrailer: string,
     hook: string,
@@ -84,7 +99,8 @@ export const prepareReel = async (
         subtitlesPath?: string
         highlightWord?: string
     },
-    mode: 'publish' | 'download'
+    mode: 'publish' | 'download',
+    options: PrepareReelOptions = {}
 ) => {
     if (!keyTrailer) {
         throw new Error('Trailer key is missing')
@@ -94,9 +110,15 @@ export const prepareReel = async (
         throw new Error('Telegram context is missing for download mode')
     }
 
-    const sourceR2Path = `instagram/reels/temp/${content.id}_${content.type}_${keyTrailer}.mp4`
-    const reelR2Path = `instagram/reels/reel/${content.id}_${content.type}_${keyTrailer}_reel.mp4`
-    const cleanR2Path = `instagram/reels/clean/${content.id}_${content.type}_${keyTrailer}_clean.mp4`
+    const sourceR2Path =
+        `instagram/reels/temp/${content.id}_${content.type}_${keyTrailer}.mp4`
+
+    const reelR2Path =
+        `instagram/reels/reel/${content.id}_${content.type}_${keyTrailer}_reel.mp4`
+
+    const cleanR2Path =
+        `instagram/reels/clean/${content.id}_${content.type}_${keyTrailer}_clean.mp4`
+
 
     let sourcePath: string | undefined
     let normalizePath: string | undefined
@@ -104,8 +126,12 @@ export const prepareReel = async (
     let reelPath: string | undefined
 
     let telegramFileId: string | undefined
+
+    let cleanR2: string | undefined
+
     let sourceR2CleanupNeeded = false
     let completed = false
+
 
     try {
         const cacheExist = await runReelStep(
@@ -113,38 +139,46 @@ export const prepareReel = async (
             () => existsInCloudflareR2(reelR2Path)
         )
 
-        // Готовый Reel уже есть. В download-режиме дополнительно отправляем
-        // пользователю исходный полный трейлер, как и раньше.
-        if (cacheExist) {
-            if (mode === 'download') {
-                sourcePath = await runReelStep(
-                    'DOWNLOAD_TRAILER_FOR_TELEGRAM',
-                    () => downloadTrailer(keyTrailer)
-                )
-
-                telegramFileId = await runReelStep(
-                    'SEND_TRAILER_TO_TELEGRAM',
-                    () => telegramSendVideo(ctx, sourcePath!)
-                )
-            }
-
-            completed = true
-
-            return {
-                telegramFileId,
-                reelR2: getCloudflareR2Url(reelR2Path)
-            }
-        }
-
         const cleanCacheExists = await runReelStep(
             'CHECK_CLEAN_VIDEO_CACHE',
             () => existsInCloudflareR2(cleanR2Path)
         )
 
+
+        // Возвращаем существующий Reel без повторного монтажа
+        // только в download-режиме и только при наличии clean-копии.
+        //
+        // В publish-режиме повторно собираем Reel из clean,
+        // чтобы можно было обновить хук и оформление.
+        if (mode === 'download' && cacheExist && cleanCacheExists) {
+            sourcePath = await runReelStep(
+                'DOWNLOAD_TRAILER_FOR_TELEGRAM',
+                () => downloadTrailer(keyTrailer)
+            )
+
+            telegramFileId = await runReelStep(
+                'SEND_TRAILER_TO_TELEGRAM',
+                () => telegramSendVideo(ctx, sourcePath!)
+            )
+
+            cleanR2 = getCloudflareR2Url(cleanR2Path)
+
+            completed = true
+
+            return {
+                telegramFileId,
+                cleanR2,
+                reelR2: getCloudflareR2Url(reelR2Path)
+            }
+        }
+
+
         if (cleanCacheExists) {
             console.log('[REEL CLEAN CACHE HIT]', cleanR2Path)
 
-            // В download-режиме Telegram по-прежнему получает полный трейлер.
+            cleanR2 = getCloudflareR2Url(cleanR2Path)
+
+            // В download-режиме Telegram получает полный трейлер.
             if (mode === 'download') {
                 sourcePath = await runReelStep(
                     'DOWNLOAD_TRAILER_FOR_TELEGRAM',
@@ -162,8 +196,7 @@ export const prepareReel = async (
                 )
             }
 
-            // Восстанавливаем промежуточный clean локально и выполняем только
-            // decorate + загрузку финального Reel. UUID предотвращает коллизии.
+            // Восстанавливаем clean из R2.
             preparedInstagramPath = path.join(
                 os.tmpdir(),
                 'instagram',
@@ -175,13 +208,13 @@ export const prepareReel = async (
             await runReelStep(
                 'DOWNLOAD_CLEAN_VIDEO_FROM_R2',
                 () => downloadR2ObjectToFile(
-                    getCloudflareR2Url(cleanR2Path),
+                    cleanR2!,
                     preparedInstagramPath!
                 )
             )
 
         } else {
-            // Кэш clean отсутствует — загружаем полный исходник.
+            // Clean-кэша нет — скачиваем исходный трейлер.
             sourcePath = await runReelStep(
                 'DOWNLOAD_TRAILER',
                 () => downloadTrailer(keyTrailer)
@@ -196,8 +229,6 @@ export const prepareReel = async (
 
             if (mode === 'download') {
                 // Нормализуем полный трейлер только для Telegram.
-                // Для Instagram берём исходник и выбираем сегмент внутри
-                // prepareInstagramVideo, не обрезая первые 40 секунд заранее.
                 normalizePath = await runReelStep(
                     'NORMALIZE_FULL_TRAILER',
                     () => normalizeTrailer(sourcePath!, keyTrailer)
@@ -209,28 +240,34 @@ export const prepareReel = async (
                 )
             }
 
-            // Критично: передаём ПОЛНЫЙ трейлер. Нарезка по времени и
-            // композиция clean выполняются одним FFmpeg-проходом внутри prepare.
+            // На входе полный исходный трейлер.
+            // Создание clean выполняется одним проходом FFmpeg.
             preparedInstagramPath = await runReelStep(
                 'PREPARE_INSTAGRAM_VIDEO',
                 () => prepareInstagramVideo(sourcePath!, keyTrailer)
             )
 
-            await runReelStep(
+            // storageCloudflareR2 уже возвращает публичную ссылку.
+            cleanR2 = await runReelStep(
                 'UPLOAD_CLEAN_VIDEO_TO_R2',
                 () => storageCloudflareR2(
                     preparedInstagramPath!,
                     cleanR2Path
                 )
             )
+
+            console.log('[REEL CLEAN VIDEO SAVED]', cleanR2)
         }
 
+
+        // Gemini генерирует новый хук на основе clean-видео.
+        let generatedHook: string | undefined
 
         const finalHook = await runReelStep(
             'GENERATE_INSTAGRAM_HOOK_FROM_VIDEO',
             async () => {
                 try {
-                    return await generateInstagramHookFromVideo(
+                    const result = await generateInstagramHookFromVideo(
                         preparedInstagramPath!,
                         {
                             title: content.title,
@@ -238,6 +275,16 @@ export const prepareReel = async (
                             genre: content.genre
                         }
                     )
+
+                    const normalizedHook = String(result ?? '').trim()
+
+                    if (!normalizedHook) {
+                        throw new Error('[GEMINI] Generated hook is empty')
+                    }
+
+                    generatedHook = normalizedHook
+
+                    return normalizedHook
 
                 } catch (error) {
                     const geminiError = error instanceof Error
@@ -256,10 +303,10 @@ export const prepareReel = async (
                         stack: error instanceof Error ? error.stack : undefined
                     })
 
-                    // Если Gemini недоступен, не останавливаем публикацию.
-                    // Используем старый шаблонный хук как резервный вариант.
+                    // При ошибке Gemini используем исходный хук.
                     if (hook?.trim()) {
                         console.warn('[GEMINI] Using fallback hook:', hook)
+
                         return hook.trim()
                     }
 
@@ -267,6 +314,20 @@ export const prepareReel = async (
                 }
             }
         )
+
+
+        // Сохраняем хук в Supabase только после успешного ответа Gemini.
+        // Callback находится за пределами Gemini try/catch:
+        // ошибка записи в БД не должна превращаться в fallback.
+        const hookToSave = generatedHook
+        const onHookGenerated = options.onHookGenerated
+
+        if (hookToSave && onHookGenerated) {
+            await runReelStep(
+                'SAVE_GEMINI_HOOK_TO_JOB',
+                () => Promise.resolve(onHookGenerated(hookToSave))
+            )
+        }
 
 
         reelPath = await runReelStep(
@@ -285,6 +346,7 @@ export const prepareReel = async (
             )
         )
 
+
         const reelR2 = await runReelStep(
             'UPLOAD_FINAL_REEL_TO_R2',
             () => storageCloudflareR2(reelPath!, reelR2Path)
@@ -294,6 +356,7 @@ export const prepareReel = async (
 
         return {
             telegramFileId,
+            cleanR2,
             reelR2
         }
 
@@ -301,11 +364,14 @@ export const prepareReel = async (
         if (sourceR2CleanupNeeded) {
             try {
                 await deleteFromCloudflareR2(sourceR2Path)
+
                 console.log('[R2 SOURCE DELETED]', sourceR2Path)
+
             } catch (error) {
                 console.error('[R2 SOURCE DELETE ERROR]', error)
             }
         }
+
 
         const temporaryFiles = [
             sourcePath,
@@ -321,7 +387,9 @@ export const prepareReel = async (
 
             try {
                 await unlink(filePath)
+
                 console.log('[LOCAL TEMP DELETE]', filePath)
+
             } catch (error: any) {
                 if (error?.code !== 'ENOENT') {
                     console.error('[LOCAL TEMP DELETE ERROR]', filePath, error)
@@ -329,10 +397,11 @@ export const prepareReel = async (
             }
         }
 
-        // Сообщение об окончании отправляем только после успешного завершения.
+
         if (mode === 'download' && completed && ctx) {
             try {
                 await ctx.reply('процесс окончен')
+
             } catch (error) {
                 console.error('[DOWNLOAD COMPLETE MESSAGE ERROR]', error)
             }

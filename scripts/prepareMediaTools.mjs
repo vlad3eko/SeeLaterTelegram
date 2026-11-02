@@ -61,7 +61,7 @@ const ytDlpPath =
 
 
 const ytDlpUrl =
-	'https://github.com/yt-dlp/yt-dlp/releases/download/2026.08.19/yt-dlp_linux'
+	'https://github.com/yt-dlp/yt-dlp/releases/download/2026.10.26/yt-dlp_linux'
 
 
 /*
