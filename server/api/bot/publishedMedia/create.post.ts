@@ -11,7 +11,7 @@ export default defineEventHandler(async (event) => {
 
 
     const supabase =
-        await serverSupabaseClient(event)
+        await serverSupabaseClient(event) as any
 
 
     const {
@@ -37,7 +37,13 @@ export default defineEventHandler(async (event) => {
                     body.contentType,
 
                     keyboard_version:
-                    body.keyboardVersion
+                    body.keyboardVersion,
+
+                    key_trailer:
+                    body.keyTrailer ?? null,
+
+                    is_rich_type_card:
+                    body.isRichTypeCard === true
                 },
                 {
                     onConflict:

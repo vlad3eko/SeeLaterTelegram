@@ -21,7 +21,7 @@ import {getMediaSaveCount} from "#server/bot/consts/keyboardVersion/getMediaSave
 export default defineEventHandler(async (event) => {
 
     const supabase =
-        await serverSupabaseClient(event)
+        await serverSupabaseClient(event) as any
 
 
     const {
@@ -80,8 +80,8 @@ export default defineEventHandler(async (event) => {
                     false,
                     'channel',
                     await saveCount,
-                    post.keyTrailer,
-                    post.isRichTypeCard
+                    post.key_trailer,
+                    post.is_rich_type_card
                 )
 
             await bot.telegram.editMessageReplyMarkup(
