@@ -19,6 +19,7 @@ export const isAdminEditSessionForContext = (
     const inlineMessageId =
         ctx.callbackQuery?.inline_message_id
 
+
     if (inlineMessageId) {
         return session.inlineMessageId === inlineMessageId
     }
