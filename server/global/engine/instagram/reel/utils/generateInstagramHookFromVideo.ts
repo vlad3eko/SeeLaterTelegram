@@ -71,6 +71,7 @@ export const generateInstagramHookFromVideo = async (
     let uploadedFileName: string | undefined
     let interactionId: string | undefined
     let interactionIsTerminal = false
+    let interactionStartedAt = Date.now()
 
     try {
         console.log('[GEMINI] Uploading prepared video:', videoPath)
@@ -171,26 +172,53 @@ export const generateInstagramHookFromVideo = async (
 Без кавычек, списков и пояснений.
         `.trim()
 
-        // Обычный foreground-запрос.
-        // background намеренно не задаём.
-        const interactionStartedAt = Date.now()
 
         console.log('[GEMINI] Starting foreground video analysis')
 
-        const interaction = await ai.interactions.create({
-            model: 'gemini-3.8-flash',
-            input: [
-                {
-                    type: 'video',
-                    uri: readyFile.uri,
-                    mime_type: readyFile.mimeType || 'video/mp4'
+        const interaction = await ai.interactions.create(
+            {
+                model: 'gemini-3.5-flash-lite',
+
+                generation_config: {
+                    thinking_level: 'low'
                 },
-                {
-                    type: 'text',
-                    text: prompt
-                }
-            ]
-        })
+
+                input: [
+                    {
+                        type: 'video',
+                        uri: readyFile.uri,
+                        mime_type: readyFile.mimeType || 'video/mp4'
+                    },
+                    {
+                        type: 'text',
+                        text: prompt
+                    }
+                ]
+            },
+            {
+                // Ограничиваем ожидание одного запроса.
+                timeout_ms: 180_000,
+
+                // Вместо неограниченного по времени
+                // attempt-count-backoff используем backoff
+                // с контролем общего времени повторов.
+                retries: {
+                    strategy: 'backoff',
+
+                    backoff: {
+                        initialInterval: 1_000,
+                        maxInterval: 5_000,
+                        exponent: 2,
+                        maxElapsedTime: 30_000
+                    },
+
+                    retryConnectionErrors: true
+                },
+
+                // Повторяем именно временный 503.
+                retry_codes: ['503']
+            }
+        )
 
         interactionId = interaction.id
         interactionIsTerminal = true
