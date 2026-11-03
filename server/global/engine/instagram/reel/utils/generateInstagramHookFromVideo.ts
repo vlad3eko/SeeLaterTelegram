@@ -1,3 +1,4 @@
+
 import {GoogleGenAI} from "@google/genai"
 
 type GenreInput =
@@ -16,9 +17,8 @@ type InstagramHookContext = {
 const sleep = (ms: number) =>
     new Promise(resolve => setTimeout(resolve, ms))
 
-const GEMINI_POLL_INTERVAL_MS = 5_000
-const GEMINI_INTERACTION_TIMEOUT_MS = 5 * 60 * 1_000
-const GEMINI_STATUS_LOG_INTERVAL_MS = 15_000
+const GEMINI_FILE_PROCESSING_TIMEOUT_MS = 90_000
+const GEMINI_FILE_POLL_INTERVAL_MS = 2_000
 
 const getGenreText = (genre?: GenreInput): string => {
     if (Array.isArray(genre)) {
@@ -54,13 +54,6 @@ const getErrorDetails = (error: unknown) => {
         message: String(error)
     }
 }
-
-const isTerminalInteractionStatus = (status?: string): boolean =>
-    status === 'completed' ||
-    status === 'failed' ||
-    status === 'cancelled' ||
-    status === 'incomplete' ||
-    status === 'budget_exceeded'
 
 export const generateInstagramHookFromVideo = async (
     videoPath: string,
@@ -103,7 +96,8 @@ export const generateInstagramHookFromVideo = async (
         })
 
         // Ждём, пока Gemini обработает видео.
-        const fileProcessingDeadline = Date.now() + 90_000
+        const fileProcessingDeadline =
+            Date.now() + GEMINI_FILE_PROCESSING_TIMEOUT_MS
 
         let readyFile = await ai.files.get({
             name: uploadedFile.name
@@ -115,10 +109,12 @@ export const generateInstagramHookFromVideo = async (
             }
 
             if (Date.now() >= fileProcessingDeadline) {
-                throw new Error('[GEMINI] Video processing timeout after 90 seconds')
+                throw new Error(
+                    `[GEMINI] Video processing timeout after ${GEMINI_FILE_PROCESSING_TIMEOUT_MS / 1_000} seconds`
+                )
             }
 
-            await sleep(2_000)
+            await sleep(GEMINI_FILE_POLL_INTERVAL_MS)
 
             readyFile = await ai.files.get({
                 name: uploadedFile.name
@@ -175,13 +171,14 @@ export const generateInstagramHookFromVideo = async (
 Без кавычек, списков и пояснений.
         `.trim()
 
-        console.log('[GEMINI] Starting background video analysis')
+        // Обычный foreground-запрос.
+        // background намеренно не задаём.
+        const interactionStartedAt = Date.now()
 
-        // Background mode сразу возвращает ID задачи, не удерживая один HTTP-запрос
-        // до завершения всей генерации.
-        let interaction = await ai.interactions.create({
+        console.log('[GEMINI] Starting foreground video analysis')
+
+        const interaction = await ai.interactions.create({
             model: 'gemini-3.8-flash',
-            background: true,
             input: [
                 {
                     type: 'video',
@@ -196,51 +193,16 @@ export const generateInstagramHookFromVideo = async (
         })
 
         interactionId = interaction.id
+        interactionIsTerminal = true
 
-        if (!interactionId) {
-            throw new Error('[GEMINI] Background interaction returned no ID')
-        }
+        const interactionElapsedMs =
+            Date.now() - interactionStartedAt
 
-        const interactionStartedAt = Date.now()
-        const interactionDeadline = interactionStartedAt + GEMINI_INTERACTION_TIMEOUT_MS
-        let nextStatusLogAt = interactionStartedAt + GEMINI_STATUS_LOG_INTERVAL_MS
-
-        console.log('[GEMINI] Background interaction created:', {
+        console.log('[GEMINI] Foreground interaction returned:', {
             interactionId,
-            status: interaction.status
+            status: interaction.status,
+            durationMs: interactionElapsedMs
         })
-
-        const isPendingInteractionStatus = (status?: string): boolean =>
-            status === 'queued' ||
-            status === 'in_progress'
-
-        // Получаем результат отдельными короткими GET-запросами.
-        while (isPendingInteractionStatus(interaction.status)) {
-            if (Date.now() >= interactionDeadline) {
-                throw new Error(
-                    `[GEMINI] Background interaction timeout after ${GEMINI_INTERACTION_TIMEOUT_MS / 1_000}s (id: ${interactionId})`
-                )
-            }
-
-            await sleep(GEMINI_POLL_INTERVAL_MS)
-
-            interaction = await ai.interactions.get(interactionId)
-
-            const elapsedMs = Date.now() - interactionStartedAt
-
-            if (Date.now() >= nextStatusLogAt) {
-                console.log('[GEMINI] Background interaction still running:', {
-                    interactionId,
-                    status: interaction.status,
-                    elapsedSeconds: Math.round(elapsedMs / 1_000)
-                })
-
-                nextStatusLogAt = Date.now() + GEMINI_STATUS_LOG_INTERVAL_MS
-            }
-        }
-
-        interactionIsTerminal = isTerminalInteractionStatus(interaction.status)
-
 
         if (interaction.status !== 'completed') {
             const interactionDiagnostics = interaction as typeof interaction & {
@@ -250,26 +212,20 @@ export const generateInstagramHookFromVideo = async (
                 }>
             }
 
-            console.error('[GEMINI] Background interaction did not complete:', {
+            console.error('[GEMINI] Interaction did not complete:', {
                 interactionId,
                 status: interaction.status,
                 errors: interactionDiagnostics.errors ?? [],
                 model: interaction.model,
                 created: interaction.created,
                 updated: interaction.updated,
-                elapsedSeconds: Math.round((Date.now() - interactionStartedAt) / 1_000)
+                durationMs: interactionElapsedMs
             })
 
             throw new Error(
-                `[GEMINI] Background interaction ended with status: ${interaction.status}`
+                `[GEMINI] Interaction ended with status: ${interaction.status}`
             )
         }
-
-
-        console.log('[GEMINI] Background interaction completed:', {
-            interactionId,
-            elapsedSeconds: Math.round((Date.now() - interactionStartedAt) / 1_000)
-        })
 
         const hook = String(interaction.output_text ?? '')
             .replace(/\s+/g, ' ')
@@ -291,7 +247,8 @@ export const generateInstagramHookFromVideo = async (
 
         console.log('[GEMINI HOOK GENERATED]', {
             hook,
-            wordCount
+            wordCount,
+            durationMs: interactionElapsedMs
         })
 
         return hook
@@ -301,34 +258,23 @@ export const generateInstagramHookFromVideo = async (
         throw error
 
     } finally {
-        // Если запрос оборвался до терминального статуса, пытаемся остановить его.
-        // Файл не удаляем, пока не убедимся, что Interaction завершён/отменён:
-        // иначе Gemini может потерять исходное видео во время анализа.
-        if (interactionId && !interactionIsTerminal) {
-            try {
-                const cancelledInteraction = await ai.interactions.cancel(interactionId)
-                interactionIsTerminal = isTerminalInteractionStatus(cancelledInteraction.status)
-
-                console.warn('[GEMINI] Interaction cancellation result:', {
-                    interactionId,
-                    status: cancelledInteraction.status
-                })
-            } catch (error) {
-                console.error('[GEMINI] Interaction cancellation failed:', getErrorDetails(error))
-            }
-        }
-
-        // Удаляем запись Interaction, чтобы не хранить её в Gemini без необходимости.
+        // Удаляем завершённый Interaction.
         if (interactionId && interactionIsTerminal) {
             try {
                 await ai.interactions.delete(interactionId)
+
                 console.log('[GEMINI] Interaction deleted:', interactionId)
+
             } catch (error) {
-                console.error('[GEMINI INTERACTION DELETE ERROR]', getErrorDetails(error))
+                console.error(
+                    '[GEMINI INTERACTION DELETE ERROR]',
+                    getErrorDetails(error)
+                )
             }
         }
 
-        // Файл удаляем только если Interaction завершён или вообще не был создан.
+        // Удаляем загруженное видео, если Interaction
+        // не создавался или уже завершился.
         if (uploadedFileName && (!interactionId || interactionIsTerminal)) {
             try {
                 await ai.files.delete({
@@ -336,14 +282,13 @@ export const generateInstagramHookFromVideo = async (
                 })
 
                 console.log('[GEMINI] Uploaded video deleted:', uploadedFileName)
+
             } catch (error) {
-                console.error('[GEMINI FILE DELETE ERROR]', getErrorDetails(error))
+                console.error(
+                    '[GEMINI FILE DELETE ERROR]',
+                    getErrorDetails(error)
+                )
             }
-        } else if (uploadedFileName && interactionId) {
-            console.warn('[GEMINI] Keeping uploaded video because interaction may still be running:', {
-                interactionId,
-                uploadedFileName
-            })
         }
     }
 }
