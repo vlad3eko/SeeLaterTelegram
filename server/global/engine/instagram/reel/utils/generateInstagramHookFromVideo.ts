@@ -241,15 +241,22 @@ export const generateInstagramHookFromVideo = async (
 
         interactionIsTerminal = isTerminalInteractionStatus(interaction.status)
 
+
         if (interaction.status !== 'completed') {
-            const interactionError = (interaction as typeof interaction & {
-                error?: unknown
-            }).error
+            const interactionDiagnostics = interaction as typeof interaction & {
+                errors?: Array<{
+                    code?: string
+                    message?: string
+                }>
+            }
 
             console.error('[GEMINI] Background interaction did not complete:', {
                 interactionId,
                 status: interaction.status,
-                error: interactionError,
+                errors: interactionDiagnostics.errors ?? [],
+                model: interaction.model,
+                created: interaction.created,
+                updated: interaction.updated,
                 elapsedSeconds: Math.round((Date.now() - interactionStartedAt) / 1_000)
             })
 
@@ -257,6 +264,7 @@ export const generateInstagramHookFromVideo = async (
                 `[GEMINI] Background interaction ended with status: ${interaction.status}`
             )
         }
+
 
         console.log('[GEMINI] Background interaction completed:', {
             interactionId,
