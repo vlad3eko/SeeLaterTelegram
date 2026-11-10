@@ -36,6 +36,9 @@ type JobRow = {
     worker_execution_name?: string | null
     lease_expires_at?: string | null
     input_payload?: Record<string, any> | null
+    source_update_id?: number | null
+    channel_message_id?: number | null
+    channel_chat_id?: string | null
 }
 
 const requiredEnv = (name: string): string => {
@@ -201,6 +204,86 @@ const startQueuedJob = async (
     }
 }
 
+const ACTIVE_STATUSES = ['queued', 'processing', 'ready', 'publishing']
+const TELEGRAM_ONLY_STEP = 'published_telegram_only'
+// Шаги, на которых публикация упала уже после начала: финализатор продолжит с них,
+// поэтому такую запись удалять нельзя (иначе повторный пост в Instagram).
+const FINALIZER_STEPS = [
+    'telegram_pending',
+    'telegram_published',
+    'instagram_container_created',
+    'instagram_published'
+]
+
+// Задача в работе или публикация, которую можно продолжить: её не удаляем и не заменяем.
+const isResumable = (job: JobRow): boolean =>
+    ACTIVE_STATUSES.includes(job.status) ||
+    (job.status === 'failed' && FINALIZER_STEPS.includes(job.step))
+
+const isLeaseExpired = (job: JobRow): boolean =>
+    !job.lease_expires_at || new Date(job.lease_expires_at).getTime() < Date.now()
+
+// Продолжает существующую задачу с того места, где она остановилась. Новая строка
+// не создаётся, второй worker не запускается, если первый ещё работает.
+const continueJob = async (
+    supabase: ReturnType<typeof getSupabase>,
+    job: JobRow,
+    finalizerUrl: string
+): Promise<{jobId: string, status: string, reused: boolean}> => {
+    if (
+        job.status === 'queued' ||
+        // У Cloud Run Job maxRetries=0: после аварии контейнера просроченная
+        // processing-задача должна получить новый execution при повторном клике.
+        (job.status === 'processing' && isLeaseExpired(job))
+    ) {
+        // Повторный запуск безопасен: claim_reel_processing_job атомарно
+        // разрешает обработку только одному worker. Это также восстанавливает
+        // queued-задачи, если Cloud Run принял execution, но его запуск сорвался.
+        await startQueuedJob(supabase, job)
+    } else if (
+        job.status === 'ready' ||
+        (job.status === 'publishing' && isLeaseExpired(job))
+    ) {
+        const token = String(job.input_payload?.finalizerToken ?? '')
+        const url = String(job.input_payload?.finalizerUrl ?? finalizerUrl)
+        if (token) await callFinalizer(url, job.id, token)
+    } else if (job.status === 'failed') {
+        // Если worker или финализатор завершился с ошибкой, повторяем ту же задачу.
+        // Для worker failure финализатор сохранит старое поведение: Telegram-only fallback.
+        const token = String(job.input_payload?.finalizerToken ?? '')
+        const url = String(job.input_payload?.finalizerUrl ?? finalizerUrl)
+        if (!token) throw new Error('[REEL FINALIZER RETRY] Callback token is missing')
+        await callFinalizer(url, job.id, token)
+        return {jobId: job.id, status: 'finalizing', reused: true}
+    }
+
+    return {jobId: job.id, status: job.status, reused: true}
+}
+
+// Таблица хранит одну запись на фильм (уникальный ключ media_id + media_type), а не
+// историю публикаций. Завершённые записи фильма удаляются: опубликованные и упавшие до
+// начала публикации. Статус стоит в условии, чтобы не удалить запись, которую
+// параллельное нажатие уже вернуло в работу.
+const deleteFinishedJobs = async (
+    supabase: ReturnType<typeof getSupabase>,
+    ids: string[]
+): Promise<number> => {
+    if (ids.length === 0) return 0
+
+    const {data, error} = await supabase
+        .from('reel_processing_jobs')
+        .delete()
+        .in('id', ids)
+        .in('status', ['published', 'failed'])
+        .select('id')
+
+    if (error) {
+        throw new Error(`[REEL OLD JOBS CLEANUP ERROR] ${error.message}`)
+    }
+
+    return data?.length ?? 0
+}
+
 export const dispatchReelJob = async ({
     adminTelegramId,
     sourceUpdateId,
@@ -259,155 +342,56 @@ export const dispatchReelJob = async ({
         finalizerUrl
     }
 
-    // Защищает от повторного нажатия той же кнопки или повторной доставки webhook.
-    // Для активной задачи повторно не создаём строку и не запускаем второй worker.
-    const {data: activeJob, error: activeJobError} = await supabase
+    // Одна запись на фильм: уникальный ключ (media_id, media_type). Поэтому ищем
+    // записи именно по фильму, а не по трейлеру или администратору.
+    const {data: mediaRows, error: mediaRowsError} = await supabase
         .from('reel_processing_jobs')
-        .select('id,status,step,worker_execution_name,lease_expires_at,input_payload')
-        .eq('admin_telegram_id', adminTelegramId)
+        .select('id,status,step,worker_execution_name,lease_expires_at,input_payload,source_update_id,channel_message_id,channel_chat_id,created_at')
         .eq('media_id', session.mediaId)
         .eq('media_type', session.mediaType)
-        .eq('content_type', session.contentType)
-        .eq('key_trailer', session.keyTrailer)
-        .in('status', ['queued', 'processing', 'ready', 'publishing'])
         .order('created_at', {ascending: false})
-        .limit(1)
-        .maybeSingle()
 
-    if (activeJobError) {
-        throw new Error(`[REEL JOB LOOKUP ERROR] ${activeJobError.message}`)
+    if (mediaRowsError) {
+        throw new Error(`[REEL JOB LOOKUP ERROR] ${mediaRowsError.message}`)
     }
 
-    if (activeJob) {
-        const active = activeJob as JobRow
+    const rows = (mediaRows ?? []) as JobRow[]
 
-        if (active.status === 'queued') {
-            // Повторный запуск безопасен: claim_reel_processing_job атомарно
-            // разрешает обработку только одному worker. Это также восстанавливает
-            // queued-задачи, если Cloud Run принял execution, но его запуск сорвался.
-            await startQueuedJob(supabase, active)
-        } else if (
-            active.status === 'processing' &&
-            (!active.lease_expires_at || new Date(active.lease_expires_at).getTime() < Date.now())
-        ) {
-            // У Cloud Run Job maxRetries=0: после аварии контейнера просроченная
-            // processing-задача должна получить новый execution при повторном клике.
-            await startQueuedJob(supabase, active)
-        } else if (active.status === 'ready') {
-            const token = String(active.input_payload?.finalizerToken ?? '')
-            const url = String(active.input_payload?.finalizerUrl ?? finalizerUrl)
-            if (token) await callFinalizer(url, active.id, token)
-        } else if (
-            active.status === 'publishing' &&
-            (!active.lease_expires_at || new Date(active.lease_expires_at).getTime() < Date.now())
-        ) {
-            const token = String(active.input_payload?.finalizerToken ?? '')
-            const url = String(active.input_payload?.finalizerUrl ?? finalizerUrl)
-            if (token) await callFinalizer(url, active.id, token)
-        }
+    // 1. Повторная доставка того же update, нажатие при задаче в работе или при публикации,
+    // упавшей на середине: продолжаем существующую запись, ничего не удаляем и не создаём.
+    const existingJob =
+        rows.find(row => row.source_update_id === sourceUpdateId) ??
+        rows.find(isResumable)
 
-        return {
-            jobId: active.id,
-            status: active.status,
-            reused: true
-        }
+    if (existingJob) {
+        return continueJob(supabase, existingJob, finalizerUrl)
     }
 
-    // Если worker или финализатор завершился с ошибкой, повторяем ту же задачу.
-    // Для worker failure финализатор сохранит старое поведение: Telegram-only fallback.
-    const {data: failedPublication, error: failedLookupError} = await supabase
-        .from('reel_processing_jobs')
-        .select('id,status,step,lease_expires_at,input_payload')
-        .eq('admin_telegram_id', adminTelegramId)
-        .eq('media_id', session.mediaId)
-        .eq('media_type', session.mediaType)
-        .eq('content_type', session.contentType)
-        .eq('key_trailer', session.keyTrailer)
-        .eq('status', 'failed')
-        .order('created_at', {ascending: false})
-        .limit(1)
-        .maybeSingle()
+    // 2. Старые записи фильма завершены (опубликован фильм, Reel не получился, worker упал):
+    // они удаляются, создаётся новая запись со своим хуком, описанием и данными нажатия.
+    // Ничего из старой записи не переносится, кроме одного: если пост в канал уже опубликован
+    // (Reel не получился), новая запись получает его message_id, и финализатор не отправляет
+    // карточку в канал второй раз. Clean-видео с тем же ключом трейлера берётся из R2 по его
+    // пути (media_id, media_type, key_trailer), с другим ключом трейлер скачивается заново.
+    const channelPost = rows.find(
+        row => row.channel_message_id && (row.step === TELEGRAM_ONLY_STEP || row.status === 'failed')
+    )
 
-    if (failedLookupError) {
-        throw new Error(`[REEL FAILED JOB LOOKUP ERROR] ${failedLookupError.message}`)
-    }
+    // Резюмируемых записей здесь нет (вернулись бы выше), остаются только published и failed.
+    const finishedIds = rows
+        .filter(row => row.status === 'published' || row.status === 'failed')
+        .map(row => row.id)
 
-    if (failedPublication) {
-        const failedJob = failedPublication as JobRow
-        const token = String(failedJob.input_payload?.finalizerToken ?? '')
-        const url = String(failedJob.input_payload?.finalizerUrl ?? finalizerUrl)
-        if (!token) throw new Error('[REEL FINALIZER RETRY] Callback token is missing')
-        await callFinalizer(url, failedJob.id, token)
-        return {jobId: failedJob.id, status: 'finalizing', reused: true}
-    }
+    const removedJobs = await deleteFinishedJobs(supabase, finishedIds)
 
-    // Reel не получился, но Telegram уже опубликован (published_telegram_only): продолжаем ЭТУ ЖЕ задачу.
-    // Reel готовится заново и уходит в Instagram. Новая строка не создаётся, а в канал не уходит второй пост:
-    // финализатор не отправляет карточку повторно, если у задачи уже есть channel_message_id.
-    const {data: telegramOnlyJob, error: telegramOnlyLookupError} = await supabase
-        .from('reel_processing_jobs')
-        .select('id,status,step,worker_execution_name')
-        .eq('admin_telegram_id', adminTelegramId)
-        .eq('media_id', session.mediaId)
-        .eq('media_type', session.mediaType)
-        .eq('content_type', session.contentType)
-        .eq('key_trailer', session.keyTrailer)
-        .eq('status', 'published')
-        .eq('step', 'published_telegram_only')
-        .order('created_at', {ascending: false})
-        .limit(1)
-        .maybeSingle()
-
-    if (telegramOnlyLookupError) {
-        throw new Error(`[REEL TELEGRAM-ONLY JOB LOOKUP ERROR] ${telegramOnlyLookupError.message}`)
-    }
-
-    if (telegramOnlyJob) {
-        const previous = telegramOnlyJob as JobRow
-
-        // Условие на status/step делает возврат в очередь атомарным: при двойном нажатии
-        // задачу вернёт в очередь только один запрос.
-        const {data: rearmed, error: rearmError} = await supabase
-            .from('reel_processing_jobs')
-            .update({
-                status: 'queued',
-                step: 'queued',
-                // Свежий снимок: хук, комментарий, карточка и publishStartedAt нового нажатия.
-                input_payload: inputPayload,
-                instagram_caption: instagramCaption,
-                worker_execution_name: null,
-                lease_token: null,
-                lease_expires_at: null,
-                last_error: null,
-                failed_at: null,
-                published_at: null,
-                updated_at: new Date().toISOString()
-            })
-            .eq('id', previous.id)
-            .eq('status', 'published')
-            .eq('step', 'published_telegram_only')
-            .select('id,status,step,worker_execution_name')
-            .maybeSingle()
-
-        if (rearmError) {
-            throw new Error(`[REEL TELEGRAM-ONLY JOB REQUEUE ERROR] ${rearmError.message}`)
-        }
-
-        if (!rearmed) {
-            // Параллельный запрос уже вернул задачу в очередь и запускает worker.
-            return {jobId: previous.id, status: 'queued', reused: true}
-        }
-
-        await startQueuedJob(supabase, rearmed as JobRow)
-
-        console.log('[REEL JOB RESUMED AFTER TELEGRAM-ONLY]', {
-            jobId: previous.id,
+    if (removedJobs > 0) {
+        console.log('[REEL OLD JOBS REPLACED]', {
+            removed: removedJobs,
+            keepsChannelPost: Boolean(channelPost),
             sourceUpdateId,
             mediaId: session.mediaId,
             mediaType: session.mediaType
         })
-
-        return {jobId: previous.id, status: 'queued', reused: true}
     }
 
     const {data: insertedJob, error: insertError} = await supabase
@@ -421,7 +405,8 @@ export const dispatchReelJob = async ({
             key_trailer: session.keyTrailer,
             input_payload: inputPayload,
             instagram_caption: instagramCaption,
-            channel_chat_id: channelChatId,
+            channel_chat_id: channelPost?.channel_chat_id || channelChatId,
+            ...(channelPost ? {channel_message_id: channelPost.channel_message_id} : {}),
             status: 'queued',
             step: 'queued'
         })
@@ -430,36 +415,43 @@ export const dispatchReelJob = async ({
 
     if (insertError) {
         if (insertError.code === '23505') {
-            // source_update_id защищает от повторного создания одного и того же job.
-            const {data: existing, error: existingError} = await supabase
+            // Уникальны source_update_id (повторная доставка того же update) и
+            // (media_id, media_type) (параллельное нажатие на тот же фильм).
+            // В обоих случаях запись уже есть: продолжаем её.
+            const {data: sameUpdate, error: sameUpdateError} = await supabase
                 .from('reel_processing_jobs')
-                .select('id,status,step,worker_execution_name,lease_expires_at,input_payload')
+                .select('id,status,step,worker_execution_name,lease_expires_at,input_payload,source_update_id')
                 .eq('source_update_id', sourceUpdateId)
                 .maybeSingle()
 
-            if (existingError || !existing) {
-                throw new Error(`[REEL JOB DUPLICATE LOOKUP ERROR] ${existingError?.message || 'Existing job not found'}`)
+            if (sameUpdateError) {
+                throw new Error(`[REEL JOB DUPLICATE LOOKUP ERROR] ${sameUpdateError.message}`)
             }
 
-            const existingJob = existing as JobRow
-            if (existingJob.status === 'queued') {
-                await startQueuedJob(supabase, existingJob)
-            } else if (
-                existingJob.status === 'processing' &&
-                (!existingJob.lease_expires_at || new Date(existingJob.lease_expires_at).getTime() < Date.now())
-            ) {
-                await startQueuedJob(supabase, existingJob)
-            } else if (existingJob.status === 'ready') {
-                const token = String(existingJob.input_payload?.finalizerToken ?? '')
-                const url = String(existingJob.input_payload?.finalizerUrl ?? finalizerUrl)
-                if (token) await callFinalizer(url, existingJob.id, token)
+            let duplicate = sameUpdate as JobRow | null
+
+            if (!duplicate) {
+                const {data: sameMedia, error: sameMediaError} = await supabase
+                    .from('reel_processing_jobs')
+                    .select('id,status,step,worker_execution_name,lease_expires_at,input_payload,source_update_id')
+                    .eq('media_id', session.mediaId)
+                    .eq('media_type', session.mediaType)
+                    .order('created_at', {ascending: false})
+                    .limit(1)
+                    .maybeSingle()
+
+                if (sameMediaError) {
+                    throw new Error(`[REEL JOB DUPLICATE LOOKUP ERROR] ${sameMediaError.message}`)
+                }
+
+                duplicate = sameMedia as JobRow | null
             }
 
-            return {
-                jobId: existingJob.id,
-                status: existingJob.status,
-                reused: true
+            if (!duplicate) {
+                throw new Error('[REEL JOB DUPLICATE LOOKUP ERROR] Existing job not found')
             }
+
+            return continueJob(supabase, duplicate, finalizerUrl)
         }
 
         throw new Error(`[REEL JOB INSERT ERROR] ${insertError.message}`)

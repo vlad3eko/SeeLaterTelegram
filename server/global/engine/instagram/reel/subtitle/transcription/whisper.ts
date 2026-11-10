@@ -13,11 +13,18 @@ import {
 import { retimeWordsByReference } from './retime-words.js';
 import { readVoiceEnvelope, snapWordsToVoice, type SpeechRange } from './voice-snap.js';
 import { analyseSpeakers } from './speaker-analysis.js';
-import { translateForeignSpeech } from './translate-foreign.js';
+import { needsTranslation, translateForeignSpeech } from './translate-foreign.js';
 import { fillUncoveredSpeech, transcribeRanges } from './coverage-pass.js';
 import { maxVerifyClips, planClips, verifyMode, verifyTranscript } from './verify-transcript.js';
 import { assertLanguageCode } from '../utils/safe-input.js';
-import { BudgetExceededError, budgetMs, remainingBudgetMs, runWithBudget } from '../utils/budget.js';
+import {
+    BudgetExceededError,
+    budgetMs,
+    remainingBudgetMs,
+    runWithBudget,
+    translateReserveMs,
+    withBudgetReserve,
+} from '../utils/budget.js';
 
 /**
  * The local Whisper pass over a short reel takes about a minute. A pass that runs
@@ -95,6 +102,8 @@ export async function transcribeWithWhisper(options: WhisperOptions): Promise<Wh
     'format=json',
   ].join(':');
 
+  const whisperStartedAt = Date.now();
+
   console.info('[SUBTITLE] Starting local Whisper transcription', {
     inputPath: options.inputPath,
     language,
@@ -123,6 +132,7 @@ export async function transcribeWithWhisper(options: WhisperOptions): Promise<Wh
   console.info('[SUBTITLE] Whisper transcription completed', {
     wordCount: transcript.words.length,
     soundCueCount: transcript.soundCues.length,
+    durationMs: Date.now() - whisperStartedAt,
   });
   return transcript;
 }
@@ -182,17 +192,35 @@ export async function transcribeInstagramTranscript(
 }
 
 
+/** Runs one step of the pipeline and logs how long it took and how much of the budget is left. */
+async function stage<T>(name: string, run: () => Promise<T>): Promise<T> {
+    const startedAt = Date.now();
+
+    try {
+        return await run();
+    } finally {
+        const left = remainingBudgetMs();
+
+        console.info('[SUBTITLE] Step finished', {
+            step: name,
+            durationMs: Date.now() - startedAt,
+            ...(Number.isFinite(left) ? { budgetLeftMs: Math.round(left) } : {}),
+        });
+    }
+}
+
+
 /**
  * Gemini text, Whisper timing and the optional checks (see the comments in
  * transcribeInstagramTranscript). Runs under the time budget set by the caller.
  */
 async function transcribeWithGeminiPipeline(options: WhisperOptions): Promise<WhisperTranscript> {
-    const geminiTranscript = await transcribeInstagramTranscriptWithGemini({
+    const geminiTranscript = await stage('gemini-transcript', () => transcribeInstagramTranscriptWithGemini({
         inputPath: options.inputPath,
         ffmpegPath: options.ffmpegPath,
         language: options.language,
         timeoutMs: options.timeoutMs,
-    });
+    }));
 
     // Gemini text, Whisper timing (see retime-words.ts). Gemini word
     // timestamps drift early towards the end of a clip, which made the
@@ -203,14 +231,24 @@ async function transcribeWithGeminiPipeline(options: WhisperOptions): Promise<Wh
     // (a second look at the audio) → translation of foreign lines → voice
     // snap → speakers. The check comes before the translation, so a
     // misheard line is never translated.
-    const timed = await retimeGeminiWithWhisper(geminiTranscript, options);
-    const covered = await fillSkippedSpeech(timed, options);
-    const checked = await verifySpeech(covered.transcript, options, covered.tried);
+    //
+    // The steps before the translation are refinements; the translation is not:
+    // without it the captions come out in the wrong language. When there is
+    // something to translate, those steps may use the budget only down to a
+    // reserve (REEL_SUBTITLE_TRANSLATE_RESERVE_MS), so an overloaded Gemini that
+    // makes them slow cannot leave the translation without time.
+    const reserveMs = needsTranslation(geminiTranscript.words, options.language ?? 'ru')
+        ? translateReserveMs()
+        : 0;
+    const checked = await withBudgetReserve(reserveMs, async () => {
+        const timed = await stage('whisper-timing', () => retimeGeminiWithWhisper(geminiTranscript, options));
+        const covered = await stage('coverage-pass', () => fillSkippedSpeech(timed, options));
+
+        return stage('transcript-check', () => verifySpeech(covered.transcript, options, covered.tried));
+    });
+    const translated = await stage('translation', () => translateForeign(checked, options));
     const transcript = await annotateSpeakers(
-        await snapTranscriptToVoice(
-            await translateForeign(checked, options),
-            options,
-        ),
+        await snapTranscriptToVoice(translated, options),
         options,
     );
 

@@ -47,7 +47,4 @@ cookies.txt
 
 # Local scratch, test renders, models
 /tmp/
-/*.mp4
 server/models/*.bin
---input
-tore*

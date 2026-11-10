@@ -30,6 +30,10 @@ const storage = new AsyncLocalStorage<Budget>();
 
 export const DEFAULT_BUDGET_MS = 10 * 60 * 1000;
 export const DEFAULT_REQUEST_TIMEOUT_MS = 60 * 1000;
+/** Translating a few short lines takes seconds; an answer slower than this is as good as lost. */
+export const DEFAULT_TRANSLATE_REQUEST_TIMEOUT_MS = 25 * 1000;
+/** Time kept back for the translation while the optional steps before it run. */
+export const DEFAULT_TRANSLATE_RESERVE_MS = 150 * 1000;
 
 const readMs = (raw: string | undefined, fallback: number, min: number, max: number): number => {
     if (raw === undefined || raw.trim() === '') return fallback;
@@ -49,9 +53,35 @@ export function requestTimeoutMs(env: NodeJS.ProcessEnv = process.env): number {
     return readMs(env.REEL_SUBTITLE_GEMINI_REQUEST_TIMEOUT_MS, DEFAULT_REQUEST_TIMEOUT_MS, 5_000, 5 * 60 * 1000);
 }
 
+/** REEL_SUBTITLE_TRANSLATE_REQUEST_TIMEOUT_MS: one translation request (5 s – 5 min, default 25 s). */
+export function translateRequestTimeoutMs(env: NodeJS.ProcessEnv = process.env): number {
+    return readMs(env.REEL_SUBTITLE_TRANSLATE_REQUEST_TIMEOUT_MS, DEFAULT_TRANSLATE_REQUEST_TIMEOUT_MS, 5_000, 5 * 60 * 1000);
+}
+
+/** REEL_SUBTITLE_TRANSLATE_RESERVE_MS: time kept back for the translation (0 – 10 min, default 150 s). */
+export function translateReserveMs(env: NodeJS.ProcessEnv = process.env): number {
+    return readMs(env.REEL_SUBTITLE_TRANSLATE_RESERVE_MS, DEFAULT_TRANSLATE_RESERVE_MS, 0, 10 * 60 * 1000);
+}
+
 /** Runs `fn` with a budget of `ms`; everything it starts (even after it returns) sees the same deadline. */
 export function runWithBudget<T>(ms: number, fn: () => Promise<T>): Promise<T> {
     return storage.run({ deadlineAt: Date.now() + ms }, fn);
+}
+
+/**
+ * Runs `fn` under a deadline `reserveMs` earlier than the budget it is called in,
+ * so the steps after it keep that much time. The optional steps (coverage pass,
+ * transcript check) run like this: under an overloaded Gemini they would use up
+ * the whole budget and leave nothing for the translation, which the viewer
+ * notices (subtitles in the wrong language). Without a budget, or with a zero
+ * reserve, `fn` simply runs.
+ */
+export function withBudgetReserve<T>(reserveMs: number, fn: () => Promise<T>): Promise<T> {
+    const budget = storage.getStore();
+
+    if (!budget || reserveMs <= 0) return fn();
+
+    return storage.run({ deadlineAt: budget.deadlineAt - reserveMs }, fn);
 }
 
 /** Milliseconds left; Infinity when there is no budget. */
