@@ -21,7 +21,8 @@ export default defineEventHandler(async (event) => {
     }
 
     if (
-        Number.isNaN(id) ||
+        !Number.isSafeInteger(id) ||
+        id <= 0 ||
         !["movie", "tv"].includes(String(media))
     ) {
         throw createError({
@@ -43,15 +44,15 @@ export default defineEventHandler(async (event) => {
 
     const [movieRes, trailerRu, trailerEn] = await Promise.all([
 
-        fetch(`https://api.themoviedb.org/3/${media}/${query.id}?external_source=imdb_id&language=ru-RU`, {
+        fetch(`https://api.themoviedb.org/3/${media}/${id}?external_source=imdb_id&language=ru-RU`, {
             method: 'GET',
             headers
         }),
-        fetch(`https://api.themoviedb.org/3/${media}/${query.id}/videos?language=ru-RU`, {
+        fetch(`https://api.themoviedb.org/3/${media}/${id}/videos?language=ru-RU`, {
             method: 'GET',
             headers
         }),
-        fetch(`https://api.themoviedb.org/3/${media}/${query.id}/videos?language=en-EN`, {
+        fetch(`https://api.themoviedb.org/3/${media}/${id}/videos?language=en-EN`, {
             method: 'GET',
             headers
         })

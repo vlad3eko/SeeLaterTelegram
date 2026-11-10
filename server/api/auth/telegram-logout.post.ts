@@ -1,5 +1,5 @@
 
-import {serverSupabaseClient} from "#supabase/server";
+import {serverSupabaseServiceRole} from "#supabase/server";
 
 export default defineEventHandler(async (event) => {
 
@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
         }
     }
 
-    const supabase = await serverSupabaseClient(event)
+    const supabase = serverSupabaseServiceRole(event)
 
     await supabase
         .from('sessions')

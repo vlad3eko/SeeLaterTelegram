@@ -1,3 +1,4 @@
+import {internalFetch} from "#server/utils/api/internalFetch";
 
 export const removeMessageSession = async (
     telegramId: number,
@@ -9,7 +10,7 @@ export const removeMessageSession = async (
 
     if (!telegramId) return
 
-    await $fetch('/api/bot/session/removeMessageSession', {
+    await internalFetch('/api/bot/session/removeMessageSession', {
         method: 'POST',
         body: {
             telegram_id: telegramId,

@@ -4,7 +4,7 @@ import {
 } from "#server/bot/consts/buttons/keyboardBot";
 
 import {
-    serverSupabaseClient
+    serverSupabaseServiceRole
 } from "#supabase/server";
 
 import {
@@ -14,14 +14,14 @@ import {
 import {
     CURRENT_KEYBOARD_VERSION
 } from "#server/bot/consts/keyboardVersion/keyboardVersion";
-import {tmdbFetch} from "#server/utils/api/tmdbFetch";
+import {internalTmdbFetch} from "#server/utils/api/internalFetch";
 import {getMediaSaveCount} from "#server/bot/consts/keyboardVersion/getMediaSaveCount";
 
 
 export default defineEventHandler(async (event) => {
 
     const supabase =
-        await serverSupabaseClient(event) as any
+        serverSupabaseServiceRole(event) as any
 
 
     const {
@@ -55,7 +55,7 @@ export default defineEventHandler(async (event) => {
         try {
 
             const media =
-                await tmdbFetch(
+                await internalTmdbFetch(
                     '/api/bot/getMediaBot',
                     {
                         query: {

@@ -13,6 +13,15 @@ export default defineEventHandler(async (event) => {
     }
 
     const media = String(query.media || "multi")
+
+    // media попадает в путь запроса к TMDB, поэтому допускаем только известные значения.
+    if (!["multi", "movie", "tv", "person"].includes(media)) {
+        throw createError({
+            status: 400,
+            message: "Invalid media"
+        })
+    }
+
     const q = String(query.q || "").trim()
     const page = String(query.page || 1)
 

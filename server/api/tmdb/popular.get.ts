@@ -10,12 +10,14 @@ export default defineEventHandler(async (event) => {
     }
 
     const media = query.media === "tv" ? "tv" : "movie"
+    // page подставляется в адрес запроса к TMDB, поэтому приводим его к числу (у TMDB максимум 500).
+    const page = Math.min(500, Math.max(1, parseInt(String(query.page)) || 1))
     const endpoint = 'popular'
     const TTL_TWO_HOURS = 2 / 24
 
     const cacheKey = buildCacheKey(endpoint, {
         media,
-        page: query.page
+        page
     })
     const cache = await getCache(event, cacheKey)
     if (cache) return cache
@@ -24,7 +26,7 @@ export default defineEventHandler(async (event) => {
         performance.now()
 
     const res = await fetch(
-        `https://api.themoviedb.org/3/${media}/popular?language=ru-RU&page=${query.page ?? 1}`,
+        `https://api.themoviedb.org/3/${media}/popular?language=ru-RU&page=${page}`,
         {
             headers
         })

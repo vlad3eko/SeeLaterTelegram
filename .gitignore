@@ -44,3 +44,10 @@ cookies.txt
 
 #Worker Google
 .cloud-run-build/
+
+# Local scratch, test renders, models
+/tmp/
+/*.mp4
+server/models/*.bin
+--input
+tore*

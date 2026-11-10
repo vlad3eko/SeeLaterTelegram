@@ -1,6 +1,7 @@
+import {internalFetch} from "#server/utils/api/internalFetch";
 
 export const saveTelegramUser = async (ctx: any) => {
-    await $fetch('/api/auth/telegram', {
+    await internalFetch('/api/auth/telegram', {
         method: 'POST',
         body: {
             telegram_id: ctx.from.id,

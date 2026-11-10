@@ -1,6 +1,6 @@
 
 import {
-    serverSupabaseClient
+    serverSupabaseServiceRole
 } from "#supabase/server";
 
 
@@ -11,7 +11,7 @@ export default defineEventHandler(async (event) => {
 
 
     const supabase =
-        await serverSupabaseClient(event) as any
+        serverSupabaseServiceRole(event) as any
 
 
     const {

@@ -263,7 +263,7 @@ const prepareYoutubeCookies =
         await writeFile(
             YOUTUBE_COOKIES_PATH,
             cookies,
-            'utf8'
+            {encoding: 'utf8', mode: 0o600}
         )
 
 

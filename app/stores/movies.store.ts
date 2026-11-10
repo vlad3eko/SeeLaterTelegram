@@ -1,11 +1,9 @@
 
 import type {MediaTypesSupabase} from "~/types/bookmarks/media.types";
 import {useUserStore} from "~/stores/user.store";
-import {createFavorite} from "#server/bot/services/supabase/addFavorite";
 
 export const useMovieStore = defineStore('movies', () => {
 
-    const supabase = useSupabaseClient()
     const user = useUserStore()
 
     const movies = ref<MediaTypesSupabase[]>([])
@@ -14,18 +12,25 @@ export const useMovieStore = defineStore('movies', () => {
 
         if (!user.data) return
 
-        const {data, error} = await createFavorite(supabase, {
-            userId: user.data.id,
-            tmdbId: payload.tmdb_id,
-            title: payload.title || payload.name,
-            mediaType: payload.media_type,
-            posterPath: payload.poster_path || payload.backdrop_path,
-            voteAverage: payload.vote_average,
-            voteCount: payload.vote_count,
-            releaseDate: payload.release_date || payload.first_air_date,
-        })
+        // Запись идёт через сервер: он сам берёт user_id из сессии, браузер к базе не обращается.
+        try {
+            const data = await $fetch('/api/favorites/add', {
+                method: 'POST',
+                body: {
+                    tmdb_id: payload.tmdb_id,
+                    title: payload.title || payload.name,
+                    media_type: payload.media_type,
+                    poster_path: payload.poster_path || payload.backdrop_path,
+                    vote_average: payload.vote_average,
+                    vote_count: payload.vote_count,
+                    release_date: payload.release_date || payload.first_air_date,
+                }
+            })
 
-        return {data, error}
+            return {data, error: null}
+        } catch (error) {
+            return {data: null, error}
+        }
     }
 
     return {

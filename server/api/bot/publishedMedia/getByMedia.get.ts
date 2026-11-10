@@ -1,5 +1,5 @@
 
-import {serverSupabaseClient} from "#supabase/server";
+import {serverSupabaseServiceRole} from "#supabase/server";
 
 export default defineEventHandler(async (event) => {
 
@@ -11,7 +11,7 @@ export default defineEventHandler(async (event) => {
 
     const mediaType = query.mediaType
 
-    const supabase = await serverSupabaseClient(event)
+    const supabase = serverSupabaseServiceRole(event)
 
     const { data, error } = await supabase
         .from('published_media_messages')

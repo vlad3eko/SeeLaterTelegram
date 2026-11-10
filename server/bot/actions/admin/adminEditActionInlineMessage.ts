@@ -135,7 +135,8 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
         if (!text)
             return
 
-        const [, keyTrailer] = text.split('=')
+        // Принимает ID, ссылку YouTube или keyTrailer=ID; всё остальное отбрасывается.
+        const keyTrailer = extractYouTubeVideoId(text)
 
         if (!keyTrailer) {
             message = await ctx.reply('Не удалось определить keyTrailer')

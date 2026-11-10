@@ -1,6 +1,7 @@
 
 import {buildTmdbParams} from "~/utils/media/buildTmdbParams";
 import {tmdbFetch} from "#server/utils/api/tmdbFetch";
+import {internalFetch, internalTmdbFetch} from "#server/utils/api/internalFetch";
 import type {NormalizedSearchQuery} from "#server/global/engine/search/mapper/typesSearch";
 import {getKeyTrailer} from "#server/bot/consts/media/getKeyTrailer";
 
@@ -252,7 +253,7 @@ export const getBookmarks = async (
     page: number
 ) => {
 
-    return await $fetch(
+    return await internalFetch(
         "/api/:media",
         {
             query: {
@@ -283,7 +284,7 @@ export const saveLastSearchQuery = async (
     contentType: string | undefined
 ) => {
 
-    await $fetch(
+    await internalFetch(
         "/api/bot/search/saveSearchQuery",
         {
             method: "POST",
@@ -302,7 +303,7 @@ export const getLastSearchQuery = async (
     userId: number
 ) => {
 
-    return await $fetch(
+    return await internalFetch(
         "/api/bot/search/getSearchQuery",
         {
             method: "GET",
@@ -316,7 +317,7 @@ export const getLastSearchQuery = async (
 export const getEnrichMediaApi = async (mediaId: number, mediaType: string) => {
 
     const [details, trailers, cast, crew] = await Promise.all([
-        tmdbFetch('/api/bot/getMediaBot', {
+        internalTmdbFetch('/api/bot/getMediaBot', {
             query: {
                 media: mediaType,
                 id: mediaId

@@ -3,12 +3,17 @@ import path from 'node:path'
 import os from 'node:os'
 import {runYtDlp} from "#server/global/engine/instagram/scripts-yt-bgutil/ytDlp";
 import ffmpegPath from "ffmpeg-static";
+import {isYouTubeVideoId} from "#server/global/engine/instagram/reel/utils/extractYouTubeVideoId";
 
 export const downloadTrailer = async (
     keyTrailer: string
 ) => {
     if (!keyTrailer) {
         throw new Error('Trailer key is missing')
+    }
+
+    if (!isYouTubeVideoId(keyTrailer)) {
+        throw new Error('Trailer key is not a valid YouTube video id')
     }
 
     const outputDir =
