@@ -9,6 +9,7 @@ import {
     assertFileExists,
     runProcess,
 } from '../utils/process.js';
+import { isBudgetExceeded, withinBudget } from '../utils/budget.js';
 import { isRateLimitError } from '../utils/rate-limit.js';
 
 const GEMINI_TRANSCRIBE_MODEL = 'gemini-3.5-transcribe';
@@ -246,12 +247,12 @@ export async function transcribeInstagramTranscriptWithGemini(
         // 2. Upload audio to Gemini Files API.
         console.info('[GEMINI TRANSCRIBE] Uploading audio');
 
-        const uploadedFile = await ai.files.upload({
+        const uploadedFile = await withinBudget('Gemini audio upload', () => ai.files.upload({
             file: audioPath,
             config: {
                 mimeType: 'audio/wav',
             },
-        });
+        }));
 
         if (!uploadedFile.name) {
             throw new Error(
@@ -265,9 +266,9 @@ export async function transcribeInstagramTranscriptWithGemini(
         const processingDeadline =
             Date.now() + FILE_PROCESSING_TIMEOUT_MS;
 
-        let readyFile = await ai.files.get({
-            name: uploadedFile.name,
-        });
+        let readyFile = await withinBudget('Gemini file status', () => ai.files.get({
+            name: uploadedFile.name!,
+        }));
 
         while (readyFile.state !== 'ACTIVE') {
             if (readyFile.state === 'FAILED') {
@@ -284,9 +285,9 @@ export async function transcribeInstagramTranscriptWithGemini(
 
             await sleep(FILE_POLL_INTERVAL_MS);
 
-            readyFile = await ai.files.get({
-                name: uploadedFile.name,
-            });
+            readyFile = await withinBudget('Gemini file status', () => ai.files.get({
+                name: uploadedFile.name!,
+            }));
         }
 
         if (!readyFile.uri) {
@@ -378,11 +379,17 @@ export async function transcribeInstagramTranscriptWithGemini(
 
         for (const attempt of attempts) {
             try {
-                interactionResult = await createInteraction(attempt.diarize, attempt.autoLanguage);
+                interactionResult = await withinBudget(
+                    'Gemini transcription request',
+                    () => createInteraction(attempt.diarize, attempt.autoLanguage),
+                );
                 lastError = undefined;
                 usedAttempt = attempt;
                 break;
             } catch (error) {
+                // The time budget is used up: simpler variants would not get time either.
+                if (isBudgetExceeded(error)) throw error;
+
                 lastError = error;
                 console.warn('[GEMINI TRANSCRIBE] Request failed; trying a simpler one.', {
                     ...attempt,

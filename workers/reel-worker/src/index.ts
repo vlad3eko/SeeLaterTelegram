@@ -48,6 +48,22 @@ const asRecord = (value: unknown, fieldName: string): JsonRecord => {
     return value as JsonRecord
 }
 
+// Cloud Run убивает задачу по task-timeout без единой строки в логе приложения: job навсегда остаётся
+// в processing, а администратор не получает никакого сообщения. Сторожевой таймер срабатывает раньше
+// (task-timeout у job — 1800 с), помечает job как failed и вызывает финализатор: Telegram-публикация
+// без Reel и сообщение администратору, как при любой другой ошибке worker.
+// REEL_WORKER_DEADLINE_MS: 2–55 минут, по умолчанию 25. Держите значение меньше task-timeout.
+const DEFAULT_DEADLINE_MS = 25 * 60 * 1000
+
+const readDeadlineMs = (): number => {
+    const raw = process.env['REEL_WORKER_DEADLINE_MS']?.trim()
+    const value = raw ? Number(raw) : Number.NaN
+
+    return Number.isFinite(value) && value >= 2 * 60 * 1000 && value <= 55 * 60 * 1000
+        ? value
+        : DEFAULT_DEADLINE_MS
+}
+
 const getErrorMessage = (error: unknown): string => {
     if (error instanceof Error) {
         return `${error.name}: ${error.message}${error.stack ? `\n${error.stack}` : ''}`
@@ -199,6 +215,31 @@ const main = async (): Promise<void> => {
     let failureFinalizerUrl: string | undefined
     let failureFinalizerToken: string | undefined
 
+    const deadlineMs = readDeadlineMs()
+    const deadline = setTimeout(async () => {
+        const message = `[WORKER DEADLINE] The job did not finish in ${Math.round(deadlineMs / 1000)} s ` +
+            'and was stopped by the worker before the Cloud Run task timeout.'
+
+        console.error('[REEL WORKER DEADLINE]', {jobId, deadlineMs})
+
+        try {
+            await updateOwnedJob({
+                status: 'failed',
+                step: 'failed',
+                last_error: message,
+                failed_at: new Date().toISOString(),
+                lease_token: null,
+                lease_expires_at: null
+            })
+            clearInterval(heartbeat)
+            await notifyFinalizer(jobId, failureFinalizerUrl, failureFinalizerToken)
+        } catch (error) {
+            console.error('[REEL WORKER DEADLINE HANDLING ERROR]', error)
+        } finally {
+            process.exit(1)
+        }
+    }, deadlineMs)
+
     try {
         const input = asRecord(claimedJob.input_payload, 'input_payload') as ReelInputPayload
         failureFinalizerUrl = typeof input.finalizerUrl === 'string' ? input.finalizerUrl : undefined
@@ -318,8 +359,10 @@ const main = async (): Promise<void> => {
             cleanR2
         })
 
-        // После снятия lease worker больше не должен обновлять его heartbeat.
+        // После снятия lease worker больше не должен обновлять его heartbeat,
+        // а сторожевой таймер не должен помечать подготовленный job как failed.
         clearInterval(heartbeat)
+        clearTimeout(deadline)
 
         await notifyFinalizer(
             jobId,
@@ -348,6 +391,7 @@ const main = async (): Promise<void> => {
         throw error
     } finally {
         clearInterval(heartbeat)
+        clearTimeout(deadline)
     }
 }
 

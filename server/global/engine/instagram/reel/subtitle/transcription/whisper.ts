@@ -17,6 +17,21 @@ import { translateForeignSpeech } from './translate-foreign.js';
 import { fillUncoveredSpeech, transcribeRanges } from './coverage-pass.js';
 import { maxVerifyClips, planClips, verifyMode, verifyTranscript } from './verify-transcript.js';
 import { assertLanguageCode } from '../utils/safe-input.js';
+import { BudgetExceededError, budgetMs, remainingBudgetMs, runWithBudget } from '../utils/budget.js';
+
+/**
+ * The local Whisper pass over a short reel takes about a minute. A pass that runs
+ * much longer is stuck (or the machine is far too slow), and waiting for it would
+ * use up the whole task: REEL_SUBTITLE_WHISPER_TIMEOUT_MS (30 s – 30 min, default 6 min).
+ */
+const DEFAULT_WHISPER_TIMEOUT_MS = 6 * 60 * 1000;
+
+function whisperTimeoutMs(env: NodeJS.ProcessEnv = process.env): number {
+  const raw = env.REEL_SUBTITLE_WHISPER_TIMEOUT_MS;
+  const value = raw === undefined || raw.trim() === '' ? Number.NaN : Number(raw);
+
+  return Number.isFinite(value) && value >= 30_000 && value <= 30 * 60 * 1000 ? value : DEFAULT_WHISPER_TIMEOUT_MS;
+}
 
 export async function transcribeWithWhisper(options: WhisperOptions): Promise<WhisperTranscript> {
   const ffmpegPath = options.ffmpegPath ?? process.env.WHISPER_FFMPEG_PATH ?? 'ffmpeg';
@@ -88,6 +103,10 @@ export async function transcribeWithWhisper(options: WhisperOptions): Promise<Wh
     useGpu,
   });
 
+  // Inside the Gemini pipeline the pass may not outlast the time budget either.
+  const remaining = remainingBudgetMs();
+  if (remaining <= 0) throw new BudgetExceededError('Whisper transcription');
+
   await runProcess(ffmpegPath, [
     '-hide_banner', '-nostdin', '-y',
     '-i', options.inputPath,
@@ -96,7 +115,7 @@ export async function transcribeWithWhisper(options: WhisperOptions): Promise<Wh
     '-f', 'null', '-',
   ], {
     label: 'FFmpeg Whisper transcription',
-    timeoutMs: options.timeoutMs ?? 30 * 60 * 1000,
+    timeoutMs: Math.min(options.timeoutMs ?? whisperTimeoutMs(), remaining),
   });
 
   const ndjson = await readFile(options.outputPath, 'utf8');
@@ -132,51 +151,15 @@ export async function transcribeInstagramTranscript(
     console.info('[SUBTITLE] Selected transcription provider: Gemini');
 
     try {
-        const geminiTranscript = await transcribeInstagramTranscriptWithGemini({
-            inputPath: options.inputPath,
-            ffmpegPath: options.ffmpegPath,
-            language: options.language,
-            timeoutMs: options.timeoutMs,
-        });
+        // The whole Gemini pipeline has a time budget (utils/budget.ts): under an
+        // overloaded Gemini the waits of the optional steps must not eat the task.
+        const startedAt = Date.now();
+        const budget = budgetMs();
+        const transcript = await runWithBudget(budget, () => transcribeWithGeminiPipeline(options));
 
-        // Gemini text, Whisper timing (see retime-words.ts). Gemini word
-        // timestamps drift early towards the end of a clip, which made the
-        // caption lead grow to 2–3 s. Set REEL_SUBTITLE_GEMINI_TIMING=gemini
-        // to keep Gemini's own timestamps.
-        //
-        // Order: re-time → coverage (voice with no words) → transcript check
-        // (a second look at the audio) → translation of foreign lines → voice
-        // snap → speakers. The check comes before the translation, so a
-        // misheard line is never translated.
-        const timed = await retimeGeminiWithWhisper(geminiTranscript, options);
-        const covered = await fillSkippedSpeech(timed, options);
-        const checked = await verifySpeech(covered.transcript, options, covered.tried);
-        const transcript = await annotateSpeakers(
-            await snapTranscriptToVoice(
-                await translateForeign(checked, options),
-                options,
-            ),
-            options,
-        );
-
-        // Сохраняем распознанные слова в диагностический NDJSON.
-        // Формат WordTiming не меняется.
-        await prepareOutputPath(options.outputPath);
-
-        const ndjson = transcript.words
-            .map(word => JSON.stringify(word))
-            .join('\n');
-
-        await writeFile(
-            options.outputPath,
-            ndjson ? `${ndjson}\n` : '',
-            'utf8',
-        );
-
-        console.info('[SUBTITLE] Gemini transcription saved', {
-            wordCount: transcript.words.length,
-            soundCueCount: transcript.soundCues.length,
-            outputPath: options.outputPath,
+        console.info('[SUBTITLE] Gemini pipeline finished', {
+            durationMs: Date.now() - startedAt,
+            budgetMs: budget,
         });
 
         return transcript;
@@ -196,6 +179,62 @@ export async function transcribeInstagramTranscript(
 
         return transcribeWithWhisper(options);
     }
+}
+
+
+/**
+ * Gemini text, Whisper timing and the optional checks (see the comments in
+ * transcribeInstagramTranscript). Runs under the time budget set by the caller.
+ */
+async function transcribeWithGeminiPipeline(options: WhisperOptions): Promise<WhisperTranscript> {
+    const geminiTranscript = await transcribeInstagramTranscriptWithGemini({
+        inputPath: options.inputPath,
+        ffmpegPath: options.ffmpegPath,
+        language: options.language,
+        timeoutMs: options.timeoutMs,
+    });
+
+    // Gemini text, Whisper timing (see retime-words.ts). Gemini word
+    // timestamps drift early towards the end of a clip, which made the
+    // caption lead grow to 2–3 s. Set REEL_SUBTITLE_GEMINI_TIMING=gemini
+    // to keep Gemini's own timestamps.
+    //
+    // Order: re-time → coverage (voice with no words) → transcript check
+    // (a second look at the audio) → translation of foreign lines → voice
+    // snap → speakers. The check comes before the translation, so a
+    // misheard line is never translated.
+    const timed = await retimeGeminiWithWhisper(geminiTranscript, options);
+    const covered = await fillSkippedSpeech(timed, options);
+    const checked = await verifySpeech(covered.transcript, options, covered.tried);
+    const transcript = await annotateSpeakers(
+        await snapTranscriptToVoice(
+            await translateForeign(checked, options),
+            options,
+        ),
+        options,
+    );
+
+    // Сохраняем распознанные слова в диагностический NDJSON.
+    // Формат WordTiming не меняется.
+    await prepareOutputPath(options.outputPath);
+
+    const ndjson = transcript.words
+        .map(word => JSON.stringify(word))
+        .join('\n');
+
+    await writeFile(
+        options.outputPath,
+        ndjson ? `${ndjson}\n` : '',
+        'utf8',
+    );
+
+    console.info('[SUBTITLE] Gemini transcription saved', {
+        wordCount: transcript.words.length,
+        soundCueCount: transcript.soundCues.length,
+        outputPath: options.outputPath,
+    });
+
+    return transcript;
 }
 
 

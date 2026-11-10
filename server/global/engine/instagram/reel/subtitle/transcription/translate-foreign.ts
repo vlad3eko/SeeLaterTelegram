@@ -1,6 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
 
 import type { WhisperTranscript, WordTiming } from '../types.js';
+import { isBudgetExceeded, requestTimeoutMs, withinBudget } from '../utils/budget.js';
 import { isRateLimitError } from '../utils/rate-limit.js';
 import { assertLanguageCode, stripControlCharacters } from '../utils/safe-input.js';
 
@@ -373,6 +374,9 @@ export async function generateWithFallback<T>(
 
                 return value;
             } catch (error) {
+                // The time budget of the subtitle step is used up: no repeat, no next model.
+                if (isBudgetExceeded(error)) throw error;
+
                 lastError = error;
 
                 const reason = error instanceof Error ? error.message : String(error);
@@ -423,15 +427,21 @@ export async function requestJson(
     model: string,
     contents: unknown,
 ): Promise<string> {
-    const send = (withThinking: boolean) => ai.models.generateContent({
-        model,
-        contents,
-        config: {
-            responseMimeType: 'application/json',
-            temperature: 0.2,
-            ...(withThinking ? { thinkingConfig: { thinkingLevel: 'LOW' } } : {}),
-        },
-    } as never);
+    // An overloaded model answers 503 only after about a minute, and a hung request
+    // never answers: each request is limited, and none starts once the budget is used up.
+    const send = (withThinking: boolean) => withinBudget(
+        `Gemini request (${model})`,
+        () => ai.models.generateContent({
+            model,
+            contents,
+            config: {
+                responseMimeType: 'application/json',
+                temperature: 0.2,
+                ...(withThinking ? { thinkingConfig: { thinkingLevel: 'LOW' } } : {}),
+            },
+        } as never),
+        requestTimeoutMs(),
+    );
     let response: unknown;
 
     try {
