@@ -341,6 +341,75 @@ export const dispatchReelJob = async ({
         return {jobId: failedJob.id, status: 'finalizing', reused: true}
     }
 
+    // Reel не получился, но Telegram уже опубликован (published_telegram_only): продолжаем ЭТУ ЖЕ задачу.
+    // Reel готовится заново и уходит в Instagram. Новая строка не создаётся, а в канал не уходит второй пост:
+    // финализатор не отправляет карточку повторно, если у задачи уже есть channel_message_id.
+    const {data: telegramOnlyJob, error: telegramOnlyLookupError} = await supabase
+        .from('reel_processing_jobs')
+        .select('id,status,step,worker_execution_name')
+        .eq('admin_telegram_id', adminTelegramId)
+        .eq('media_id', session.mediaId)
+        .eq('media_type', session.mediaType)
+        .eq('content_type', session.contentType)
+        .eq('key_trailer', session.keyTrailer)
+        .eq('status', 'published')
+        .eq('step', 'published_telegram_only')
+        .order('created_at', {ascending: false})
+        .limit(1)
+        .maybeSingle()
+
+    if (telegramOnlyLookupError) {
+        throw new Error(`[REEL TELEGRAM-ONLY JOB LOOKUP ERROR] ${telegramOnlyLookupError.message}`)
+    }
+
+    if (telegramOnlyJob) {
+        const previous = telegramOnlyJob as JobRow
+
+        // Условие на status/step делает возврат в очередь атомарным: при двойном нажатии
+        // задачу вернёт в очередь только один запрос.
+        const {data: rearmed, error: rearmError} = await supabase
+            .from('reel_processing_jobs')
+            .update({
+                status: 'queued',
+                step: 'queued',
+                // Свежий снимок: хук, комментарий, карточка и publishStartedAt нового нажатия.
+                input_payload: inputPayload,
+                instagram_caption: instagramCaption,
+                worker_execution_name: null,
+                lease_token: null,
+                lease_expires_at: null,
+                last_error: null,
+                failed_at: null,
+                published_at: null,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', previous.id)
+            .eq('status', 'published')
+            .eq('step', 'published_telegram_only')
+            .select('id,status,step,worker_execution_name')
+            .maybeSingle()
+
+        if (rearmError) {
+            throw new Error(`[REEL TELEGRAM-ONLY JOB REQUEUE ERROR] ${rearmError.message}`)
+        }
+
+        if (!rearmed) {
+            // Параллельный запрос уже вернул задачу в очередь и запускает worker.
+            return {jobId: previous.id, status: 'queued', reused: true}
+        }
+
+        await startQueuedJob(supabase, rearmed as JobRow)
+
+        console.log('[REEL JOB RESUMED AFTER TELEGRAM-ONLY]', {
+            jobId: previous.id,
+            sourceUpdateId,
+            mediaId: session.mediaId,
+            mediaType: session.mediaType
+        })
+
+        return {jobId: previous.id, status: 'queued', reused: true}
+    }
+
     const {data: insertedJob, error: insertError} = await supabase
         .from('reel_processing_jobs')
         .insert({
