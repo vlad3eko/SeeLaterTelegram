@@ -1,8 +1,8 @@
-
 import {normalizeTrailer} from "#server/global/engine/instagram/reel/utils/normalizeTrailer"
 import {telegramSendVideo} from "#server/global/engine/instagram/reel/utils/telegramSendVideo"
 import {downloadTrailer} from "#server/global/engine/instagram/reel/utils/downloadTrailer"
-import {mkdir, unlink, writeFile} from "node:fs/promises"
+import {isYouTubeVideoId} from "#server/global/engine/instagram/reel/utils/extractYouTubeVideoId"
+import {mkdir, rm, unlink, writeFile} from "node:fs/promises"
 import {prepareInstagramVideo} from "#server/global/engine/instagram/reel/utils/prepareInstagramVideo"
 import {decorateInstagramVideo} from "#server/global/engine/instagram/reel/utils/decorateInstagramVideo"
 import {
@@ -16,12 +16,18 @@ import os from "node:os"
 import {
     generateInstagramHookFromVideo
 } from "#server/global/engine/instagram/reel/utils/generateInstagramHookFromVideo"
+import {randomUUID} from "node:crypto";
+import {prepareInstagramSubtitleTrack} from "#server/global/engine/instagram/reel/subtitle";
 
 
 type PrepareReelOptions = {
     onHookGenerated?: (hook: string) => Promise<void> | void
+    generateSubtitles?: boolean
+    keepSubtitleDebugArtifacts?: boolean
 }
 
+let subtitleAssPath: string | undefined
+let subtitleWorkDirectory: string | undefined
 
 const runReelStep = async <T>(
     name: string,
@@ -100,10 +106,19 @@ export const prepareReel = async (
         highlightWord?: string
     },
     mode: 'publish' | 'download',
-    options: PrepareReelOptions = {}
+    options: PrepareReelOptions = {},
 ) => {
+
+    const keepSubtitleDebugArtifacts =
+        options.keepSubtitleDebugArtifacts ??
+        (process.env.KEEP_SUBTITLE_DEBUG_ARTIFACTS === 'true')
+
     if (!keyTrailer) {
         throw new Error('Trailer key is missing')
+    }
+
+    if (!isYouTubeVideoId(keyTrailer)) {
+        throw new Error('Trailer key is not a valid YouTube video id')
     }
 
     if (mode === 'download' && !ctx) {
@@ -329,6 +344,107 @@ export const prepareReel = async (
             )
         }
 
+        // ================================================
+        // GENERATE DYNAMIC INSTAGRAM SUBTITLES
+        // ================================================
+
+        const shouldGenerateSubtitles =
+            options.generateSubtitles ??
+            (process.env.REEL_SUBTITLES_ENABLED === 'true')
+
+        // Если уже передан готовый legacy SRT/VTT,
+        // не запускаем повторное распознавание.
+        if (shouldGenerateSubtitles && !content.subtitlesPath) {
+
+            const subtitleRunId = `${content.id}_${randomUUID()}`
+
+            const subtitleRootDirectory = path.join(
+                os.tmpdir(),
+                'instagram',
+                'reels',
+                'subtitles'
+            )
+
+            // Заранее запоминаем папку для гарантированной очистки,
+            // даже если Whisper завершится ошибкой.
+            subtitleWorkDirectory = path.join(
+                subtitleRootDirectory,
+                subtitleRunId
+            )
+
+            try {
+
+                const subtitleTrack = await runReelStep(
+                    'GENERATE_INSTAGRAM_SUBTITLES',
+                    () => prepareInstagramSubtitleTrack({
+
+                        inputVideoPath: preparedInstagramPath!,
+
+                        workDirectory: subtitleRootDirectory,
+
+                        runId: subtitleRunId,
+
+                        modelPath: process.env.WHISPER_MODEL_PATH,
+
+                        // Отдельная сборка FFmpeg с Whisper.
+                        // Не используем ffmpeg-static из декоратора.
+                        whisperFfmpegPath:
+                        process.env.WHISPER_FFMPEG_PATH,
+
+                        ffprobePath:
+                        process.env.FFPROBE_PATH,
+
+                        language: 'ru',
+
+                        // Название и описание помогают проверке транскрипта
+                        // с именами и темой ролика.
+                        context: {
+                            title: content.title,
+                            overview: content.overview,
+                        },
+
+                        queueSeconds: 10,
+
+                        useGpu: false,
+
+                        // Оставляем только готовый ASS.
+                        keepDebugArtifacts: keepSubtitleDebugArtifacts ?? false,
+                    })
+                )
+
+                subtitleAssPath = subtitleTrack.assPath
+
+                console.log('[SUBTITLE TRACK READY]', {
+                    assPath: subtitleAssPath,
+                    wordCount: subtitleTrack.wordCount,
+                    blockCount: subtitleTrack.blockCount,
+                    durationSeconds: subtitleTrack.durationSeconds
+                })
+
+            } catch (error) {
+
+                // Субтитры необязательны.
+                // Ошибка распознавания не должна останавливать Reel pipeline.
+
+                subtitleAssPath = undefined
+
+                console.warn(
+                    '[SUBTITLE GENERATION FAILED] Continuing without subtitles',
+                    {
+                        message: error instanceof Error
+                            ? error.message
+                            : String(error)
+                    }
+                )
+            }
+
+        } else if (shouldGenerateSubtitles && content.subtitlesPath) {
+
+            console.log(
+                '[SUBTITLE] Legacy subtitlesPath provided; dynamic transcription skipped'
+            )
+        }
+
 
         reelPath = await runReelStep(
             'DECORATE_INSTAGRAM_VIDEO',
@@ -340,7 +456,8 @@ export const prepareReel = async (
                     title: content.title,
                     genre: content.genre,
                     rating: content.rating,
-                    subtitlesPath: content.subtitlesPath,
+                    subtitlesPath: subtitleAssPath ? undefined : content.subtitlesPath,
+                    subtitleAssPath,
                     highlightWord: content.highlightWord
                 }
             )
@@ -361,6 +478,16 @@ export const prepareReel = async (
         }
 
     } finally {
+
+        if (subtitleWorkDirectory && !keepSubtitleDebugArtifacts) {
+            await rm(subtitleWorkDirectory, {
+                recursive: true,
+                force: true
+            }).catch(error => {
+                console.error('[SUBTITLE TEMP CLEANUP ERROR]', error)
+            })
+        }
+
         if (sourceR2CleanupNeeded) {
             try {
                 await deleteFromCloudflareR2(sourceR2Path)
@@ -397,6 +524,27 @@ export const prepareReel = async (
             }
         }
 
+        if (subtitleWorkDirectory) {
+            try {
+                await rm(subtitleWorkDirectory, {
+                    recursive: true,
+                    force: true
+                })
+
+                console.log(
+                    '[SUBTITLE TEMP CLEANUP]',
+                    subtitleWorkDirectory
+                )
+
+            } catch (error) {
+
+                console.error(
+                    '[SUBTITLE TEMP CLEANUP ERROR]',
+                    subtitleWorkDirectory,
+                    error
+                )
+            }
+        }
 
         if (mode === 'download' && completed && ctx) {
             try {

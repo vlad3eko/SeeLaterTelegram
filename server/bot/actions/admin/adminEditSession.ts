@@ -1,5 +1,6 @@
 import type {ContentType} from "#server/global/engine/search/strategy/enums"
 import {URL_ACTIVE} from "#server/bot/bot";
+import {internalFetch} from "#server/utils/api/internalFetch";
 
 export type ModeEditSession =
     | 'media'
@@ -74,7 +75,7 @@ export const setAdminEditSession = async (
     userId: number,
     data: AdminEditSession
 ) =>
-    await $fetch(
+    await internalFetch(
         '/api/bot/session/card/setSessionEditCard',
         {
             method: 'POST',
@@ -88,7 +89,7 @@ export const setAdminEditSession = async (
 export const getAdminEditSession = async (
     userId: number
 ): Promise<AdminEditSession | null> =>
-    await $fetch<AdminEditSession | null>(
+    await internalFetch<AdminEditSession | null>(
         '/api/bot/session/card/getSessionEditCard',
         {
             method: 'GET',
@@ -101,7 +102,7 @@ export const getAdminEditSession = async (
 export const clearAdminEditSession = async (
     userId: number
 ) =>
-    await $fetch(
+    await internalFetch(
         '/api/bot/session/card/clearSessionEditCard',
         {
             method: 'POST',
@@ -115,7 +116,7 @@ export const updateAdminEditSession = async (
     userId: number,
     data: AdminEditSessionUpdate
 ) =>
-    await $fetch(
+    await internalFetch(
         '/api/bot/session/card/updateSessionEditCard',
         {
             method: 'PATCH',

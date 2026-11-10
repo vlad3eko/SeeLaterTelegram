@@ -1,4 +1,4 @@
-import {access, cp, copyFile, mkdir, rm} from 'node:fs/promises'
+import {access, cp, copyFile, mkdir, rm, stat} from 'node:fs/promises'
 import path from 'node:path'
 
 const root = process.cwd()
@@ -68,6 +68,27 @@ await copyRequired(
     path.join(context, 'public/instagram')
 )
 
+// Whisper model for the subtitle timing pass (see workers/reel-worker/Dockerfile).
+// ~488 MB, so the size is checked: a Git LFS pointer or a broken download would
+// otherwise only show up as a failed subtitle step in production.
+const whisperModel = relative('server/models/ggml-small.bin')
+if (!(await exists(whisperModel))) {
+    throw new Error(
+        '[BUILD CONTEXT] server/models/ggml-small.bin is missing. Download the ggml-small model ' +
+        '(https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin) into server/models/.'
+    )
+}
+const whisperModelSize = (await stat(whisperModel)).size
+if (whisperModelSize < 100_000_000) {
+    throw new Error(
+        `[BUILD CONTEXT] server/models/ggml-small.bin is only ${whisperModelSize} bytes; the model file looks incomplete.`
+    )
+}
+await copyFileRequired(
+    whisperModel,
+    path.join(context, 'server/models/ggml-small.bin')
+)
+
 await copyRequired(
     relative('bgutil-ytdlp-pot-provider/plugin'),
     path.join(context, 'bgutil-ytdlp-pot-provider/plugin'),
@@ -90,5 +111,5 @@ await copyRequired(
 
 console.log('[BUILD CONTEXT READY]', {
     context,
-    note: 'Only worker source, required media modules, BGUtil files and Instagram assets were staged. No .env files were copied.'
+    note: 'Only worker source, required media modules, BGUtil files, Instagram assets and the Whisper model were staged. No .env files were copied.'
 })

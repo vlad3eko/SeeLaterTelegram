@@ -1,3 +1,9 @@
+const YOUTUBE_VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/
+
+// ID попадает в имя файла, ключ R2 и URL yt-dlp, поэтому допускаем только настоящий ID видео.
+export const isYouTubeVideoId = (value: unknown): value is string =>
+    typeof value === 'string' && YOUTUBE_VIDEO_ID_PATTERN.test(value)
+
 export const extractYouTubeVideoId = (
     input: string
 ): string | undefined => {

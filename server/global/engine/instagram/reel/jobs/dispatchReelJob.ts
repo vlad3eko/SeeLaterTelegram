@@ -235,7 +235,7 @@ export const dispatchReelJob = async ({
     })
 
     const inputPayload = {
-        hook: createInstagramHook(session.mediaType, session.contentType as ContentType),
+        hook: createInstagramHook(session.mediaType, session.contentType as ContentType, session.media),
         content: {
             title: session.media?.title || session.media?.name,
             overview: session.overview || session.media?.overview,

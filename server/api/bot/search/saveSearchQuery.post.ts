@@ -1,11 +1,11 @@
 
-import {serverSupabaseClient} from "#supabase/server";
+import {serverSupabaseServiceRole} from "#supabase/server";
 import {contentTypeConvert} from "~/utils/convert/contentTypeConvert";
 
 export default defineEventHandler(async (event) => {
     const query = getQuery(event)
 
-    const supabase = await serverSupabaseClient(event)
+    const supabase = serverSupabaseServiceRole(event)
 
     const mediaType = contentTypeConvert(query.media_type, query.content_type)
 

@@ -16,6 +16,14 @@ export default defineEventHandler(async (event) => {
     const media = query.media || 'movie'
     const endpoint = 'discover'
 
+    // media попадает в путь запроса к TMDB, поэтому допускаем только известные значения.
+    if (media !== 'movie' && media !== 'tv') {
+        throw createError({
+            status: 400,
+            message: "Invalid media"
+        })
+    }
+
     if(query.with_genres){
         params.append(
             'with_genres',

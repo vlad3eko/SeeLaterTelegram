@@ -18,6 +18,7 @@ type DecorateInstagramVideoOptions = {
     rating?: string | number
     subtitlesPath?: string
     highlightWord?: string
+    subtitleAssPath?: string
 }
 
 type SubtitleCue = {
@@ -673,9 +674,35 @@ export const decorateInstagramVideo = async (inputPath: string, keyTrailer: stri
         path.dirname(inputPath),
         `${keyTrailer}_${randomUUID()}_template.ass`
     )
-    const subtitleAssPath = options.subtitlesPath
-        ? path.join(path.dirname(inputPath), `${keyTrailer}_${randomUUID()}_subtitles.ass`)
+
+    if (options.subtitlesPath && options.subtitleAssPath) {
+        throw new Error(
+            '[DECORATE] Pass either subtitlesPath or subtitleAssPath, not both.'
+        )
+    }
+
+    const generatedSubtitleAssPath = options.subtitlesPath
+        ? path.join(
+            path.dirname(inputPath),
+            `${keyTrailer}_${randomUUID()}_subtitles.ass`
+        )
         : undefined
+
+    const directSubtitleAssPath = options.subtitleAssPath
+        ? path.resolve(options.subtitleAssPath)
+        : undefined
+
+    if (
+        directSubtitleAssPath &&
+        !existsSync(directSubtitleAssPath)
+    ) {
+        throw new Error(
+            `[DECORATE] Dynamic subtitle ASS file does not exist: ${directSubtitleAssPath}`
+        )
+    }
+
+    const activeSubtitleAssPath =
+        directSubtitleAssPath ?? generatedSubtitleAssPath
 
     const startedAt = Date.now()
 
@@ -686,23 +713,23 @@ export const decorateInstagramVideo = async (inputPath: string, keyTrailer: stri
             'utf8'
         )
 
-        if (options.subtitlesPath && subtitleAssPath) {
+        if (options.subtitlesPath && generatedSubtitleAssPath) {
             const subtitleAss = await createSubtitleAss(
                 options.subtitlesPath,
                 duration,
                 options.highlightWord
             )
 
-            await writeFile(subtitleAssPath, subtitleAss, 'utf8')
+            await writeFile(generatedSubtitleAssPath, subtitleAss, 'utf8')
         }
 
         const filterParts: string[] = []
         let currentVideoLabel = '0:v'
 
         // Layer 5: optional film subtitles.
-        if (subtitleAssPath) {
+        if (activeSubtitleAssPath) {
             filterParts.push(
-                `[${currentVideoLabel}]ass=filename='${escapeFilterPath(subtitleAssPath)}':fontsdir='${escapeFilterPath(fontsDirectory)}'[withSubtitles]`
+                `[${currentVideoLabel}]ass=filename='${escapeFilterPath(activeSubtitleAssPath)}':fontsdir='${escapeFilterPath(fontsDirectory)}'[withSubtitles]`
             )
             currentVideoLabel = 'withSubtitles'
         }
@@ -769,7 +796,8 @@ export const decorateInstagramVideo = async (inputPath: string, keyTrailer: stri
             durationSeconds: Number(duration.toFixed(3)),
             genre: options.genre ?? null,
             rating: options.rating ?? null,
-            subtitles: Boolean(options.subtitlesPath),
+            subtitles: Boolean(activeSubtitleAssPath),
+            subtitleMode: options.subtitleAssPath ? 'dynamic-ass' : options.subtitlesPath ? 'legacy-cues' : 'none',
             durationMs: Date.now() - startedAt
         })
 
@@ -787,8 +815,8 @@ export const decorateInstagramVideo = async (inputPath: string, keyTrailer: stri
     } finally {
         await unlink(templateAssPath).catch(() => undefined)
 
-        if (subtitleAssPath) {
-            await unlink(subtitleAssPath).catch(() => undefined)
+        if (generatedSubtitleAssPath) {
+            await unlink(generatedSubtitleAssPath).catch(() => undefined)
         }
     }
 

@@ -1,9 +1,9 @@
-import {serverSupabaseClient} from "#supabase/server"
+import {serverSupabaseServiceRole} from "#supabase/server"
 import type {AdminEditSession} from "#server/bot/actions/admin/adminEditSession"
 
 export default defineEventHandler(async (event) => {
 
-    const supabase = await serverSupabaseClient(event)
+    const supabase = serverSupabaseServiceRole(event)
     const query = getQuery(event)
 
     const telegramId = query.telegram_id

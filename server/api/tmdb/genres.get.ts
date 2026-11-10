@@ -6,6 +6,14 @@ export default defineEventHandler(async (event) => {
     const query = getQuery(event)
     const config = useRuntimeConfig()
 
+    // media попадает в путь запроса к TMDB, поэтому допускаем только известные значения.
+    if (query.media !== 'movie' && query.media !== 'tv') {
+        throw createError({
+            status: 400,
+            message: "Invalid media"
+        })
+    }
+
     const headers = {
         accept: 'application/json',
         Authorization: `Bearer ${config.tmdbApiKey}`

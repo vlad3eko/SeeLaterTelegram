@@ -1,10 +1,10 @@
 
-import { serverSupabaseClient } from "#supabase/server"
+import { serverSupabaseServiceRole } from "#supabase/server"
 import { bot } from "#server/bot/bot"
 
 export default defineEventHandler(async (event) => {
 
-    const supabase = await serverSupabaseClient(event)
+    const supabase = serverSupabaseServiceRole(event)
     const body = await readBody(event)
 
     const minutes = 0

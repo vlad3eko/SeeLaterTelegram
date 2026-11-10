@@ -16,6 +16,7 @@ import {commandClear} from "#server/bot/commands/commandClear";
 import {commandContent} from "#server/bot/commands/commandContent";
 import {menuBot} from "#server/bot/handlers/commands/start/menuBot";
 import {contentTypeToTag} from "~/utils/convert/contentTypeConvert";
+import {internalTmdbFetch} from "#server/utils/api/internalFetch";
 
 const authRequests = new Map()
 
@@ -116,7 +117,7 @@ export function registerCommands(bot: Telegraf) {
             const [, mediaType, mediaId, contentType] = payload.split('_')
 
             const media =
-                await tmdbFetch(
+                await internalTmdbFetch(
                     '/api/bot/getMediaBot',
                     {
                         query: {

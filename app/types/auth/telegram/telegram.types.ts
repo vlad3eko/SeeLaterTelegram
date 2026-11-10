@@ -15,7 +15,7 @@ export interface TelegramUser {
 }
 
 export interface TelegramResponse {
-    data: TelegramCreateData
-    user: TelegramUser
+    data: Pick<TelegramCreateData, 'confirmed'> & Partial<TelegramCreateData>
+    user: TelegramUser | null
 }
 

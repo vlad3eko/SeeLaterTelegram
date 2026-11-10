@@ -1,5 +1,5 @@
 
-import {serverSupabaseClient, serverSupabaseServiceRole} from "#supabase/server"
+import {serverSupabaseServiceRole} from "#supabase/server"
 
 const DEFAULT_TTL_DAYS = 7
 
@@ -165,7 +165,7 @@ export const deleteExpired = async (
 ) => {
 
     const supabase =
-        await serverSupabaseClient(event)
+        serverSupabaseServiceRole(event)
 
     const {error} =
         await supabase
@@ -197,7 +197,7 @@ export const getPopular = async (
 ) => {
 
     const supabase =
-        await serverSupabaseClient(event)
+        serverSupabaseServiceRole(event)
 
     const {data, error} =
         await supabase

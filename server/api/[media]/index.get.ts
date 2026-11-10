@@ -1,29 +1,48 @@
 
-import {serverSupabaseClient} from "#supabase/server";
+import {serverSupabaseServiceRole} from "#supabase/server";
+import {getSessionUser} from "#server/utils/api/sessionUser";
+
+// Telegram отдаёт не больше 50 inline-результатов на страницу.
+const MAX_LIMIT = 50
+// Колонки, по которым разрешена сортировка (bookmarks.vue и бот).
+const SORT_COLUMNS = new Set(['created_at', 'vote_count', 'release_date'])
 
 export default defineEventHandler(async (event) => {
     const query = getQuery(event)
 
     // Пагинация: получаем текущую страницу page и лимит элементов limit
-    const page = parseInt(query.page as string) || 1
-    const limit = parseInt(query.limit as string) || 20
+    const page = Math.max(1, parseInt(query.page as string) || 1)
+    const limit = Math.min(MAX_LIMIT, Math.max(1, parseInt(query.limit as string) || 20))
 
     // ИСПРАВЛЕНО: Вычисляем границы диапазона для Supabase .range()
     const from = (page - 1) * limit
     const to = (page * limit) - 1
 
-    const sortBy = typeof query.sortBy === 'string' ? query.sortBy : 'created_at'
-    const userId = typeof query.userId === 'number' || typeof query.userId === 'string' ? query.userId : null
+    const sortBy = typeof query.sortBy === 'string' && SORT_COLUMNS.has(query.sortBy)
+        ? query.sortBy
+        : 'created_at'
+    const supabase = serverSupabaseServiceRole(event)
 
-    if (!userId) return {results: [], nextPage: null}
+    let user: { id: number } | null = null
 
-    const supabase = await serverSupabaseClient(event)
+    if (event.context.isInternal) {
+        // Вызов бота (с внутренним секретом): избранное по telegram_id из запроса.
+        const userId = typeof query.userId === 'number' || typeof query.userId === 'string' ? query.userId : null
 
-    const {data: user} = await supabase
-        .from('users')
-        .select('id')
-        .eq('telegram_id', userId)
-        .maybeSingle()
+        if (!userId) return {results: [], nextPage: null}
+
+        const {data} = await supabase
+            .from('users')
+            .select('id')
+            .eq('telegram_id', userId)
+            .maybeSingle()
+
+        user = data
+    } else {
+        // Публичный вызов (сайт): только избранное того, кто вошёл. userId из запроса игнорируется,
+        // иначе по чужому id можно было бы читать чужие закладки.
+        user = await getSessionUser(event)
+    }
 
     if (!user) return {results: [], nextPage: null}
 

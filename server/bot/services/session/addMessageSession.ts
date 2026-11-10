@@ -1,3 +1,4 @@
+import {internalFetch} from "#server/utils/api/internalFetch";
 
 export const addMessageSession = async (
     telegramId: number,
@@ -15,7 +16,7 @@ export const addMessageSession = async (
     }
 
     try {
-        await $fetch('/api/bot/session/addMessageSession', {
+        await internalFetch('/api/bot/session/addMessageSession', {
             method: 'POST',
             body: {
                 telegram_id: telegramId,

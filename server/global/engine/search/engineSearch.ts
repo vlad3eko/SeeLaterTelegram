@@ -14,7 +14,15 @@ export const engineSearch = async (query: string, page: number = 1, userId: numb
 
     const parsed = parseSearchQuery(query, userId)
 
-    await saveLastSearchQuery(parsed.filters.genres, parsed.filters?.mediaTypes[0], userId, parsed.filters.contentType)
+    // История поиска нужна только боту (у сайта нет telegram userId). Сбой сохранения
+    // не должен ломать сам поиск, поэтому он не пробрасывается.
+    if (userId) {
+        try {
+            await saveLastSearchQuery(parsed.filters.genres, parsed.filters?.mediaTypes[0], userId, parsed.filters.contentType)
+        } catch (error) {
+            console.warn('[SEARCH HISTORY SAVE ERROR]', error)
+        }
+    }
 
     const normalized = normalizeSearchQuery(parsed, page)
 

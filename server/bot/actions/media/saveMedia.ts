@@ -4,6 +4,7 @@ import {removeMessageSession} from "#server/bot/services/session/removeMessageSe
 import {checkChannelSubscriber} from "#server/bot/handlers/auth/check/checkChannelSubscriber";
 import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBot";
 import {tmdbFetch} from "#server/utils/api/tmdbFetch";
+import {internalFetch} from "#server/utils/api/internalFetch";
 import {
     NOTIFICATION_MESSAGE,
     sendNotificationTelegramMessage
@@ -46,7 +47,7 @@ export const saveMedia = async (ctx: any) => {
     const releaseDate = media.release_date || media.first_air_date
     const genresIds = media.genres
 
-    const {success} = await $fetch<{
+    const {success} = await internalFetch<{
         success: boolean
         error: any
     }>(
@@ -74,7 +75,7 @@ export const saveMedia = async (ctx: any) => {
 
 
 
-    const saveCount = await $fetch<number>(
+    const saveCount = await internalFetch<number>(
         '/api/bot/library/getFavoriteCount',
         {
                 query: {
@@ -84,7 +85,7 @@ export const saveMedia = async (ctx: any) => {
             }
         )
 
-    const publishedMedia = await $fetch(
+    const publishedMedia = await internalFetch(
         '/api/bot/publishedMedia/getByMedia',
             {
                 query: {

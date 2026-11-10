@@ -12,6 +12,7 @@ import {isAdminEditSessionForContext} from "#server/bot/actions/admin/helpers/is
 import {removeMessageSession} from "#server/bot/services/session/removeMessageSession";
 import {constructRichCard} from "#server/global/engine/card/construct/constructRichCard";
 import {dispatchReelJob} from "#server/global/engine/instagram/reel/jobs/dispatchReelJob";
+import {internalFetch, internalTmdbFetch} from "#server/utils/api/internalFetch";
 
 export const publishAdminInlineMedia = async (ctx: any) => {
     const [
@@ -85,7 +86,7 @@ export const publishAdminInlineMedia = async (ctx: any) => {
             ? existingSession
             : null
 
-    const media = session?.media ?? await tmdbFetch(
+    const media = session?.media ?? await internalTmdbFetch(
         '/api/bot/getMediaBot',
         {
             query: {
@@ -206,7 +207,7 @@ export const publishAdminInlineMedia = async (ctx: any) => {
     // синхронный путь. Claim остаётся защитой от повторной обработки update_id.
     let claim: {claimed: boolean}
     try {
-        claim = await $fetch('/api/bot/updates/claim', {
+        claim = await internalFetch('/api/bot/updates/claim', {
             method: 'POST',
             body: {
                 update_id: updateId,
@@ -280,7 +281,7 @@ export const publishAdminInlineMedia = async (ctx: any) => {
     }
 
     try {
-        await $fetch('/api/bot/publishedMedia/create', {
+        await internalFetch('/api/bot/publishedMedia/create', {
             method: 'POST',
             body: {
                 telegramChatId: channelId,
@@ -324,7 +325,7 @@ export const publishAdminInlineMedia = async (ctx: any) => {
     }
 
     try {
-        await $fetch('/api/bot/publishedMedia/syncKeyboards', {method: 'POST'})
+        await internalFetch('/api/bot/publishedMedia/syncKeyboards', {method: 'POST'})
     } catch (error) {
         console.log('[KEYBOARD SYNC ERROR]', error)
     }

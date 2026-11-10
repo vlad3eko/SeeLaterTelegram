@@ -17,12 +17,16 @@ export const useAuthStore = defineStore('isAuth', () => {
             '_blank'
         )
 
-        const supabase = useSupabaseClient()
-
-        await supabase
-            .from('auth_requests')
-            .insert({token})
-            .select()
+        // Запрос входа создаёт сервер: браузер напрямую в базу не пишет.
+        try {
+            await $fetch('/api/auth/telegram-request', {
+                method: 'POST',
+                body: {token}
+            })
+        } catch (err) {
+            console.error('Auth request error:', err)
+            return
+        }
 
         pendingAuth.value = true
 
@@ -48,18 +52,16 @@ export const useAuthStore = defineStore('isAuth', () => {
 
                 if (data?.data?.confirmed) {
 
+                    // Опрос останавливаем сразу: токен одноразовый, повторный вход по нему не пройдёт.
+                    clearInterval(interval)
                     pendingAuth.value = false
 
                     await $fetch('/api/auth/telegram-login', {
                         method: 'POST',
-                        body: {
-                            telegram_id: data.user.telegram_id
-                        }
+                        body: {token}
                     })
 
                     await user.refresh()
-
-                    clearInterval(interval)
                 }
 
             } catch (err) {

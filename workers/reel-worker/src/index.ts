@@ -215,6 +215,9 @@ const main = async (): Promise<void> => {
             throw new Error(`[JOB INPUT] Invalid media_id: ${claimedJob.media_id}`)
         }
         if (!mediaType) throw new Error('[JOB INPUT] media_type is missing')
+        if (mediaType !== 'movie' && mediaType !== 'tv') {
+            throw new Error(`[JOB INPUT] Invalid media_type: ${mediaType}`)
+        }
 
         // subtitlesPath — это локальный путь внутри worker-контейнера.
         // Путь с Vercel или компьютера администратора здесь использовать нельзя.

@@ -1,7 +1,8 @@
+import {internalFetch} from "#server/utils/api/internalFetch";
 
 export const confirmUserRequest = async (ctx: any, loginToken: string) => {
 
-    await $fetch('/api/auth/telegram-confirm', {
+    await internalFetch('/api/auth/telegram-confirm', {
         method: 'POST',
         body: {
             token: loginToken,

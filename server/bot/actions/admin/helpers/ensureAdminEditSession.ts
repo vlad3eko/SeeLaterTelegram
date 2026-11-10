@@ -1,5 +1,5 @@
 import {getAdminEditSession, setAdminEditSession, updateAdminEditSession, type AdminEditSession} from "#server/bot/actions/admin/adminEditSession"
-import {tmdbFetch} from "#server/utils/api/tmdbFetch"
+import {internalTmdbFetch} from "#server/utils/api/internalFetch"
 import {NOTIFICATION_MESSAGE} from "#server/global/notifications/sendNotificationMessage"
 import {getTelegramMediaImages} from "#server/global/engine/card/construct/getTelegramPosterFileId"
 
@@ -52,7 +52,7 @@ export const ensureAdminEditSession = async (ctx: any): Promise<AdminEditSession
         return session
     }
 
-    const media = await tmdbFetch(
+    const media = await internalTmdbFetch(
         "/api/bot/getMediaBot",
         {
             query: {

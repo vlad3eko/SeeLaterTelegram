@@ -5,6 +5,20 @@ export default defineEventHandler(async (event) => {
 
     const config = useRuntimeConfig()
 
+    // media и id попадают в путь запроса к TMDB, поэтому проверяем их строго.
+    const id = Number(query.id)
+
+    if (
+        (query.media !== 'movie' && query.media !== 'tv') ||
+        !Number.isSafeInteger(id) ||
+        id <= 0
+    ) {
+        throw createError({
+            status: 400,
+            message: "Invalid request"
+        })
+    }
+
     const headers = {
         accept: 'application/json',
         Authorization: `Bearer ${config.tmdbApiKey}`
@@ -12,11 +26,11 @@ export default defineEventHandler(async (event) => {
 
     const [trailerRu, trailerEn] = await Promise.all([
 
-        fetch(`https://api.themoviedb.org/3/${query.media}/${query.id}/videos?language=ru-RU`, {
+        fetch(`https://api.themoviedb.org/3/${query.media}/${id}/videos?language=ru-RU`, {
             method: 'GET',
             headers
         }),
-        fetch(`https://api.themoviedb.org/3/${query.media}/${query.id}/videos?language=en-EN`, {
+        fetch(`https://api.themoviedb.org/3/${query.media}/${id}/videos?language=en-EN`, {
             method: 'GET',
             headers
         })

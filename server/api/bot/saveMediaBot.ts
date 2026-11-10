@@ -1,11 +1,11 @@
 
-import {serverSupabaseClient} from '#supabase/server'
+import {serverSupabaseServiceRole} from '#supabase/server'
 import {createFavorite} from "#server/bot/services/supabase/addFavorite";
 
 export default defineEventHandler(async (event) => {
 
     const supabase =
-        await serverSupabaseClient(event)
+        serverSupabaseServiceRole(event)
 
     const body = await readBody(event)
 
