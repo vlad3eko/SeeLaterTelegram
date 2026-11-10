@@ -32,16 +32,25 @@ export default defineEventHandler(async (event) => {
         })
     }
 
+    // В таблице telegram_id обязателен (NOT NULL по схеме БД), поэтому до подтверждения в боте
+    // стоит заглушка 0: настоящий id бот запишет в telegram-confirm. Реальный id всегда > 0,
+    // так что заглушку нельзя принять за пользователя.
     const {error} = await supabase
         .from('auth_requests')
-        .insert({token})
+        .insert({
+            token,
+            telegram_id: 0,
+            confirmed: false
+        })
 
     if (error) {
         console.error('[AUTH REQUEST ERROR]', error)
 
         throw createError({
             status: 500,
-            message: 'Login request was not created'
+            message: 'Login request was not created',
+            // Только код ошибки PostgreSQL/PostgREST (без текста запроса и данных): нужен для диагностики.
+            data: {code: error.code ?? null}
         })
     }
 
