@@ -1,7 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
 
 import type { WhisperTranscript, WordTiming } from '../types.js';
-import { isBudgetExceeded, requestTimeoutMs, withinBudget } from '../utils/budget.js';
+import { isBudgetExceeded, requestTimeoutMs, translateRequestTimeoutMs, withinBudget } from '../utils/budget.js';
 import { isRateLimitError } from '../utils/rate-limit.js';
 import { assertLanguageCode, stripControlCharacters } from '../utils/safe-input.js';
 
@@ -30,8 +30,19 @@ import { assertLanguageCode, stripControlCharacters } from '../utils/safe-input.
  * thinking, because a line-by-line translation does not need it.
  *
  * A short Gemini outage ("503 high demand") must not cost the viewer the
- * translation: the request is repeated with a pause, and when the model stays
- * unavailable (or its quota is used up) the next model of the chain is tried.
+ * translation. An overloaded model answers 503 only after about a minute, and
+ * models have separate capacity (one is often fine while another is not), so
+ * the chain is walked in rounds: every model gets one attempt per round, a
+ * failing one hands over to the next at once, and the pause comes only after a
+ * whole round. Each translation request is also limited to a few seconds
+ * (REEL_SUBTITLE_TRANSLATE_REQUEST_TIMEOUT_MS, default 25 s).
+ *
+ * An optional last link of the chain is a model of another provider, so that
+ * an outage of all Gemini models does not leave the captions untranslated. It
+ * is off until REEL_SUBTITLE_TRANSLATE_EXTERNAL_API_KEY and
+ * REEL_SUBTITLE_TRANSLATE_EXTERNAL_MODEL are set; the endpoint is any
+ * OpenAI-compatible `chat/completions` URL
+ * (REEL_SUBTITLE_TRANSLATE_EXTERNAL_URL, https only, OpenAI by default).
  *
  * Any failure that survives that keeps the transcript untouched.
  * REEL_SUBTITLE_TRANSLATE=off disables the step, REEL_SUBTITLE_TRANSLATE_MODEL
@@ -44,8 +55,11 @@ import { assertLanguageCode, stripControlCharacters } from '../utils/safe-input.
 const DEFAULT_TRANSLATE_MODEL = 'gemini-3.8-flash';
 /** A model the project already uses for reels (hooks), so the same key works. */
 const DEFAULT_FALLBACK_TRANSLATE_MODELS = ['gemini-3.5-flash-lite'];
-/** Pauses before the 2nd and 3rd attempt on one model. */
-const RETRY_DELAYS_MS = [1_000, 2_500];
+/** Pauses between the rounds of the chain (so up to three attempts on each model). */
+const RETRY_DELAYS_MS = [1_000, 3_000];
+/** Chain entries of another provider carry this prefix (`external:<model>`). */
+const EXTERNAL_PREFIX = 'external:';
+const DEFAULT_EXTERNAL_URL = 'https://api.openai.com/v1/chat/completions';
 /** Fewer foreign words than this (and under TRIVIAL_FOREIGN_SHARE of the clip) cost no request. */
 const DEFAULT_MIN_FOREIGN_WORDS = 3;
 const TRIVIAL_FOREIGN_SHARE = 0.5;
@@ -261,8 +275,13 @@ export function layoutTranslation(
 const MAX_TRANSLATION_CHARACTERS = 400;
 const MAX_TRANSLATION_GROWTH = 5;
 
-/** Pure: a usable translation of `source`, or undefined when it looks wrong. */
-export function acceptTranslation(source: string, translated: string): string | undefined {
+/**
+ * Pure: a usable translation of `source`, or undefined when it looks wrong.
+ * With a `target` in a non-Latin script (ru, uk, ...) the text must contain
+ * letters of that script: a model that answers with the source line again
+ * ("translated" English into English) has not translated anything.
+ */
+export function acceptTranslation(source: string, translated: string, target?: string): string | undefined {
     const text = stripControlCharacters(translated);
 
     if (!text || text.length > MAX_TRANSLATION_CHARACTERS) return undefined;
@@ -272,10 +291,24 @@ export function acceptTranslation(source: string, translated: string): string | 
     // Markup or code fences have no place in a caption.
     if (/[<>`]|^\s*[{\[]/u.test(text)) return undefined;
 
+    const targetScript = target ? scriptOfLanguage(baseLanguage(target) ?? target) : 'latin';
+
+    if (targetScript !== 'latin' && !(text.match(/\p{L}/gu) ?? []).some(letter => scriptOf(letter) === targetScript)) {
+        return undefined;
+    }
+
     return text;
 }
 
-function parseTranslations(raw: string, allowed: Map<number, string>): Map<number, string> {
+/** The answer parsed, but not one of its lines is a usable translation: worth asking again. */
+export class UnusableTranslationError extends Error {
+    constructor(message: string) {
+        super(message);
+        this.name = 'UnusableTranslationError';
+    }
+}
+
+export function parseTranslations(raw: string, allowed: Map<number, string>, target?: string): Map<number, string> {
     const cleaned = raw
         .trim()
         .replace(/^```(?:json)?/iu, '')
@@ -295,8 +328,13 @@ function parseTranslations(raw: string, allowed: Map<number, string>): Map<numbe
         const source = allowed.get(item.id);
         if (source === undefined) continue;
 
-        const accepted = acceptTranslation(source, item.text);
+        const accepted = acceptTranslation(source, item.text, target);
         if (accepted) result.set(item.id, accepted);
+    }
+
+    // Nothing usable in an answer to a non-empty question: another model may do better.
+    if (result.size === 0 && allowed.size > 0) {
+        throw new UnusableTranslationError('[SUBTITLE] The model answered without a usable translation');
     }
 
     return result;
@@ -312,7 +350,7 @@ const TRANSIENT_STATUSES = new Set([500, 502, 503, 504]);
  * unreachable for a moment, or the model answered with broken JSON.
  */
 export function isTransientError(error: unknown): boolean {
-    if (error instanceof SyntaxError) return true;
+    if (error instanceof SyntaxError || error instanceof UnusableTranslationError) return true;
 
     const message = error instanceof Error ? error.message : String(error);
     const record = error as { status?: unknown; code?: unknown } | undefined;
@@ -331,43 +369,87 @@ export function isModelNotFoundError(error: unknown): boolean {
     return status === 404 || /"code"\s*:\s*404\b|\bNOT_FOUND\b/u.test(message);
 }
 
-/** Pure: models to try in order; the main one first, without duplicates. */
+export type ExternalProvider = { url: string; apiKey: string; model: string };
+
+/**
+ * Pure: the optional translator of another provider (see the header). It is
+ * used only when both the key and the model are set and the URL is https, so a
+ * half-filled setting never sends lines (or the key) anywhere.
+ */
+export function externalProvider(env: NodeJS.ProcessEnv = process.env): ExternalProvider | undefined {
+    const apiKey = env.REEL_SUBTITLE_TRANSLATE_EXTERNAL_API_KEY?.trim();
+    const model = env.REEL_SUBTITLE_TRANSLATE_EXTERNAL_MODEL?.trim();
+
+    if (!apiKey || !model) return undefined;
+
+    const url = env.REEL_SUBTITLE_TRANSLATE_EXTERNAL_URL?.trim() || DEFAULT_EXTERNAL_URL;
+
+    try {
+        if (new URL(url).protocol !== 'https:') return undefined;
+    } catch {
+        return undefined;
+    }
+
+    return { url, apiKey, model };
+}
+
+/** Pure: models to try in order; the main one first, without duplicates; another provider's model last. */
 export function translateModels(env: NodeJS.ProcessEnv = process.env): string[] {
     const main = env.REEL_SUBTITLE_TRANSLATE_MODEL?.trim() || DEFAULT_TRANSLATE_MODEL;
     const raw = env.REEL_SUBTITLE_TRANSLATE_FALLBACK_MODEL;
     const fallbacks = raw === undefined
         ? DEFAULT_FALLBACK_TRANSLATE_MODELS
         : raw.split(',').map(name => name.trim()).filter(Boolean);
+    const external = externalProvider(env);
 
-    return [...new Set([main, ...fallbacks.filter(name => !['none', 'off'].includes(name.toLowerCase()))])];
+    return [
+        ...new Set([main, ...fallbacks.filter(name => !['none', 'off'].includes(name.toLowerCase()))]),
+        ...(external ? [`${EXTERNAL_PREFIX}${external.model}`] : []),
+    ];
 }
 
 /**
- * Runs `attempt` on the models in order. A transient failure is repeated on the
- * same model after a pause; a used-up quota or an unknown model moves on to the
- * next model at once; any other failure (bad key, bad request) is thrown, since
- * every model would fail the same way. After the last model the last error is
- * thrown.
+ * Runs `attempt` over the models in rounds: in each round every model gets one
+ * attempt, in order, and the first success is returned. A failing model hands
+ * over to the next one at once (an overloaded model answers 503 only after
+ * about a minute, so waiting on it is the expensive part); the pause comes
+ * after a whole round, and each pause adds one more round. A used-up quota is
+ * treated like an outage; an unknown model is dropped for good; any other
+ * failure (bad key, bad request) is thrown, since every model would fail the
+ * same way, unless `skipModel` says this model alone is at fault (it is then
+ * dropped). After the last round the last error is thrown.
  */
 export async function generateWithFallback<T>(
     models: string[],
     attempt: (model: string) => Promise<T>,
-    options: { delaysMs?: number[]; wait?: (ms: number) => Promise<void>; label?: string } = {},
+    options: {
+        delaysMs?: number[];
+        wait?: (ms: number) => Promise<void>;
+        label?: string;
+        skipModel?: (model: string, error: unknown) => boolean;
+    } = {},
 ): Promise<T> {
     const delays = options.delaysMs ?? RETRY_DELAYS_MS;
     const wait = options.wait ?? sleep;
     const label = options.label ?? 'Translation';
+    const dropped = new Set<string>();
     let lastError: unknown;
 
-    for (const [modelIndex, model] of models.entries()) {
-        for (let tryIndex = 0; tryIndex <= delays.length; tryIndex += 1) {
+    for (let round = 0; round <= delays.length; round += 1) {
+        let tried = 0;
+
+        for (const [modelIndex, model] of models.entries()) {
+            if (dropped.has(model)) continue;
+
+            tried += 1;
+
             try {
                 const value = await attempt(model);
 
-                if (modelIndex > 0 || tryIndex > 0) {
+                if (modelIndex > 0 || round > 0) {
                     console.info(`[SUBTITLE] ${label} recovered`, {
                         model,
-                        attempt: tryIndex + 1,
+                        attempt: round + 1,
                         fallback: modelIndex > 0,
                     });
                 }
@@ -380,24 +462,28 @@ export async function generateWithFallback<T>(
                 lastError = error;
 
                 const reason = error instanceof Error ? error.message : String(error);
-                const moveOn = isRateLimitError(error) || isModelNotFoundError(error);
+                const notFound = isModelNotFoundError(error);
+                const outage = isRateLimitError(error) || isTransientError(error);
+                const modelAtFault = notFound || (!outage && options.skipModel?.(model, error) === true);
 
-                if (!moveOn && !isTransientError(error)) throw error;
+                if (!outage && !modelAtFault) throw error;
 
-                const delay = delays[tryIndex];
+                if (modelAtFault) dropped.add(model);
 
                 console.warn(`[SUBTITLE] ${label} request failed`, {
                     model,
-                    attempt: tryIndex + 1,
-                    next: moveOn || delay === undefined ? 'next model' : `retry in ${delay} ms`,
+                    attempt: round + 1,
+                    next: modelAtFault ? 'model dropped' : 'next model',
                     reason: reason.slice(0, 200),
                 });
-
-                if (moveOn || delay === undefined) break;
-
-                await wait(delay);
             }
         }
+
+        const delay = delays[round];
+
+        if (tried === 0 || delay === undefined) break;
+
+        await wait(delay);
     }
 
     throw lastError;
@@ -426,6 +512,7 @@ export async function requestJson(
     ai: GoogleGenAI,
     model: string,
     contents: unknown,
+    timeoutMs: number = requestTimeoutMs(),
 ): Promise<string> {
     // An overloaded model answers 503 only after about a minute, and a hung request
     // never answers: each request is limited, and none starts once the budget is used up.
@@ -440,7 +527,7 @@ export async function requestJson(
                 ...(withThinking ? { thinkingConfig: { thinkingLevel: 'LOW' } } : {}),
             },
         } as never),
-        requestTimeoutMs(),
+        timeoutMs,
     );
     let response: unknown;
 
@@ -457,6 +544,61 @@ export async function requestJson(
     return (response as { text?: string }).text ?? '';
 }
 
+function translationPrompt(
+    items: Array<{ id: number; text: string }>,
+    target: string,
+    answerShape: 'array' | 'object',
+): string {
+    return (
+        `Translate each numbered line of speech from a video into the language "${target}" for subtitles. ` +
+        'The source language of every line may differ (English, Italian, ...): detect it yourself. ' +
+        'Keep the meaning, a natural spoken tone and roughly the same length; names stay as they are. ' +
+        'Do not add notes. ' +
+        (answerShape === 'array'
+            ? 'Answer with JSON only: an array of {"id": number, "text": string}, one entry per input line.'
+            : 'Answer with JSON only: an object {"translations": [{"id": number, "text": string}]}, one entry per input line.') +
+        '\n\n' +
+        JSON.stringify(items)
+    );
+}
+
+/** One request to the optional translator of another provider (OpenAI-compatible chat completions). */
+export async function requestExternalJson(
+    provider: ExternalProvider,
+    prompt: string,
+    timeoutMs: number,
+): Promise<string> {
+    return withinBudget(`External request (${provider.model})`, async () => {
+        const response = await fetch(provider.url, {
+            method: 'POST',
+            headers: {
+                'content-type': 'application/json',
+                authorization: `Bearer ${provider.apiKey}`,
+            },
+            body: JSON.stringify({
+                model: provider.model,
+                messages: [{ role: 'user', content: prompt }],
+                response_format: { type: 'json_object' },
+            }),
+            signal: AbortSignal.timeout(timeoutMs),
+        });
+        const body = await response.text();
+
+        if (!response.ok) {
+            // `status` lets isTransientError / isRateLimitError tell an outage from a bad key.
+            throw Object.assign(
+                new Error(`[SUBTITLE] External translation request failed: HTTP ${response.status} ${body.slice(0, 200)}`),
+                { status: response.status },
+            );
+        }
+
+        const content = (JSON.parse(body) as { choices?: Array<{ message?: { content?: unknown } }> })
+            .choices?.[0]?.message?.content;
+
+        return typeof content === 'string' ? content : '';
+    }, timeoutMs);
+}
+
 async function requestTranslations(
     items: Array<{ id: number; text: string }>,
     target: string,
@@ -464,17 +606,50 @@ async function requestTranslations(
 ): Promise<Map<number, string>> {
     const ai = new GoogleGenAI({ apiKey });
     const allowed = new Map(items.map(item => [item.id, item.text]));
-    const prompt =
-        `Translate each numbered line of speech from a video into the language "${target}" for subtitles. ` +
-        'The source language of every line may differ (English, Italian, ...): detect it yourself. ' +
-        'Keep the meaning, a natural spoken tone and roughly the same length; names stay as they are. ' +
-        'Do not add notes. Answer with JSON only: an array of {"id": number, "text": string}, one entry per input line.\n\n' +
-        JSON.stringify(items);
+    const external = externalProvider();
+    const timeoutMs = translateRequestTimeoutMs();
 
-    // Parsing is part of the attempt: broken JSON is repeated like an outage.
-    return generateWithFallback(translateModels(), async model =>
-        parseTranslations(await requestJson(ai, model, prompt), allowed),
+    // Parsing is part of the attempt: broken JSON (or an answer with no usable
+    // translation) is repeated like an outage.
+    return generateWithFallback(
+        translateModels(),
+        async model => {
+            if (external && model === `${EXTERNAL_PREFIX}${external.model}`) {
+                return parseTranslations(
+                    await requestExternalJson(external, translationPrompt(items, target, 'object'), timeoutMs),
+                    allowed,
+                    target,
+                );
+            }
+
+            return parseTranslations(
+                await requestJson(ai, model, translationPrompt(items, target, 'array'), timeoutMs),
+                allowed,
+                target,
+            );
+        },
+        // A wrong key or request for the other provider must not stop the Gemini models.
+        { skipModel: model => model.startsWith(EXTERNAL_PREFIX) },
     );
+}
+
+/**
+ * Pure: true when translateForeignSpeech would send a request for these words
+ * (foreign sentences that are not a stray word or two). The pipeline uses it
+ * to keep time back for the translation only when there is something to translate.
+ */
+export function needsTranslation(words: WordTiming[], target: string): boolean {
+    if (words.length === 0) return false;
+
+    let foreignWords = 0;
+
+    for (const sentence of splitSentences(words)) {
+        const sentenceWords = words.slice(sentence.first, sentence.last + 1);
+
+        if (foreignLabel(sentenceWords, target)) foreignWords += sentenceWords.length;
+    }
+
+    return foreignWords > 0 && !isTrivialForeignSpeech(foreignWords, words.length, minForeignWords());
 }
 
 /**

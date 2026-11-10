@@ -229,3 +229,11 @@ Fixed:
 - **Memory**: voice analysis (stereo), speaker analysis (mono) and background sampling stop at 30 min of audio / 512 MB of frames instead of buffering without limit; `Int16Array` is built from an aligned copy (a Buffer at an odd offset threw on very short audio); ffmpeg stderr is capped.
 - **API quota** (free Gemini tier: 25 requests/day): coverage clips are capped (`REEL_SUBTITLE_COVERAGE_MAX_CLIPS`, 1–6, default 3; nearest ranges are merged to fit), and a 429 / "rate limit" / quota error stops the remaining clips and the variant chain of a clip (`isRateLimitError`, `utils/rate-limit.ts`). Summary field `stoppedByRateLimit`.
 - **Leftover debug file**: `*.whisper-timing.ndjson` is now removed together with the other debug files when `keepDebugArtifacts` is false.
+
+## Update 22 — translation survives an overloaded Gemini
+
+- Incident: a reel went out with English captions. `gemini-3.8-flash` hung for the 60 s request limit, answered 503 on the next attempt, and the 10 minute budget ended before the fallback model `gemini-3.5-flash-lite` was ever asked (the transcript check a minute earlier had used up three attempts on `gemini-3.8-flash` before it recovered on the fallback).
+- `generateWithFallback` walks the models in rounds (one attempt per model per round, pause only between rounds) instead of three attempts on one model before the next. A model of another provider can be the last link (`REEL_SUBTITLE_TRANSLATE_EXTERNAL_*`, off by default).
+- Translation requests are limited to 25 s (`REEL_SUBTITLE_TRANSLATE_REQUEST_TIMEOUT_MS`). An answer without a single usable translation (for example the source line returned unchanged for a Cyrillic target) is repeated on the next model.
+- Time for the translation is reserved: with foreign speech in the clip, re-timing, coverage and the transcript check run under a deadline `REEL_SUBTITLE_TRANSLATE_RESERVE_MS` (150 s) earlier than the budget (`withBudgetReserve`, `needsTranslation`).
+- Every pipeline step logs `[SUBTITLE] Step finished { step, durationMs, budgetLeftMs }`; the Whisper pass logs its own `durationMs`.

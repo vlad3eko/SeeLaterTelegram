@@ -1,5 +1,11 @@
 
 import {GoogleGenAI} from "@google/genai"
+import {
+    isBudgetExceeded,
+    runWithBudget,
+    withBudgetReserve,
+    withinBudget
+} from "#server/global/engine/instagram/reel/subtitle/utils/budget"
 
 type GenreInput =
     | string
@@ -205,98 +211,61 @@ const selectHook = ({chosen, candidates}: ParsedHookResponse): string | undefine
     return [...pool.values()].sort((a, b) => penalty(a) - penalty(b))[0]
 }
 
-export const generateInstagramHookFromVideo = async (
-    videoPath: string,
-    context: InstagramHookContext
-): Promise<string> => {
 
-    const apiKey = process.env.GEMINI_API_KEY
+type HookSource = 'video' | 'text'
 
-    if (!apiKey) {
-        throw new Error('[GEMINI] GEMINI_API_KEY is missing')
+// Что меняется в промпте, когда ролика нет: хук строится только по описанию фильма.
+// Вариант 'video' дословно совпадает с прежним промптом.
+const HOOK_PROMPT_PARTS: Record<HookSource, {
+    infoHeading: string
+    basis: string
+    fact: string
+    truthNouns: string
+    truthScene: string
+    frameLine: string
+    undetermined: string
+}> = {
+    video: {
+        infoHeading: 'Информация о фильме (только для контекста тона и деталей):',
+        basis: 'Основа хука — видео, а не твои знания о фильме. Название и описание помогают не ошибиться в деталях, но не источник того, что происходит в сцене.',
+        fact: 'ФАКТ — то, что зритель видит в первые секунды: кто (по роли) и что делает.',
+        truthNouns: '- Каждое существительное и определение должно быть видно в кадре или прозвучать/появиться в субтитрах. Если слова нет в видео (робот, заброшенный, тайный), убери его.',
+        truthScene: '- ФАКТ из хука виден в первые секунды ролика, ответ на дыру приходит ближе к концу.\n- Слушай реплики и субтитры: если реплика называет ставку или цель героев, строй дыру на ней.',
+        frameLine: 'КАДР: кто (по роли), что делает и где; только то, что видно или слышно',
+        undetermined: 'Если невозможно достоверно определить происходящее в видео, ответь одной строкой:\nХУК: НЕ УДАЛОСЬ ОПРЕДЕЛИТЬ\nЕсли сцена видна хотя бы частично, строй хук по тому, что определяется уверенно.'
+    },
+    text: {
+        infoHeading: 'Информация о фильме (единственный источник для хука):',
+        basis: 'Видео ты не видел: основа хука — только название, жанры и описание фильма. Не опирайся на свои знания о фильме и не выдумывай события, которых в описании нет.',
+        fact: 'ФАКТ — то, что названо в описании: кто (по роли) и что делает.',
+        truthNouns: '- Каждое существительное и определение должно быть в описании фильма. Если слова там нет (робот, заброшенный, тайный), убери его.',
+        truthScene: '- ФАКТ из хука берётся из описания, а дыра — то, что описание оставляет открытым. Не обещай ответа, которого нет в описании.',
+        frameLine: 'КАДР: кто (по роли) и что делает; только то, что названо в описании',
+        undetermined: 'Если по описанию невозможно построить правдивый хук, ответь одной строкой:\nХУК: НЕ УДАЛОСЬ ОПРЕДЕЛИТЬ\nЕсли описание даёт хотя бы одну конкретную деталь, строй хук по ней.'
     }
+}
 
-    const ai = new GoogleGenAI({apiKey})
+export const buildHookPrompt = (
+    context: InstagramHookContext,
+    source: HookSource = 'video'
+): string => {
+    const p = HOOK_PROMPT_PARTS[source]
+    const genreText = getGenreText(context.genre)
 
-    let uploadedFileName: string | undefined
-    let interactionId: string | undefined
-    let interactionIsTerminal = false
-    let interactionStartedAt = Date.now()
-
-    try {
-        console.log('[GEMINI] Uploading prepared video:', videoPath)
-
-        // Загружаем локальный clean MP4 непосредственно в Gemini.
-        const uploadedFile = await ai.files.upload({
-            file: videoPath,
-            config: {
-                mimeType: 'video/mp4'
-            }
-        })
-
-        uploadedFileName = uploadedFile.name
-
-        if (!uploadedFile.name) {
-            throw new Error('[GEMINI] File upload returned no file name')
-        }
-
-        console.log('[GEMINI] Video uploaded:', {
-            fileName: uploadedFile.name,
-            state: uploadedFile.state,
-            mimeType: uploadedFile.mimeType
-        })
-
-        // Ждём, пока Gemini обработает видео.
-        const fileProcessingDeadline =
-            Date.now() + GEMINI_FILE_PROCESSING_TIMEOUT_MS
-
-        let readyFile = await ai.files.get({
-            name: uploadedFile.name
-        })
-
-        while (readyFile.state !== 'ACTIVE') {
-            if (readyFile.state === 'FAILED') {
-                throw new Error('[GEMINI] Video processing failed')
-            }
-
-            if (Date.now() >= fileProcessingDeadline) {
-                throw new Error(
-                    `[GEMINI] Video processing timeout after ${GEMINI_FILE_PROCESSING_TIMEOUT_MS / 1_000} seconds`
-                )
-            }
-
-            await sleep(GEMINI_FILE_POLL_INTERVAL_MS)
-
-            readyFile = await ai.files.get({
-                name: uploadedFile.name
-            })
-        }
-
-        if (!readyFile.uri) {
-            throw new Error('[GEMINI] Processed video file has no URI')
-        }
-
-        console.log('[GEMINI] Video is ACTIVE:', {
-            fileName: readyFile.name,
-            mimeType: readyFile.mimeType
-        })
-
-        const genreText = getGenreText(context.genre)
-
-        const prompt = `
+    return `
 Ты — монтажёр коротких Instagram Reels о кино. Твой хук — текст из 3–7 слов поверх кадра в первые секунды. Его читают без звука за пару секунд и решают: смотреть дальше или пролистнуть.
 
 Хук нужен, чтобы зритель досмотрел ролик (около 40 секунд) до ответа, а не чтобы описать сцену. Описание кадра зритель и так видит глазами, поэтому оно не удерживает. Хук задаёт вопрос, ответ на который есть в этом ролике.
 
-Информация о фильме (только для контекста тона и деталей):
+${p.infoHeading}
 Название: ${context.title || 'Не указано'}
 Жанры: ${genreText || 'Не указаны'}
 Описание фильма: ${context.overview || 'Не указано'}
 
-Основа хука — видео, а не твои знания о фильме. Название и описание помогают не ошибиться в деталях, но не источник того, что происходит в сцене.
+${p.basis}
 
 ПРИНЦИП: ФАКТ + ДЫРА
-ФАКТ — то, что зритель видит в первые секунды: кто (по роли) и что делает.
+${p.fact}
 ДЫРА — то, чего он не понимает и что раскроется ближе к концу ролика: почему, зачем, какой ценой, чем кончится.
 Хук даёт ФАКТ и оставляет ДЫРУ. Если после прочтения можно ответить «ну и что?», это констатация, а не хук.
 
@@ -346,10 +315,9 @@ export const generateInstagramHookFromVideo = async (
 
 ПРАВДА
 Зритель, которого обманули, уходит.
-- Каждое существительное и определение должно быть видно в кадре или прозвучать/появиться в субтитрах. Если слова нет в видео (робот, заброшенный, тайный), убери его.
+${p.truthNouns}
 - Дыра закрывается в этом ролике. Не создавай загадку без ответа в видео и не обещай того, чего зритель не увидит. Не выдумывай события, мотивы и связи.
-- ФАКТ из хука виден в первые секунды ролика, ответ на дыру приходит ближе к концу.
-- Слушай реплики и субтитры: если реплика называет ставку или цель героев, строй дыру на ней.
+${p.truthScene}
 - Не раскрывай концовку и не пересказывай фильм.
 - Известный персонаж или франшиза: не называй очевидное («Человек-паук сражается»). Найди, что необычного именно в этом фрагменте.
 
@@ -362,7 +330,7 @@ export const generateInstagramHookFromVideo = async (
 
 ФОРМАТ ОТВЕТА
 Отвечай строго в таком виде, каждая строка — одно короткое предложение:
-КАДР: кто (по роли), что делает и где; только то, что видно или слышно
+${p.frameLine}
 СДВИГ: что в этой сцене не на своём месте, нелогично, не договорено или поставлено на кон
 КЛЮЧ: что объяснится к концу ролика и примерно в какой момент
 ВАРИАНТЫ:
@@ -375,138 +343,395 @@ export const generateInstagramHookFromVideo = async (
 В вариантах используй разные способы сделать дыру и разное начало фразы.
 Лучший вариант — тот, который проходит все тесты: на него нельзя ответить «ну и что?», он звучит живой речью, а ответ на него есть в ролике.
 
-Если невозможно достоверно определить происходящее в видео, ответь одной строкой:
-ХУК: НЕ УДАЛОСЬ ОПРЕДЕЛИТЬ
-Если сцена видна хотя бы частично, строй хук по тому, что определяется уверенно.
-        `.trim()
+${p.undetermined}
+    `.trim()
+}
 
+const HOOK_DEFAULT_MODELS = ['gemini-3.5-flash-lite', 'gemini-3.8-flash']
+
+// Видео Gemini иногда отклоняет без объяснений («Request blocked due to prohibited
+// content guidelines»), причём тот же ролик час назад проходил. Поэтому ролик
+// запрашивается по кругу у каждой модели, а если он так и не прошёл, хук
+// строится только по описанию фильма. Шаблонный хук остаётся последним
+// запасным вариантом (prepareReel).
+const HOOK_VIDEO_ROUNDS = 2
+const HOOK_TEXT_ROUNDS = 1
+const HOOK_REQUEST_TIMEOUT_MS = 90_000
+const HOOK_DEFAULT_BUDGET_MS = 4 * 60_000
+// Время, которое видеозапросы оставляют текстовому хуку.
+const HOOK_TEXT_RESERVE_MS = 60_000
+
+// REEL_HOOK_MODELS: модели через запятую, по порядку.
+export const hookModels = (env: NodeJS.ProcessEnv = process.env): string[] => {
+    const configured = (env.REEL_HOOK_MODELS ?? '')
+        .split(',')
+        .map(name => name.trim())
+        .filter(Boolean)
+
+    return [...new Set(configured.length ? configured : HOOK_DEFAULT_MODELS)]
+}
+
+// REEL_HOOK_BUDGET_MS: общее время всего получения хука (30 с – 15 мин, по умолчанию 4 мин).
+export const hookBudgetMs = (env: NodeJS.ProcessEnv = process.env): number => {
+    const raw = env.REEL_HOOK_BUDGET_MS
+
+    if (raw === undefined || raw.trim() === '') {
+        return HOOK_DEFAULT_BUDGET_MS
+    }
+
+    const value = Number(raw)
+
+    return Number.isFinite(value) && value >= 30_000 && value <= 15 * 60_000
+        ? value
+        : HOOK_DEFAULT_BUDGET_MS
+}
+
+// Запрос отклонён фильтрами контента (а не перегрузкой или неверным запросом).
+export const isBlockedError = (error: unknown): boolean => {
+    const message = error instanceof Error ? error.message : String(error)
+
+    return /prohibited[_ ]content|blocked due to|content guidelines|block_?reason/iu.test(message)
+}
+
+type HookInputPart =
+    | { type: 'text', text: string }
+    | { type: 'video', uri: string, mime_type: string }
+
+type HookResult = {
+    hook: string
+    parsed: ParsedHookResponse
+    model: string
+    durationMs: number
+}
+
+// Один проход по моделям, rounds раз: первый удачный ответ возвращается.
+// Каждая неудача (блокировка, 503, зависший запрос, непригодный хук) передаёт
+// ход следующей модели. Исчерпание общего времени прерывает всё.
+const requestHook = async ({ai, models, rounds, source, input, interactionIds}: {
+    ai: GoogleGenAI
+    models: string[]
+    rounds: number
+    source: HookSource
+    input: HookInputPart[]
+    interactionIds: string[]
+}): Promise<HookResult> => {
+    let lastError: unknown
+
+    for (let round = 1; round <= rounds; round++) {
+        for (const model of models) {
+            const startedAt = Date.now()
+
+            try {
+                const interaction = await withinBudget(
+                    `Gemini hook (${model})`,
+                    () => ai.interactions.create(
+                        {
+                            model,
+
+                            generation_config: {
+                                thinking_level: 'low'
+                            },
+
+                            input
+                        },
+                        {
+                            // Ограничиваем ожидание одного запроса.
+                            timeout_ms: 60_000,
+
+                            // Вместо неограниченного по времени
+                            // attempt-count-backoff используем backoff
+                            // с контролем общего времени повторов.
+                            retries: {
+                                strategy: 'backoff',
+
+                                backoff: {
+                                    initialInterval: 1_000,
+                                    maxInterval: 5_000,
+                                    exponent: 2,
+                                    maxElapsedTime: 15_000
+                                },
+
+                                retryConnectionErrors: true
+                            },
+
+                            // Повторяем именно временный 503.
+                            retry_codes: ['503']
+                        }
+                    ),
+                    HOOK_REQUEST_TIMEOUT_MS
+                )
+
+                if (interaction.id) {
+                    interactionIds.push(interaction.id)
+                }
+
+                const durationMs = Date.now() - startedAt
+
+                console.log('[GEMINI] Foreground interaction returned:', {
+                    interactionId: interaction.id,
+                    status: interaction.status,
+                    source,
+                    model,
+                    durationMs
+                })
+
+                if (interaction.status !== 'completed') {
+                    const interactionDiagnostics = interaction as typeof interaction & {
+                        errors?: Array<{
+                            code?: string
+                            message?: string
+                        }>
+                    }
+
+                    console.error('[GEMINI] Interaction did not complete:', {
+                        interactionId: interaction.id,
+                        status: interaction.status,
+                        errors: interactionDiagnostics.errors ?? [],
+                        model: interaction.model,
+                        created: interaction.created,
+                        updated: interaction.updated,
+                        durationMs
+                    })
+
+                    throw new Error(
+                        `[GEMINI] Interaction ended with status: ${interaction.status}`
+                    )
+                }
+
+                const rawOutput = String(interaction.output_text ?? '')
+
+                const parsed = parseHookResponse(rawOutput)
+                const hook = selectHook(parsed)
+
+                if (!hook) {
+                    const rejected =
+                        parsed.chosen ??
+                        rawOutput.replace(/\s+/g, ' ').trim()
+
+                    throw new Error(
+                        `[GEMINI] Invalid generated hook: "${rejected}" (${countWords(rejected)} words)`
+                    )
+                }
+
+                return {hook, parsed, model, durationMs}
+
+            } catch (error) {
+                if (isBudgetExceeded(error)) {
+                    throw error
+                }
+
+                lastError = error
+
+                const details = getErrorDetails(error)
+
+                console.warn('[GEMINI HOOK ATTEMPT FAILED]', {
+                    source,
+                    model,
+                    round,
+                    blocked: isBlockedError(error),
+                    name: details.name,
+                    message: details.message,
+                    status: details.status,
+                    durationMs: Date.now() - startedAt
+                })
+            }
+        }
+    }
+
+    throw lastError
+}
+
+const logGeneratedHook = (source: HookSource, result: HookResult) => {
+    const {hook, parsed, model, durationMs} = result
+    const slopMatches = findSlop(hook)
+
+    if (slopMatches.length) {
+        console.warn('[GEMINI HOOK SLOP]', {
+            hook,
+            slopMatches
+        })
+    }
+
+    // candidates и analysis пишем в лог: по ним видно, где модель
+    // сворачивает к пересказу кадра, и можно подстраивать промпт.
+    console.log('[GEMINI HOOK GENERATED]', {
+        hook,
+        source,
+        model,
+        wordCount: countWords(hook),
+        candidates: parsed.candidates,
+        analysis: parsed.analysis,
+        durationMs
+    })
+}
+
+export const generateInstagramHookFromVideo = async (
+    videoPath: string,
+    context: InstagramHookContext
+): Promise<string> => {
+
+    const apiKey = process.env.GEMINI_API_KEY
+
+    if (!apiKey) {
+        throw new Error('[GEMINI] GEMINI_API_KEY is missing')
+    }
+
+    const ai = new GoogleGenAI({apiKey})
+    const models = hookModels()
+
+    let uploadedFileName: string | undefined
+    const interactionIds: string[] = []
+
+    // Ролик не принят (блокировка, перегрузка, сбой загрузки): хук по описанию.
+    const generateFromVideo = async (): Promise<string> => {
+        console.log('[GEMINI] Uploading prepared video:', videoPath)
+
+        // Загружаем локальный clean MP4 непосредственно в Gemini.
+        const uploadedFile = await withinBudget(
+            'Gemini video upload',
+            () => ai.files.upload({
+                file: videoPath,
+                config: {
+                    mimeType: 'video/mp4'
+                }
+            }),
+            120_000
+        )
+
+        uploadedFileName = uploadedFile.name
+
+        if (!uploadedFile.name) {
+            throw new Error('[GEMINI] File upload returned no file name')
+        }
+
+        const uploadedName = uploadedFile.name
+
+        console.log('[GEMINI] Video uploaded:', {
+            fileName: uploadedFile.name,
+            state: uploadedFile.state,
+            mimeType: uploadedFile.mimeType
+        })
+
+        // Ждём, пока Gemini обработает видео.
+        const fileProcessingDeadline =
+            Date.now() + GEMINI_FILE_PROCESSING_TIMEOUT_MS
+
+        let readyFile = await withinBudget(
+            'Gemini video status',
+            () => ai.files.get({name: uploadedName}),
+            30_000
+        )
+
+        while (readyFile.state !== 'ACTIVE') {
+            if (readyFile.state === 'FAILED') {
+                throw new Error('[GEMINI] Video processing failed')
+            }
+
+            if (Date.now() >= fileProcessingDeadline) {
+                throw new Error(
+                    `[GEMINI] Video processing timeout after ${GEMINI_FILE_PROCESSING_TIMEOUT_MS / 1_000} seconds`
+                )
+            }
+
+            await sleep(GEMINI_FILE_POLL_INTERVAL_MS)
+
+            readyFile = await withinBudget(
+                'Gemini video status',
+                () => ai.files.get({name: uploadedName}),
+                30_000
+            )
+        }
+
+        if (!readyFile.uri) {
+            throw new Error('[GEMINI] Processed video file has no URI')
+        }
+
+        console.log('[GEMINI] Video is ACTIVE:', {
+            fileName: readyFile.name,
+            mimeType: readyFile.mimeType
+        })
 
         console.log('[GEMINI] Starting foreground video analysis')
 
-        const interaction = await ai.interactions.create(
-            {
-                model: 'gemini-3.5-flash-lite',
-
-                generation_config: {
-                    thinking_level: 'low'
+        const result = await requestHook({
+            ai,
+            models,
+            rounds: HOOK_VIDEO_ROUNDS,
+            source: 'video',
+            interactionIds,
+            input: [
+                {
+                    type: 'video',
+                    uri: readyFile.uri,
+                    mime_type: readyFile.mimeType || 'video/mp4'
                 },
-
-                input: [
-                    {
-                        type: 'video',
-                        uri: readyFile.uri,
-                        mime_type: readyFile.mimeType || 'video/mp4'
-                    },
-                    {
-                        type: 'text',
-                        text: prompt
-                    }
-                ]
-            },
-            {
-                // Ограничиваем ожидание одного запроса.
-                timeout_ms: 180_000,
-
-                // Вместо неограниченного по времени
-                // attempt-count-backoff используем backoff
-                // с контролем общего времени повторов.
-                retries: {
-                    strategy: 'backoff',
-
-                    backoff: {
-                        initialInterval: 1_000,
-                        maxInterval: 5_000,
-                        exponent: 2,
-                        maxElapsedTime: 30_000
-                    },
-
-                    retryConnectionErrors: true
-                },
-
-                // Повторяем именно временный 503.
-                retry_codes: ['503']
-            }
-        )
-
-        interactionId = interaction.id
-        interactionIsTerminal = true
-
-        const interactionElapsedMs =
-            Date.now() - interactionStartedAt
-
-        console.log('[GEMINI] Foreground interaction returned:', {
-            interactionId,
-            status: interaction.status,
-            durationMs: interactionElapsedMs
+                {
+                    type: 'text',
+                    text: buildHookPrompt(context, 'video')
+                }
+            ]
         })
 
-        if (interaction.status !== 'completed') {
-            const interactionDiagnostics = interaction as typeof interaction & {
-                errors?: Array<{
-                    code?: string
-                    message?: string
-                }>
-            }
+        logGeneratedHook('video', result)
 
-            console.error('[GEMINI] Interaction did not complete:', {
-                interactionId,
-                status: interaction.status,
-                errors: interactionDiagnostics.errors ?? [],
-                model: interaction.model,
-                created: interaction.created,
-                updated: interaction.updated,
-                durationMs: interactionElapsedMs
-            })
+        return result.hook
+    }
 
-            throw new Error(
-                `[GEMINI] Interaction ended with status: ${interaction.status}`
-            )
-        }
+    const generateFromDescription = async (): Promise<string> => {
+        console.warn('[GEMINI] Video route failed; generating the hook from the film description')
 
-        const rawOutput = String(interaction.output_text ?? '')
-
-        const parsedResponse = parseHookResponse(rawOutput)
-        const hook = selectHook(parsedResponse)
-
-        if (!hook) {
-            const rejected =
-                parsedResponse.chosen ??
-                rawOutput.replace(/\s+/g, ' ').trim()
-
-            throw new Error(
-                `[GEMINI] Invalid generated hook: "${rejected}" (${countWords(rejected)} words)`
-            )
-        }
-
-        const wordCount = countWords(hook)
-        const slopMatches = findSlop(hook)
-
-        if (slopMatches.length) {
-            console.warn('[GEMINI HOOK SLOP]', {
-                hook,
-                slopMatches
-            })
-        }
-
-        // candidates и analysis пишем в лог: по ним видно, где модель
-        // сворачивает к пересказу кадра, и можно подстраивать промпт.
-        console.log('[GEMINI HOOK GENERATED]', {
-            hook,
-            wordCount,
-            candidates: parsedResponse.candidates,
-            analysis: parsedResponse.analysis,
-            durationMs: interactionElapsedMs
+        const result = await requestHook({
+            ai,
+            models,
+            rounds: HOOK_TEXT_ROUNDS,
+            source: 'text',
+            interactionIds,
+            input: [
+                {
+                    type: 'text',
+                    text: buildHookPrompt(context, 'text')
+                }
+            ]
         })
 
-        return hook
+        logGeneratedHook('text', result)
 
-    } catch (error) {
-        console.error('[GEMINI REQUEST FAILED]', getErrorDetails(error))
-        throw error
+        return result.hook
+    }
+
+    const budgetMs = hookBudgetMs()
+
+    // Видеозапросы оставляют время на запасной текстовый хук.
+    const textReserveMs = Math.min(HOOK_TEXT_RESERVE_MS, Math.floor(budgetMs / 3))
+
+    try {
+        return await runWithBudget(budgetMs, async () => {
+            try {
+                return await withBudgetReserve(textReserveMs, generateFromVideo)
+
+            } catch (videoError) {
+                console.error('[GEMINI REQUEST FAILED]', getErrorDetails(videoError))
+
+                // Без описания и названия строить хук не из чего.
+                if (!context.overview?.trim() && !context.title?.trim()) {
+                    throw videoError
+                }
+
+                try {
+                    return await generateFromDescription()
+
+                } catch (textError) {
+                    console.error('[GEMINI TEXT HOOK FAILED]', getErrorDetails(textError))
+
+                    // Наружу уходит первая причина: по ней видно, что случилось с роликом.
+                    throw videoError
+                }
+            }
+        })
 
     } finally {
-        // Удаляем завершённый Interaction.
-        if (interactionId && interactionIsTerminal) {
+        // Удаляем завершённые Interaction.
+        for (const interactionId of interactionIds) {
             try {
                 await ai.interactions.delete(interactionId)
 
@@ -520,9 +745,8 @@ export const generateInstagramHookFromVideo = async (
             }
         }
 
-        // Удаляем загруженное видео, если Interaction
-        // не создавался или уже завершился.
-        if (uploadedFileName && (!interactionId || interactionIsTerminal)) {
+        // Удаляем загруженное видео.
+        if (uploadedFileName) {
             try {
                 await ai.files.delete({
                     name: uploadedFileName
