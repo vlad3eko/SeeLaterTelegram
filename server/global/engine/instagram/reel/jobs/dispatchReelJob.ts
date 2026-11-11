@@ -21,11 +21,19 @@ type ReelSessionSnapshot = {
     isRichTypeCard: boolean
 }
 
+/**
+ * manual: ключ трейлера администратор ввёл сам — воркер останавливается на проверке clean
+ * и выборе хука (см. TASKS.md). auto: всё за один проход, хук выбирает Gemini; это же
+ * заглушка для будущего автоподбора публикаций.
+ */
+export type ReelReviewMode = 'manual' | 'auto'
+
 type DispatchReelJobInput = {
     adminTelegramId: number
     sourceUpdateId: number
     channelChatId: string
     finalizerUrl: string
+    reviewMode?: ReelReviewMode
     session: ReelSessionSnapshot
 }
 
@@ -39,6 +47,7 @@ type JobRow = {
     source_update_id?: number | null
     channel_message_id?: number | null
     channel_chat_id?: string | null
+    key_trailer?: string | null
 }
 
 const requiredEnv = (name: string): string => {
@@ -47,7 +56,7 @@ const requiredEnv = (name: string): string => {
     return value
 }
 
-const getSupabase = () => createClient(
+export const getSupabase = () => createClient(
     requiredEnv('SUPABASE_URL'),
     requiredEnv('SUPABASE_SERVICE_ROLE_KEY'),
     {
@@ -180,9 +189,9 @@ const callFinalizer = async (
     }
 }
 
-const startQueuedJob = async (
+export const startQueuedJob = async (
     supabase: ReturnType<typeof getSupabase>,
-    job: JobRow
+    job: Pick<JobRow, 'id'>
 ): Promise<void> => {
     const operationName = await runCloudRunJob(job.id)
 
@@ -204,7 +213,8 @@ const startQueuedJob = async (
     }
 }
 
-const ACTIVE_STATUSES = ['queued', 'processing', 'ready', 'publishing']
+// awaiting_review: воркер остановился на проверке администратором (clean или выбор хука).
+const ACTIVE_STATUSES = ['queued', 'processing', 'awaiting_review', 'ready', 'publishing']
 const TELEGRAM_ONLY_STEP = 'published_telegram_only'
 // Шаги, на которых публикация упала уже после начала: финализатор продолжит с них,
 // поэтому такую запись удалять нельзя (иначе повторный пост в Instagram).
@@ -244,6 +254,12 @@ const continueJob = async (
         job.status === 'ready' ||
         (job.status === 'publishing' && isLeaseExpired(job))
     ) {
+        const token = String(job.input_payload?.finalizerToken ?? '')
+        const url = String(job.input_payload?.finalizerUrl ?? finalizerUrl)
+        if (token) await callFinalizer(url, job.id, token)
+    } else if (job.status === 'awaiting_review') {
+        // Повторное «Опубликовать» во время проверки: заново прислать сообщение с кнопками
+        // (финализатор видит awaiting_review и вместо публикации шлёт проверку).
         const token = String(job.input_payload?.finalizerToken ?? '')
         const url = String(job.input_payload?.finalizerUrl ?? finalizerUrl)
         if (token) await callFinalizer(url, job.id, token)
@@ -289,6 +305,7 @@ export const dispatchReelJob = async ({
     sourceUpdateId,
     channelChatId,
     finalizerUrl,
+    reviewMode = 'auto',
     session
 }: DispatchReelJobInput): Promise<{
     jobId: string
@@ -346,7 +363,7 @@ export const dispatchReelJob = async ({
     // записи именно по фильму, а не по трейлеру или администратору.
     const {data: mediaRows, error: mediaRowsError} = await supabase
         .from('reel_processing_jobs')
-        .select('id,status,step,worker_execution_name,lease_expires_at,input_payload,source_update_id,channel_message_id,channel_chat_id,created_at')
+        .select('id,status,step,worker_execution_name,lease_expires_at,input_payload,source_update_id,channel_message_id,channel_chat_id,key_trailer,created_at')
         .eq('media_id', session.mediaId)
         .eq('media_type', session.mediaType)
         .order('created_at', {ascending: false})
@@ -355,7 +372,34 @@ export const dispatchReelJob = async ({
         throw new Error(`[REEL JOB LOOKUP ERROR] ${mediaRowsError.message}`)
     }
 
-    const rows = (mediaRows ?? []) as JobRow[]
+    const allRows = (mediaRows ?? []) as JobRow[]
+    let rows = allRows
+
+    // Проверка, ждущая администратора, с другим ключом трейлера: администратор сменил
+    // трейлер и снова нажал «Опубликовать». Старая проверка больше не нужна (ничего ещё
+    // не опубликовано), её запись удаляется, и задача создаётся заново с новым ключом.
+    const staleReviews = rows.filter(
+        row => row.status === 'awaiting_review' && row.key_trailer !== session.keyTrailer
+    )
+
+    if (staleReviews.length > 0) {
+        const {error: staleError} = await supabase
+            .from('reel_processing_jobs')
+            .delete()
+            .in('id', staleReviews.map(row => row.id))
+            .eq('status', 'awaiting_review')
+
+        if (staleError) {
+            throw new Error(`[REEL STALE REVIEW CLEANUP ERROR] ${staleError.message}`)
+        }
+
+        console.log('[REEL STALE REVIEW REPLACED]', {
+            removed: staleReviews.map(row => row.id),
+            keyTrailer: session.keyTrailer
+        })
+
+        rows = rows.filter(row => !staleReviews.includes(row))
+    }
 
     // 1. Повторная доставка того же update, нажатие при задаче в работе или при публикации,
     // упавшей на середине: продолжаем существующую запись, ничего не удаляем и не создаём.
@@ -373,8 +417,13 @@ export const dispatchReelJob = async ({
     // (Reel не получился), новая запись получает его message_id, и финализатор не отправляет
     // карточку в канал второй раз. Clean-видео с тем же ключом трейлера берётся из R2 по его
     // пути (media_id, media_type, key_trailer), с другим ключом трейлер скачивается заново.
-    const channelPost = rows.find(
-        row => row.channel_message_id && (row.step === TELEGRAM_ONLY_STEP || row.status === 'failed')
+    // allRows: удалённая выше устаревшая проверка тоже могла нести пост из прошлой публикации.
+    const channelPost = allRows.find(
+        row => row.channel_message_id && (
+            row.step === TELEGRAM_ONLY_STEP ||
+            row.status === 'failed' ||
+            row.status === 'awaiting_review'
+        )
     )
 
     // Резюмируемых записей здесь нет (вернулись бы выше), остаются только published и failed.
@@ -408,7 +457,9 @@ export const dispatchReelJob = async ({
             channel_chat_id: channelPost?.channel_chat_id || channelChatId,
             ...(channelPost ? {channel_message_id: channelPost.channel_message_id} : {}),
             status: 'queued',
-            step: 'queued'
+            step: 'queued',
+            review_mode: reviewMode,
+            worker_phase: reviewMode === 'manual' ? 'clean' : 'full'
         })
         .select('id,status,step,worker_execution_name')
         .single()
@@ -462,6 +513,7 @@ export const dispatchReelJob = async ({
 
     console.log('[REEL JOB DISPATCHED]', {
         jobId: job.id,
+        reviewMode,
         sourceUpdateId,
         mediaId: session.mediaId,
         mediaType: session.mediaType

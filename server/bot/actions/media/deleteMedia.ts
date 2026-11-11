@@ -1,4 +1,5 @@
 
+import {DELETE_MEDIA} from "#server/bot/callbacks/routes";
 import {checkChannelSubscriber} from "#server/bot/handlers/auth/check/checkChannelSubscriber";
 import {NOTIFICATION_MESSAGE} from "#server/global/notifications/sendNotificationMessage";
 import {internalFetch} from "#server/utils/api/internalFetch";
@@ -11,7 +12,7 @@ export const deleteMedia = async (ctx: any) => {
         await ctx.answerCbQuery(NOTIFICATION_MESSAGE.CbQ.ErrorOnlyForSubscriber)
 
     const telegramId = ctx.from.id
-    const mediaId = Number(ctx.match[1])
+    const {mediaId} = DELETE_MEDIA.parse(ctx)
 
     const {success} = await internalFetch<{
         success: boolean

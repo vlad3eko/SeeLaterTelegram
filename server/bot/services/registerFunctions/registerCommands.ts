@@ -15,6 +15,7 @@ import {commandHelp} from "#server/bot/commands/commandHelp";
 import {commandClear} from "#server/bot/commands/commandClear";
 import {commandContent} from "#server/bot/commands/commandContent";
 import {menuBot} from "#server/bot/handlers/commands/start/menuBot";
+import {LEGACY_MENU_BOT} from "#server/bot/callbacks/routes";
 import {contentTypeToTag} from "~/utils/convert/contentTypeConvert";
 import {internalTmdbFetch} from "#server/utils/api/internalFetch";
 
@@ -167,5 +168,6 @@ export function registerCommands(bot: Telegraf) {
     bot.command('help', commandHelp)
     bot.command('clear', commandClear)
     bot.command('g', commandContent)
-    bot.action('menu_bot', menuBot)
+    // Кнопки menu_bot в коде больше нет: обработчик оставлен для старых сообщений.
+    bot.action(LEGACY_MENU_BOT.pattern, menuBot)
 }

@@ -1,5 +1,6 @@
 
 import {ContentTelegramMenu} from "~/utils/engines/content/strategy/enums";
+import {CONTENT_MENU} from "#server/bot/callbacks/routes";
 import {
     bestByAttributeKeyboard,
     mostWaitingKeyboard,
@@ -8,7 +9,7 @@ import {
 } from "#server/bot/consts/buttons/admin/contentEngine/keyboardRepository";
 
 export const contentChosenButton = async (ctx: any) => {
-    const type = ctx.match[1] as ContentTelegramMenu
+    const type: ContentTelegramMenu = CONTENT_MENU.parse(ctx).menu
     const userId = ctx.from.id
 
     const messageId =

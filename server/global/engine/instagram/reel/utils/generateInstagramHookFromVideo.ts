@@ -189,13 +189,14 @@ const parseHookResponse = (rawOutput: string): ParsedHookResponse => {
     }
 }
 
-const selectHook = ({chosen, candidates}: ParsedHookResponse): string | undefined => {
+// Все пригодные хуки ответа, лучший первым: без штампов, затем короткие.
+// Выбор модели идёт первым: при равной оценке побеждает он (sort стабилен).
+const rankHooks = ({chosen, candidates}: ParsedHookResponse): string[] => {
     // Модель сама сказала, что сцену определить нельзя.
     if (chosen?.toUpperCase() === HOOK_UNDETERMINED) {
-        return undefined
+        return []
     }
 
-    // Выбор модели идёт первым: при равной оценке побеждает он (sort стабилен).
     const pool = new Map<string, string>()
 
     for (const item of [chosen, ...candidates]) {
@@ -208,8 +209,14 @@ const selectHook = ({chosen, candidates}: ParsedHookResponse): string | undefine
         findSlop(hook).length * 10 +
         (hook.length > HOOK_PREFERRED_MAX_CHARS ? 1 : 0)
 
-    return [...pool.values()].sort((a, b) => penalty(a) - penalty(b))[0]
+    return [...pool.values()].sort((a, b) => penalty(a) - penalty(b))
 }
+
+const selectHook = (parsed: ParsedHookResponse): string | undefined =>
+    rankHooks(parsed)[0]
+
+/** Сколько вариантов показывается администратору при ручной проверке (кнопки 1–4). */
+export const HOOK_OPTIONS_COUNT = 4
 
 
 type HookSource = 'video' | 'text'
@@ -565,10 +572,35 @@ const logGeneratedHook = (source: HookSource, result: HookResult) => {
     })
 }
 
+/** Один хук: ветка без проверки администратора (как раньше). */
 export const generateInstagramHookFromVideo = async (
     videoPath: string,
     context: InstagramHookContext
-): Promise<string> => {
+): Promise<string> =>
+    (await requestHookFromVideo(videoPath, context)).hook
+
+/**
+ * До четырёх разных хуков по одному ролику для выбора администратором.
+ * Промпт и так просит четыре варианта (ВАРИАНТЫ 1–4) и лучший (ХУК); раньше наружу уходил
+ * только лучший. Здесь отдаются все пригодные (те же правила: 3–7 слов, без дублей), лучший
+ * первым. Если модель вернула меньше четырёх пригодных, вариантов меньше; пустой список
+ * не возвращается (тогда ошибка, как у одиночного хука).
+ */
+export const generateInstagramHookOptionsFromVideo = async (
+    videoPath: string,
+    context: InstagramHookContext
+): Promise<string[]> => {
+    const result = await requestHookFromVideo(videoPath, context)
+    const options = rankHooks(result.parsed).slice(0, HOOK_OPTIONS_COUNT)
+
+    // rankHooks пуст быть не может: requestHook уже нашёл в этом ответе хук.
+    return options.length ? options : [result.hook]
+}
+
+const requestHookFromVideo = async (
+    videoPath: string,
+    context: InstagramHookContext
+): Promise<HookResult> => {
 
     const apiKey = process.env.GEMINI_API_KEY
 
@@ -583,7 +615,7 @@ export const generateInstagramHookFromVideo = async (
     const interactionIds: string[] = []
 
     // Ролик не принят (блокировка, перегрузка, сбой загрузки): хук по описанию.
-    const generateFromVideo = async (): Promise<string> => {
+    const generateFromVideo = async (): Promise<HookResult> => {
         console.log('[GEMINI] Uploading prepared video:', videoPath)
 
         // Загружаем локальный clean MP4 непосредственно в Gemini.
@@ -674,10 +706,10 @@ export const generateInstagramHookFromVideo = async (
 
         logGeneratedHook('video', result)
 
-        return result.hook
+        return result
     }
 
-    const generateFromDescription = async (): Promise<string> => {
+    const generateFromDescription = async (): Promise<HookResult> => {
         console.warn('[GEMINI] Video route failed; generating the hook from the film description')
 
         const result = await requestHook({
@@ -696,7 +728,7 @@ export const generateInstagramHookFromVideo = async (
 
         logGeneratedHook('text', result)
 
-        return result.hook
+        return result
     }
 
     const budgetMs = hookBudgetMs()

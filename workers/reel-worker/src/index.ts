@@ -5,9 +5,23 @@ import {
     clearInterval
 } from 'node:timers'
 import {createClient} from "@supabase/supabase-js";
-import {prepareReel} from "../../../server/global/engine/instagram/reel/prepareReel";
+import {
+    finishReelPhase,
+    prepareReel,
+    prepareReelCleanPhase,
+    prepareReelHookOptionsPhase
+} from "../../../server/global/engine/instagram/reel/prepareReel";
 
 type JsonRecord = Record<string, unknown>
+
+/**
+ * Что делает этот запуск (reel_processing_jobs.worker_phase, см. TASKS.md):
+ * full — всё сразу (публикация без проверки);
+ * clean — clean и превью, затем ожидание проверки администратором;
+ * hooks — варианты хука по текущему clean, затем ожидание выбора;
+ * finish — Reel с выбранным хуком (или с хуком от Gemini, если время выбора истекло).
+ */
+type WorkerPhase = 'full' | 'clean' | 'hooks' | 'finish'
 
 type ReelJob = {
     id: string
@@ -16,10 +30,16 @@ type ReelJob = {
     content_type: string
     key_trailer: string
     input_payload: unknown
+    worker_phase?: string | null
+    clean_variant?: number | null
+    clean_preview_r2_url?: string | null
 }
 
 type ReelInputPayload = {
+    /** Шаблонный хук; после ответа Gemini в ветке без проверки — хук Gemini. */
     hook?: string
+    /** Хук, выбранный администратором кнопкой 1–4 (фаза finish). */
+    chosenHook?: string | null
     finalizerToken?: string
     finalizerUrl?: string
     content?: {
@@ -60,6 +80,22 @@ const readDeadlineMs = (): number => {
         ? value
         : DEFAULT_DEADLINE_MS
 }
+
+// Сколько ждать решения администратора на шаге проверки (clean или выбор хука).
+// Потом задача идёт дальше без него (эндпоинт expireReviews). REEL_REVIEW_TIMEOUT_MS: 10 мин – 7 суток.
+const DEFAULT_REVIEW_TIMEOUT_MS = 24 * 60 * 60 * 1000
+
+const readReviewTimeoutMs = (): number => {
+    const raw = process.env['REEL_REVIEW_TIMEOUT_MS']?.trim()
+    const value = raw ? Number(raw) : Number.NaN
+
+    return Number.isFinite(value) && value >= 10 * 60 * 1000 && value <= 7 * 24 * 60 * 60 * 1000
+        ? value
+        : DEFAULT_REVIEW_TIMEOUT_MS
+}
+
+const readWorkerPhase = (value: unknown): WorkerPhase =>
+    value === 'clean' || value === 'hooks' || value === 'finish' ? value : 'full'
 
 const getErrorMessage = (error: unknown): string => {
     if (error instanceof Error) {
@@ -212,22 +248,56 @@ const main = async (): Promise<void> => {
     let failureFinalizerUrl: string | undefined
     let failureFinalizerToken: string | undefined
 
+    const phase = readWorkerPhase(claimedJob.worker_phase)
+    const previousPreview = String(claimedJob.clean_preview_r2_url ?? '').trim()
+
+    /**
+     * Сбой запуска. В ветке без проверки и в финале — как раньше: `failed`, и финализатор
+     * публикует пост только в Telegram. На шагах проверки сбой возвращает задачу к
+     * прошлому clean (если он уже показывался): администратор видит ошибку и снова жмёт
+     * «Пересобрать» или «Сгенерировать хук», ничего не публикуется без его выбора.
+     */
+    const markFailed = async (message: string): Promise<void> => {
+        const canReturnToReview =
+            (phase === 'hooks' || phase === 'clean') && Boolean(previousPreview)
+
+        await updateOwnedJob(
+            canReturnToReview
+                ? {
+                    status: 'awaiting_review',
+                    step: 'clean_review',
+                    worker_phase: 'clean',
+                    clean_preview_r2_url: previousPreview,
+                    hook_options: null,
+                    last_error: message,
+                    review_expires_at: new Date(Date.now() + readReviewTimeoutMs()).toISOString(),
+                    lease_token: null,
+                    lease_expires_at: null
+                }
+                : {
+                    status: 'failed',
+                    step: 'failed',
+                    last_error: message,
+                    failed_at: new Date().toISOString(),
+                    lease_token: null,
+                    lease_expires_at: null
+                }
+        )
+
+        if (canReturnToReview) {
+            console.warn('[REEL REVIEW PHASE FAILED] Returned to the clean review', {jobId, phase})
+        }
+    }
+
     const deadlineMs = readDeadlineMs()
     const deadline = setTimeout(async () => {
         const message = `[WORKER DEADLINE] The job did not finish in ${Math.round(deadlineMs / 1000)} s ` +
             'and was stopped by the worker before the Cloud Run task timeout.'
 
-        console.error('[REEL WORKER DEADLINE]', {jobId, deadlineMs})
+        console.error('[REEL WORKER DEADLINE]', {jobId, deadlineMs, phase})
 
         try {
-            await updateOwnedJob({
-                status: 'failed',
-                step: 'failed',
-                last_error: message,
-                failed_at: new Date().toISOString(),
-                lease_token: null,
-                lease_expires_at: null
-            })
+            await markFailed(message)
             clearInterval(heartbeat)
             await notifyFinalizer(jobId, failureFinalizerUrl, failureFinalizerToken)
         } catch (error) {
@@ -236,6 +306,65 @@ const main = async (): Promise<void> => {
             process.exit(1)
         }
     }, deadlineMs)
+
+    // Снять lease и сторожевой таймер, затем позвать финализатор: он публикует (ready)
+    // или присылает администратору сообщение проверки (awaiting_review).
+    const handOver = async (input: ReelInputPayload): Promise<void> => {
+        clearInterval(heartbeat)
+        clearTimeout(deadline)
+
+        await notifyFinalizer(
+            jobId,
+            typeof input.finalizerUrl === 'string' ? input.finalizerUrl : undefined,
+            typeof input.finalizerToken === 'string' ? input.finalizerToken : undefined
+        )
+    }
+
+    const awaitReview = async (patch: Record<string, unknown>): Promise<void> => {
+        await updateOwnedJob({
+            status: 'awaiting_review',
+            ...patch,
+            review_expires_at: new Date(Date.now() + readReviewTimeoutMs()).toISOString(),
+            lease_token: null,
+            lease_expires_at: null,
+            last_error: null
+        })
+    }
+
+    const markReady = async (keyTrailer: string, cleanR2: string, reelR2: string): Promise<void> => {
+        if (!cleanR2 || !/^https:\/\//i.test(cleanR2)) {
+            throw new Error('[REEL PREPARE ERROR] Invalid cleanR2 URL')
+        }
+
+        if (!reelR2 || !/^https:\/\//i.test(reelR2)) {
+            throw new Error('[REEL PREPARE ERROR] Invalid reelR2 URL')
+        }
+
+        await updateOwnedJob({
+            status: 'ready',
+            step: 'ready',
+
+            clean_r2_url: cleanR2,
+
+            // Временная ссылка нужна финализатору для Instagram.
+            // После успешной публикации она будет очищена.
+            instagram_publish_r2_url: reelR2,
+
+            result_payload: {
+                keyTrailer,
+                cleanR2,
+                completedAt: new Date().toISOString()
+            },
+
+            ready_at: new Date().toISOString(),
+            review_expires_at: null,
+            lease_token: null,
+            lease_expires_at: null,
+            last_error: null
+        })
+
+        console.log('[REEL WORKER READY]', {jobId, cleanR2})
+    }
 
     try {
         const input = asRecord(claimedJob.input_payload, 'input_payload') as ReelInputPayload
@@ -270,102 +399,107 @@ const main = async (): Promise<void> => {
 
         console.log('[REEL WORKER PROCESSING]', {
             jobId,
+            phase,
             mediaId,
             mediaType,
             contentType: claimedJob.content_type,
             keyTrailer
         })
 
-        const prepared = await prepareReel(
-            keyTrailer,
-            hook,
-            content,
-            {
-                onHookGenerated: async (generatedHook: string) => {
-                    const normalizedHook = generatedHook.trim()
+        // Хук от Gemini (ветка без проверки или истёкший выбор) сохраняется в задачу.
+        const onHookGenerated = async (generatedHook: string) => {
+            const normalizedHook = generatedHook.trim()
 
-                    if (!normalizedHook) {
-                        throw new Error('[GEMINI] Generated hook is empty')
-                    }
-
-                    await updateOwnedJob({
-                        input_payload: {
-                            ...input,
-                            hook: normalizedHook
-                        }
-                    })
-
-                    input.hook = normalizedHook
-
-                    console.log('[REEL JOB HOOK UPDATED]', {
-                        jobId,
-                        hook: normalizedHook
-                    })
-                }
+            if (!normalizedHook) {
+                throw new Error('[GEMINI] Generated hook is empty')
             }
-        )
 
-        const cleanR2 = String(prepared?.cleanR2 ?? '').trim()
-        const reelR2 = String(prepared?.reelR2 ?? '').trim()
+            await updateOwnedJob({
+                input_payload: {
+                    ...input,
+                    hook: normalizedHook
+                }
+            })
 
-        if (!cleanR2 || !/^https:\/\//i.test(cleanR2)) {
-            throw new Error('[REEL PREPARE ERROR] Invalid cleanR2 URL')
+            input.hook = normalizedHook
+
+            console.log('[REEL JOB HOOK UPDATED]', {
+                jobId,
+                hook: normalizedHook
+            })
         }
 
-        if (!reelR2 || !/^https:\/\//i.test(reelR2)) {
-            throw new Error('[REEL PREPARE ERROR] Invalid reelR2 URL')
-        }
+        if (phase === 'clean') {
+            const segmentVariant = Math.max(0, Number(claimedJob.clean_variant ?? 0) || 0)
 
-        await updateOwnedJob({
-            status: 'ready',
-            step: 'ready',
-
-            clean_r2_url: cleanR2,
-
-            // Временная ссылка нужна финализатору для Instagram.
-            // После успешной публикации она будет очищена.
-            instagram_publish_r2_url: reelR2,
-
-            result_payload: {
+            const {cleanR2, previewR2} = await prepareReelCleanPhase({
                 keyTrailer,
-                cleanR2,
-                completedAt: new Date().toISOString()
-            },
+                content,
+                segmentVariant,
+                // Первый показ может взять clean из кэша; «Пересобрать» увеличивает вариант.
+                rebuild: segmentVariant > 0
+            })
 
-            ready_at: new Date().toISOString(),
-            lease_token: null,
-            lease_expires_at: null,
-            last_error: null
-        })
+            await awaitReview({
+                step: 'clean_review',
+                clean_r2_url: cleanR2,
+                clean_preview_r2_url: previewR2,
+                hook_options: null
+            })
 
-        console.log('[REEL WORKER READY]', {
-            jobId,
-            cleanR2
-        })
+            console.log('[REEL WORKER CLEAN READY FOR REVIEW]', {jobId, segmentVariant, cleanR2})
+            await handOver(input)
+            return
+        }
+
+        if (phase === 'hooks') {
+            const options = await prepareReelHookOptionsPhase({keyTrailer, content})
+
+            await awaitReview({
+                step: 'hook_choice',
+                hook_options: options
+            })
+
+            console.log('[REEL WORKER HOOK OPTIONS READY]', {jobId, options})
+            await handOver(input)
+            return
+        }
+
+        const chosenHook = phase === 'finish' && typeof input.chosenHook === 'string'
+            ? input.chosenHook.trim()
+            : ''
+
+        const prepared = phase === 'finish'
+            ? await finishReelPhase({
+                keyTrailer,
+                content,
+                chosenHook: chosenHook || undefined,
+                fallbackHook: hook,
+                options: {onHookGenerated}
+            })
+            : await prepareReel(keyTrailer, hook, content, {onHookGenerated})
+
+        if (chosenHook) {
+            // Хук администратора ложится туда же, где лежит хук Gemini у остальных задач.
+            await updateOwnedJob({input_payload: {...input, hook: chosenHook}})
+            input.hook = chosenHook
+        }
+
+        await markReady(
+            keyTrailer,
+            String(prepared?.cleanR2 ?? '').trim(),
+            String(prepared?.reelR2 ?? '').trim()
+        )
 
         // После снятия lease worker больше не должен обновлять его heartbeat,
         // а сторожевой таймер не должен помечать подготовленный job как failed.
-        clearInterval(heartbeat)
-        clearTimeout(deadline)
-
-        await notifyFinalizer(
-            jobId,
-            typeof input.finalizerUrl === 'string' ? input.finalizerUrl : undefined,
-            typeof input.finalizerToken === 'string' ? input.finalizerToken : undefined
-        )
+        await handOver(input)
     } catch (error) {
         const message = getErrorMessage(error).slice(0, 12_000)
-        console.error('[REEL WORKER FAILED]', {jobId, error: message})
+        console.error('[REEL WORKER FAILED]', {jobId, phase, error: message})
 
         try {
-            await updateOwnedJob({
-                status: 'failed',
-                step: 'failed',
-                last_error: message,
-                failed_at: new Date().toISOString(),
-                lease_token: null,
-                lease_expires_at: null
-            })
+            await markFailed(message)
             clearInterval(heartbeat)
             await notifyFinalizer(jobId, failureFinalizerUrl, failureFinalizerToken)
         } catch (updateError) {

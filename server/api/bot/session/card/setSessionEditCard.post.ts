@@ -41,6 +41,8 @@ export default defineEventHandler(async (event) => {
                 content_type: data.contentType,
 
                 key_trailer: data.keyTrailer ?? null,
+                // Новая сессия всегда начинается с ключа из карточки (автоматическая ветка).
+                trailer_key_source: data.trailerKeySource === 'manual' ? 'manual' : null,
                 comment: data.comment ?? null,
                 overview: data.overview ?? null,
 

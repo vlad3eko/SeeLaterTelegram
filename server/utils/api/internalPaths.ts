@@ -4,9 +4,11 @@
 // Эти роуты под /api/bot/ остаются публичными: у каждого своя проверка.
 //  - webhook: секрет Telegram (x-telegram-bot-api-secret-token)
 //  - reelJobs/finalize: токен задачи, который приходит из Cloud Run Job
+//  - reelJobs/expireReviews: `Authorization: Bearer CRON_SECRET` (таймер проверки Reel)
 const PUBLIC_BOT_PATHS = new Set([
     '/api/bot/webhook',
     '/api/bot/reeljobs/finalize',
+    '/api/bot/reeljobs/expirereviews',
 ])
 
 // Роуты вне /api/bot/, которые вызывает только бот.

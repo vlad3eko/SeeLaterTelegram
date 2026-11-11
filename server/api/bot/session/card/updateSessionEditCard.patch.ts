@@ -32,6 +32,7 @@ export default defineEventHandler(async (event) => {
     if ('media' in data) update.media = data.media
     if ('contentType' in data) update.content_type = data.contentType
     if ('keyTrailer' in data) update.key_trailer = data.keyTrailer ?? null
+    if ('trailerKeySource' in data) update.trailer_key_source = data.trailerKeySource === 'manual' ? 'manual' : null
     if ('comment' in data) update.comment = data.comment ?? null
     if ('overview' in data) update.overview = data.overview ?? null
     if ('mode' in data) update.mode = data.mode ?? null

@@ -1,58 +1,79 @@
-
 import {Markup} from "telegraf"
+import {
+    ADMIN_CHANGE_TRAILER_KEY,
+    ADMIN_DOWNLOAD_TRAILER,
+    ADMIN_EDIT_CARD,
+    ADMIN_EDIT_MEDIA,
+    ADMIN_EDIT_OVERVIEW,
+    ADMIN_EDIT_TEXT,
+    ADMIN_EDIT_TYPE,
+    ADMIN_PUBLISH_CARD
+} from "#server/bot/callbacks/routes"
+import type {ContentType} from "#server/global/engine/search/strategy/enums"
 
 export const adminEditInlineCard = (mediaId: number, mediaType: string, contentType: string, keyTrailer: string | undefined) => {
     return Markup.button.callback(
         "✏️ РЕДАКТИРОВАТЬ",
-        `edit_media_${mediaId}_${mediaType}_${contentType}_${keyTrailer}`
+        ADMIN_EDIT_CARD.encode({
+            mediaId,
+            mediaType: mediaType as 'movie' | 'tv',
+            contentType: contentType as ContentType,
+            keyTrailer
+        })
     )
 }
 
 export const adminPublishInlineCard = (mediaId: number, mediaType: string, contentType: string, keyTrailer: string | undefined, isRichTypeCard: boolean = false) => {
     return Markup.button.callback(
         "🚀 ОПУБЛИКОВАТЬ",
-        `publish_media_${mediaId}_${mediaType}_${contentType}_${keyTrailer}_${isRichTypeCard}`
+        ADMIN_PUBLISH_CARD.encode({
+            mediaId,
+            mediaType: mediaType as 'movie' | 'tv',
+            contentType: contentType as ContentType,
+            keyTrailer,
+            isRichTypeCard
+        })
     )
 }
 
 export const adminDownloadTrailerInlineCard = () => {
     return Markup.button.callback(
         "⏬ Скачать трейлер",
-        `download_trailer`
+        ADMIN_DOWNLOAD_TRAILER.encode()
     )
 }
 
 export const adminAddTrailerKeyInlineCard = () => {
     return Markup.button.callback(
         "Изменить ключ трейлера",
-        `update_trailer_key`
+        ADMIN_CHANGE_TRAILER_KEY.encode()
     )
 }
 
 export const adminEditMediaInlineCard = () => {
     return Markup.button.callback(
         "🖼 Медиа",
-        `admin_edit_media`
+        ADMIN_EDIT_MEDIA.encode()
     )
 }
 
 export const adminEditMessageInlineCard = () => {
     return Markup.button.callback(
         "📝 Текст",
-        `admin_edit_text`
+        ADMIN_EDIT_TEXT.encode()
     )
 }
 
 export const adminEditOverviewInlineCard = () => {
     return Markup.button.callback(
         '📝 Описание',
-        'admin_edit_overview'
+        ADMIN_EDIT_OVERVIEW.encode()
     )
 }
 
 export const adminEditTypeInlineCard = () => {
     return Markup.button.callback(
         'Тип',
-        'admin_edit_type_card'
+        ADMIN_EDIT_TYPE.encode()
     )
 }

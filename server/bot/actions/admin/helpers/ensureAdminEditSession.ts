@@ -2,6 +2,7 @@ import {getAdminEditSession, setAdminEditSession, updateAdminEditSession, type A
 import {internalTmdbFetch} from "#server/utils/api/internalFetch"
 import {NOTIFICATION_MESSAGE} from "#server/global/notifications/sendNotificationMessage"
 import {getTelegramMediaImages} from "#server/global/engine/card/construct/getTelegramPosterFileId"
+import {ADMIN_EDIT_CARD} from "#server/bot/callbacks/routes"
 
 export const ensureAdminEditSession = async (ctx: any): Promise<AdminEditSession | null> => {
 
@@ -18,8 +19,8 @@ export const ensureAdminEditSession = async (ctx: any): Promise<AdminEditSession
         return null
     }
 
-    const [, mediaId, mediaType, contentType, keyTrailer] = ctx.match
-    const parsedMediaId = Number(mediaId)
+    // Ключ без значения (`none`, в старых кнопках `undefined`) разбирается как undefined.
+    const {mediaId: parsedMediaId, mediaType, contentType, keyTrailer} = ADMIN_EDIT_CARD.parse(ctx)
 
     if (!Number.isFinite(parsedMediaId)) {
         await ctx.answerCbQuery(NOTIFICATION_MESSAGE.CbQ.ErrorProcessSession)
@@ -41,12 +42,15 @@ export const ensureAdminEditSession = async (ctx: any): Promise<AdminEditSession
     if (isCurrentSession) {
         if (keyTrailer !== undefined && session.keyTrailer !== keyTrailer) {
 
+            // Ключ пришёл из кнопки карточки, а не введён вручную: ручная проверка Reel не нужна.
             session.keyTrailer = keyTrailer || undefined
             session.preparedInstagram = undefined
+            session.trailerKeySource = undefined
 
             await updateAdminEditSession(ctx.from.id, {
                     keyTrailer: keyTrailer || null,
-                    preparedInstagram: null
+                    preparedInstagram: null,
+                    trailerKeySource: null
                 })
         }
         return session

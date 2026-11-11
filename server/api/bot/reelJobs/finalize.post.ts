@@ -1,6 +1,7 @@
 import {timingSafeEqual} from 'node:crypto'
 import {serverSupabaseServiceRole} from '#supabase/server'
 import {finalizeReelPublication} from '#server/global/engine/instagram/reel/jobs/finalizeReelPublication'
+import {sendReelReviewMessage} from '#server/bot/actions/admin/reelReview/reelReviewMessages'
 
 const safeTokenEquals = (received: unknown, expected: unknown): boolean => {
     if (typeof received !== 'string' || typeof expected !== 'string') return false
@@ -42,6 +43,15 @@ export default defineEventHandler(async (event) => {
     const expectedToken = inputPayload?.finalizerToken
     if (!safeTokenEquals(callbackToken, expectedToken)) {
         throw createError({statusCode: 401, message: 'Invalid finalizer token'})
+    }
+
+    // Ручная проверка: воркер закончил фазу clean или hooks и ждёт администратора.
+    // Публиковать нечего, вместо этого бот присылает сообщение с кнопками.
+    if (job.status === 'awaiting_review') {
+        return {
+            success: true,
+            ...await sendReelReviewMessage(jobId)
+        }
     }
 
     const result = await finalizeReelPublication(supabase, jobId)

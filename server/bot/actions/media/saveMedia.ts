@@ -1,4 +1,5 @@
 
+import {SAVE_MEDIA} from "#server/bot/callbacks/routes";
 import {commandClear} from "#server/bot/commands/commandClear";
 import {removeMessageSession} from "#server/bot/services/session/removeMessageSession";
 import {checkChannelSubscriber} from "#server/bot/handlers/auth/check/checkChannelSubscriber";
@@ -24,11 +25,7 @@ export const saveMedia = async (ctx: any) => {
 
     const userId = ctx.from.id
 
-    const mediaId = Number(
-        ctx.match[1]
-    )
-
-    const mediaType = ctx.match[2]
+    const {mediaId, mediaType} = SAVE_MEDIA.parse(ctx)
 
     const media = await tmdbFetch(
         '/api/tmdb/media',

@@ -7,6 +7,7 @@ import {getContentTypeLabel} from "~/utils/convert/library/getContentTypeLabel";
 import {genresConvert} from "~/utils/convert/genresConvert";
 import {telegramBotShortLink} from "#server/global/oneLinkApp";
 import {contentTypeConvert} from "~/utils/convert/contentTypeConvert";
+import {CHECK_SUBSCRIPTION, DELETE_MEDIA, SAVE_MEDIA} from "#server/bot/callbacks/routes";
 
 export const startButtonBot = (
     text: string,
@@ -53,14 +54,22 @@ export const SaveMediaButtonBot = (mediaId: number, mediaType: string, ButtonCon
 
     return Markup.button.callback(
         text,
-        `save_media_${mediaId}_${mediaType}`
+        SAVE_MEDIA.encode({mediaId, mediaType: mediaType as 'movie' | 'tv'})
     )
 }
 
 export const deleteMediaButtonBot = (mediaId: number, mediaType: string) => {
     return Markup.button.callback(
         '🗑 Удалить',
-        `delete_media_${mediaId}_${mediaType}`)
+        DELETE_MEDIA.encode({mediaId, mediaType: mediaType as 'movie' | 'tv'}))
+}
+
+// Под сообщением «Подпишитесь на канал» (failedChannelSubscriber).
+export const checkSubscriptionButtonBot = () => {
+    return Markup.button.callback(
+        'Проверить подписку',
+        CHECK_SUBSCRIPTION.encode()
+    )
 }
 
 export const recommendationButtonBot = (
