@@ -65,11 +65,42 @@ create index if not exists reel_processing_jobs_review_expiry
     on public.reel_processing_jobs (review_expires_at)
     where status = 'awaiting_review';
 
--- 3. Если у колонки status есть CHECK со списком статусов, в него нужно добавить
---    'awaiting_review'. В миграциях репозитория такого ограничения нет; проверить:
---      select conname, pg_get_constraintdef(oid)
---      from pg_constraint
---      where conrelid = 'public.reel_processing_jobs'::regclass and contype = 'c';
+-- 3. В рабочей базе у status есть CHECK со списком статусов
+--    (reel_processing_jobs_status_check, в миграциях репозитория его не было): без
+--    'awaiting_review' воркер падает на переходе к проверке (11.11). Блок дописывает
+--    новые значения в существующие ограничения status и step, остальное не трогает.
+do $$
+declare
+    con record;
+    def text;
+    additions text;
+begin
+    for con in
+        select c.conname, pg_get_constraintdef(c.oid) as def, a.attname
+        from pg_constraint c
+        join pg_attribute a on a.attrelid = c.conrelid and a.attnum = any (c.conkey)
+        where c.conrelid = 'public.reel_processing_jobs'::regclass
+          and c.contype = 'c'
+          and a.attname in ('status', 'step')
+          and pg_get_constraintdef(c.oid) like '%ARRAY[%'
+    loop
+        additions := case con.attname
+            when 'status' then '''awaiting_review''::text, '
+            else '''clean_review''::text, ''hook_choice''::text, '
+        end;
+
+        if con.def like '%awaiting_review%' or con.def like '%clean_review%' then
+            continue;
+        end if;
+
+        def := replace(con.def, 'ARRAY[', 'ARRAY[' || additions);
+
+        execute format('alter table public.reel_processing_jobs drop constraint %I', con.conname);
+        execute format('alter table public.reel_processing_jobs add constraint %I %s', con.conname, def);
+
+        raise notice 'updated %: %', con.conname, def;
+    end loop;
+end $$;
 
 commit;
 
