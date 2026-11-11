@@ -6,8 +6,6 @@ import {getMediaSaveCount} from "#server/bot/consts/keyboardVersion/getMediaSave
 import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBot";
 import {NOTIFICATION_MESSAGE, notifyAdmin} from "#server/global/notifications/sendNotificationMessage";
 import {CURRENT_KEYBOARD_VERSION} from "#server/bot/consts/keyboardVersion/keyboardVersion";
-import {createInstagramCaption} from "#server/global/engine/instagram/reel/caption/createInstagramCaption";
-import {publishInstagramReel} from "#server/global/publishers/instagram/publishInstagramReel";
 import {isAdminEditSessionForContext} from "#server/bot/actions/admin/helpers/isAdminEditSessionForContext";
 import {removeMessageSession} from "#server/bot/services/session/removeMessageSession";
 import {constructRichCard} from "#server/global/engine/card/construct/constructRichCard";
@@ -125,18 +123,10 @@ export const publishAdminInlineMedia = async (ctx: any) => {
         })
     }
 
-    let preparedInstagram = session.preparedInstagram
-
-    // Cached result is usable only for the currently selected trailer.
-    if (
-        preparedInstagram &&
-        (
-            preparedInstagram.keyTrailer !== session.keyTrailer ||
-            typeof preparedInstagram.reelR2 !== 'string' ||
-            !preparedInstagram.reelR2.trim()
-        )
-    ) {
-        preparedInstagram = undefined
+    // Готовый Reel из сессии больше не используется. Раньше его собирал режим download на Vercel, и в
+    // сохранённых сессиях мог остаться ссылка на такой (старый) файл. Reel собирает только воркер,
+    // поэтому остаток из старой сессии стираем, чтобы он никогда не ушёл в Instagram.
+    if (session.preparedInstagram) {
         session.preparedInstagram = undefined
         await updateAdminEditSession(ctx.from.id, {preparedInstagram: null})
     }
@@ -148,7 +138,7 @@ export const publishAdminInlineMedia = async (ctx: any) => {
 
     // Единственный долгий этап — подготовка видео. Создаём durable job,
     // запускаем Cloud Run и выходим из Telegram webhook.
-    if (!preparedInstagram && session.keyTrailer) {
+    if (session.keyTrailer) {
         const publishLockStartedAt = Date.now()
         await updateAdminEditSession(ctx.from.id, {
             mode: 'publish',
@@ -209,8 +199,7 @@ export const publishAdminInlineMedia = async (ctx: any) => {
         return
     }
 
-    // Для публикаций без видео и для уже подготовленного Reel сохраняем прежний
-    // синхронный путь. Claim остаётся защитой от повторной обработки update_id.
+    // Публикация без видео (нет трейлера): синхронный путь, только Telegram. Claim остаётся защитой от повторной обработки update_id.
     let claim: {claimed: boolean}
     try {
         claim = await internalFetch('/api/bot/updates/claim', {
@@ -306,30 +295,6 @@ export const publishAdminInlineMedia = async (ctx: any) => {
         await clearAdminEditSession(ctx.from.id)
     }
 
-    let instagramPublished = false
-    if (preparedInstagram?.reelR2) {
-        try {
-            const instagramCaption = createInstagramCaption({
-                media,
-                comment: session.comment,
-                overview: session.overview,
-                contentType: session.contentType
-            })
-
-            const instagram = await publishInstagramReel({
-                videoUrl: preparedInstagram.reelR2,
-                caption: instagramCaption
-            })
-
-            instagramPublished = true
-            console.log('[INSTAGRAM PUBLISHED]', JSON.stringify(instagram, null, 2))
-        } catch (error) {
-            console.error('[INSTAGRAM PUBLISH ERROR]', error)
-            await notifyAdmin(ctx, 'Telegram опубликован, Instagram не удалось опубликовать')
-            await clearAdminEditSession(ctx.from.id)
-        }
-    }
-
     try {
         await internalFetch('/api/bot/publishedMedia/syncKeyboards', {method: 'POST'})
     } catch (error) {
@@ -364,13 +329,6 @@ export const publishAdminInlineMedia = async (ctx: any) => {
     }
 
     await clearAdminEditSession(ctx.from.id)
-    await notifyAdmin(
-        ctx,
-        preparedInstagram?.reelR2
-            ? instagramPublished
-                ? NOTIFICATION_MESSAGE.reply.SuccessPublishedEverywhere
-                : 'Telegram опубликован. Instagram требует повторной публикации.'
-            : NOTIFICATION_MESSAGE.reply.SuccessPublishedTelegram
-    )
+    await notifyAdmin(ctx, NOTIFICATION_MESSAGE.reply.SuccessPublishedTelegram)
     await removeMessageSession(ctx.from.id, {inlineMessageId: ctx.inlineMessageId})
 }
