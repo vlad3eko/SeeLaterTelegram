@@ -211,6 +211,77 @@ export const expireReelReview = (jobId: string, supabase: Supabase = getSupabase
         }
     })
 
+/**
+ * Статусы, из которых проверку можно отменить. Пока воркер работает (queued,
+ * processing), отмена снимает с задачи lease: воркер на следующей записи получает
+ * «JOB LEASE LOST» и завершается, ничего не сохранив и не вызвав финализатор.
+ * ready/publishing — уже публикуется, отменить нельзя.
+ */
+const CANCELLABLE_STATUSES = ['awaiting_review', 'queued', 'processing']
+
+export const REEL_CANCELLED_STEP = 'cancelled'
+
+export type CancelReelReviewResult =
+    | {cancelled: true, job: ReelReviewJob}
+    | {cancelled: false, reason: 'not_found' | 'not_manual' | 'publishing' | 'finished'}
+
+/**
+ * «✖️ Отменить»: остановить цикл ручной проверки. Задача становится failed/cancelled:
+ * финализатор такой шаг не подхватывает (ни Telegram, ни Instagram), а повторное
+ * «Опубликовать» удаляет запись и начинает новый цикл (как после любой завершённой задачи).
+ */
+export const cancelReelReview = async (
+    jobId: string,
+    supabase: Supabase = getSupabase()
+): Promise<CancelReelReviewResult> => {
+    // Статус мог смениться между чтением и записью (воркер закончил фазу):
+    // повторяем по свежему состоянию.
+    for (let attempt = 0; attempt < 3; attempt++) {
+        const result = await tryCancelReelReview(jobId, supabase)
+        if (result !== 'retry') return result
+    }
+    return {cancelled: false, reason: 'finished'}
+}
+
+const tryCancelReelReview = async (
+    jobId: string,
+    supabase: Supabase
+): Promise<CancelReelReviewResult | 'retry'> => {
+    const job = await getReelReviewJob(jobId, supabase)
+
+    if (!job) return {cancelled: false, reason: 'not_found'}
+    if (job.review_mode !== 'manual') return {cancelled: false, reason: 'not_manual'}
+    if (job.status === 'ready' || job.status === 'publishing') return {cancelled: false, reason: 'publishing'}
+    if (!CANCELLABLE_STATUSES.includes(job.status)) return {cancelled: false, reason: 'finished'}
+
+    const {data, error} = await supabase
+        .from('reel_processing_jobs')
+        .update({
+            status: 'failed',
+            step: REEL_CANCELLED_STEP,
+            last_error: 'Отменено администратором',
+            failed_at: new Date().toISOString(),
+            review_expires_at: null,
+            hook_options: null,
+            lease_token: null,
+            lease_expires_at: null,
+            updated_at: new Date().toISOString()
+        })
+        .eq('id', jobId)
+        // Тот же статус, что прочитан: гонка с воркером или таймером ничего не сломает.
+        .eq('status', job.status)
+        .select('id')
+        .maybeSingle()
+
+    if (error) {
+        throw new Error(`[REEL REVIEW CANCEL ERROR] ${error.message}`)
+    }
+
+    if (!data) return 'retry'
+
+    return {cancelled: true, job}
+}
+
 /** Задачи, у которых истекло время проверки (не больше `limit` за вызов). */
 export const listExpiredReelReviews = async (
     limit = 20,

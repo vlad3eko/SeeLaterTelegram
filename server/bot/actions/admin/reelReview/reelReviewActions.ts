@@ -1,9 +1,11 @@
 import {
+    REEL_REVIEW_CANCEL,
     REEL_REVIEW_HOOKS,
     REEL_REVIEW_PICK_HOOK,
     REEL_REVIEW_REBUILD
 } from "#server/bot/callbacks/routes"
 import {
+    cancelReelReview,
     chooseReelHook,
     getReelReviewJob,
     type ReelReviewJob,
@@ -40,13 +42,19 @@ const dropStaleKeyboard = async (ctx: any) => {
 }
 
 // Нажатое сообщение удаляется (оно и есть review_message_id), его место занимает статус.
-const replaceWithStatus = async (ctx: any, job: ReelReviewJob, text: string) => {
+// Пока воркер работает над шагом, под статусом кнопка «Отменить».
+const replaceWithStatus = async (
+    ctx: any,
+    job: ReelReviewJob,
+    text: string,
+    {withCancel = true}: {withCancel?: boolean} = {}
+) => {
     await deleteReelReviewMessage({
         id: job.id,
         admin_telegram_id: job.admin_telegram_id,
         review_message_id: ctx.callbackQuery?.message?.message_id ?? job.review_message_id
     })
-    await sendReelReviewStatus(job, text)
+    await sendReelReviewStatus(job, text, {withCancel})
 }
 
 const reportStartError = async (ctx: any, action: string, error: unknown) => {
@@ -93,6 +101,58 @@ export const reelReviewGenerateHooks = async (ctx: any) => {
 
     await answer(ctx, 'Генерирую варианты хука')
     await replaceWithStatus(ctx, job, '✨ Gemini смотрит видео и пишет варианты хука. Это займёт пару минут.')
+}
+
+export const reelReviewCancel = async (ctx: any) => {
+    const {jobId} = REEL_REVIEW_CANCEL.parse(ctx)
+
+    let result: Awaited<ReturnType<typeof cancelReelReview>>
+    try {
+        result = await cancelReelReview(jobId)
+    } catch (error) {
+        console.error('[REEL REVIEW CANCEL ERROR]', error)
+        return answer(ctx, 'Не удалось отменить, попробуй ещё раз')
+    }
+
+    if (!result.cancelled) {
+        if (result.reason === 'publishing') {
+            return answer(ctx, 'Ролик уже публикуется, отменить нельзя')
+        }
+        return dropStaleKeyboard(ctx)
+    }
+
+    const {job} = result
+    await answer(ctx, 'Отменено')
+
+    // Сообщение проверки могло быть другим, не тем, что нажато (например, кнопка под
+    // статусом): убираем оба.
+    const pressedId = ctx.callbackQuery?.message?.message_id
+    if (job.review_message_id && job.review_message_id !== pressedId) {
+        await deleteReelReviewMessage(job)
+    }
+
+    await replaceWithStatus(
+        ctx,
+        job,
+        '✖️ Публикация отменена: ничего не опубликовано. Чтобы начать заново, нажми «Опубликовать» на карточке.',
+        {withCancel: false}
+    )
+
+    // Исходник держался в R2 ради «Пересобрать»; clean остаётся кэшем, как обычно.
+    // Модуль R2 подключается здесь, а не при загрузке бота: ему нужны переменные R2.
+    try {
+        const [{deleteFromCloudflareR2}, {reelR2Paths}] = await Promise.all([
+            import("#server/global/engine/instagram/reel/utils/storageCloudflareR2"),
+            import("#server/global/engine/instagram/reel/pipeline/reelWorkspace")
+        ])
+        await deleteFromCloudflareR2(
+            reelR2Paths({id: Number(job.media_id), type: job.media_type}, job.key_trailer).source
+        )
+    } catch (error) {
+        console.error('[REEL REVIEW CANCEL SOURCE CLEANUP ERROR]', error)
+    }
+
+    console.log('[REEL REVIEW CANCELLED]', {jobId, status: job.status, step: job.step})
 }
 
 export const reelReviewPickHook = async (ctx: any) => {

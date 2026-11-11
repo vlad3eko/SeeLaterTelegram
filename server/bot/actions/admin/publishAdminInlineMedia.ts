@@ -12,6 +12,7 @@ import {constructRichCard} from "#server/global/engine/card/construct/constructR
 import {dispatchReelJob} from "#server/global/engine/instagram/reel/jobs/dispatchReelJob";
 import {internalFetch, internalTmdbFetch} from "#server/utils/api/internalFetch";
 import {ADMIN_PUBLISH_CARD} from "#server/bot/callbacks/routes";
+import {sendReelReviewStatus} from "#server/bot/actions/admin/reelReview/reelReviewMessages";
 
 export const publishAdminInlineMedia = async (ctx: any) => {
     const {
@@ -177,14 +178,21 @@ export const publishAdminInlineMedia = async (ctx: any) => {
                 reused: result.reused
             })
 
-            await notifyAdmin(
-                ctx,
-                result.reused
-                    ? 'Эта задача уже существует. Продолжаю её обработку/публикацию.'
-                    : session.trailerKeySource === 'manual'
-                        ? 'Видео поставлено в обработку. Когда clean будет готов, пришлю его на проверку.'
+            if (!result.reused && session.trailerKeySource === 'manual') {
+                // Ручная проверка: сообщение с кнопкой «Отменить»; его заменит clean.
+                await sendReelReviewStatus(
+                    {id: result.jobId, admin_telegram_id: ctx.from.id},
+                    'Видео поставлено в обработку. Когда clean будет готов, пришлю его на проверку.',
+                    {withCancel: true}
+                )
+            } else {
+                await notifyAdmin(
+                    ctx,
+                    result.reused
+                        ? 'Эта задача уже существует. Продолжаю её обработку/публикацию.'
                         : 'Видео поставлено в обработку. После подготовки публикация в Telegram и Instagram выполнится автоматически.'
-            )
+                )
+            }
         } catch (error) {
             console.error('[REEL JOB DISPATCH ERROR]', error)
             await updateAdminEditSession(ctx.from.id, {
