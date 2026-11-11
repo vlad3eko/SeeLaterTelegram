@@ -36,6 +36,12 @@ export type SegmentAnalysis = {
     /** Моменты от начала фрагмента, секунды. */
     times: number[]
     shots: number[]
+    /**
+     * Точное начало каждого плана, секунды (по всем кадрам, фильтр scdet). Отсчёты анализа
+     * идут через 0,25 с; без точного времени квадрат после склейки до четверти секунды
+     * стоял на позиции прошлого плана, а потом перескакивал (жалоба владельца 12.11).
+     */
+    shotStarts: number[]
     /** Центр главного лица по X в долях ширины картинки, или null. */
     faceCenters: Array<number | null>
     /** Подтверждённый логотип кадра (общая рамка), или null. */
@@ -55,6 +61,12 @@ const ANALYSIS_WIDTH = FACE_INPUT_SIZE
 const CUT_HISTOGRAM_DISTANCE = 0.28
 /** План короче этого сливается с предыдущим (ложные склейки на вспышках). */
 const MIN_SHOT_SECONDS = 1
+/** Порог точного поиска склеек ffmpeg scdet (оценка 0–100). */
+const SCDET_THRESHOLD = 10
+/** Лицо входит в группу, если его площадь не меньше этой доли площади главного. */
+const GROUP_FACE_SHARE = 0.35
+/** Группа центрируется, если её рамка не шире этой доли квадрата. */
+const GROUP_FIT_SHARE = 0.85
 /** Лицо: уверенность и размер (доля высоты картинки). */
 const FACE_MIN_SCORE = 0.75
 const FACE_MIN_HEIGHT_SHARE = 0.1
@@ -81,7 +93,7 @@ const readFrames = async (
     startSeconds: number,
     durationSeconds: number,
     rect: PictureRect
-): Promise<{width: number, height: number, frames: Buffer[]}> => {
+): Promise<{width: number, height: number, frames: Buffer[], cutTimes: number[]}> => {
     if (!ffmpegPath) {
         throw new Error('[REEL FRAMING] ffmpeg-static binary not found')
     }
@@ -90,21 +102,29 @@ const readFrames = async (
     const height = Math.min(FACE_INPUT_SIZE, Math.max(2, toEven(rect.h * width / rect.w)))
     const frameBytes = width * height * 3
 
+    // Две ветки одного прохода: кадры для анализа (ANALYSIS_FPS) и точный поиск склеек
+    // по всем кадрам (scdet на уменьшенной картинке, время пишется в лог).
     const args = [
-        '-hide_banner', '-loglevel', 'error', '-nostdin',
+        '-hide_banner', '-loglevel', 'info', '-nostats', '-nostdin',
         '-ss', startSeconds.toFixed(3),
         '-t', durationSeconds.toFixed(3),
         '-i', inputPath,
         '-an', '-sn',
-        '-vf', `crop=${rect.w}:${rect.h}:${rect.x}:${rect.y},fps=${ANALYSIS_FPS},scale=${width}:${height}:flags=area`,
+        '-filter_complex',
+        `[0:v]crop=${rect.w}:${rect.h}:${rect.x}:${rect.y},split[a][b];` +
+        `[a]fps=${ANALYSIS_FPS},scale=${width}:${height}:flags=area[frames];` +
+        `[b]scale=320:-2,scdet=threshold=${SCDET_THRESHOLD},nullsink`,
+        '-map', '[frames]',
         '-pix_fmt', 'bgr24', '-f', 'rawvideo', '-'
     ]
 
     return new Promise((resolve, reject) => {
         const child = spawn(ffmpegPath as unknown as string, args, {stdio: ['ignore', 'pipe', 'pipe']})
         const frames: Buffer[] = []
+        const cutTimes: number[] = []
         let pending: Buffer = Buffer.alloc(0)
         let stderr = ''
+        let stderrLine = ''
         const timer = setTimeout(() => child.kill('SIGKILL'), 240_000)
 
         child.stdout.on('data', (chunk: Buffer) => {
@@ -115,7 +135,14 @@ const readFrames = async (
             }
         })
         child.stderr.on('data', (chunk: Buffer) => {
-            stderr = (stderr + chunk.toString()).slice(-4000)
+            const text = chunk.toString()
+            stderr = (stderr + text).slice(-4000)
+            const lines = (stderrLine + text).split(/\r?\n/)
+            stderrLine = lines.pop() ?? ''
+            for (const line of lines) {
+                const match = line.match(/lavfi\.scd\.time:\s*([\d.]+)/)
+                if (match) cutTimes.push(Number(match[1]))
+            }
         })
         child.on('error', error => {
             clearTimeout(timer)
@@ -123,10 +150,29 @@ const readFrames = async (
         })
         child.on('close', code => {
             clearTimeout(timer)
-            if (code === 0 || frames.length > 0) resolve({width, height, frames})
+            if (code === 0 || frames.length > 0) resolve({width, height, frames, cutTimes})
             else reject(new Error(`[REEL FRAMING] ffmpeg exited with ${code}: ${stderr}`))
         })
     })
+}
+
+/**
+ * Центр кадра для группы людей (скриншот владельца 12.11: трое рядом, камера ушла на
+ * самое крупное лицо). Берутся лица не меньше GROUP_FACE_SHARE площади главного; если
+ * их общая рамка помещается в квадрат (с запасом), центр — середина группы, иначе —
+ * главное лицо. 0 — лиц нет.
+ */
+const groupCenter = (faces: Array<{x: number, y: number, w: number, h: number}>, side: number): number => {
+    const main = faces[0]
+    if (!main) return 0
+
+    const group = faces.filter(f => f.w * f.h >= main.w * main.h * GROUP_FACE_SHARE)
+    const left = Math.min(...group.map(f => f.x))
+    const right = Math.max(...group.map(f => f.x + f.w))
+
+    return right - left <= side * GROUP_FIT_SHARE
+        ? (left + right) / 2
+        : main.x + main.w / 2
 }
 
 /** Цветовая гистограмма кадра: 8×8×8 корзин по каждому 4-му пикселю, нормированная. */
@@ -181,10 +227,20 @@ export const analyzeSegment = async (
     picture: PictureRect,
     {withFaces}: {withFaces: boolean}
 ): Promise<SegmentAnalysis | null> => {
-    const {width, height, frames} = await readFrames(inputPath, segment.startSeconds, segment.durationSeconds, picture)
+    const {width, height, frames, cutTimes} = await readFrames(inputPath, segment.startSeconds, segment.durationSeconds, picture)
     if (!frames.length) return null
 
+    const times = frames.map((_, i) => i / ANALYSIS_FPS)
     const shots = detectShots(frames.map(frame => colorHistogram(frame, width, height)))
+
+    // Начало плана: точная склейка между двумя отсчётами, где сменился план; если scdet её
+    // не отметил — момент первого отсчёта нового плана.
+    const shotStarts: number[] = [0]
+    for (let i = 1; i < shots.length; i++) {
+        if (shots[i] === shots[i - 1]) continue
+        const exact = cutTimes.filter(t => t > times[i - 1]! && t <= times[i]! + 1e-6)
+        shotStarts.push(exact.length ? exact[exact.length - 1]! : times[i]!)
+    }
     const logos = filterConsistentLogos(frames.map(frame => findLogosInFrame(frame, width, height, 'bgr')))
         .map(unionLogo)
 
@@ -194,15 +250,16 @@ export const analyzeSegment = async (
             faceCenters.push(null)
             continue
         }
-        const face = (await detectFaces(frame, width, height))
+        const faces = (await detectFaces(frame, width, height))
             .filter(f => f.score >= FACE_MIN_SCORE && f.h >= height * FACE_MIN_HEIGHT_SHARE)
-            .sort((a, b) => b.w * b.h - a.w * a.h)[0]
-        faceCenters.push(face ? (face.x + face.w / 2) / width : null)
+            .sort((a, b) => b.w * b.h - a.w * a.h)
+        faceCenters.push(groupCenter(faces, Math.min(width, height)) / width || null)
     }
 
     return {
-        times: frames.map((_, i) => i / ANALYSIS_FPS),
+        times,
         shots,
+        shotStarts,
         faceCenters,
         logos,
         stats: {
@@ -423,12 +480,20 @@ export const buildZoomFilter = (
     return `zoompan=z='${zoom}':x='(iw-iw/zoom)/2':y='ih-ih/zoom':d=1:s=${outSize}x${outSize}:fps=${fps}`
 }
 
-/** Положение квадрата в момент time по плану (интерполяция внутри плана, прыжок на склейке). */
-const interpolate = (times: number[], values: number[], shots: number[], time: number) => {
+/**
+ * Положение квадрата в момент time по плану: внутри плана интерполяция между отсчётами,
+ * на склейке прыжок ровно в момент начала нового плана (shotStarts), а не на следующем
+ * отсчёте анализа.
+ */
+const interpolate = (analysis: SegmentAnalysis, values: number[], time: number) => {
+    const {times, shots, shotStarts} = analysis
     if (time <= times[0]!) return values[0]!
     for (let i = 0; i + 1 < times.length; i++) {
         if (time < times[i + 1]!) {
-            if (shots[i] !== shots[i + 1]) return values[i]!
+            if (shots[i] !== shots[i + 1]) {
+                const cut = shotStarts[shots[i + 1]!] ?? times[i + 1]!
+                return time >= cut ? values[i + 1]! : values[i]!
+            }
             const ratio = (time - times[i]!) / (times[i + 1]! - times[i]!)
             return values[i]! + (values[i + 1]! - values[i]!) * ratio
         }
@@ -452,7 +517,7 @@ export const writeTrackCommands = async (
 
     for (let frame = 0; frame < frameCount; frame++) {
         const time = frame / outputFps
-        const left = toEven(interpolate(analysis.times, lefts, analysis.shots, time))
+        const left = toEven(interpolate(analysis, lefts, time))
         minX = Math.min(minX, left)
         maxX = Math.max(maxX, left)
         if (left !== previous) {

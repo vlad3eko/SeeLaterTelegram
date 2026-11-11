@@ -14,6 +14,7 @@ import {
 } from "#server/global/engine/instagram/reel/jobs/reelReview"
 import {deleteReelReviewMessage, sendReelReviewStatus} from "#server/bot/actions/admin/reelReview/reelReviewMessages"
 import {deleteReelTempFiles} from "#server/global/engine/instagram/reel/jobs/reelStorageCleanup"
+import {deleteOldMessagesSession} from "#server/bot/services/session/deleteOldMessagesSession"
 
 /**
  * Кнопки проверки Reel (только администратор, см. registerAdminActions).
@@ -141,6 +142,14 @@ export const reelReviewCancel = async (ctx: any) => {
 
     // Исходник и превью держались в R2 ради проверки; clean остаётся кэшем, как обычно.
     await deleteReelTempFiles({mediaId: job.media_id, mediaType: job.media_type, keyTrailer: job.key_trailer})
+
+    // Чат администратора: сообщения, отмеченные в сессии (ссылка, тип видео и т. п.),
+    // удаляются его же функцией, как по /clear. Уведомление об отмене остаётся.
+    try {
+        await deleteOldMessagesSession(ctx.from.id)
+    } catch (error) {
+        console.error('[REEL REVIEW CANCEL CHAT CLEANUP ERROR]', error)
+    }
 
     console.log('[REEL REVIEW CANCELLED]', {jobId, status: job.status, step: job.step})
 }

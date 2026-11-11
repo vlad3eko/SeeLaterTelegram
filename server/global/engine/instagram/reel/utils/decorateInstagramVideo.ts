@@ -133,9 +133,7 @@ const formatAssTime = (seconds: number) => {
 const HOOK_PLATE = {
     // Высота 147 px из 1080: 13,6% кадра, как на прототипе.
     height: 147,
-    // Вход: подложка стартует на 22% скрытой, замедление к концу (кубическое).
-    entrySeconds: 0.45,
-    entryHiddenShare: 0.22,
+    // Входной анимации нет (решение владельца 12.11): подложка на месте с первого кадра.
     // Выход вверх с разгоном к концу (квадратичный).
     exitSeconds: 0.4,
     secondsMin: 4,
@@ -185,15 +183,9 @@ export const getHookPlateSeconds = (reelSeconds: number) =>
         )
     )
 
-/** Сдвиг подложки по вертикали в пикселях (0 в покое, отрицательный при входе и выходе). */
+/** Сдвиг подложки по вертикали в пикселях (0 в покое, отрицательный при выходе). */
 const getHookPlateOffset = (time: number, total: number) => {
-    const entry = HOOK_PLATE.entrySeconds
     const exitStart = total - HOOK_PLATE.exitSeconds
-
-    if (time < entry) {
-        return -HOOK_PLATE.height * HOOK_PLATE.entryHiddenShare *
-            Math.pow(1 - time / entry, 3)
-    }
 
     if (time < exitStart) {
         return 0
