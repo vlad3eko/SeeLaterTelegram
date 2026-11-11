@@ -3,10 +3,13 @@ import {promisify} from 'node:util'
 import path from 'node:path'
 import {chmod, readFile, writeFile} from 'node:fs/promises'
 import {existsSync} from 'node:fs'
+import os from 'node:os'
 import {ensureBgutilRunning} from "#server/global/engine/instagram/scripts-yt-bgutil/bgutil"
 
+// os.tmpdir(): на Linux это /tmp, на Windows временная папка пользователя
+// (путь '/tmp/...' там означает D:\tmp и ломает запись файла, если такой папки нет).
 const YOUTUBE_COOKIES_PATH =
-    '/tmp/youtube-cookies.txt'
+    path.join(os.tmpdir(), 'youtube-cookies.txt')
 
 const normalizeAndValidateYoutubeCookies = (
     value: string
@@ -118,7 +121,7 @@ const normalizeAndValidateYoutubeCookies = (
 }
 
 
-const decodeYoutubeCookies =
+export const decodeYoutubeCookies =
     (
         value: string
     ) => {
@@ -384,9 +387,21 @@ export const getYtDlpPath = () => {
 }
 
 
+/** Клиенты YouTube по умолчанию; downloadTrailer перебирает и другие наборы (см. там). */
+export const DEFAULT_PLAYER_CLIENTS = 'mweb,tv,web_safari'
+
 export const runYtDlp = async (
-    args: string[]
+    args: string[],
+    options: {playerClients?: string} = {}
 ) => {
+
+    const playerClients =
+        options.playerClients?.trim() || DEFAULT_PLAYER_CLIENTS
+
+    // Значение уходит в аргумент yt-dlp: пропускаем только имена клиентов и запятые.
+    if (!/^[a-z0-9_,\-]+$/i.test(playerClients)) {
+        throw new Error(`[YTDLP] Invalid player_client value: ${playerClients}`)
+    }
 
     const providerMode =
         process.env.YTDLP_BGUTIL_MODE?.trim()
@@ -461,7 +476,7 @@ export const runYtDlp = async (
         `node:${process.execPath}`,
 
         '--extractor-args',
-        'youtube:player_client=mweb,tv,web_safari',
+        `youtube:player_client=${playerClients}`,
 
         ...bgutilArgs,
 
@@ -482,6 +497,11 @@ export const runYtDlp = async (
     console.log(
         '[BGUTIL] Provider mode:',
         providerMode
+    )
+
+    console.log(
+        '[YTDLP] Player clients:',
+        playerClients
     )
 
     try {

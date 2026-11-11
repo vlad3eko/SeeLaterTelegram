@@ -6,7 +6,15 @@
  * decorateInstagramVideo already performs the final H.264 encode.
  */
 export { prepareInstagramSubtitleTrack } from './prepare-subtitle-track.js';
-export { resolveSubtitleConfig, defaultSubtitleConfig } from './config.js';
+export { prepareSaveCtaTrack, chooseSaveCtaStarts, SAVE_CTA_VISIBLE_SECONDS } from './cta.js';
+export type { SaveCtaOptions, SaveCtaResult, SpeechWindow } from './cta.js';
+export {
+  resolveSubtitleConfig,
+  defaultSubtitleConfig,
+  squareSubtitleOverrides,
+  getFormatSubtitleOverrides,
+  mergeSubtitleOverrides,
+} from './config.js';
 export { transcribeInstagramAudio, transcribeInstagramTranscript } from './transcription/whisper.js';
 export { parseWhisperNdjson, parseWhisperTranscriptNdjson } from './transcription/parse-whisper-json.js';
 export { buildInstagramSubtitleBlocks } from './layout/build-subtitle-blocks.js';

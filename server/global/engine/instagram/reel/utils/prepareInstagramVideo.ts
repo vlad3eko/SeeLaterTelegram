@@ -1,136 +1,26 @@
 import {promisify} from 'node:util'
 import {execFile} from 'node:child_process'
-import {mkdir, writeFile, stat} from 'node:fs/promises'
+import {stat} from 'node:fs/promises'
 import path from 'node:path'
 import os from 'node:os'
-import {deflateSync} from 'node:zlib'
 import ffmpegPath from 'ffmpeg-static'
-import {randomUUID} from 'node:crypto'
+import {createHash, randomUUID} from 'node:crypto'
+import {getX264Args} from '#server/global/engine/instagram/reel/utils/encodeSettings'
+import {buildEnhanceFilters} from '#server/global/engine/instagram/reel/utils/enhanceSettings'
 
 const execFileAsync = promisify(execFile)
 
-const WIDTH = 1080
-const HEIGHT = 1920
-const VIDEO_WIDTH = 1080
-const VIDEO_HEIGHT = 932
+/**
+ * Clean и финальный ролик квадратные: 1080×1080 (решение владельца 11.11).
+ * Прежний макет был 1080×1920: видео 1080×932 поверх размытого фона.
+ */
+export const REEL_SIZE = 1080
 
-const assetDirectory = path.join(os.tmpdir(), 'kinomanov-reel-template')
-
-export type ReelOverlayAssets = {
-    background: string
-    video: string
-    static: string
-}
-
-const crcTable = (() => {
-    const table = new Uint32Array(256)
-
-    for (let n = 0; n < 256; n++) {
-        let c = n
-
-        for (let k = 0; k < 8; k++) {
-            c = (c & 1) ? 0xEDB88320 ^ (c >>> 1) : c >>> 1
-        }
-
-        table[n] = c >>> 0
-    }
-
-    return table
-})()
-
-const crc32 = (buffer: Buffer) => {
-    let c = 0xFFFFFFFF
-
-    for (const byte of buffer) {
-        c = crcTable[(c ^ byte) & 0xFF]! ^ (c >>> 8)
-    }
-
-    return (c ^ 0xFFFFFFFF) >>> 0
-}
-
-const pngChunk = (type: string, data: Buffer) => {
-    const typeBuffer = Buffer.from(type, 'ascii')
-    const length = Buffer.alloc(4)
-    length.writeUInt32BE(data.length, 0)
-
-    const checksum = Buffer.alloc(4)
-    checksum.writeUInt32BE(crc32(Buffer.concat([typeBuffer, data])), 0)
-
-    return Buffer.concat([length, typeBuffer, data, checksum])
-}
-
-const encodePng = (width: number, height: number, pixels: Buffer) => {
-    const rowLength = width * 4
-    const raw = Buffer.alloc((rowLength + 1) * height)
-
-    for (let y = 0; y < height; y++) {
-        const targetOffset = y * (rowLength + 1)
-        raw[targetOffset] = 0
-        pixels.copy(raw, targetOffset + 1, y * rowLength, (y + 1) * rowLength)
-    }
-
-    const header = Buffer.alloc(13)
-    header.writeUInt32BE(width, 0)
-    header.writeUInt32BE(height, 4)
-    header[8] = 8
-    header[9] = 6
-    header[10] = 0
-    header[11] = 0
-    header[12] = 0
-
-    return Buffer.concat([
-        Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
-        pngChunk('IHDR', header),
-        pngChunk('IDAT', deflateSync(raw, {level: 6})),
-        pngChunk('IEND', Buffer.alloc(0))
-    ])
-}
-
-const newPixels = (width: number, height: number) =>
-    Buffer.alloc(width * height * 4)
-
-const blendPixel = (
-    pixels: Buffer,
-    width: number,
-    height: number,
-    x: number,
-    y: number,
-    red: number,
-    green: number,
-    blue: number,
-    alpha: number
-) => {
-    const px = Math.floor(x)
-    const py = Math.floor(y)
-
-    if (px < 0 || py < 0 || px >= width || py >= height || alpha <= 0) {
-        return
-    }
-
-    const index = (py * width + px) * 4
-    const sourceAlpha = Math.max(0, Math.min(1, alpha / 255))
-    const destinationAlpha = pixels[index + 3]! / 255
-    const outputAlpha = sourceAlpha + destinationAlpha * (1 - sourceAlpha)
-
-    if (outputAlpha <= 0) {
-        return
-    }
-
-    pixels[index] = Math.round(
-        (red * sourceAlpha + pixels[index]! * destinationAlpha * (1 - sourceAlpha)) / outputAlpha
-    )
-    pixels[index + 1] = Math.round(
-        (green * sourceAlpha + pixels[index + 1]! * destinationAlpha * (1 - sourceAlpha)) / outputAlpha
-    )
-    pixels[index + 2] = Math.round(
-        (blue * sourceAlpha + pixels[index + 2]! * destinationAlpha * (1 - sourceAlpha)) / outputAlpha
-    )
-    pixels[index + 3] = Math.round(outputAlpha * 255)
-}
+/** Папка для служебных файлов оформления (fontconfig). */
+export const reelAssetDirectory = path.join(os.tmpdir(), 'kinomanov-reel-template')
 
 const clamp = (value: number, min: number, max: number) =>
     Math.max(min, Math.min(max, value))
-
 
 export type ReelSegment = {
     totalDurationSeconds: number
@@ -139,7 +29,7 @@ export type ReelSegment = {
     endSeconds: number
 }
 
-const getInputVideoDuration = async (inputPath: string): Promise<number> => {
+export const getInputVideoDuration = async (inputPath: string): Promise<number> => {
     try {
         const {stdout} = await execFileAsync(
             process.env.FFPROBE_PATH || 'ffprobe',
@@ -247,358 +137,653 @@ export const calculateReelSegment = (totalDurationSeconds: number): ReelSegment 
     }
 }
 
-const drawLine = (
-    pixels: Buffer,
-    width: number,
-    height: number,
-    x1: number,
-    y1: number,
-    x2: number,
-    y2: number,
-    thickness: number,
-    color: [number, number, number],
-    alpha = 255
-) => {
-    const radius = thickness / 2
-    const minX = clamp(Math.floor(Math.min(x1, x2) - radius - 1), 0, width - 1)
-    const maxX = clamp(Math.ceil(Math.max(x1, x2) + radius + 1), 0, width - 1)
-    const minY = clamp(Math.floor(Math.min(y1, y2) - radius - 1), 0, height - 1)
-    const maxY = clamp(Math.ceil(Math.max(y1, y2) + radius + 1), 0, height - 1)
-    const dx = x2 - x1
-    const dy = y2 - y1
-    const lengthSquared = dx * dx + dy * dy
 
-    for (let y = minY; y <= maxY; y++) {
-        for (let x = minX; x <= maxX; x++) {
-            const px = x + 0.5
-            const py = y + 0.5
-            const t = lengthSquared === 0
-                ? 0
-                : clamp(((px - x1) * dx + (py - y1) * dy) / lengthSquared, 0, 1)
-            const nearestX = x1 + t * dx
-            const nearestY = y1 + t * dy
-            const distance = Math.hypot(px - nearestX, py - nearestY)
-            const coverage = clamp(radius + 0.5 - distance, 0, 1)
-
-            if (coverage > 0) {
-                blendPixel(
-                    pixels,
-                    width,
-                    height,
-                    x,
-                    y,
-                    color[0],
-                    color[1],
-                    color[2],
-                    alpha * coverage
-                )
-            }
-        }
-    }
+export type VideoDimensions = {
+    width: number
+    height: number
 }
 
-const drawBezier = (
-    pixels: Buffer,
-    width: number,
-    height: number,
-    points: [[number, number], [number, number], [number, number], [number, number]]
-) => {
-    const [p0, p1, p2, p3] = points
-    let previousX = p0[0]
-    let previousY = p0[1]
-    const steps = 360
-
-    for (let i = 1; i <= steps; i++) {
-        const t = i / steps
-        const u = 1 - t
-        const x = u ** 3 * p0[0]
-            + 3 * u ** 2 * t * p1[0]
-            + 3 * u * t ** 2 * p2[0]
-            + t ** 3 * p3[0]
-        const y = u ** 3 * p0[1]
-            + 3 * u ** 2 * t * p1[1]
-            + 3 * u * t ** 2 * p2[1]
-            + t ** 3 * p3[1]
-
-        drawLine(
-            pixels,
-            width,
-            height,
-            previousX,
-            previousY,
-            x,
-            y,
-            2,
-            [245, 242, 238],
-            31
+/**
+ * Размер первого видеопотока. Сначала ffprobe, затем разбор вывода ffmpeg:
+ * ffprobe в рабочем окружении может отсутствовать.
+ */
+export const probeVideoDimensions = async (inputPath: string): Promise<VideoDimensions> => {
+    try {
+        const {stdout} = await execFileAsync(
+            process.env.FFPROBE_PATH || 'ffprobe',
+            [
+                '-v', 'error',
+                '-select_streams', 'v:0',
+                '-show_entries', 'stream=width,height',
+                '-of', 'csv=p=0:s=x',
+                inputPath
+            ],
+            {
+                timeout: 10_000,
+                maxBuffer: 1024 * 1024
+            }
         )
 
-        previousX = x
-        previousY = y
-    }
-}
-
-const makeBackgroundOverlay = () => {
-    const pixels = newPixels(WIDTH, HEIGHT)
-    const centerX = 540
-    const centerY = 864
-    const radiusX = 763.7
-    const radiusY = 1493.4
-
-    for (let y = 0; y < HEIGHT; y++) {
-        for (let x = 0; x < WIDTH; x++) {
-            const distance = Math.sqrt(
-                ((x - centerX) / radiusX) ** 2 +
-                ((y - centerY) / radiusY) ** 2
-            )
-
-            const alpha = distance <= 0.35
-                ? 0
-                : 0.75 * clamp((distance - 0.35) / (1 - 0.35), 0, 1)
-
-            const index = (y * WIDTH + x) * 4
-            pixels[index] = 0
-            pixels[index + 1] = 0
-            pixels[index + 2] = 0
-            pixels[index + 3] = Math.round(alpha * 255)
+        const match = stdout.trim().match(/^(\d+)x(\d+)/)
+        if (match) {
+            return {width: Number(match[1]), height: Number(match[2])}
+        }
+    } catch (error: any) {
+        if (error?.code !== 'ENOENT') {
+            console.log('[REEL DIMENSIONS] ffprobe failed; using ffmpeg probe', {
+                message: error?.message
+            })
         }
     }
 
-    const curves: [[number, number], [number, number], [number, number], [number, number]][] = [
-        [[0, 60], [120, 90], [200, 170], [260, 320]],
-        [[0, 140], [90, 160], [150, 220], [190, 330]],
-        [[0, 0], [80, 80], [150, 210], [150, 410]],
-        [[60, 0], [120, 60], [200, 100], [330, 110]],
-        [[1080, 1560], [960, 1590], [880, 1670], [820, 1820]],
-        [[1080, 1640], [990, 1660], [930, 1720], [890, 1830]],
-        [[1080, 1500], [1000, 1580], [930, 1710], [930, 1910]]
-    ]
-
-    for (const curve of curves) {
-        drawBezier(pixels, WIDTH, HEIGHT, curve)
+    if (!ffmpegPath) {
+        throw new Error('[REEL DIMENSIONS] ffmpeg-static binary not found')
     }
 
-    return encodePng(WIDTH, HEIGHT, pixels)
+    let probeOutput = ''
+    try {
+        await execFileAsync(
+            ffmpegPath,
+            ['-hide_banner', '-i', inputPath],
+            {
+                timeout: 10_000,
+                maxBuffer: 2 * 1024 * 1024
+            }
+        )
+    } catch (error: any) {
+        probeOutput = String(error?.stderr || '')
+    }
+
+    const match = probeOutput.match(/Video:[^\n]*?[,\s](\d{2,5})x(\d{2,5})[,\s[]/)
+    if (!match) {
+        throw new Error(`[REEL DIMENSIONS] Could not determine video size: ${inputPath}`)
+    }
+
+    return {width: Number(match[1]), height: Number(match[2])}
 }
 
-const makeVideoOverlay = () => {
-    const pixels = newPixels(VIDEO_WIDTH, VIDEO_HEIGHT)
-    const centerX = 540
-    const centerY = 466
-    const radiusX = 763.7
-    const radiusY = 659.0
+export type FrameRate = {
+    /** Рациональная запись для `-r` и lavfi: «24000/1001», «25», «30». */
+    rate: string
+    fps: number
+}
 
-    for (let y = 0; y < VIDEO_HEIGHT; y++) {
-        for (let x = 0; x < VIDEO_WIDTH; x++) {
-            const distance = Math.sqrt(
-                ((x - centerX) / radiusX) ** 2 +
-                ((y - centerY) / radiusY) ** 2
-            )
+const DEFAULT_OUTPUT_FPS: FrameRate = {rate: '30', fps: 30}
 
-            const vignette = distance <= 0.45
-                ? 0
-                : 0.55 * clamp((distance - 0.45) / (1 - 0.45), 0, 1)
+/** Минимальная частота, которую принимает Instagram Reels, с запасом. */
+const MIN_REEL_FPS = 23
+const MAX_REEL_FPS = 31
 
-            const gradient = y < 520
-                ? 0
-                : 0.78 * clamp((y - 520) / (932 - 520), 0, 1)
+const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b))
 
-            const alpha = 1 - (1 - vignette) * (1 - gradient)
-            const index = (y * VIDEO_WIDTH + x) * 4
+const toFrameRate = (numerator: number, denominator: number): FrameRate | undefined => {
+    if (
+        !Number.isFinite(numerator) || !Number.isFinite(denominator) ||
+        numerator <= 0 || denominator <= 0
+    ) {
+        return undefined
+    }
 
-            pixels[index] = 0
-            pixels[index + 1] = 0
-            pixels[index + 2] = 0
-            pixels[index + 3] = Math.round(alpha * 255)
+    const divisor = gcd(Math.round(numerator), Math.round(denominator)) || 1
+    const num = Math.round(numerator) / divisor
+    const den = Math.round(denominator) / divisor
+
+    return {
+        rate: den === 1 ? String(num) : `${num}/${den}`,
+        fps: num / den
+    }
+}
+
+/** «24000/1001», «25/1» или «29.97» в FrameRate. Нули («0/0») и мусор дают undefined. */
+export const parseFrameRate = (value: string | undefined): FrameRate | undefined => {
+    const text = String(value ?? '').trim()
+    const fraction = text.match(/^(\d+)\s*\/\s*(\d+)$/)
+    if (fraction) {
+        return toFrameRate(Number(fraction[1]), Number(fraction[2]))
+    }
+
+    const decimal = Number(text)
+    if (!Number.isFinite(decimal) || decimal <= 0) {
+        return undefined
+    }
+
+    // Десятичную запись возвращаем к стандартным дробям NTSC, иначе 23.976 превратится
+    // в 23976/1000 и «уплывёт» относительно 24000/1001.
+    for (const [nominal, den] of [[24, 1001], [30, 1001], [60, 1001]] as const) {
+        const ntsc = (nominal * 1000) / den
+        if (Math.abs(decimal - ntsc) < 0.01) {
+            return toFrameRate(nominal * 1000, den)
         }
     }
 
-    return encodePng(VIDEO_WIDTH, VIDEO_HEIGHT, pixels)
+    return toFrameRate(Math.round(decimal * 1000), 1000)
 }
 
-const isInsideRoundedRect = (
-    x: number,
-    y: number,
-    left: number,
-    top: number,
-    right: number,
-    bottom: number,
-    radius: number
-) => {
-    const nearestX = clamp(x, left + radius, right - radius)
-    const nearestY = clamp(y, top + radius, bottom - radius)
+/**
+ * Частота выходного ролика. По умолчанию родная частота исходника: 24 к/с остаются 24,
+ * а не растягиваются до 30 дублированием кадров через один (это даёт заметное
+ * подёргивание на панорамах). Что выше 31 к/с (50, 60) делится пополам. Что ниже 23 или
+ * не определилось, приводится к 30: Instagram требует не меньше 23 к/с.
+ * REEL_OUTPUT_FPS=30 (или другое число) возвращает фиксированную частоту.
+ */
+export const resolveOutputFrameRate = (
+    source: FrameRate | undefined,
+    override: string | undefined = process.env.REEL_OUTPUT_FPS
+): FrameRate => {
+    const forced = String(override ?? '').trim().toLowerCase()
+    if (forced && forced !== 'native') {
+        return parseFrameRate(forced) ?? DEFAULT_OUTPUT_FPS
+    }
 
-    return Math.hypot(x - nearestX, y - nearestY) <= radius
+    if (!source) {
+        return DEFAULT_OUTPUT_FPS
+    }
+
+    let fps = source.fps
+    let [numerator, denominator] = (source.rate.includes('/')
+        ? source.rate.split('/').map(Number)
+        : [Number(source.rate), 1]) as [number, number]
+
+    for (let halving = 0; fps > MAX_REEL_FPS && halving < 3; halving++) {
+        denominator *= 2
+        fps = numerator / denominator
+    }
+
+    if (fps < MIN_REEL_FPS || fps > MAX_REEL_FPS) {
+        return DEFAULT_OUTPUT_FPS
+    }
+
+    return toFrameRate(numerator, denominator) ?? DEFAULT_OUTPUT_FPS
 }
 
-const makeStaticOverlay = () => {
-    const pixels = newPixels(WIDTH, HEIGHT)
+/**
+ * Частота кадров первого видеопотока: avg_frame_rate, при нуле r_frame_rate. Сначала ffprobe,
+ * затем разбор вывода ffmpeg. Не бросает исключений: без частоты работаем на 30 к/с.
+ */
+export const probeVideoFrameRate = async (inputPath: string): Promise<FrameRate | undefined> => {
+    try {
+        const {stdout} = await execFileAsync(
+            process.env.FFPROBE_PATH || 'ffprobe',
+            [
+                '-v', 'error',
+                '-select_streams', 'v:0',
+                '-show_entries', 'stream=avg_frame_rate,r_frame_rate',
+                '-of', 'csv=p=0',
+                inputPath
+            ],
+            {
+                timeout: 10_000,
+                maxBuffer: 1024 * 1024
+            }
+        )
 
-    // Полупрозрачная тёмная капсула без красной обводки.
-    const left = 150
-    const top = 1514
-    const right = 930
-    const bottom = 1626
-    const radius = 56
-
-    for (let y = top; y < bottom; y++) {
-        for (let x = left; x < right; x++) {
-            const px = x + 0.5
-            const py = y + 0.5
-
-            const outer = isInsideRoundedRect(
-                px,
-                py,
-                left,
-                top,
-                right,
-                bottom,
-                radius
-            )
-
-            if (outer) {
-                blendPixel(
-                    pixels,
-                    WIDTH,
-                    HEIGHT,
-                    x,
-                    y,
-                    0,
-                    0,
-                    0,
-                    153
-                )
+        for (const part of stdout.trim().split(/[,\s]+/)) {
+            const parsed = parseFrameRate(part)
+            if (parsed) {
+                return parsed
             }
         }
+    } catch (error: any) {
+        if (error?.code !== 'ENOENT') {
+            console.log('[REEL FPS] ffprobe failed; using ffmpeg probe', {
+                message: error?.message
+            })
+        }
     }
 
-    // Иконка закладки слева от CTA.
-    // Реальная ширина текста PT Sans Regular, 34px.
-    const ctaTextWidth = 390
-
-    // Минимальный отступ между иконкой и текстом.
-    const ctaGap = 0
-
-    const ctaGroupWidth = 30 + ctaGap + ctaTextWidth
-    const bookmarkLeft = (WIDTH - ctaGroupWidth) / 2
-    const bookmarkTop = 1662
-    const bookmarkPoints: [number, number, number, number][] = [
-        [bookmarkLeft + 7.5, bookmarkTop + 3.75, bookmarkLeft + 22.5, bookmarkTop + 3.75],
-        [bookmarkLeft + 22.5, bookmarkTop + 3.75, bookmarkLeft + 22.5, bookmarkTop + 26.25],
-        [bookmarkLeft + 22.5, bookmarkTop + 26.25, bookmarkLeft + 15, bookmarkTop + 21.25],
-        [bookmarkLeft + 15, bookmarkTop + 21.25, bookmarkLeft + 7.5, bookmarkTop + 26.25],
-        [bookmarkLeft + 7.5, bookmarkTop + 26.25, bookmarkLeft + 7.5, bookmarkTop + 3.75]
-    ]
-
-    for (const [x1, y1, x2, y2] of bookmarkPoints) {
-        drawLine(pixels, WIDTH, HEIGHT, x1, y1, x2, y2, 2.5, [245, 242, 238])
+    if (!ffmpegPath) {
+        return undefined
     }
 
-    return encodePng(WIDTH, HEIGHT, pixels)
+    let probeOutput = ''
+    try {
+        await execFileAsync(
+            ffmpegPath,
+            ['-hide_banner', '-i', inputPath],
+            {
+                timeout: 10_000,
+                maxBuffer: 2 * 1024 * 1024
+            }
+        )
+    } catch (error: any) {
+        probeOutput = String(error?.stderr || '')
+    }
+
+    const match = probeOutput.match(/Video:[^\n]*?,\s*(\d+(?:\.\d+)?)\s*fps/)
+    return parseFrameRate(match?.[1])
 }
 
-export const ensureReelOverlayAssets = async (): Promise<ReelOverlayAssets> => {
-    await mkdir(assetDirectory, {recursive: true})
+/** true, если файл уже собран в нынешнем квадратном макете 1080×1080. */
+export const isSquareReelVideo = (dimensions: VideoDimensions) =>
+    dimensions.width === REEL_SIZE && dimensions.height === REEL_SIZE
 
-    const paths: ReelOverlayAssets = {
-        background: path.join(assetDirectory, 'ov_bg.png'),
-        video: path.join(assetDirectory, 'ov_video.png'),
-        // Новое имя обязательно: иначе в тёплом runtime может остаться PNG
-        // со старыми красными границами видеоблока.
-        static: path.join(assetDirectory, 'ov_static_v3.png')
-    }
+/** Прямоугольник кадра в пикселях: размер и смещение от левого верхнего угла. */
+export type CropRect = {
+    x: number
+    y: number
+    w: number
+    h: number
+}
 
-    const generators: [keyof ReelOverlayAssets, () => Buffer][] = [
-        ['background', makeBackgroundOverlay],
-        ['video', makeVideoOverlay],
-        ['static', makeStaticOverlay]
-    ]
+/** Ширина чёрной полосы с каждой стороны кадра, пиксели. */
+export type BorderBars = {
+    top: number
+    right: number
+    bottom: number
+    left: number
+}
 
-    for (const [key, generate] of generators) {
-        const assetPath = paths[key]
-        let needsGenerate = true
-
-        try {
-            const fileStat = await stat(assetPath)
-            needsGenerate = fileStat.size < 100
-        } catch {
-            needsGenerate = true
-        }
-
-        if (needsGenerate) {
-            const png = generate()
-            await writeFile(assetPath, png)
-            console.log('[REEL OVERLAY CREATED]', assetPath)
-        }
-    }
-
-    return paths
+export type BorderCheckResult = BorderBars & {
+    /** true, если ни одна полоса не шире допуска (или кадров не хватило для проверки). */
+    ok: boolean
+    /** false, если проверить не удалось: слишком мало пригодных кадров. */
+    verified: boolean
+    width: number
+    height: number
+    sampledFrames: number
+    usedFrames: number
+    tolerancePx: number
 }
 
 type SourceAnalysis = {
-    crop?: string
+    crop?: CropRect
     averageY: number
 }
 
 /**
- * Анализируем только выбранный фрагмент и только один раз:
- * cropdetect находит чёрные полосы, signalstats оценивает яркость.
- * Это заменяет два отдельных запуска FFmpeg.
+ * Строка или столбец считаются чёрными, если МЕДИАНА яркости вдоль них не выше
+ * этого значения (limited range: чёрный = 16). Именно медиана, а не максимум:
+ * вшитые субтитры, лежащие в чёрной полосе, закрывают меньше половины строки
+ * и полосу не ломают. Раньше cropdetect считал такую полосу картинкой.
+ */
+const BLACK_LINE_MEDIAN = 24
+
+/** Сколько кадров берём для поиска полос и для проверки готового клипа. */
+const BORDER_SAMPLE_COUNT = 12
+
+/** Ширина кадров для анализа исходника (4K уменьшается до 960 пикселей). */
+const BORDER_ANALYSIS_WIDTH = 960
+
+/** Полоса принимается, если одинаковую ширину показывает столько кадров. */
+const BORDER_SOURCE_SUPPORT = 0.4
+
+/** Для проверки клипа: настоящая полоса есть почти во всех кадрах, а статичная тёмная сцена нет. */
+const BORDER_CHECK_SUPPORT = 0.75
+
+/** Разброс ширины одной и той же полосы между кадрами, строки анализа. */
+const BORDER_TOLERANCE_ROWS = 2
+
+/** Минимум пригодных (не чёрных) кадров, при котором результату можно верить. */
+const BORDER_MIN_FRAMES = 3
+
+/** Одна полоса не может занимать больше этой доли кадра. */
+const BORDER_MAX_EDGE_SHARE = 0.4
+
+/** Параллельных запусков ffmpeg при взятии кадров. */
+const BORDER_PARALLEL = 3
+
+const toEven = (value: number) => Math.floor(value / 2) * 2
+const ceilEven = (value: number) => Math.ceil(value / 2) * 2
+
+const readEnvNumber = (name: string, fallback: number, min: number, max: number) => {
+    const raw = process.env[name]
+    const value = raw === undefined || raw.trim() === '' ? Number.NaN : Number(raw)
+    return Number.isFinite(value) && value >= min && value <= max ? value : fallback
+}
+
+/** Допуск проверки: полоса уже этого числа пикселей готового клипа не считается. */
+const borderTolerancePx = () => readEnvNumber('REEL_BORDER_TOLERANCE_PX', 3, 1, 50)
+
+/** REEL_BORDER_CHECK=off отключает проверку и повторную сборку. */
+const borderCheckEnabled = () =>
+    (process.env.REEL_BORDER_CHECK ?? '').trim().toLowerCase() !== 'off'
+
+/** REEL_BORDER_CHECK_STRICT=true: полоса после исправления останавливает сборку. */
+const borderCheckStrict = () =>
+    (process.env.REEL_BORDER_CHECK_STRICT ?? '').trim().toLowerCase() === 'true'
+
+type GrayFrames = {
+    width: number
+    height: number
+    frames: Buffer[]
+    requested: number
+}
+
+/**
+ * Достаёт кадры 8-бит серого, уменьшенные до analysisWidth.
+ * accurateSeek=false берёт ближайший ключевой кадр: для 4K AV1 это на порядок
+ * быстрее, декодируется один кадр, а не вся группа кадров до нужной секунды.
+ * Одинаковые кадры (несколько точек попали в один ключевой) отбрасываются.
+ */
+const sampleGrayFrames = async (
+    videoPath: string,
+    times: number[],
+    source: VideoDimensions,
+    analysisWidth: number,
+    accurateSeek: boolean
+): Promise<GrayFrames> => {
+    if (!ffmpegPath) {
+        throw new Error('[REEL BORDER] ffmpeg-static binary not found')
+    }
+    const binary = ffmpegPath
+
+    const scale = Math.min(1, analysisWidth / source.width)
+    const width = Math.max(2, toEven(Math.round(source.width * scale)))
+    const height = Math.max(2, toEven(Math.round(source.height * scale)))
+    const frameBytes = width * height
+    const filter = scale < 1
+        ? `scale=${width}:${height}:flags=area,format=gray`
+        : 'format=gray'
+
+    const results: Array<Buffer | null> = times.map(() => null)
+    let nextIndex = 0
+
+    const worker = async () => {
+        while (nextIndex < times.length) {
+            const index = nextIndex++
+            try {
+                const {stdout} = await execFileAsync(
+                    binary,
+                    [
+                        '-hide_banner',
+                        '-loglevel', 'error',
+                        '-nostdin',
+                        ...(accurateSeek ? [] : ['-noaccurate_seek']),
+                        '-ss', times[index]!.toFixed(3),
+                        '-i', videoPath,
+                        '-an',
+                        '-sn',
+                        '-frames:v', '1',
+                        '-vf', filter,
+                        '-pix_fmt', 'gray',
+                        '-f', 'rawvideo',
+                        '-'
+                    ],
+                    {
+                        encoding: 'buffer',
+                        timeout: 30_000,
+                        maxBuffer: frameBytes + 1024 * 1024
+                    }
+                )
+
+                if (stdout.length === frameBytes) {
+                    results[index] = stdout
+                }
+            } catch {
+                // Кадр не получился (конец файла, сбой декодера): пропускаем его.
+            }
+        }
+    }
+
+    await Promise.all(
+        Array.from({length: Math.min(BORDER_PARALLEL, times.length)}, worker)
+    )
+
+    const unique = new Map<string, Buffer>()
+    for (const frame of results) {
+        if (frame) {
+            unique.set(createHash('md5').update(frame).digest('hex'), frame)
+        }
+    }
+
+    return {width, height, frames: [...unique.values()], requested: times.length}
+}
+
+/** Медиана count значений с шагом step, начиная с позиции start. */
+const lineMedian = (
+    frame: Buffer,
+    start: number,
+    step: number,
+    count: number
+): number => {
+    const histogram = new Uint32Array(256)
+    for (let i = 0, position = start; i < count; i++, position += step) {
+        histogram[frame[position]!]!++
+    }
+
+    const half = count / 2
+    let sum = 0
+    for (let value = 0; value < 256; value++) {
+        sum += histogram[value]!
+        if (sum >= half) {
+            return value
+        }
+    }
+    return 255
+}
+
+/**
+ * Сколько чёрных столбцов слева и справа и строк сверху и снизу в одном кадре.
+ * Столбцы считаем первыми и по всей высоте: вертикальное видео в горизонтальном
+ * кадре занимает меньше половины ширины, и медиана строки по всей ширине была бы
+ * чёрной везде. Строки считаем уже только внутри найденной ширины картинки.
+ * null — кадр целиком чёрный: он ничего не говорит о полосах.
+ */
+const measureFrameBars = (
+    frame: Buffer,
+    width: number,
+    height: number
+): BorderBars | null => {
+    const columnIsBlack = (column: number) =>
+        lineMedian(frame, column, width, height) <= BLACK_LINE_MEDIAN
+
+    let left = 0
+    while (left < width && columnIsBlack(left)) {
+        left++
+    }
+    if (left >= width) {
+        return null
+    }
+
+    let right = 0
+    while (right < width - left && columnIsBlack(width - 1 - right)) {
+        right++
+    }
+
+    const bandLeft = left
+    const bandWidth = width - left - right
+    if (bandWidth < 8) {
+        return null
+    }
+
+    const rowIsBlack = (row: number) =>
+        lineMedian(frame, row * width + bandLeft, 1, bandWidth) <= BLACK_LINE_MEDIAN
+
+    let top = 0
+    while (top < height && rowIsBlack(top)) {
+        top++
+    }
+    if (top >= height) {
+        return null
+    }
+
+    let bottom = 0
+    while (bottom < height - top && rowIsBlack(height - 1 - bottom)) {
+        bottom++
+    }
+
+    return {top, right, bottom, left}
+}
+
+/**
+ * Типичная ширина полосы по набору кадров. Подходит значение, которое с допуском
+ * повторяется минимум в minSupport кадрах; из таких берётся наибольшее. Так
+ * тёмная сцена (полоса в одном кадре «выросла» за счёт чёрного неба) и кадр
+ * без полос (смена формата) не сдвигают результат, а настоящая полоса,
+ * постоянная по всему ролику, всегда набирает нужную поддержку.
+ */
+const estimateBarRows = (runs: number[], minSupport: number): number => {
+    const sorted = [...runs].sort((a, b) => a - b)
+    let best = 0
+
+    for (const start of sorted) {
+        const window = sorted.filter(
+            value => value >= start && value <= start + BORDER_TOLERANCE_ROWS
+        )
+        if (window.length < minSupport) {
+            continue
+        }
+
+        const median = window[Math.floor((window.length - 1) / 2)]!
+        if (median > best) {
+            best = median
+        }
+    }
+
+    return best
+}
+
+type DetectedBars = BorderBars & {
+    usedFrames: number
+    measuredFrames: BorderBars[]
+}
+
+/** Полосы по всем кадрам, в строках анализа. null — пригодных кадров мало. */
+const detectBars = (
+    frames: GrayFrames,
+    supportShare: number
+): DetectedBars | null => {
+    const measured = frames.frames
+        .map(frame => measureFrameBars(frame, frames.width, frames.height))
+        .filter((bars): bars is BorderBars => bars !== null)
+
+    if (measured.length < BORDER_MIN_FRAMES) {
+        return null
+    }
+
+    const minSupport = Math.max(2, Math.ceil(measured.length * supportShare))
+    const estimate = (pick: (bars: BorderBars) => number) =>
+        estimateBarRows(measured.map(pick), minSupport)
+
+    return {
+        top: estimate(bars => bars.top),
+        right: estimate(bars => bars.right),
+        bottom: estimate(bars => bars.bottom),
+        left: estimate(bars => bars.left),
+        usedFrames: measured.length,
+        measuredFrames: measured
+    }
+}
+
+/** Средняя яркость внутри прямоугольника кадра анализа (без чёрных полос). */
+const meanLuma = (
+    frame: Buffer,
+    width: number,
+    left: number,
+    top: number,
+    right: number,
+    bottom: number
+): number => {
+    let sum = 0
+    let count = 0
+    for (let row = top; row < bottom; row++) {
+        const offset = row * width
+        for (let column = left; column < right; column++) {
+            sum += frame[offset + column]!
+            count++
+        }
+    }
+    return count ? sum / count : 0
+}
+
+/** Точки отбора кадров, равномерно по отрезку. */
+const sampleTimes = (startSeconds: number, durationSeconds: number, count: number) =>
+    Array.from(
+        {length: count},
+        (_, index) => startSeconds + durationSeconds * (index + 0.5) / count
+    )
+
+/**
+ * Анализируем только выбранный фрагмент: берём 12 кадров по всей его длине,
+ * находим чёрные полосы (медиана яркости строк и столбцов) и среднюю яркость
+ * самой картинки. Прежний cropdetect по первым 5 секундам считал вшитые субтитры
+ * внутри чёрной полосы частью картинки и оставлял в квадрате чёрную кромку.
  */
 const analyzeSelectedSegment = async (
     inputPath: string,
-    segment: ReelSegment
+    segment: ReelSegment,
+    source: VideoDimensions
 ): Promise<SourceAnalysis> => {
-    if (!ffmpegPath) {
-        throw new Error('[PREPARE INSTAGRAM VIDEO] ffmpeg-static binary not found')
-    }
-
     try {
-        const sampleDuration = Math.min(5, segment.durationSeconds)
-        const {stderr = '', stdout = ''} = await execFileAsync(
-            ffmpegPath,
-            [
-                '-hide_banner',
-                '-loglevel', 'info',
-                '-ss', segment.startSeconds.toFixed(3),
-                '-i', inputPath,
-                '-t', sampleDuration.toFixed(3),
-                '-vf', 'cropdetect=24:16:0,signalstats,metadata=print',
-                '-an',
-                '-f', 'null',
-                '-'
-            ],
-            {
-                timeout: 30_000,
-                maxBuffer: 10 * 1024 * 1024
-            }
+        const sampled = await sampleGrayFrames(
+            inputPath,
+            sampleTimes(segment.startSeconds, segment.durationSeconds, BORDER_SAMPLE_COUNT),
+            source,
+            BORDER_ANALYSIS_WIDTH,
+            false
         )
 
-        const output = `${stderr}\n${stdout}`
-        const cropMatches = [...output.matchAll(/crop=(\d+:\d+:\d+:\d+)/g)]
-        const crop = cropMatches.at(-1)?.[1]
-        const values = [...output.matchAll(/lavfi\.signalstats\.YAVG\s*[:=]\s*([\d.]+)/g)]
-            .map(match => Number(match[1]))
-            .filter(Number.isFinite)
-
-        const averageY = values.length
-            ? values.reduce((sum, value) => sum + value, 0) / values.length
-            : 0
-
-        if (!crop) {
-            console.log('[REEL CROPDETECT] No black bars detected; keeping source dimensions')
-        } else {
-            console.log('[REEL CROPDETECT] Detected crop:', crop)
+        const detected = detectBars(sampled, BORDER_SOURCE_SUPPORT)
+        if (!detected) {
+            console.warn('[REEL CROPDETECT] Not enough usable frames; keeping source dimensions', {
+                requested: sampled.requested,
+                distinctFrames: sampled.frames.length
+            })
+            return {crop: undefined, averageY: 0}
         }
 
-        if (!values.length) {
-            console.warn('[REEL BRIGHTNESS] YAVG unavailable; applying normal color correction')
+        const rowFactor = source.height / sampled.height
+        const columnFactor = source.width / sampled.width
+        // +1 строка анализа запаса: на границе кадр усреднён с чёрным.
+        const toSource = (rows: number, factor: number) =>
+            rows > 0 ? ceilEven((rows + 1) * factor) : 0
+
+        const bars: BorderBars = {
+            top: toSource(detected.top, rowFactor),
+            bottom: toSource(detected.bottom, rowFactor),
+            left: toSource(detected.left, columnFactor),
+            right: toSource(detected.right, columnFactor)
+        }
+
+        const cropWidth = toEven(source.width - bars.left - bars.right)
+        const cropHeight = toEven(source.height - bars.top - bars.bottom)
+        const tooWide =
+            Math.max(bars.left, bars.right) > source.width * BORDER_MAX_EDGE_SHARE ||
+            Math.max(bars.top, bars.bottom) > source.height * BORDER_MAX_EDGE_SHARE ||
+            cropWidth < source.width * 0.25 ||
+            cropHeight < source.height * 0.25
+
+        let crop: CropRect | undefined
+        if (tooWide) {
+            console.warn('[REEL CROPDETECT] Implausible black bars; keeping source dimensions', bars)
+        } else if (bars.top + bars.bottom + bars.left + bars.right > 0) {
+            crop = {x: bars.left, y: bars.top, w: cropWidth, h: cropHeight}
+        }
+
+        // Яркость берём по самой картинке: чёрные полосы её занижали
+        // и без нужды включали осветление.
+        const picture = {
+            left: detected.left,
+            top: detected.top,
+            right: sampled.width - detected.right,
+            bottom: sampled.height - detected.bottom
+        }
+        const lumaValues = sampled.frames.map(frame =>
+            meanLuma(frame, sampled.width, picture.left, picture.top, picture.right, picture.bottom)
+        )
+        const averageY = lumaValues.length
+            ? lumaValues.reduce((sum, value) => sum + value, 0) / lumaValues.length
+            : 0
+
+        console.log('[REEL BORDER DETECT]', {
+            sourceSize: `${source.width}x${source.height}`,
+            analysisSize: `${sampled.width}x${sampled.height}`,
+            requestedFrames: sampled.requested,
+            distinctFrames: sampled.frames.length,
+            usedFrames: detected.usedFrames,
+            barsPx: bars
+        })
+
+        if (crop) {
+            console.log('[REEL CROPDETECT] Detected crop:', `${crop.w}:${crop.h}:${crop.x}:${crop.y}`)
+        } else {
+            console.log('[REEL CROPDETECT] No black bars detected; keeping source dimensions')
         }
 
         return {crop, averageY}
 
     } catch (error: any) {
-        // Анализ вспомогательный: не допускаем, чтобы неудачный cropdetect
+        // Анализ вспомогательный: не допускаем, чтобы неудачный анализ
         // полностью останавливал генерацию Reel.
         console.warn('[REEL SOURCE ANALYSIS FALLBACK]', {
             message: error?.message || error,
@@ -612,6 +797,111 @@ const analyzeSelectedSegment = async (
     }
 }
 
+/**
+ * Проверка готового клипа: нет ли в кадре чёрных полос сверху, снизу и по бокам.
+ * Берёт 12 кадров по всей длине, считает полосы теми же методами, что и анализ
+ * исходника, и сообщает ширину в пикселях клипа. Для clean 1080×1080 допуск —
+ * REEL_BORDER_TOLERANCE_PX (по умолчанию 3 пикселя).
+ */
+export const checkBlackBorders = async (videoPath: string): Promise<BorderCheckResult> => {
+    const [dimensions, duration] = await Promise.all([
+        probeVideoDimensions(videoPath),
+        getInputVideoDuration(videoPath)
+    ])
+
+    const margin = Math.min(0.3, duration / 10)
+    const sampled = await sampleGrayFrames(
+        videoPath,
+        sampleTimes(margin, Math.max(0.1, duration - margin * 2), BORDER_SAMPLE_COUNT),
+        dimensions,
+        // Для квадрата 1080 это масштаб 1:1: ширина полосы точна до пикселя.
+        Math.max(dimensions.width, 2),
+        true
+    )
+
+    const tolerancePx = borderTolerancePx()
+    const detected = detectBars(sampled, BORDER_CHECK_SUPPORT)
+
+    if (!detected) {
+        return {
+            ok: true,
+            verified: false,
+            top: 0,
+            right: 0,
+            bottom: 0,
+            left: 0,
+            width: dimensions.width,
+            height: dimensions.height,
+            sampledFrames: sampled.requested,
+            usedFrames: 0,
+            tolerancePx
+        }
+    }
+
+    const rowFactor = dimensions.height / sampled.height
+    const columnFactor = dimensions.width / sampled.width
+    const bars: BorderBars = {
+        top: Math.round(detected.top * rowFactor),
+        bottom: Math.round(detected.bottom * rowFactor),
+        left: Math.round(detected.left * columnFactor),
+        right: Math.round(detected.right * columnFactor)
+    }
+
+    return {
+        ok: Math.max(bars.top, bars.right, bars.bottom, bars.left) < tolerancePx,
+        verified: true,
+        ...bars,
+        width: dimensions.width,
+        height: dimensions.height,
+        sampledFrames: sampled.requested,
+        usedFrames: detected.usedFrames,
+        tolerancePx
+    }
+}
+
+/** Квадрат, который ffmpeg вырежет из rect по центру (второй crop в фильтре). */
+const squareOfRect = (rect: CropRect): CropRect => {
+    const side = toEven(Math.min(rect.w, rect.h))
+    return {
+        x: rect.x + toEven((rect.w - side) / 2),
+        y: rect.y + toEven((rect.h - side) / 2),
+        w: side,
+        h: side
+    }
+}
+
+/**
+ * Новый прямоугольник исходника, из которого вырезается клип без найденных
+ * проверкой полос. bars измерены в пикселях клипа (1080×1080), поэтому
+ * переводим их в пиксели исходника по масштабу квадрата.
+ */
+const shrinkRectForBars = (
+    rect: CropRect,
+    bars: BorderBars,
+    tolerancePx: number
+): CropRect => {
+    const square = squareOfRect(rect)
+    const scale = square.w / REEL_SIZE
+    // +2 пикселя клипа запаса: полоса и картинка на границе смешаны.
+    const toSource = (value: number) =>
+        value >= tolerancePx ? ceilEven((value + 2) * scale) : 0
+
+    const left = toSource(bars.left)
+    const right = toSource(bars.right)
+    const top = toSource(bars.top)
+    const bottom = toSource(bars.bottom)
+
+    return {
+        x: square.x + left,
+        y: square.y + top,
+        w: toEven(square.w - left - right),
+        h: toEven(square.h - top - bottom)
+    }
+}
+
+const formatBars = (result: BorderBars) =>
+    `top ${result.top}px, right ${result.right}px, bottom ${result.bottom}px, left ${result.left}px`
+
 export const prepareInstagramVideo = async (
     inputPath: string,
     keyTrailer: string
@@ -619,6 +909,7 @@ export const prepareInstagramVideo = async (
     if (!ffmpegPath) {
         throw new Error('[PREPARE INSTAGRAM VIDEO] ffmpeg-static binary not found')
     }
+    const binary = ffmpegPath
 
     // UUID исключает конфликт временных файлов при повторных/параллельных вызовах.
     const outputPath = path.join(
@@ -642,86 +933,148 @@ export const prepareInstagramVideo = async (
             )
         })
 
-        const [assets, analysis] = await Promise.all([
-            ensureReelOverlayAssets(),
-            analyzeSelectedSegment(inputPath, segment)
-        ])
+        const source = await probeVideoDimensions(inputPath)
+        const sourceFrameRate = await probeVideoFrameRate(inputPath)
+        const outputFrameRate = resolveOutputFrameRate(sourceFrameRate)
+        const analysis = await analyzeSelectedSegment(inputPath, segment, source)
 
-        const cropFilter = analysis.crop ? `crop=${analysis.crop},` : ''
-        const colorCorrection = analysis.averageY >= 110
-            ? ''
-            : ',eq=gamma=1.25:contrast=1.1:saturation=1.1'
+        console.log('[REEL FPS]', {
+            source: sourceFrameRate ? `${sourceFrameRate.rate} (${sourceFrameRate.fps.toFixed(3)})` : null,
+            output: outputFrameRate.rate
+        })
+
+        // Цветокоррекция, лёгкое шумоподавление и резкость (enhanceSettings.ts). Раньше eq
+        // получали только тёмные исходники, теперь мягкая коррекция идёт у всех; REEL_ENHANCE=off
+        // возвращает прежнее поведение.
+        const enhance = await buildEnhanceFilters(binary, analysis.averageY)
+        const colorCorrection = enhance.chain
+
+        console.log('[REEL ENHANCE] ' + JSON.stringify({
+            applied: enhance.applied,
+            skipped: enhance.skipped,
+            ...enhance.settings
+        }))
 
         console.log('[REEL SOURCE ANALYSIS]', {
             averageY: Number(analysis.averageY.toFixed(2)),
-            applyColorCorrection: analysis.averageY < 110,
-            crop: analysis.crop ?? null
+            darkSource: analysis.averageY < 110,
+            crop: analysis.crop
+                ? `${analysis.crop.w}:${analysis.crop.h}:${analysis.crop.x}:${analysis.crop.y}`
+                : null
         })
 
-        const filterComplex = [
-            // Разделяем исходное видео на фон и основной видеоблок.
-            `[0:v]${cropFilter}split=2[backgroundSource][videoSource]`,
+        // Квадрат 1080×1080 из центра картинки без чёрных полос. Размытого фона,
+        // виньетки и нижнего градиента больше нет: макет «чистое видео 1:1».
+        const encodeClean = async (rect: CropRect | undefined) => {
+            const cropFilter = rect ? `crop=${rect.w}:${rect.h}:${rect.x}:${rect.y},` : ''
+            const filterComplex =
+                `[0:v]${cropFilter}crop='min(iw,ih)':'min(iw,ih)',` +
+                `scale=${REEL_SIZE}:${REEL_SIZE}:flags=lanczos+accurate_rnd+full_chroma_int${colorCorrection},` +
+                'setsar=1,format=yuv420p[vout]'
 
-            // Размытый фон из исходного видео на весь вертикальный холст.
-            '[backgroundSource]scale=270:480:force_original_aspect_ratio=increase,' +
-            'crop=270:480,gblur=sigma=11.5,scale=1080:1920,' +
-            "eq=saturation=1.25,lutrgb=r='val*0.42':g='val*0.42':b='val*0.42'[backgroundBase]",
+            await execFileAsync(
+                binary,
+                [
+                    '-y',
+                    '-hide_banner',
+                    '-loglevel', 'error',
+                    '-filter_complex_threads', '2',
+                    // Обрезаем фрагмент на входе в том же проходе, в котором
+                    // строится clean-видеокомпозиция. Отдельный trim/encode не нужен.
+                    '-ss', segment.startSeconds.toFixed(3),
+                    '-i', inputPath,
+                    '-filter_complex', filterComplex,
+                    '-map', '[vout]',
+                    '-map', '0:a?',
+                    '-t', segment.durationSeconds.toFixed(3),
+                    // Clean — промежуточный файл: из него собирается финальный ролик (второе
+                    // кодирование), потом Instagram пережимает его в третий раз, поэтому запас
+                    // по качеству здесь нужен. veryfast CRF 16 с High-профилем (B-кадры, CABAC);
+                    // прежний ultrafast давал Constrained Baseline. Подробности: encodeSettings.ts.
+                    ...getX264Args('clean'),
+                    '-pix_fmt', 'yuv420p',
+                    // Родная частота исходника (resolveOutputFrameRate): 24→30 дублированием
+                    // кадров через один даёт подёргивание.
+                    '-r', outputFrameRate.rate,
+                    '-c:a', 'aac',
+                    // Звук проходит два AAC-кодирования (clean и финал), поэтому здесь запас.
+                    '-b:a', '192k',
+                    '-ar', '48000',
+                    // Громкость нормализуется один раз в decorateInstagramVideo.ts.
+                    '-movflags', '+faststart',
+                    '-shortest',
+                    outputPath
+                ],
+                {
+                    timeout: 240_000,
+                    maxBuffer: 20 * 1024 * 1024
+                }
+            )
+        }
 
-            // Основное видео 1080x932.
-            `[videoSource]scale=1080:932:force_original_aspect_ratio=increase,` +
-            `crop=1080:932:(iw-1080)*0.5:(ih-932)*0.5${colorCorrection}[mainVideo]`,
+        await encodeClean(analysis.crop)
 
-            // Основное видео поверх размытого фона.
-            '[backgroundBase][mainVideo]overlay=0:482:shortest=1[videoPlaced]',
+        // Проверка готового клипа. Результат поиска полос по исходнику не доверяем
+        // вслепую: если в клипе осталась полоса, один раз пересобираем его с
+        // дополнительной обрезкой ровно на найденную ширину.
+        if (borderCheckEnabled()) {
+            try {
+                let check = await checkBlackBorders(outputPath)
+                console.log('[REEL BORDER CHECK]', {
+                    ok: check.ok,
+                    verified: check.verified,
+                    bars: formatBars(check),
+                    usedFrames: check.usedFrames,
+                    tolerancePx: check.tolerancePx
+                })
 
-            // Виньетка и нижний градиент основного видеоблока.
-            '[videoPlaced][1:v]overlay=0:482:shortest=1,setsar=1,format=yuv420p[vout]'
-        ].join(';')
+                if (!check.ok) {
+                    const baseRect: CropRect = analysis.crop ?? {
+                        x: 0,
+                        y: 0,
+                        w: toEven(source.width),
+                        h: toEven(source.height)
+                    }
+                    const correctedRect = shrinkRectForBars(baseRect, check, check.tolerancePx)
 
-        await execFileAsync(
-            ffmpegPath,
-            [
-                '-y',
-                '-hide_banner',
-                '-loglevel', 'error',
-                '-filter_complex_threads', '2',
-                // Обрезаем фрагмент на входе в том же проходе, в котором
-                // строится clean-видеокомпозиция. Отдельный trim/encode не нужен.
-                '-ss', segment.startSeconds.toFixed(3),
-                '-i', inputPath,
+                    console.warn('[REEL BORDER CHECK] Black borders found; re-encoding with a tighter crop', {
+                        found: formatBars(check),
+                        crop: `${correctedRect.w}:${correctedRect.h}:${correctedRect.x}:${correctedRect.y}`
+                    })
 
-                '-loop', '1',
-                '-framerate', '30',
-                '-i', assets.video,
-                '-filter_complex', filterComplex,
-                '-map', '[vout]',
-                '-map', '0:a?',
-                '-t', segment.durationSeconds.toFixed(3),
-                '-c:v', 'libx264',
-                '-preset', 'ultrafast',
-                // Clean — промежуточный файл для последующего декорирования/повтора.
-                // CRF 21 заметно экономнее прежнего CRF 18, сохраняя хорошее качество.
-                '-crf', '21',
-                '-threads', '2',
-                '-profile:v', 'high',
-                '-pix_fmt', 'yuv420p',
-                '-r', '30',
-                '-c:a', 'aac',
-                '-b:a', '128k',
-                '-ar', '48000',
-                // Громкость нормализуется один раз в decorateInstagramVideo.ts.
-                '-movflags', '+faststart',
-                '-shortest',
-                outputPath
-            ],
-            {
-                timeout: 240_000,
-                maxBuffer: 20 * 1024 * 1024
+                    await encodeClean(correctedRect)
+                    check = await checkBlackBorders(outputPath)
+
+                    console.log('[REEL BORDER CHECK] After correction', {
+                        ok: check.ok,
+                        verified: check.verified,
+                        bars: formatBars(check),
+                        usedFrames: check.usedFrames
+                    })
+
+                    if (!check.ok) {
+                        const message =
+                            `[REEL BORDER CHECK] Black borders remain after correction: ${formatBars(check)}`
+                        if (borderCheckStrict()) {
+                            throw new Error(message)
+                        }
+                        console.warn(message)
+                    }
+                }
+            } catch (error: any) {
+                if (borderCheckStrict() && String(error?.message).startsWith('[REEL BORDER CHECK]')) {
+                    throw error
+                }
+                // Проверка вспомогательная: её сбой не должен ронять сборку клипа.
+                console.warn('[REEL BORDER CHECK] Check failed; keeping the prepared clip', {
+                    message: error?.message || error
+                })
             }
-        )
+        }
 
         console.log('[PREPARE INSTAGRAM VIDEO DONE]', {
             outputPath,
+            layout: `${REEL_SIZE}x${REEL_SIZE}`,
             totalDurationSeconds: segment.totalDurationSeconds,
             segmentStartSeconds: segment.startSeconds,
             durationSeconds: segment.durationSeconds,

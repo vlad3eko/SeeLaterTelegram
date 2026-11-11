@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import type { SubtitleContext, WordTiming } from '../types.js';
+import { verifyRequestTimeoutMs } from '../utils/budget.js';
 import { assertFileExists, runProcess } from '../utils/process.js';
 import { stripControlCharacters } from '../utils/safe-input.js';
 import {
@@ -600,7 +601,7 @@ export async function verifyTranscript(
 
         const ai = new GoogleGenAI({ apiKey });
 
-        ask = (model, contents) => requestJson(ai, model, contents);
+        ask = (model, contents) => requestJson(ai, model, contents, verifyRequestTimeoutMs());
     }
 
     const ffmpegPath = options.ffmpegPath

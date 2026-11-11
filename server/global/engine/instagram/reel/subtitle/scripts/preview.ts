@@ -1,7 +1,7 @@
 import { readFile, mkdir, writeFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { resolveSubtitleConfig } from '../config.js';
+import { getFormatSubtitleOverrides, resolveSubtitleConfig } from '../config.js';
 import { buildInstagramSubtitleBlocks } from '../layout/build-subtitle-blocks.js';
 import { generateInstagramSubtitleAss, getMaximumDialogueEndSeconds } from '../render/generate-ass.js';
 import { transcribeInstagramTranscript } from '../transcription/whisper.js';
@@ -139,7 +139,6 @@ async function main(): Promise<void> {
 
   const outDir = path.resolve(args['out-dir']);
   await mkdir(outDir, { recursive: true });
-  const config = resolveSubtitleConfig();
   const fontFilePath = path.resolve(
     args['font-file'] ??
     process.env.SUBTITLE_FONT_PATH ??
@@ -167,6 +166,9 @@ async function main(): Promise<void> {
     ? args['key-phrases'].split('|').map((phrase) => phrase.trim()).filter(Boolean)
     : [];
   const videoInfo = await probeInstagramVideo(path.resolve(args.input), args.ffprobe);
+  const config = resolveSubtitleConfig(
+    getFormatSubtitleOverrides(videoInfo.width, videoInfo.height),
+  );
   const words = transcript.words;
   const soundCues = transcript.soundCues;
   const blocks = buildInstagramSubtitleBlocks(words, config, keyPhrases);

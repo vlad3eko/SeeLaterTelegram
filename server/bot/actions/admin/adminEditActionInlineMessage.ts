@@ -3,8 +3,7 @@ import {
     updateAdminEditSession
 } from "#server/bot/actions/admin/adminEditSession"
 
-import {prepareReel} from "#server/global/engine/instagram/reel/prepareReel"
-import {createInstagramHook} from "#server/global/engine/instagram/reel/caption/createInstagramHook"
+import {sendTrailerToTelegram} from "#server/global/engine/instagram/reel/sendTrailerToTelegram"
 import {sessionCurrentMedia} from "#server/bot/actions/admin/helpers/sessionCurrentMedia"
 import {engineAdminEditCard} from "#server/bot/actions/admin/helpers/engineAdminEditCard"
 import {extractYouTubeVideoId} from "#server/global/engine/instagram/reel/utils/extractYouTubeVideoId";
@@ -144,8 +143,6 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
             return
         }
 
-        const instagramHook = createInstagramHook(session.mediaType, session.contentType)
-
         try {
 
             console.log('[ADMIN EDIT DISPATCH]', {
@@ -161,31 +158,12 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
                     preparedInstagram: null
                 })
 
-            const prepared = await prepareReel(keyTrailer, instagramHook, ctx, {
-                        id: session.mediaId,
-                        type: session.mediaType,
-                        title: session.media.title || session.media.name
-                    },
-                    'download'
-                )
-
-            if (!prepared.telegramFileId) {
-                await updateAdminEditSession(ctx.from.id, {mode: null})
-                message = await ctx.reply('Не удалось получить Telegram file_id')
-                await addMessageSession(ctx.from.id, SessionMessageType.Error, {messageId: message.message_id})
-                return
-            }
-
-
-
-            const preparedInstagram = {
-                keyTrailer,
-                reelR2: prepared.reelR2,
-                telegramFileId: prepared.telegramFileId
-            }
+            // Только скачать трейлер и прислать его в чат. Reel (чистое видео, субтитры, R2) не собирается:
+            // при публикации его делает воркер. Поэтому preparedInstagram остаётся пустым, а публикация
+            // сама отправит задачу воркеру.
+            await sendTrailerToTelegram(keyTrailer, ctx)
 
             await updateAdminEditSession(ctx.from.id, {
-                    preparedInstagram,
                     mode: null
                 })
 
@@ -195,6 +173,13 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
             await updateAdminEditSession(ctx.from.id, {
                     mode: null
                 })
+
+            try {
+                message = await ctx.reply('Не удалось скачать трейлер')
+                await addMessageSession(ctx.from.id, SessionMessageType.Error, {messageId: message.message_id})
+            } catch (notifyError) {
+                console.error('DOWNLOAD TRAILER NOTIFY ERROR:', notifyError)
+            }
         }
 
         return

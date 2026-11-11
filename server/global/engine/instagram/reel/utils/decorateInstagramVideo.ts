@@ -2,29 +2,29 @@ import {promisify} from 'node:util'
 import {execFile} from 'node:child_process'
 import path from 'node:path'
 import ffmpegPath from 'ffmpeg-static'
+import {getX264Args} from '#server/global/engine/instagram/reel/utils/encodeSettings'
 import {randomUUID} from "node:crypto";
-import {mkdir, readFile, unlink, writeFile} from "node:fs/promises";
-import {ensureReelOverlayAssets} from "#server/global/engine/instagram/reel/utils/prepareInstagramVideo";
+import {mkdir, unlink, writeFile} from "node:fs/promises";
+import {
+    REEL_SIZE,
+    isSquareReelVideo,
+    probeVideoDimensions,
+    probeVideoFrameRate,
+    reelAssetDirectory
+} from "./prepareInstagramVideo";
 import {existsSync} from "node:fs";
 
 const execFileAsync = promisify(execFile)
 
-type DecorateInstagramVideoOptions = {
-    title?: string
-    genre?: string | Array<{
-        id?: number
-        name?: string
-    } | string>
-    rating?: string | number
-    subtitlesPath?: string
-    highlightWord?: string
-    subtitleAssPath?: string
-}
+export type HookPlateStyle = 'dark' | 'light'
 
-type SubtitleCue = {
-    start: number
-    end: number
-    text: string
+type DecorateInstagramVideoOptions = {
+    /** Готовая дорожка субтитров речи (subtitle/prepare-subtitle-track.ts). */
+    subtitleAssPath?: string
+    /** «Сохрани, чтобы не потерять» эффектом субтитров (subtitle/cta.ts). */
+    ctaAssPath?: string
+    /** Цвета подложки хука. По умолчанию 'dark'. */
+    hookPlate?: HookPlateStyle
 }
 
 const escapeFilterPath = (value: string) =>
@@ -90,7 +90,8 @@ const splitHookIntoTwoLines = (hook: string): [string, string] => {
         words.slice(bestIndex).join(' '),
     ]
 }
-const formatTitleLineAss = (line: string): string => {
+
+const formatTitleLineAss = (line: string, textColor: string): string => {
     const category = line.match(
         /^(МУЛЬТСЕРИАЛ|МУЛЬТФИЛЬМ|СЕРИАЛ|ФИЛЬМ|АНИМЕ)(?=\s|$)/u
     )
@@ -105,7 +106,7 @@ const formatTitleLineAss = (line: string): string => {
 
     return (
         `{\\c&H002B26E0&}${escapeAssText(categoryText)}` +
-        `{\\c&H00EEF2F5&}${escapeAssText(rest)}`
+        `{\\c${textColor}}${escapeAssText(rest)}`
     )
 }
 
@@ -122,408 +123,167 @@ const formatAssTime = (seconds: number) => {
     return `${hours}:${String(minutes).padStart(2, '0')}:${String(wholeSeconds).padStart(2, '0')}.${String(centiseconds).padStart(2, '0')}`
 }
 
-const parseSubtitleTime = (value: string) => {
-    const normalized = value.trim().replace(',', '.')
-    const match = normalized.match(/^(\d{1,2}):(\d{2}):(\d{2})\.(\d{1,3})$/)
-
-    if (!match) {
-        return undefined
-    }
-
-    const hours = Number(match[1])
-    const minutes = Number(match[2])
-    const seconds = Number(match[3])
-    const milliseconds = Number(match[4]!.padEnd(3, '0'))
-// заглушка!
-    return hours * 3600 + minutes * 60 + seconds + milliseconds / 1000
+/**
+ * Подложка хука (решение владельца 11.11, прототип): чёрный фон, белый текст,
+ * сверху на видео. Держится около 6% длины ролика (не меньше 4 и не больше
+ * 10 с), затем уезжает вверх за кадр. Всё рисуется в ASS: подложка векторным
+ * прямоугольником, текст Oswald Bold. Плавность задана отдельным событием на
+ * каждый кадр движения (в ASS \move только линейный).
+ */
+const HOOK_PLATE = {
+    // Высота 147 px из 1080: 13,6% кадра, как на прототипе.
+    height: 147,
+    // Вход: подложка стартует на 22% скрытой, замедление к концу (кубическое).
+    entrySeconds: 0.45,
+    entryHiddenShare: 0.22,
+    // Выход вверх с разгоном к концу (квадратичный).
+    exitSeconds: 0.4,
+    secondsMin: 4,
+    secondsMax: 10,
+    shareOfReel: 0.06,
+    // Oswald Bold в libass: размер ASS примерно в 1,72 раза больше размера em.
+    // 75,6 это em 44 px: прописная «П» высотой 36 px, как на прототипе.
+    fontSize: 75.6,
+    fontSizeMin: 48,
+    // Ширина текста Oswald Bold примерно 0,56 em на знак (с запасом), поле 70 px.
+    // Отсюда предельный размер для длинной строки: 940 * 1,72 / 0,56 / знаков.
+    fitWidthConstant: 2884,
+    // Положение двух строк при размере по умолчанию: базовые линии y=64 и y=119
+    // (середина блока совпадает с серединой подложки), шаг 55 px.
+    lineStep: 55,
+    secondBaseline: 119,
+    // Привязка \an2 в libass: низ строки ниже базовой линии на 0,227 размера
+    // (замерено на плоских прописных «Н»).
+    anchorBelowBaseline: 0.227,
+    fps: 30
 }
 
-const wrapSubtitleText = (text: string, maxChars = 27) => {
-    const words = text.trim().split(/\s+/).filter(Boolean)
-    const lines: string[] = []
-    let current = ''
-
-    for (const word of words) {
-        // Split unusually long words rather than allow them to run outside the canvas.
-        if (word.length > maxChars) {
-            if (current) {
-                lines.push(current)
-                current = ''
-            }
-
-            for (let offset = 0; offset < word.length; offset += maxChars) {
-                lines.push(word.slice(offset, offset + maxChars))
-            }
-
-            continue
-        }
-
-        const candidate = current ? `${current} ${word}` : word
-
-        if (candidate.length <= maxChars) {
-            current = candidate
-            continue
-        }
-
-        if (current) {
-            lines.push(current)
-        }
-
-        current = word
+/** Цвета в формате ASS: &HAABBGGRR, альфа 00 непрозрачный, FF прозрачный. */
+const HOOK_PLATE_STYLES: Record<HookPlateStyle, { backgroundColour: string, textColour: string }> = {
+    // Выбор владельца на прототипе 11.11: rgb(12,12,12), непрозрачность 232/255,
+    // белый текст rgb(246,246,244).
+    dark: {
+        backgroundColour: '&H170C0C0C',
+        textColour: '&H00F4F6F6'
+    },
+    // Проверка 11.11: чуть притемнённый белый rgb(232,232,228), непрозрачность
+    // 245/255, чёрный текст rgb(14,14,14).
+    light: {
+        backgroundColour: '&H0AE4E8E8',
+        textColour: '&H000E0E0E'
     }
-
-    if (current) {
-        lines.push(current)
-    }
-
-    // A subtitle event is limited to two visual lines. Longer cues are split into
-    // consecutive two-line cards while preserving the original cue's time range.
-    const screens: string[] = []
-
-    for (let index = 0; index < lines.length; index += 2) {
-        screens.push(lines.slice(index, index + 2).join('\\N'))
-    }
-
-    return screens.length ? screens : ['']
 }
 
-const readSubtitleCues = async (subtitlesPath: string): Promise<SubtitleCue[]> => {
-    const extension = path.extname(subtitlesPath).toLowerCase()
-    let subtitleText: string
-
-    if (['.ass', '.ssa', '.vtt'].includes(extension)) {
-        if (!ffmpegPath) {
-            throw new Error('[DECORATE] ffmpeg-static binary not found for subtitle conversion')
-        }
-
-        const {stdout} = await execFileAsync(
-            ffmpegPath,
-            [
-                '-hide_banner',
-                '-loglevel', 'error',
-                '-i', subtitlesPath,
-                '-f', 'srt',
-                '-'
-            ],
-            {
-                timeout: 20_000,
-                maxBuffer: 10 * 1024 * 1024
-            }
+/** Сколько секунд подложка остаётся на экране с учётом входа и выхода. */
+export const getHookPlateSeconds = (reelSeconds: number) =>
+    Math.min(
+        reelSeconds,
+        clamp(
+            HOOK_PLATE.shareOfReel * reelSeconds,
+            HOOK_PLATE.secondsMin,
+            HOOK_PLATE.secondsMax
         )
+    )
 
-        subtitleText = stdout
+/** Сдвиг подложки по вертикали в пикселях (0 в покое, отрицательный при входе и выходе). */
+const getHookPlateOffset = (time: number, total: number) => {
+    const entry = HOOK_PLATE.entrySeconds
+    const exitStart = total - HOOK_PLATE.exitSeconds
 
-    } else {
-        subtitleText = await readFile(subtitlesPath, 'utf8')
+    if (time < entry) {
+        return -HOOK_PLATE.height * HOOK_PLATE.entryHiddenShare *
+            Math.pow(1 - time / entry, 3)
     }
 
-    const blocks = subtitleText
-        .replace(/^\uFEFF/, '')
-        .replace(/\r/g, '')
-        .split(/\n\s*\n/)
-
-    const cues: SubtitleCue[] = []
-
-    for (const block of blocks) {
-        const lines = block.split('\n').map(line => line.trim()).filter(Boolean)
-        const timingIndex = lines.findIndex(line => line.includes('-->'))
-
-        if (timingIndex < 0) {
-            continue
-        }
-
-        const timing = lines[timingIndex]!.split('-->')
-        const start = parseSubtitleTime(timing[0] ?? '')
-        const end = parseSubtitleTime((timing[1] ?? '').split(/\s+/)[0] ?? '')
-
-        if (start === undefined || end === undefined || end <= start) {
-            continue
-        }
-
-        const rawText = lines
-            .slice(timingIndex + 1)
-            .join(' ')
-            .replace(/<[^>]*>/g, '')
-            .replace(/\{[^}]*}/g, '')
-            .replace(/\s+/g, ' ')
-            .trim()
-            .toLocaleUpperCase('ru-RU')
-
-        if (rawText) {
-            cues.push({start, end, text: rawText})
-        }
+    if (time < exitStart) {
+        return 0
     }
 
-    return cues
+    return -HOOK_PLATE.height *
+        Math.pow((time - exitStart) / HOOK_PLATE.exitSeconds, 2)
 }
 
-const applyHighlight = (text: string, highlightWord?: string) => {
-    const parts = text.split('\\N')
+const createHookPlateAss = (
+    duration: number,
+    hook: string,
+    plateStyle: HookPlateStyle = 'dark',
+    fps: number = HOOK_PLATE.fps
+) => {
+    const colours = HOOK_PLATE_STYLES[plateStyle]
+    const total = getHookPlateSeconds(duration)
+    const [firstLine, secondLine] = splitHookIntoTwoLines(hook)
+    const longest = Math.max(firstLine.length, secondLine.length)
 
-    const renderPart = (part: string) => {
-        const safePart = escapeAssText(part)
+    const fontSize = clamp(
+        HOOK_PLATE.fitWidthConstant / longest,
+        HOOK_PLATE.fontSizeMin,
+        HOOK_PLATE.fontSize
+    )
+    const scale = fontSize / HOOK_PLATE.fontSize
+    const step = HOOK_PLATE.lineStep * scale
+    // Блок «верх прописных первой строки … базовая линия второй» стоит по центру подложки.
+    const secondBaseline = HOOK_PLATE.height / 2 + (36 + HOOK_PLATE.lineStep) * scale / 2
+    const firstBaseline = secondBaseline - step
+    const anchor = HOOK_PLATE.anchorBelowBaseline * fontSize
+    const firstLineY = firstBaseline + anchor
+    const secondLineY = secondBaseline + anchor
 
-        if (!highlightWord?.trim()) {
-            return safePart
-        }
-
-        const escapedWord = escapeAssText(highlightWord.trim().toLocaleUpperCase('ru-RU'))
-        const escapedPattern = escapedWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-        const wordPattern = new RegExp(`(^|[\\s.,!?;:()])(${escapedPattern})(?=$|[\\s.,!?;:()])`, 'u')
-
-        return safePart.replace(
-            wordPattern,
-            (_match, before: string, word: string) =>
-                `${before}{\\c&H002B26E0&}${word}{\\c&H00EEF2F5&}`
-        )
-    }
-
-    return parts.map(renderPart).join('\\N')
-}
-
-const createSubtitleAss = async (subtitlesPath: string, duration: number, highlightWord?: string) => {
-    const cues = await readSubtitleCues(subtitlesPath)
+    // Окна событий совпадают с кадрами ролика (24, 25 или 30 к/с), иначе анимация подложки
+    // шла бы рывками: часть окон ни один кадр не попадал бы.
+    const frame = 1 / fps
+    const frames = Math.ceil(total * fps)
     const events: string[] = []
 
-    for (const cue of cues) {
-        const start = clamp(cue.start, 0, duration)
-        const end = clamp(cue.end, 0, duration)
+    // Соседние кадры с одним сдвигом (покой) сливаем в одно событие. Окно события
+    // центрируется на моменте кадра: округление времени ASS до сотых его не сдвинет.
+    let runStart = 0
+    let runOffset = getHookPlateOffset(0, total)
 
-        if (end <= start) {
+    const pushRun = (fromFrame: number, toFrame: number, offset: number) => {
+        const start = Math.max(0, (fromFrame - 0.5) * frame)
+        const end = toFrame >= frames - 1
+            ? total + 0.05
+            : (toFrame + 0.5) * frame
+        const y = offset.toFixed(2)
+        const first = (offset + firstLineY).toFixed(2)
+        const second = (offset + secondLineY).toFixed(2)
+        const from = formatAssTime(start)
+        const to = formatAssTime(Math.min(end, total + 0.05))
+
+        events.push(
+            `Dialogue: 0,${from},${to},HookPlate,,0,0,0,,{\\an7\\pos(0,${y})\\p1}m 0 0 l ${REEL_SIZE} 0 ${REEL_SIZE} ${HOOK_PLATE.height} 0 ${HOOK_PLATE.height}{\\p0}`,
+            `Dialogue: 1,${from},${to},HookText,,0,0,0,,{\\an2\\pos(${REEL_SIZE / 2},${first})\\fs${fontSize.toFixed(2)}}${formatTitleLineAss(firstLine, colours.textColour + '&')}`,
+            `Dialogue: 1,${from},${to},HookText,,0,0,0,,{\\an2\\pos(${REEL_SIZE / 2},${second})\\fs${fontSize.toFixed(2)}}${formatTitleLineAss(secondLine, colours.textColour + '&')}`
+        )
+    }
+
+    for (let index = 1; index <= frames; index++) {
+        const offset = index < frames
+            ? getHookPlateOffset(index * frame, total)
+            : Number.NaN
+
+        if (index < frames && Math.abs(offset - runOffset) < 0.005) {
             continue
         }
 
-        const screens = wrapSubtitleText(cue.text)
-        const screenDuration = (end - start) / screens.length
-
-        screens.forEach((screen, index) => {
-            const screenStart = start + screenDuration * index
-            const screenEnd = index === screens.length - 1
-                ? end
-                : start + screenDuration * (index + 1)
-
-            events.push(
-                `Dialogue: 0,${formatAssTime(screenStart)},${formatAssTime(screenEnd)},Sub,,0,0,0,,${applyHighlight(screen, highlightWord)}`
-            )
-        })
+        pushRun(runStart, index - 1, runOffset)
+        runStart = index
+        runOffset = offset
     }
 
     return [
         '[Script Info]',
         'ScriptType: v4.00+',
-        'PlayResX: 1080',
-        'PlayResY: 1920',
+        `PlayResX: ${REEL_SIZE}`,
+        `PlayResY: ${REEL_SIZE}`,
         'WrapStyle: 2',
         'ScaledBorderAndShadow: yes',
         'YCbCr Matrix: None',
         '',
         '[V4+ Styles]',
         'Format: Name,Fontname,Fontsize,PrimaryColour,SecondaryColour,OutlineColour,BackColour,Bold,Italic,Underline,StrikeOut,ScaleX,ScaleY,Spacing,Angle,BorderStyle,Outline,Shadow,Alignment,MarginL,MarginR,MarginV,Encoding',
-        // Exact subtitle style from the supplied layout specification.
-        'Style: Sub,Oswald,62,&H00EEF2F5,&H00EEF2F5,&H00000000,&H64000000,-1,0,0,0,100,100,0,0,1,3,2,2,60,60,536,1',
-        '',
-        '[Events]',
-        'Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text',
-        ...events
-    ].join('\n')
-}
-
-const estimateAssTextWidth = (text: string, fontSize: number, spacing = 2): number => {
-    let width = 0
-
-    for (const char of text) {
-        if (char === ' ') {
-            width += fontSize * 0.28
-        } else if (/[.,:;·]/u.test(char)) {
-            width += fontSize * 0.28
-        } else if (/[ІЇIТЛГ]/u.test(char)) {
-            width += fontSize * 0.36
-        } else if (/[МШЖЩФЮЫЪ]/u.test(char)) {
-            width += fontSize * 0.72
-        } else {
-            width += fontSize * 0.52
-        }
-    }
-
-    return width + Math.max(0, Array.from(text).length - 1) * spacing
-}
-
-const wrapAssTextByWidth = (text: string, fontSize: number, maxWidth = 960, spacing = 2): string[] => {
-    const words = text.trim().split(/\s+/u).filter(Boolean)
-    const lines: string[] = []
-    let current = ''
-
-    for (const word of words) {
-        // Защита для необычно длинного слова без пробелов.
-        if (estimateAssTextWidth(word, fontSize, spacing) > maxWidth) {
-            if (current) {
-                lines.push(current)
-                current = ''
-            }
-
-            let chunk = ''
-            for (const char of Array.from(word)) {
-                const candidate = chunk + char
-                if (chunk && estimateAssTextWidth(candidate, fontSize, spacing) > maxWidth) {
-                    lines.push(chunk)
-                    chunk = char
-                } else {
-                    chunk = candidate
-                }
-            }
-            current = chunk
-            continue
-        }
-
-        const candidate = current ? `${current} ${word}` : word
-        if (estimateAssTextWidth(candidate, fontSize, spacing) <= maxWidth) {
-            current = candidate
-        } else {
-            if (current) lines.push(current)
-            current = word
-        }
-    }
-
-    if (current) lines.push(current)
-    return lines
-}
-
-const fitMetadataToTwoLines = (text: string): { lines: string[], fontSize: number } => {
-    const maxWidth = 960
-    const spacing = 2
-
-    for (const fontSize of [40, 38, 36, 34, 32, 30]) {
-        const lines = wrapAssTextByWidth(text, fontSize, maxWidth, spacing)
-        if (lines.length <= 2) {
-            return {lines, fontSize}
-        }
-    }
-
-    // Крайний случай с аномально длинным списком жанров: две строки
-    // важнее выхода текста за ширину кадра. Вторая строка получает многоточие.
-    const fontSize = 30
-    const lines = wrapAssTextByWidth(text, fontSize, maxWidth, spacing)
-    const visible = lines.slice(0, 2)
-
-    if (lines.length > 2 && visible.length === 2) {
-        let second = visible[1]!
-        while (
-            second.length > 0 &&
-            estimateAssTextWidth(`${second}…`, fontSize, spacing) > maxWidth
-            ) {
-            second = Array.from(second).slice(0, -1).join('')
-        }
-        visible[1] = `${second.trimEnd()}…`
-    }
-
-    return {lines: visible, fontSize}
-}
-
-const createTemplateAss = (duration: number, options: DecorateInstagramVideoOptions, hook: string) => {
-    const end = formatAssTime(duration)
-    const events: string[] = []
-
-    const [firstTitle, secondTitle] = splitHookIntoTwoLines(hook)
-
-    const longestTitleLine = Math.max(
-        firstTitle.length,
-        secondTitle.length
-    )
-
-    const titleFontSize =
-        longestTitleLine > 26 ? 90 :
-            longestTitleLine > 23 ? 100 :
-                longestTitleLine > 20 ? 112 :
-                    longestTitleLine > 18 ? 124 : 132
-
-    const firstTitleY = 232
-    const secondTitleY = firstTitleY + Math.round(50 + titleFontSize * 0.36)
-
-    events.push(
-        `Dialogue: 0,0:00:00.00,${end},Shadow,,0,0,0,,{\\an8\\pos(540,${firstTitleY + 4})\\fsp0\\fs${titleFontSize}\\blur8\\bord0\\shad0\\1c&H000000&\\1a&HB3&}${escapeAssText(firstTitle)}`,
-        `Dialogue: 1,0:00:00.00,${end},Title,,0,0,0,,{\\an8\\pos(540,${firstTitleY})\\fsp0\\fs${titleFontSize}\\bord1.2\\3c&H000000&}${formatTitleLineAss(firstTitle)}`,
-        `Dialogue: 0,0:00:00.00,${end},Shadow,,0,0,0,,{\\an8\\pos(540,${secondTitleY + 4})\\fsp0\\fs${titleFontSize}\\blur8\\bord0\\shad0\\1c&H000000&\\1a&HB3&}${escapeAssText(secondTitle)}`,
-        `Dialogue: 1,0:00:00.00,${end},Title,,0,0,0,,{\\an8\\pos(540,${secondTitleY})\\fsp0\\fs${titleFontSize}\\bord1.2\\3c&H000000&}${formatTitleLineAss(secondTitle)}`
-    )
-
-    const genre = Array.isArray(options.genre)
-        ? options.genre
-            .map(item => typeof item === 'string' ? item : item.name ?? '')
-            .map(name => name.trim())
-            .filter(Boolean)
-            .join(' · ')
-        : String(options.genre ?? '').trim()
-
-    const rawRating = typeof options.rating === 'number'
-        ? options.rating
-        : Number(String(options.rating ?? '').trim().replace(',', '.'))
-
-    // Ноль, пустая строка, прочерк и некорректное значение означают
-    // отсутствие рейтинга. Не рисуем ложные 0.0 и не оставляем лишнюю точку.
-    const rating = Number.isFinite(rawRating) && rawRating > 0 && rawRating <= 10
-        ? rawRating.toFixed(1)
-        : ''
-
-    const genreLabel = escapeAssText(
-        genre.toLocaleUpperCase('ru-RU')
-    )
-
-    const ratingToken = rating
-
-    const metadataText = [
-        genreLabel,
-        ratingToken
-    ].filter(Boolean).join(' · ')
-
-    if (metadataText) {
-        const {lines, fontSize} = fitMetadataToTwoLines(metadataText)
-
-        lines.forEach((line, index) => {
-            const y = lines.length === 1
-                ? 1469
-                : index === 0 ? 1442 : 1478
-
-            const ratingIndex = ratingToken
-                ? line.lastIndexOf(ratingToken)
-                : -1
-
-            const styledLine = ratingIndex >= 0
-                ? (
-                    `${escapeAssText(line.slice(0, ratingIndex))}` +
-                    `{\\c&H003BD4FF&\\b1}${rating}{\\b0\\c&H00F5F5F5&}`
-                )
-                : escapeAssText(line)
-
-            events.push(
-                `Dialogue: 1,0:00:00.00,${end},Meta,,0,0,0,,{\\an5\\pos(540,${y})\\fsp2\\fs${fontSize}}${styledLine}`
-            )
-        })
-    }
-
-    const badgeText = (options.title)?.toUpperCase()
-    const callToAction = 'Сохрани, чтобы не потерять'
-
-    events.push(
-        `Dialogue: 1,0:00:00.00,${end},Badge,,0,0,0,,{\\an5\\pos(555,1570)\\fsp3}${badgeText}`,
-        `Dialogue: 1,0:00:00.00,${end},CTA,,0,0,0,,{\\an5\\pos(555,1677)}${callToAction}`
-    )
-
-    return [
-        '[Script Info]',
-        'ScriptType: v4.00+',
-        'PlayResX: 1080',
-        'PlayResY: 1920',
-        'WrapStyle: 2',
-        'ScaledBorderAndShadow: yes',
-        'YCbCr Matrix: None',
-        '',
-        '[V4+ Styles]',
-        'Format: Name,Fontname,Fontsize,PrimaryColour,SecondaryColour,OutlineColour,BackColour,Bold,Italic,Underline,StrikeOut,ScaleX,ScaleY,Spacing,Angle,BorderStyle,Outline,Shadow,Alignment,MarginL,MarginR,MarginV,Encoding',
-        'Style: Shadow,Oswald,92,&H00000000,&H00000000,&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,0,0,8,0,0,0,1',
-        'Style: Title,Oswald,92,&H00EEF2F5,&H00EEF2F5,&H00000000,&H00000000,1,0,0,0,100,100,1,0,1,0,0,8,0,0,0,1',
-        'Style: Meta,PT Sans,36,&H26EEF2F5,&H26EEF2F5,&H00000000,&H00000000,0,0,0,0,100,100,5,0,1,0,0,5,0,0,0,1',
-        'Style: Badge,Oswald,54,&H00EEF2F5,&H00EEF2F5,&H00000000,&H00000000,1,0,0,0,100,100,3,0,1,0,0,5,0,0,0,1',
-        'Style: CTA,PT Sans,38,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1',
+        `Style: HookPlate,Oswald,20,${colours.backgroundColour},${colours.backgroundColour},&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1`,
+        `Style: HookText,Oswald,${HOOK_PLATE.fontSize},${colours.textColour},${colours.textColour},&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,0,0,2,0,0,0,1`,
         '',
         '[Events]',
         'Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text',
@@ -598,10 +358,10 @@ const getVideoDuration = async (inputPath: string) => {
 }
 
 const verifyFonts = (fontsDirectory: string) => {
+    // Oswald Bold нужен подложке хука, Montserrat ExtraBold: субтитрам и призыву.
     const requiredFonts = [
         'Oswald-Bold.ttf',
-        'Oswald-SemiBold.ttf',
-        'PTSans-Regular.ttf'
+        'Montserrat-ExtraBold.ttf'
     ]
 
     const missing = requiredFonts.filter(
@@ -654,6 +414,9 @@ const ensureFontConfig = async (fontsDirectory: string, configDirectory: string)
     return fontConfigPath
 }
 
+/** Тонкая полоска прогресса по нижнему краю квадрата (решено 11.11). */
+const PROGRESS_HEIGHT = 6
+
 export const decorateInstagramVideo = async (inputPath: string, keyTrailer: string, hook: string, options: DecorateInstagramVideoOptions = {}) => {
     if (!ffmpegPath) {
         throw new Error('[DECORATE] ffmpeg-static binary not found')
@@ -667,84 +430,90 @@ export const decorateInstagramVideo = async (inputPath: string, keyTrailer: stri
     const fontsDirectory = path.join(process.cwd(), 'public', 'instagram', 'fonts')
     verifyFonts(fontsDirectory)
 
-    const assets = await ensureReelOverlayAssets()
-    const fontConfigPath = await ensureFontConfig(fontsDirectory, path.dirname(assets.static))
+    // Старый clean 1080x1920 (до перехода на квадрат) оформлять нельзя: подложка,
+    // субтитры и полоска рассчитаны на 1080x1080. Его надо пересобрать из исходника.
+    const dimensions = await probeVideoDimensions(inputPath)
+    if (!isSquareReelVideo(dimensions)) {
+        throw new Error(
+            `[DECORATE] Expected a ${REEL_SIZE}x${REEL_SIZE} clean video, got ` +
+            `${dimensions.width}x${dimensions.height}. Rebuild it with prepareInstagramVideo().`
+        )
+    }
+
+    // Частота clean сохраняется как есть (его собирал prepareInstagramVideo на родной частоте
+    // исходника). Не определилась: 30 к/с.
+    const frameRate = (await probeVideoFrameRate(inputPath)) ?? {rate: '30', fps: 30}
+
+    const fontConfigPath = await ensureFontConfig(fontsDirectory, reelAssetDirectory)
     const duration = await getVideoDuration(inputPath)
     const templateAssPath = path.join(
         path.dirname(inputPath),
         `${keyTrailer}_${randomUUID()}_template.ass`
     )
 
-    if (options.subtitlesPath && options.subtitleAssPath) {
-        throw new Error(
-            '[DECORATE] Pass either subtitlesPath or subtitleAssPath, not both.'
-        )
-    }
-
-    const generatedSubtitleAssPath = options.subtitlesPath
-        ? path.join(
-            path.dirname(inputPath),
-            `${keyTrailer}_${randomUUID()}_subtitles.ass`
-        )
-        : undefined
-
-    const directSubtitleAssPath = options.subtitleAssPath
+    const activeSubtitleAssPath = options.subtitleAssPath
         ? path.resolve(options.subtitleAssPath)
         : undefined
 
     if (
-        directSubtitleAssPath &&
-        !existsSync(directSubtitleAssPath)
+        activeSubtitleAssPath &&
+        !existsSync(activeSubtitleAssPath)
     ) {
         throw new Error(
-            `[DECORATE] Dynamic subtitle ASS file does not exist: ${directSubtitleAssPath}`
+            `[DECORATE] Dynamic subtitle ASS file does not exist: ${activeSubtitleAssPath}`
         )
     }
 
-    const activeSubtitleAssPath =
-        directSubtitleAssPath ?? generatedSubtitleAssPath
+    const ctaAssPath = options.ctaAssPath
+        ? path.resolve(options.ctaAssPath)
+        : undefined
+
+    if (ctaAssPath && !existsSync(ctaAssPath)) {
+        throw new Error(
+            `[DECORATE] CTA ASS file does not exist: ${ctaAssPath}`
+        )
+    }
 
     const startedAt = Date.now()
 
     try {
         await writeFile(
             templateAssPath,
-            createTemplateAss(duration, options, hook),
+            createHookPlateAss(duration, hook, options.hookPlate ?? 'dark', frameRate.fps),
             'utf8'
         )
-
-        if (options.subtitlesPath && generatedSubtitleAssPath) {
-            const subtitleAss = await createSubtitleAss(
-                options.subtitlesPath,
-                duration,
-                options.highlightWord
-            )
-
-            await writeFile(generatedSubtitleAssPath, subtitleAss, 'utf8')
-        }
 
         const filterParts: string[] = []
         let currentVideoLabel = '0:v'
 
-        // Layer 5: optional film subtitles.
-        if (activeSubtitleAssPath) {
+        const addAss = (assPath: string, outputLabel: string) => {
             filterParts.push(
-                `[${currentVideoLabel}]ass=filename='${escapeFilterPath(activeSubtitleAssPath)}':fontsdir='${escapeFilterPath(fontsDirectory)}'[withSubtitles]`
+                `[${currentVideoLabel}]ass=filename='${escapeFilterPath(assPath)}':fontsdir='${escapeFilterPath(fontsDirectory)}'[${outputLabel}]`
             )
-            currentVideoLabel = 'withSubtitles'
+            currentVideoLabel = outputLabel
         }
 
-        // Layer 6: progress track and animated red progress.
+        // Слой 1: субтитры речи (наш эффект) или запасные из SRT/VTT.
+        if (activeSubtitleAssPath) {
+            addAss(activeSubtitleAssPath, 'withSubtitles')
+        }
+
+        // Слой 2: «Сохрани, чтобы не потерять» внизу, в середине и в конце ролика.
+        if (ctaAssPath) {
+            addAss(ctaAssPath, 'withCta')
+        }
+
+        // Слой 3: полоска прогресса у нижнего края (дорожка и заливка).
+        const progressY = REEL_SIZE - PROGRESS_HEIGHT
         filterParts.push(
-            `[${currentVideoLabel}]drawbox=x=0:y=1406:w=1080:h=8:color=white@0.22:t=fill[progressTrack]`,
-            '[2:v]format=rgba[progressSource]',
-            `[progressTrack][progressSource]overlay=x='-w+w*t/${duration.toFixed(3)}':y=1406:shortest=1[withProgress]`
+            `[${currentVideoLabel}]drawbox=x=0:y=${progressY}:w=${REEL_SIZE}:h=${PROGRESS_HEIGHT}:color=white@0.22:t=fill[progressTrack]`,
+            '[1:v]format=rgba[progressSource]',
+            `[progressTrack][progressSource]overlay=x='-w+w*t/${duration.toFixed(3)}':y=${progressY}:shortest=1[withProgress]`
         )
 
-        // Layer 7: static graphics, then the text belonging to that layer.
+        // Слой 4: подложка хука поверх всего, затем уходит вверх за кадр.
         filterParts.push(
-            '[withProgress][1:v]overlay=0:0:eof_action=repeat:repeatlast=1[withStaticGraphics]',
-            `[withStaticGraphics]ass=filename='${escapeFilterPath(templateAssPath)}':fontsdir='${escapeFilterPath(fontsDirectory)}',format=yuv420p[vout]`
+            `[withProgress]ass=filename='${escapeFilterPath(templateAssPath)}':fontsdir='${escapeFilterPath(fontsDirectory)}',format=yuv420p[vout]`
         )
 
         const filterComplex = filterParts.join(';')
@@ -758,22 +527,19 @@ export const decorateInstagramVideo = async (inputPath: string, keyTrailer: stri
                 '-filter_complex_threads', '1',
                 '-filter_threads', '1',
                 '-i', inputPath,
-                '-i', assets.static,
                 '-f', 'lavfi',
-                '-i', `color=c=0x262626:s=1080x8:r=30:d=${duration.toFixed(3)}`,
+                '-i', `color=c=white:s=${REEL_SIZE}x${PROGRESS_HEIGHT}:r=${frameRate.rate}:d=${duration.toFixed(3)}`,
                 '-filter_complex', filterComplex,
                 '-map', '[vout]',
                 '-map', '0:a?',
                 '-t', duration.toFixed(3),
-                '-r', '30',
-                '-c:v', 'libx264',
-                '-preset', 'ultrafast',
-                '-crf', '20',
-                '-threads', '1',
-                '-profile:v', 'high',
+                '-r', frameRate.rate,
+                // Финал: второе кодирование после clean, дальше его пережмёт Instagram.
+                // veryfast CRF 17 с потолком битрейта 25 Мбит/с (encodeSettings.ts).
+                ...getX264Args('final'),
                 '-pix_fmt', 'yuv420p',
                 '-c:a', 'aac',
-                '-b:a', '160k',
+                '-b:a', '192k',
                 '-ar', '48000',
                 '-af', 'loudnorm=I=-14:TP=-1.5:LRA=11',
                 '-movflags', '+faststart',
@@ -793,11 +559,14 @@ export const decorateInstagramVideo = async (inputPath: string, keyTrailer: stri
 
         console.log('[DECORATE INSTAGRAM VIDEO DONE]', {
             outputPath,
+            layout: `${REEL_SIZE}x${REEL_SIZE}`,
             durationSeconds: Number(duration.toFixed(3)),
-            genre: options.genre ?? null,
-            rating: options.rating ?? null,
+            hookPlateSeconds: Number(getHookPlateSeconds(duration).toFixed(2)),
+            hookPlate: options.hookPlate ?? 'dark',
+            fps: frameRate.rate,
             subtitles: Boolean(activeSubtitleAssPath),
-            subtitleMode: options.subtitleAssPath ? 'dynamic-ass' : options.subtitlesPath ? 'legacy-cues' : 'none',
+            subtitleMode: activeSubtitleAssPath ? 'dynamic-ass' : 'none',
+            saveCta: Boolean(ctaAssPath),
             durationMs: Date.now() - startedAt
         })
 
@@ -814,10 +583,6 @@ export const decorateInstagramVideo = async (inputPath: string, keyTrailer: stri
 
     } finally {
         await unlink(templateAssPath).catch(() => undefined)
-
-        if (generatedSubtitleAssPath) {
-            await unlink(generatedSubtitleAssPath).catch(() => undefined)
-        }
     }
 
     return outputPath

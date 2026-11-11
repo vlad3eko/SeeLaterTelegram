@@ -32,6 +32,13 @@ export const DEFAULT_BUDGET_MS = 10 * 60 * 1000;
 export const DEFAULT_REQUEST_TIMEOUT_MS = 60 * 1000;
 /** Translating a few short lines takes seconds; an answer slower than this is as good as lost. */
 export const DEFAULT_TRANSLATE_REQUEST_TIMEOUT_MS = 25 * 1000;
+/**
+ * The transcript check sends the whole audio with the text, but the answer is a short list of
+ * problems. A model that is silent for a minute is overloaded (measured: gemini-3.8-flash did
+ * not answer in 60 s, the next model answered in 2.5 s), so the request is cut earlier and
+ * the fallback model takes over.
+ */
+export const DEFAULT_VERIFY_REQUEST_TIMEOUT_MS = 30 * 1000;
 /** Time kept back for the translation while the optional steps before it run. */
 export const DEFAULT_TRANSLATE_RESERVE_MS = 150 * 1000;
 
@@ -56,6 +63,11 @@ export function requestTimeoutMs(env: NodeJS.ProcessEnv = process.env): number {
 /** REEL_SUBTITLE_TRANSLATE_REQUEST_TIMEOUT_MS: one translation request (5 s – 5 min, default 25 s). */
 export function translateRequestTimeoutMs(env: NodeJS.ProcessEnv = process.env): number {
     return readMs(env.REEL_SUBTITLE_TRANSLATE_REQUEST_TIMEOUT_MS, DEFAULT_TRANSLATE_REQUEST_TIMEOUT_MS, 5_000, 5 * 60 * 1000);
+}
+
+/** REEL_SUBTITLE_VERIFY_REQUEST_TIMEOUT_MS: one transcript check request (5 s – 5 min, default 30 s). */
+export function verifyRequestTimeoutMs(env: NodeJS.ProcessEnv = process.env): number {
+    return readMs(env.REEL_SUBTITLE_VERIFY_REQUEST_TIMEOUT_MS, DEFAULT_VERIFY_REQUEST_TIMEOUT_MS, 5_000, 5 * 60 * 1000);
 }
 
 /** REEL_SUBTITLE_TRANSLATE_RESERVE_MS: time kept back for the translation (0 – 10 min, default 150 s). */

@@ -291,6 +291,71 @@ export const defaultSubtitleConfig: SubtitleConfig = {
     },
 };
 
+/**
+ * Square (1:1) Reel layout. Look approved by the owner on the 11.11 prototype.
+ *
+ * Letters are 85% of the size measured on the reference video (28 em units on
+ * a 720 px wide frame), so fontSizeAtBase is 23.8. The rows keep the fixed
+ * baselines of defaultSubtitleConfig, which generate-ass.ts scales by
+ * height / 1920. On 1080x1080 that gives an em of about 35.7 px, baselines at
+ * y=574 and y=602 (53% and 56% of the height) and 28 px between the rows, so
+ * the two rows of a phrase sit close together.
+ *
+ * The canvas is declared 720x720 because the module scales everything by
+ * height / canvas.baseHeight. With the vertical 720x1280 base the letters on a
+ * square frame would come out about 44% smaller.
+ *
+ * Sound cues (separate gray line at the top) stay on but are dimmer than in the
+ * vertical layout, as the owner asked on 11.11: ASS alpha 88 -> 150 (about 65%
+ * -> 41% opaque), a slightly darker gray and a fainter outline. The hook plate
+ * is burned after the subtitle layer, so while it is on screen it covers the
+ * cues.
+ */
+export const squareSubtitleOverrides: SubtitleConfigOverrides = {
+    canvas: {
+        baseWidth: 720,
+        baseHeight: 720,
+    },
+    typography: {
+        fontSizeAtBase: 23.8,
+    },
+    soundCues: {
+        color: '#A4A9B1',
+        alpha: 150,
+        outlineAlpha: 175,
+    },
+};
+
+/** Overrides that match the shape of the video being subtitled. */
+export function getFormatSubtitleOverrides(
+    width: number,
+    height: number,
+): SubtitleConfigOverrides {
+    const isSquare =
+        width > 0 &&
+        height > 0 &&
+        Math.abs(width - height) / Math.max(width, height) <= 0.02;
+
+    return isSquare ? squareSubtitleOverrides : {};
+}
+
+/** Merges override layers section by section; later layers win. */
+export function mergeSubtitleOverrides(
+    ...layers: Array<SubtitleConfigOverrides | undefined>
+): SubtitleConfigOverrides {
+    const merged: Record<string, Record<string, unknown>> = {};
+
+    for (const layer of layers) {
+        if (!layer) continue;
+
+        for (const [section, values] of Object.entries(layer)) {
+            merged[section] = { ...merged[section], ...values };
+        }
+    }
+
+    return merged as SubtitleConfigOverrides;
+}
+
 export function resolveSubtitleConfig(
     overrides: SubtitleConfigOverrides = {},
 ): SubtitleConfig {

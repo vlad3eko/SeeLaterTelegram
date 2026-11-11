@@ -450,32 +450,6 @@ for (const folder of ['instagram', 'assets']) {
 
 
 /*
- * Проверяем конкретно тот файл, на котором сейчас падает FFmpeg.
- */
-
-const backgroundPath =
-	path.join(
-		publicTargetDir,
-		'instagram',
-		'bg.jpg'
-	)
-
-try {
-
-	await access(backgroundPath)
-
-} catch {
-
-	throw new Error(
-		`[STATIC ASSETS] Required background file not found after copy: ${backgroundPath}. Check the filename in the project's public/instagram directory.`
-	)
-}
-
-console.log(
-	'[STATIC ASSETS] Background ready:',
-	backgroundPath
-)
-/*
  * =========================================================
  * 2.1. PREPARE BGUTIL SCRIPT PROVIDER FOR VERCEL
  * =========================================================
