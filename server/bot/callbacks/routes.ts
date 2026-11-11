@@ -85,6 +85,20 @@ export const ADMIN_PUBLISH_CARD = defineCallback<AdminPublishRef>({
     })
 })
 
+/**
+ * Тип видео по ссылке, которую администратор прислал вручную («Изменить ключ трейлера»):
+ * trailer — квадрат по центру, как всегда; clip — нарезка/фрагмент: исходник хранится
+ * в R2 до полной публикации (дальше — слежение за лицом по X).
+ */
+export type SourceVideoType = 'trailer' | 'clip'
+
+export const ADMIN_VIDEO_TYPE = defineCallback<{videoType: SourceVideoType}>({
+    id: 'admin_video_type',
+    pattern: /^admin_video_type_(trailer|clip)$/,
+    encode: ({videoType}) => `admin_video_type_${videoType}`,
+    decode: match => ({videoType: match[1] as SourceVideoType})
+})
+
 // Меню «Редактировать» (editMediaChoiceKeyboard).
 export const ADMIN_DOWNLOAD_TRAILER = defineStaticCallback('download_trailer', 'download_trailer')
 export const ADMIN_CHANGE_TRAILER_KEY = defineStaticCallback('update_trailer_key', 'update_trailer_key')

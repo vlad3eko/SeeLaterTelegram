@@ -40,6 +40,8 @@ type ReelInputPayload = {
     hook?: string
     /** Хук, выбранный администратором кнопкой 1–4 (фаза finish). */
     chosenHook?: string | null
+    /** clip — нарезка: исходник в R2 не удаляется до полной публикации. */
+    videoType?: 'trailer' | 'clip'
     finalizerToken?: string
     finalizerUrl?: string
     content?: {
@@ -475,6 +477,7 @@ const main = async (): Promise<void> => {
                 content,
                 chosenHook: chosenHook || undefined,
                 fallbackHook: hook,
+                keepSource: input.videoType === 'clip',
                 options: {onHookGenerated}
             })
             : await prepareReel(keyTrailer, hook, content, {onHookGenerated})

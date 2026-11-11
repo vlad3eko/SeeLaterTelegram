@@ -117,10 +117,12 @@ export const publishAdminInlineMedia = async (ctx: any) => {
         session.keyTrailer = keyTrailer || undefined
         session.preparedInstagram = undefined
         session.trailerKeySource = undefined
+        session.videoType = undefined
         await updateAdminEditSession(ctx.from.id, {
             keyTrailer: keyTrailer || null,
             preparedInstagram: null,
-            trailerKeySource: null
+            trailerKeySource: null,
+            videoType: null
         })
     }
 
@@ -168,7 +170,9 @@ export const publishAdminInlineMedia = async (ctx: any) => {
                     currentMedia,
                     inlineMessageId: session.inlineMessageId,
                     publishStartedAt: publishLockStartedAt,
-                    isRichTypeCard
+                    isRichTypeCard,
+                    // Тип по ручной ссылке; без выбора — трейлер (квадрат по центру).
+                    videoType: session.trailerKeySource === 'manual' && session.videoType === 'clip' ? 'clip' : 'trailer'
                 }
             })
 

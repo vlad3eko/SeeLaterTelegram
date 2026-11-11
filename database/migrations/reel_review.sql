@@ -20,6 +20,19 @@ alter table public.card_edit_session
     add constraint card_edit_session_trailer_key_source_check
         check (trailer_key_source is null or trailer_key_source = 'manual');
 
+-- 1б. Тип видео по ручной ссылке (добавлено 11.11 вечером): trailer или clip (нарезка).
+--     Выполнить ДО выкатки бота с выбором типа: бот пишет video_type при каждом
+--     сохранении сессии.
+alter table public.card_edit_session
+    add column if not exists video_type text;
+
+alter table public.card_edit_session
+    drop constraint if exists card_edit_session_video_type_check;
+
+alter table public.card_edit_session
+    add constraint card_edit_session_video_type_check
+        check (video_type is null or video_type in ('trailer', 'clip'));
+
 -- 2. Задача Reel.
 --    review_mode           manual: clean и хук проверяет администратор; auto: как раньше.
 --    worker_phase          что делает следующий запуск воркера:

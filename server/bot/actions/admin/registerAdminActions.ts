@@ -11,6 +11,7 @@ import {adminEditTypeCard} from "#server/bot/actions/admin/card/adminEditTypeCar
 import {adminDownloadTrailer} from "#server/bot/actions/admin/session/mods/adminDownloadTrailer";
 import {adminAddTrailerKey} from "#server/bot/actions/admin/session/adminAddTrailerKey";
 import {isAdmin} from "#server/bot/consts/admins";
+import {adminChooseVideoType} from "#server/bot/actions/admin/session/adminChooseVideoType";
 import {
     ADMIN_CHANGE_TRAILER_KEY,
     ADMIN_DOWNLOAD_TRAILER,
@@ -20,6 +21,7 @@ import {
     ADMIN_EDIT_TEXT,
     ADMIN_EDIT_TYPE,
     ADMIN_PUBLISH_CARD,
+    ADMIN_VIDEO_TYPE,
     REEL_REVIEW_CANCEL,
     REEL_REVIEW_HOOKS,
     REEL_REVIEW_PICK_HOOK,
@@ -62,6 +64,7 @@ export const registerAdminActions = (bot: Telegraf) => {
     bot.action(ADMIN_EDIT_TEXT.pattern, adminOnly(adminEditText))
     bot.action(ADMIN_EDIT_OVERVIEW.pattern, adminOnly(adminEditOverview))
     bot.action(ADMIN_EDIT_TYPE.pattern, adminOnly(adminEditTypeCard))
+    bot.action(ADMIN_VIDEO_TYPE.pattern, adminOnly(adminChooseVideoType))
 
     // Проверка Reel перед публикацией: «Пересобрать», «Сгенерировать хук», «1»–«4», «Отменить».
     bot.action(REEL_REVIEW_REBUILD.pattern, adminOnly(reelReviewRebuild))

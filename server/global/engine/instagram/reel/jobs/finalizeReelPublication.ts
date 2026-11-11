@@ -8,7 +8,8 @@ import {ContentType} from "#server/global/engine/search/strategy/enums";
 import {CURRENT_KEYBOARD_VERSION} from "#server/bot/consts/keyboardVersion/keyboardVersion";
 import {createInstagramCaption} from "#server/global/engine/instagram/reel/caption/createInstagramCaption";
 import {publishInstagramReel} from "#server/global/publishers/instagram/publishInstagramReel";
-import {deleteCloudflareR2ObjectByUrl} from "#server/global/engine/instagram/reel/utils/storageCloudflareR2";
+import {deleteCloudflareR2ObjectByUrl, deleteFromCloudflareR2} from "#server/global/engine/instagram/reel/utils/storageCloudflareR2";
+import {reelR2Paths} from "#server/global/engine/instagram/reel/pipeline/reelWorkspace";
 import {resetAdminPublishLock} from "#server/global/engine/instagram/reel/jobs/adminPublishLock";
 
 type TelegramRichMessageResponse = {
@@ -309,6 +310,19 @@ export const finalizeReelPublication = async (
             last_error: null,
             failed_at: null
         })
+
+        // Нарезка: исходник хранился в R2 до полной публикации (выбор фрагмента и хука).
+        // Вышло и в Telegram, и в Instagram — исходник больше не нужен, clean остаётся.
+        // Если Instagram не вышел, исходник остаётся для повторной публикации.
+        if (instagramMediaId && input.videoType === 'clip') {
+            const sourceKey = reelR2Paths({id: mediaId, type: mediaType}, job.key_trailer).source
+            try {
+                await deleteFromCloudflareR2(sourceKey)
+                console.log('[REEL FINALIZER CLIP SOURCE DELETED]', sourceKey)
+            } catch (error) {
+                console.error('[REEL FINALIZER CLIP SOURCE DELETE ERROR]', {sourceKey, error})
+            }
+        }
 
         // Удаляем только ту сессию, которая породила этот job. Новую сессию админа
         // для другой карточки финализатор не трогает.

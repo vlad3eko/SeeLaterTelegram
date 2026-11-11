@@ -7,7 +7,9 @@ import {
     ADMIN_EDIT_OVERVIEW,
     ADMIN_EDIT_TEXT,
     ADMIN_EDIT_TYPE,
-    ADMIN_PUBLISH_CARD
+    ADMIN_PUBLISH_CARD,
+    ADMIN_VIDEO_TYPE,
+    type SourceVideoType
 } from "#server/bot/callbacks/routes"
 import type {ContentType} from "#server/global/engine/search/strategy/enums"
 
@@ -48,6 +50,20 @@ export const adminAddTrailerKeyInlineCard = () => {
         "Изменить ключ трейлера",
         ADMIN_CHANGE_TRAILER_KEY.encode()
     )
+}
+
+/**
+ * Под сообщением «ключ сохранён»: трейлер или нарезка. Выбранный вариант отмечен ✅,
+ * выбор можно поменять до публикации.
+ */
+export const adminVideoTypeKeyboard = (selected: SourceVideoType | undefined) => {
+    const label = (videoType: SourceVideoType, text: string) =>
+        selected === videoType ? `✅ ${text}` : text
+
+    return Markup.inlineKeyboard([[
+        Markup.button.callback(label('trailer', '🎞 Трейлер'), ADMIN_VIDEO_TYPE.encode({videoType: 'trailer'})),
+        Markup.button.callback(label('clip', '✂️ Нарезка'), ADMIN_VIDEO_TYPE.encode({videoType: 'clip'}))
+    ]]).reply_markup
 }
 
 export const adminEditMediaInlineCard = () => {

@@ -181,19 +181,23 @@ export const prepareReelHookOptionsPhase = async ({
 /**
  * Фаза `finish`: Reel из clean, который лежит в R2. `chosenHook` — выбор администратора;
  * без него (время выбора истекло) хук пишет Gemini, при его ошибке берётся `fallbackHook`.
- * Исходник в R2 удаляется: проверка закончена.
+ * Исходник в R2 удаляется: проверка закончена. Исключение — нарезка (`keepSource`):
+ * её исходник удаляет финализатор после публикации в Telegram и Instagram.
  */
 export const finishReelPhase = async ({
     keyTrailer,
     content,
     chosenHook,
     fallbackHook,
+    keepSource = false,
     options = {}
 }: {
     keyTrailer: string
     content: ReelContent
     chosenHook?: string
     fallbackHook: string
+    /** Нарезка: исходник остаётся в R2 до полной публикации (удаляет финализатор). */
+    keepSource?: boolean
     options?: PrepareReelOptions
 }): Promise<{cleanR2: string, reelR2: string}> => {
     assertTrailerKey(keyTrailer)
@@ -229,7 +233,9 @@ export const finishReelPhase = async ({
         return {cleanR2: clean.r2Url, reelR2}
 
     } finally {
-        await deleteStoredSource(content, keyTrailer)
+        if (!keepSource) {
+            await deleteStoredSource(content, keyTrailer)
+        }
         await workspace.cleanup()
     }
 }
