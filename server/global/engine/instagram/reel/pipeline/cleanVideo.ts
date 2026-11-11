@@ -134,7 +134,8 @@ export const obtainCleanVideo = async ({
     reuseCache,
     segmentVariant,
     reuseStoredSource,
-    framing = 'center'
+    framing = 'center',
+    segment
 }: {
     keyTrailer: string
     content: ReelContent
@@ -144,6 +145,8 @@ export const obtainCleanVideo = async ({
     reuseStoredSource: boolean
     /** center — трейлер (квадрат по центру); track — нарезка (следить за лицом по X). */
     framing?: 'center' | 'track'
+    /** Фрагмент нарезки, выбранный администратором (секунды исходника). */
+    segment?: {startSeconds: number, endSeconds: number}
 }): Promise<CleanVideo> => {
     const paths = reelR2Paths(content, keyTrailer)
 
@@ -158,7 +161,7 @@ export const obtainCleanVideo = async ({
     // На входе полный исходный трейлер, clean собирается одним проходом FFmpeg.
     const cleanPath = await runReelStep(
         'PREPARE_INSTAGRAM_VIDEO',
-        () => prepareInstagramVideo(sourcePath, keyTrailer, {segmentVariant, framing})
+        () => prepareInstagramVideo(sourcePath, keyTrailer, {segmentVariant, framing, segment})
     )
     workspace.trackFile(cleanPath)
 

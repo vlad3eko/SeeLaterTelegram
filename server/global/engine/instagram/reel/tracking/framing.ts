@@ -8,6 +8,7 @@ import {
     type LogoRect,
     unionLogo
 } from '#server/global/engine/instagram/reel/tracking/logoDetector'
+import {fastDecoderArgs} from '#server/global/engine/instagram/reel/utils/ffmpegDecoder'
 
 /**
  * Кадрирование квадрата внутри картинки без чёрных полос (запросы владельца 11.11).
@@ -108,11 +109,13 @@ const readFrames = async (
         '-hide_banner', '-loglevel', 'info', '-nostats', '-nostdin',
         '-ss', startSeconds.toFixed(3),
         '-t', durationSeconds.toFixed(3),
+        ...await fastDecoderArgs(inputPath),
         '-i', inputPath,
         '-an', '-sn',
         '-filter_complex',
-        `[0:v]crop=${rect.w}:${rect.h}:${rect.x}:${rect.y},split[a][b];` +
-        `[a]fps=${ANALYSIS_FPS},scale=${width}:${height}:flags=area[frames];` +
+        // Уменьшаем один раз до разделения на ветки (4K в каждой ветке — лишняя работа).
+        `[0:v]crop=${rect.w}:${rect.h}:${rect.x}:${rect.y},scale=${width}:${height}:flags=area,split[a][b];` +
+        `[a]fps=${ANALYSIS_FPS}[frames];` +
         `[b]scale=320:-2,scdet=threshold=${SCDET_THRESHOLD},nullsink`,
         '-map', '[frames]',
         '-pix_fmt', 'bgr24', '-f', 'rawvideo', '-'

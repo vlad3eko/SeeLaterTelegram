@@ -137,6 +137,22 @@ export const REEL_REVIEW_CANCEL = defineCallback<ReelReviewRef>({
     decode: match => ({jobId: match[1] ?? ''})
 })
 
+/** Номер фрагмента нарезки (1–8, сквозной по страницам альбома). */
+export const REEL_REVIEW_PICK_FRAGMENT = defineCallback<ReelReviewRef & {fragment: number}>({
+    id: 'reel_review_fragment',
+    pattern: new RegExp(`^rr:frag:(${UUID}):([1-8])$`),
+    encode: ({jobId, fragment}) => `rr:frag:${jobId}:${fragment}`,
+    decode: match => ({jobId: match[1] ?? '', fragment: Number(match[2])})
+})
+
+/** Страница альбома фрагментов: «Следующие варианты» / «◀️ Назад». */
+export const REEL_REVIEW_FRAGMENT_PAGE = defineCallback<ReelReviewRef & {page: number}>({
+    id: 'reel_review_fragment_page',
+    pattern: new RegExp(`^rr:fpage:(${UUID}):([0-9])$`),
+    encode: ({jobId, page}) => `rr:fpage:${jobId}:${page}`,
+    decode: match => ({jobId: match[1] ?? '', page: Number(match[2])})
+})
+
 export const REEL_HOOK_OPTIONS_MAX = 4
 
 /** «1»…«4»: выбранный вариант хука (номер с единицы, как в сообщении). */

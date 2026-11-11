@@ -1,14 +1,17 @@
 import type {Telegraf} from "telegraf"
 import {
     getReelReviewJob,
+    readFragments,
     readHookOptions,
     type ReelReviewJob,
     setReelReviewMessage
 } from "#server/global/engine/instagram/reel/jobs/reelReview"
+import {formatClock, FRAGMENTS_PER_PAGE} from "#server/global/engine/instagram/reel/fragments/types"
 import {getSupabase} from "#server/global/engine/instagram/reel/jobs/dispatchReelJob"
 import {resetAdminPublishLock} from "#server/global/engine/instagram/reel/jobs/adminPublishLock"
 import {
     reelCleanReviewKeyboard,
+    reelFragmentChoiceKeyboard,
     reelHookChoiceKeyboard,
     reelReviewProgressKeyboard
 } from "#server/bot/consts/buttons/admin/buttonsReelReview"
@@ -40,14 +43,27 @@ const shortError = (error: string | null): string =>
 
 const adminChatId = (job: ReelReviewJob): number => Number(job.admin_telegram_id)
 
-export const deleteReelReviewMessage = async (job: Pick<ReelReviewJob, 'id' | 'admin_telegram_id' | 'review_message_id'>) => {
-    if (!job.review_message_id) return
+/**
+ * Удалить текущее сообщение проверки и, если был показан, альбом превью фрагментов
+ * (input_payload.fragmentMessageIds).
+ */
+export const deleteReelReviewMessage = async (
+    job: Pick<ReelReviewJob, 'id' | 'admin_telegram_id' | 'review_message_id'> & {input_payload?: ReelReviewJob['input_payload']}
+) => {
+    const albumIds = Array.isArray(job.input_payload?.fragmentMessageIds)
+        ? (job.input_payload!.fragmentMessageIds as unknown[]).map(Number).filter(Number.isFinite)
+        : []
+    const ids = [...albumIds, ...(job.review_message_id ? [Number(job.review_message_id)] : [])]
+    if (!ids.length) return
 
-    try {
-        await (await getBot()).telegram.deleteMessage(Number(job.admin_telegram_id), Number(job.review_message_id))
-    } catch (error: any) {
-        // Сообщение могли удалить руками или оно старше 48 часов (Telegram не даёт удалить).
-        console.warn('[REEL REVIEW MESSAGE DELETE SKIPPED]', error?.response?.description || error?.message || error)
+    const bot = await getBot()
+    for (const id of ids) {
+        try {
+            await bot.telegram.deleteMessage(Number(job.admin_telegram_id), id)
+        } catch (error: any) {
+            // Сообщение могли удалить руками или оно старше 48 часов (Telegram не даёт удалить).
+            console.warn('[REEL REVIEW MESSAGE DELETE SKIPPED]', error?.response?.description || error?.message || error)
+        }
     }
 }
 
@@ -75,19 +91,31 @@ export const sendReelReviewStatus = async (
 const sendCleanReview = async (job: ReelReviewJob): Promise<number> => {
     const bot = await getBot()
     const chatId = adminChatId(job)
-    const fragment = (Number(job.clean_variant) || 0) + 1
-    const lines = [
-        `🎬 Clean для ${titleOf(job)}, фрагмент ${fragment}.`,
-        'Посмотри видео: «Пересобрать» возьмёт другой фрагмент трейлера, «Сгенерировать хук» перейдёт к выбору хука.',
-        REVIEW_HOURS_HINT
-    ]
+    const clip = job.input_payload?.videoType === 'clip' && readFragments(job).length > 0
+    const chosen = job.input_payload?.fragment as {start?: number, end?: number, title?: string} | null | undefined
+    const hasChosen = clip && chosen && Number.isFinite(chosen.start) && Number.isFinite(chosen.end)
 
+    const lines = hasChosen
+        ? [
+            `🎬 Clean для ${titleOf(job)}: ${formatClock(chosen!.start!)}–${formatClock(chosen!.end!)}${chosen!.title ? `, «${chosen!.title}»` : ''}.`,
+            'Посмотри видео: «Другой фрагмент» вернёт к альбому вариантов, «Сгенерировать хук» перейдёт к выбору хука.',
+            REVIEW_HOURS_HINT
+        ]
+        : [
+            `🎬 Clean для ${titleOf(job)}, фрагмент ${(Number(job.clean_variant) || 0) + 1}.`,
+            'Посмотри видео: «Пересобрать» возьмёт другой фрагмент трейлера, «Сгенерировать хук» перейдёт к выбору хука.',
+            REVIEW_HOURS_HINT
+        ]
+
+    if (job.input_payload?.fragmentError) {
+        lines.unshift(`⚠️ Gemini не смог предложить фрагменты (${shortError(String(job.input_payload.fragmentError))}), взят фрагмент по умолчанию.`)
+    }
     if (job.last_error) {
         lines.unshift(`⚠️ Прошлый шаг не удался: ${shortError(job.last_error)}`)
     }
 
     const caption = lines.join('\n\n')
-    const replyMarkup = reelCleanReviewKeyboard(job.id)
+    const replyMarkup = reelCleanReviewKeyboard(job.id, {clip: Boolean(hasChosen)})
     const previewUrl = String(job.clean_preview_r2_url ?? '').trim()
 
     if (previewUrl) {
@@ -135,6 +163,66 @@ const sendHookChoice = async (job: ReelReviewJob): Promise<number> => {
 }
 
 /**
+ * Альбом превью фрагментов нарезки (до 4 на страницу) и сообщение с кнопками.
+ * Возвращает сообщение с кнопками; номера сообщений альбома сохраняются в задаче,
+ * чтобы следующий шаг их удалил.
+ */
+const sendFragmentChoice = async (job: ReelReviewJob, supabase: ReturnType<typeof getSupabase>): Promise<number> => {
+    const bot = await getBot()
+    const chatId = adminChatId(job)
+    const fragments = readFragments(job)
+    if (!fragments.length) throw new Error('[REEL REVIEW] fragment_choice without fragments')
+
+    const pages = Math.ceil(fragments.length / FRAGMENTS_PER_PAGE)
+    const page = Math.min(Math.max(0, Number(job.input_payload?.fragmentPage) || 0), pages - 1)
+    const first = page * FRAGMENTS_PER_PAGE
+    const shown = fragments.slice(first, first + FRAGMENTS_PER_PAGE)
+
+    const headline = (fragment: (typeof fragments)[number], number: number) =>
+        `${number}. ${formatClock(fragment.start)}–${formatClock(fragment.end)} (${Math.round(fragment.end - fragment.start)} с)` +
+        (fragment.title ? ` — ${fragment.title}` : '')
+    const describe = (fragment: (typeof fragments)[number], number: number) =>
+        headline(fragment, number) + (fragment.reason ? `\n${fragment.reason}` : '')
+
+    let albumIds: number[] = []
+    try {
+        const album = await bot.telegram.sendMediaGroup(chatId, shown.map((fragment, index) => ({
+            type: 'video' as const,
+            media: String(fragment.previewUrl),
+            caption: describe(fragment, first + index + 1).slice(0, 1000),
+            supports_streaming: true
+        })))
+        albumIds = album.map(message => message.message_id)
+    } catch (error: any) {
+        // Telegram не смог забрать превью по ссылкам: ссылки будут в тексте ниже.
+        console.error('[REEL REVIEW ALBUM SEND ERROR]', error?.response?.description || error?.message || error)
+    }
+
+    const list = albumIds.length
+        ? shown.map((fragment, index) => headline(fragment, first + index + 1)).join('\n')
+        : shown.map((fragment, index) => `${describe(fragment, first + index + 1)}\n${fragment.previewUrl ?? ''}`).join('\n\n')
+
+    const text = [
+        `🎞 Фрагменты для ${titleOf(job)}: ${first + 1}–${first + shown.length} из ${fragments.length}.`,
+        list,
+        'Нажми номер: из этого фрагмента соберётся clean.',
+        'Если ничего не выбрать за 24 часа, возьмётся фрагмент 1, хук выберет Gemini и ролик опубликуется сам.'
+    ].join('\n\n')
+
+    const message = await bot.telegram.sendMessage(chatId, text, {
+        reply_markup: reelFragmentChoiceKeyboard(job.id, page, FRAGMENTS_PER_PAGE, fragments.length)
+    })
+
+    const {error} = await supabase
+        .from('reel_processing_jobs')
+        .update({input_payload: {...(job.input_payload ?? {}), fragmentMessageIds: albumIds}})
+        .eq('id', job.id)
+    if (error) console.error('[REEL REVIEW ALBUM IDS SAVE ERROR]', error.message)
+
+    return message.message_id
+}
+
+/**
  * Прислать администратору текущий шаг проверки задачи. Вызывается финализатором,
  * когда воркер закончил фазу (status=awaiting_review), и при повторном «Опубликовать».
  */
@@ -150,7 +238,9 @@ export const sendReelReviewMessage = async (jobId: string): Promise<{status: 'aw
 
     const messageId = job.step === 'hook_choice'
         ? await sendHookChoice(job)
-        : await sendCleanReview(job)
+        : job.step === 'fragment_choice'
+            ? await sendFragmentChoice(job, supabase)
+            : await sendCleanReview(job)
 
     await setReelReviewMessage(job.id, messageId, supabase)
 

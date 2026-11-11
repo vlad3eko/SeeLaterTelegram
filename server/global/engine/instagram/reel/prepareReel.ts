@@ -26,6 +26,9 @@ import {
 
 type PrepareReelOptions = FinishReelOptions & {
     onHookGenerated?: (hook: string) => Promise<void> | void
+    /** Нарезка без администратора (истёк выбор фрагмента): фрагмент и слежение за лицом. */
+    segment?: {startSeconds: number, endSeconds: number}
+    framing?: 'center' | 'track'
 }
 
 const assertTrailerKey = (keyTrailer: string) => {
@@ -70,9 +73,12 @@ export const prepareReel = async (
             keyTrailer,
             content,
             workspace,
-            reuseCache: true,
+            // Выбранный фрагмент или слежение — свой clean, кэш по центру не годится.
+            reuseCache: !options.segment && (options.framing ?? 'center') === 'center',
             segmentVariant: 0,
-            reuseStoredSource: false
+            reuseStoredSource: Boolean(options.segment),
+            framing: options.framing ?? 'center',
+            segment: options.segment
         })
         sourceTouched = clean.sourceTouched
 
@@ -118,12 +124,15 @@ export const prepareReelCleanPhase = async ({
     content,
     segmentVariant,
     rebuild,
-    framing = 'center'
+    framing = 'center',
+    segment
 }: {
     keyTrailer: string
     content: ReelContent
     segmentVariant: number
     rebuild: boolean
+    /** Фрагмент нарезки, выбранный администратором. */
+    segment?: {startSeconds: number, endSeconds: number}
     /** track — нарезка: камера следит за лицом по X; кэш clean не используется. */
     framing?: 'center' | 'track'
 }): Promise<{cleanR2: string, previewR2: string}> => {
@@ -137,10 +146,11 @@ export const prepareReelCleanPhase = async ({
             content,
             workspace,
             // Кэш clean мог быть собран по центру (тот же ключ раньше был трейлером).
-            reuseCache: !rebuild && framing === 'center',
+            reuseCache: !rebuild && framing === 'center' && !segment,
             segmentVariant,
             reuseStoredSource: true,
-            framing
+            framing,
+            segment
         })
 
         const previewR2 = await createCleanPreview({

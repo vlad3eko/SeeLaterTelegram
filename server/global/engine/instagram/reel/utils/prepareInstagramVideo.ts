@@ -1093,6 +1093,8 @@ export const prepareInstagramVideo = async (
     options: {
         /** Номер фрагмента трейлера (calculateReelSegment), 0 — прежний. */
         segmentVariant?: number
+        /** Фрагмент, выбранный администратором (нарезка): заменяет автоматический выбор. */
+        segment?: {startSeconds: number, endSeconds: number}
         /**
          * Как выбирать квадрат по X: center — по центру картинки (трейлеры);
          * track — следить за главным лицом (нарезки, tracking/framing.ts).
@@ -1119,7 +1121,15 @@ export const prepareInstagramVideo = async (
         // обрезанным первым фрагментом.
         const totalDurationSeconds = await getInputVideoDuration(inputPath)
         const segmentVariant = options.segmentVariant ?? 0
-        const segment = calculateReelSegment(totalDurationSeconds, segmentVariant)
+        const chosen = options.segment
+        const segment: ReelSegment = chosen && chosen.endSeconds > chosen.startSeconds
+            ? {
+                totalDurationSeconds,
+                startSeconds: Math.max(0, chosen.startSeconds),
+                endSeconds: Math.min(totalDurationSeconds, chosen.endSeconds),
+                durationSeconds: Math.min(totalDurationSeconds, chosen.endSeconds) - Math.max(0, chosen.startSeconds)
+            }
+            : calculateReelSegment(totalDurationSeconds, segmentVariant)
 
         console.log('[REEL SEGMENT SELECTED]', {
             ...segment,

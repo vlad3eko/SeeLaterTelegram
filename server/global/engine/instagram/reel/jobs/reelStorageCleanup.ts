@@ -35,7 +35,9 @@ export const deleteReelTempFiles = async (
     if (!job.keyTrailer) return
 
     const paths = reelR2Paths({id: Number(job.mediaId), type: job.mediaType}, job.keyTrailer)
-    const keys = keepSource ? [paths.preview] : [paths.preview, paths.source]
+    // Превью clean и превью фрагментов нарезки (до 8); несуществующие ключи R2 удаляет молча.
+    const previews = [paths.preview, ...Array.from({length: 8}, (_, i) => paths.fragmentPreview(i + 1))]
+    const keys = keepSource ? previews : [...previews, paths.source]
 
     try {
         const {deleteFromCloudflareR2} = await loadR2()
@@ -72,6 +74,8 @@ export const sweepReelTempFolders = async (
     }
 
     const protectedKeys = new Set<string>()
+    // Все превью задачи в работе (превью clean и фрагментов) — по общему началу ключа.
+    const protectedPrefixes: string[] = []
     for (const job of (data ?? []) as Array<Record<string, any>>) {
         if (!job.key_trailer) continue
         const paths = reelR2Paths({id: Number(job.media_id), type: String(job.media_type)}, String(job.key_trailer))
@@ -80,6 +84,7 @@ export const sweepReelTempFolders = async (
         if (ACTIVE_STATUSES.has(job.status) || (job.status === 'failed' && RESUMABLE_FAILED_STEPS.has(job.step))) {
             protectedKeys.add(paths.source)
             protectedKeys.add(paths.preview)
+            protectedPrefixes.push(paths.previewPrefix)
         } else if (isClip && job.step === 'published_telegram_only') {
             protectedKeys.add(paths.source)
         }
@@ -97,7 +102,9 @@ export const sweepReelTempFolders = async (
 
     for (const object of objects) {
         const tooFresh = now - object.lastModified.getTime() < SWEEP_MIN_AGE_MS
-        if (protectedKeys.has(object.key) || tooFresh) {
+        const isProtected = protectedKeys.has(object.key) ||
+            protectedPrefixes.some(prefix => object.key.startsWith(prefix))
+        if (isProtected || tooFresh) {
             kept++
             continue
         }

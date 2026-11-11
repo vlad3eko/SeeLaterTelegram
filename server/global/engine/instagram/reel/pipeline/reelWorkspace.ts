@@ -32,6 +32,10 @@ export const reelR2Paths = (content: Pick<ReelContent, 'id' | 'type'>, keyTraile
         clean: `instagram/reels/clean/${base}_clean.mp4`,
         /** Лёгкая копия clean для показа в Telegram (Bot API берёт видео по ссылке до 20 МБ). */
         preview: `instagram/reels/preview/${base}_preview.mp4`,
+        /** Превью фрагментов нарезки для альбома в Telegram (номер с единицы). */
+        fragmentPreview: (index: number) => `instagram/reels/preview/${base}_frag${index}.mp4`,
+        /** Общее начало ключей превью этой задачи (защита и чистка). */
+        previewPrefix: `instagram/reels/preview/${base}_`,
         reel: `instagram/reels/reel/${base}_reel.mp4`
     }
 }
