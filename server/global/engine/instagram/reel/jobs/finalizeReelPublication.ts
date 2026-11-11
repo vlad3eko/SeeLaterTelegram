@@ -9,6 +9,7 @@ import {CURRENT_KEYBOARD_VERSION} from "#server/bot/consts/keyboardVersion/keybo
 import {createInstagramCaption} from "#server/global/engine/instagram/reel/caption/createInstagramCaption";
 import {publishInstagramReel} from "#server/global/publishers/instagram/publishInstagramReel";
 import {deleteCloudflareR2ObjectByUrl} from "#server/global/engine/instagram/reel/utils/storageCloudflareR2";
+import {resetAdminPublishLock} from "#server/global/engine/instagram/reel/jobs/adminPublishLock";
 
 type TelegramRichMessageResponse = {
     message_id?: number
@@ -63,48 +64,6 @@ const sendAdminNotice = async (adminTelegramId: number, message: string): Promis
     }
 }
 
-// Снимает блокировку «публикация идёт» с сессии редактирования администратора.
-// Нужна и при переходе на проверку Reel (reelReviewMessages): проверка может ждать
-// часами, а с mode='publish' бот перехватывал бы обычные сообщения администратора.
-export const resetAdminPublishLock = async (
-    supabase: SupabaseClient,
-    job: {
-        admin_telegram_id: number | string
-        media_id: number | string
-        media_type: string
-        content_type: string
-        key_trailer: string
-        input_payload: Record<string, any> | null
-    }
-): Promise<void> => {
-    try {
-        const {data: user, error: userError} = await supabase
-            .from('users')
-            .select('id')
-            .eq('telegram_id', job.admin_telegram_id)
-            .maybeSingle()
-
-        if (userError || !user) return
-
-        let query = supabase
-            .from('card_edit_session')
-            .update({mode: null, publish_started_at: null})
-            .eq('user_id', user.id)
-            .eq('media_id', job.media_id)
-            .eq('media_type', job.media_type)
-            .eq('content_type', job.content_type)
-            .eq('key_trailer', job.key_trailer)
-            .eq('mode', 'publish')
-
-        const startedAt = asRecord(asRecord(job.input_payload).session).publishStartedAt
-        if (startedAt != null) query = query.eq('publish_started_at', startedAt)
-
-        const {error} = await query
-        if (error) console.error('[REEL SESSION LOCK RESET ERROR]', error)
-    } catch (error) {
-        console.error('[REEL SESSION LOCK RESET ERROR]', error)
-    }
-}
 
 
 
