@@ -1,6 +1,9 @@
 import {
     REEL_REVIEW_CANCEL,
+    REEL_REVIEW_CUSTOM_HOOK,
     REEL_REVIEW_FRAGMENT_PAGE,
+    REEL_REVIEW_HOOK_BACK,
+    REEL_REVIEW_REGEN_HOOKS,
     REEL_REVIEW_HOOKS,
     REEL_REVIEW_PICK_FRAGMENT,
     REEL_REVIEW_PICK_HOOK,
@@ -9,6 +12,10 @@ import {
 import {
     backToFragments,
     cancelReelReview,
+    chooseCustomHook,
+    findJobAwaitingCustomHook,
+    startCustomHook,
+    stopCustomHook,
     chooseReelFragment,
     chooseReelHook,
     getReelReviewJob,
@@ -24,6 +31,8 @@ import {
     sendReelReviewStatus
 } from "#server/bot/actions/admin/reelReview/reelReviewMessages"
 import {formatClock} from "#server/global/engine/instagram/reel/fragments/types"
+import {addMessageSession} from "#server/bot/services/session/addMessageSession"
+import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes"
 import {deleteReelTempFiles} from "#server/global/engine/instagram/reel/jobs/reelStorageCleanup"
 import {deleteOldMessagesSession} from "#server/bot/services/session/deleteOldMessagesSession"
 
@@ -132,6 +141,128 @@ export const reelReviewGenerateHooks = async (ctx: any) => {
 
     await answer(ctx, 'Генерирую варианты хука')
     await replaceWithStatus(ctx, job, '✨ Gemini смотрит видео и пишет варианты хука. Это займёт пару минут.')
+}
+
+/** «🔁 Новые варианты» под вариантами хука: Gemini заново пишет варианты по тому же clean. */
+export const reelReviewRegenHooks = async (ctx: any) => {
+    const {jobId} = REEL_REVIEW_REGEN_HOOKS.parse(ctx)
+
+    let job: ReelReviewJob | null
+    try {
+        job = await requestHookOptions(jobId)
+    } catch (error) {
+        return reportStartError(ctx, 'REGEN HOOKS', error)
+    }
+
+    if (!job) return dropStaleKeyboard(ctx)
+
+    await answer(ctx, 'Генерирую новые варианты')
+    await replaceWithStatus(ctx, job, '🔁 Gemini пишет новые варианты хука. Это займёт пару минут.')
+}
+
+/** «✍️ Свой вариант»: следующее сообщение администратора станет хуком. */
+export const reelReviewCustomHook = async (ctx: any) => {
+    const {jobId} = REEL_REVIEW_CUSTOM_HOOK.parse(ctx)
+
+    let job: ReelReviewJob | null
+    try {
+        job = await startCustomHook(jobId)
+    } catch (error) {
+        console.error('[REEL REVIEW CUSTOM HOOK ERROR]', error)
+        return answer(ctx, 'Не получилось, попробуй ещё раз')
+    }
+
+    if (!job) return dropStaleKeyboard(ctx)
+
+    await answer(ctx, 'Жду твой хук')
+    await sendReelReviewMessage(jobId)
+}
+
+/** «◀️ К вариантам»: обратно к вариантам Gemini. */
+export const reelReviewHookBack = async (ctx: any) => {
+    const {jobId} = REEL_REVIEW_HOOK_BACK.parse(ctx)
+
+    let job: ReelReviewJob | null
+    try {
+        job = await stopCustomHook(jobId)
+    } catch (error) {
+        console.error('[REEL REVIEW HOOK BACK ERROR]', error)
+        return answer(ctx, 'Не получилось, попробуй ещё раз')
+    }
+
+    if (!job) return dropStaleKeyboard(ctx)
+
+    await answer(ctx, 'Варианты Gemini')
+    await sendReelReviewMessage(jobId)
+}
+
+/** Свой хук: убрать кавычки по краям и лишние пробелы. */
+const normalizeCustomHook = (text: string) =>
+    text.replace(/\s+/g, ' ').trim().replace(/^["'«“„]+|["'»”]+$/gu, '').trim()
+
+const CUSTOM_HOOK_MAX_WORDS = 12
+const CUSTOM_HOOK_MAX_CHARS = 90
+
+/**
+ * Текст администратора, когда задача ждёт свой хук. true — сообщение обработано (дальше
+ * его передавать не нужно); false — к хуку не относится.
+ */
+export const handleCustomHookText = async (ctx: any): Promise<boolean> => {
+    const text = typeof ctx.message?.text === 'string' ? ctx.message.text : ''
+    if (!text || text.startsWith('/')) return false
+
+    let job: ReelReviewJob | null
+    try {
+        job = await findJobAwaitingCustomHook(Number(ctx.from.id))
+    } catch (error) {
+        console.error('[REEL REVIEW CUSTOM HOOK LOOKUP ERROR]', error)
+        return false
+    }
+    if (!job) return false
+
+    // Сообщение администратора уйдёт при чистке чата вместе с остальными.
+    await addMessageSession(ctx.from.id, SessionMessageType.Text, {messageId: ctx.message.message_id})
+
+    const hook = normalizeCustomHook(text)
+    const words = hook.split(' ').filter(Boolean).length
+    if (!hook || words > CUSTOM_HOOK_MAX_WORDS || hook.length > CUSTOM_HOOK_MAX_CHARS) {
+        try {
+            const reply = await ctx.reply(`Хук должен быть до ${CUSTOM_HOOK_MAX_WORDS} слов и ${CUSTOM_HOOK_MAX_CHARS} знаков. Напиши ещё раз.`)
+            await addMessageSession(ctx.from.id, SessionMessageType.Error, {messageId: reply.message_id})
+        } catch {
+            // Ответ необязателен.
+        }
+        return true
+    }
+
+    let chosen: ReelReviewJob | null
+    try {
+        chosen = await chooseCustomHook(job.id, hook)
+    } catch (error) {
+        console.error('[REEL REVIEW CUSTOM HOOK START ERROR]', error)
+        try {
+            await ctx.reply('Не удалось запустить сборку. Нажми «Опубликовать» на карточке ещё раз, задача продолжится с этого шага.')
+        } catch {
+            // Ответ необязателен.
+        }
+        return true
+    }
+    if (!chosen) return false
+
+    await deleteReelReviewMessage({
+        id: chosen.id,
+        admin_telegram_id: chosen.admin_telegram_id,
+        review_message_id: chosen.review_message_id,
+        input_payload: chosen.input_payload
+    })
+    await sendReelReviewStatus(
+        chosen,
+        `✅ Хук: «${hook}». Собираю Reel (субтитры, оформление), потом опубликую.`,
+        {withCancel: true}
+    )
+
+    console.log('[REEL REVIEW CUSTOM HOOK]', {jobId: chosen.id, hook})
+    return true
 }
 
 /** «1»–«8» под альбомом фрагментов: clean собирается из выбранного фрагмента. */

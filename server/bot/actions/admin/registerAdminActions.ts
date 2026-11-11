@@ -23,15 +23,22 @@ import {
     ADMIN_PUBLISH_CARD,
     ADMIN_VIDEO_TYPE,
     REEL_REVIEW_CANCEL,
+    REEL_REVIEW_CUSTOM_HOOK,
     REEL_REVIEW_FRAGMENT_PAGE,
+    REEL_REVIEW_HOOK_BACK,
+    REEL_REVIEW_REGEN_HOOKS,
     REEL_REVIEW_HOOKS,
     REEL_REVIEW_PICK_FRAGMENT,
     REEL_REVIEW_PICK_HOOK,
     REEL_REVIEW_REBUILD
 } from "#server/bot/callbacks/routes";
 import {
+    handleCustomHookText,
     reelReviewCancel,
+    reelReviewCustomHook,
     reelReviewFragmentPage,
+    reelReviewHookBack,
+    reelReviewRegenHooks,
     reelReviewGenerateHooks,
     reelReviewPickFragment,
     reelReviewPickHook,
@@ -77,12 +84,20 @@ export const registerAdminActions = (bot: Telegraf) => {
     bot.action(REEL_REVIEW_CANCEL.pattern, adminOnly(reelReviewCancel))
     bot.action(REEL_REVIEW_PICK_FRAGMENT.pattern, adminOnly(reelReviewPickFragment))
     bot.action(REEL_REVIEW_FRAGMENT_PAGE.pattern, adminOnly(reelReviewFragmentPage))
+    bot.action(REEL_REVIEW_REGEN_HOOKS.pattern, adminOnly(reelReviewRegenHooks))
+    bot.action(REEL_REVIEW_CUSTOM_HOOK.pattern, adminOnly(reelReviewCustomHook))
+    bot.action(REEL_REVIEW_HOOK_BACK.pattern, adminOnly(reelReviewHookBack))
 
     bot.on('message', async (ctx: any, next) => {
 
         // Сессии редактирования бывают только у админа — остальным лишний запрос не нужен.
         if (!isAdmin(Number(ctx.from?.id))) {
             return next()
+        }
+
+        // «✍️ Свой вариант» хука: если задача ждёт текст, сообщение становится хуком.
+        if (await handleCustomHookText(ctx)) {
+            return
         }
 
         const session =

@@ -137,6 +137,30 @@ export const REEL_REVIEW_CANCEL = defineCallback<ReelReviewRef>({
     decode: match => ({jobId: match[1] ?? ''})
 })
 
+/** «🔁 Новые варианты»: Gemini заново пишет варианты хука по тому же clean. */
+export const REEL_REVIEW_REGEN_HOOKS = defineCallback<ReelReviewRef>({
+    id: 'reel_review_regen_hooks',
+    pattern: new RegExp(`^rr:rehook:(${UUID})$`),
+    encode: ({jobId}) => `rr:rehook:${jobId}`,
+    decode: match => ({jobId: match[1] ?? ''})
+})
+
+/** «✍️ Свой вариант»: следующее сообщение администратора в чате станет хуком. */
+export const REEL_REVIEW_CUSTOM_HOOK = defineCallback<ReelReviewRef>({
+    id: 'reel_review_custom_hook',
+    pattern: new RegExp(`^rr:myhook:(${UUID})$`),
+    encode: ({jobId}) => `rr:myhook:${jobId}`,
+    decode: match => ({jobId: match[1] ?? ''})
+})
+
+/** «◀️ К вариантам»: выйти из ввода своего хука обратно к вариантам Gemini. */
+export const REEL_REVIEW_HOOK_BACK = defineCallback<ReelReviewRef>({
+    id: 'reel_review_hook_back',
+    pattern: new RegExp(`^rr:hookback:(${UUID})$`),
+    encode: ({jobId}) => `rr:hookback:${jobId}`,
+    decode: match => ({jobId: match[1] ?? ''})
+})
+
 /** Номер фрагмента нарезки (1–8, сквозной по страницам альбома). */
 export const REEL_REVIEW_PICK_FRAGMENT = defineCallback<ReelReviewRef & {fragment: number}>({
     id: 'reel_review_fragment',
