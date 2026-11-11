@@ -402,21 +402,12 @@ export const dispatchReelJob = async ({
             keyTrailer: session.keyTrailer
         })
 
-        // Исходник старого ключа держался в R2 ради проверки (у нарезки — до публикации).
-        // Проверка отменена, исходник больше не нужен. Модуль R2 подключается здесь же.
-        try {
-            const [{deleteFromCloudflareR2}, {reelR2Paths}] = await Promise.all([
-                import('#server/global/engine/instagram/reel/utils/storageCloudflareR2'),
-                import('#server/global/engine/instagram/reel/pipeline/reelWorkspace')
-            ])
-            for (const row of staleReviews) {
-                if (!row.key_trailer) continue
-                await deleteFromCloudflareR2(
-                    reelR2Paths({id: session.mediaId, type: session.mediaType}, row.key_trailer).source
-                )
-            }
-        } catch (error) {
-            console.error('[REEL STALE REVIEW SOURCE CLEANUP ERROR]', error)
+        // Исходник и превью старого ключа держались в R2 ради проверки; она отменена.
+        // Модуль подключается здесь: он сам зависит от этого файла (getSupabase).
+        const {deleteReelTempFiles} = await import('#server/global/engine/instagram/reel/jobs/reelStorageCleanup')
+        for (const row of staleReviews) {
+            if (!row.key_trailer) continue
+            await deleteReelTempFiles({mediaId: session.mediaId, mediaType: session.mediaType, keyTrailer: row.key_trailer})
         }
 
         rows = rows.filter(row => !staleReviews.includes(row))

@@ -8,16 +8,18 @@ import {createHash, randomUUID} from 'node:crypto'
 import {getX264Args} from '#server/global/engine/instagram/reel/utils/encodeSettings'
 import {buildEnhanceFilters} from '#server/global/engine/instagram/reel/utils/enhanceSettings'
 import {
-    BANNER_SAMPLE_COUNT,
-    detectWatermarkBanner,
-    watermarkCheckEnabled,
-    type WatermarkBanner
-} from '#server/global/engine/instagram/reel/utils/watermarkBanner'
-import {
-    type FaceTrack,
-    trackMainFace,
-    writeTrackCommands
-} from '#server/global/engine/instagram/reel/tracking/faceTrack'
+    analyzeSegment,
+    buildZoomFilter,
+    findLogoInFrames,
+    lowestLogoBottom,
+    planCenterZoom,
+    planTrackedWindow,
+    remapAnalysis,
+    type SegmentAnalysis,
+    writeTrackCommands,
+    type ZoomInterval
+} from '#server/global/engine/instagram/reel/tracking/framing'
+import type {LogoRect} from '#server/global/engine/instagram/reel/tracking/logoDetector'
 import {unlink} from 'node:fs/promises'
 
 const execFileAsync = promisify(execFile)
@@ -450,61 +452,16 @@ type SourceAnalysis = {
 /** Запас под плашкой-ватермаркой, доля высоты картинки (край плашки сглажен). */
 const BANNER_MARGIN_SHARE = 0.015
 
+/** REEL_WATERMARK_CHECK=off отключает учёт логотипа канала (обход, приближение, проверку clean). */
+const watermarkCheckEnabled = () =>
+    (process.env.REEL_WATERMARK_CHECK ?? '').trim().toLowerCase() !== 'off'
+
+/** Сколько кадров готового clean проверяется на логотип. */
+const LOGO_CHECK_SAMPLES = 24
+
 /** Больше этой доли высоты сверху ради плашки не срезаем: это уже не плашка, а ошибка поиска. */
 const BANNER_MAX_CUT_SHARE = 0.3
 
-/**
- * Срезает верх прямоугольника картинки ниже плашки-ватермарки (watermarkBanner.ts),
- * если она найдена в кадрах фрагмента. Квадрат потом берётся из оставшейся
- * картинки, прижатым к низу: ни сама плашка, ни её «вытянутая» версия в кадр
- * не попадают. Сбой поиска сборку не останавливает.
- */
-const cropBelowWatermarkBanner = async (
-    inputPath: string,
-    segment: ReelSegment,
-    picture: CropRect
-): Promise<{rect: CropRect, banner: WatermarkBanner | null}> => {
-    if (!watermarkCheckEnabled()) return {rect: picture, banner: null}
-
-    try {
-        const banner = await detectWatermarkBanner(
-            inputPath,
-            sampleTimes(segment.startSeconds, segment.durationSeconds, BANNER_SAMPLE_COUNT),
-            picture,
-            false
-        )
-
-        if (!banner) {
-            console.log('[REEL WATERMARK] No banner in the top left corner')
-            return {rect: picture, banner: null}
-        }
-
-        const cut = ceilEven((banner.bottomShare + BANNER_MARGIN_SHARE) * picture.h)
-
-        if (cut > picture.h * BANNER_MAX_CUT_SHARE) {
-            console.warn('[REEL WATERMARK] Banner looks too tall; not cropping', {banner, cutPx: cut})
-            return {rect: picture, banner}
-        }
-
-        const rect = {x: picture.x, y: picture.y + cut, w: picture.w, h: toEven(picture.h - cut)}
-
-        console.log('[REEL WATERMARK] Banner found; cropping below it', {
-            bottomPercent: Number((banner.bottomShare * 100).toFixed(1)),
-            rightPercent: Number((banner.rightShare * 100).toFixed(1)),
-            frames: `${banner.frames}/${banner.sampledFrames}`,
-            cutTopPx: cut,
-            crop: `${rect.w}:${rect.h}:${rect.x}:${rect.y}`
-        })
-
-        return {rect, banner}
-
-    } catch (error: any) {
-        console.warn('[REEL WATERMARK] Banner search failed; keeping the picture as is', {
-            message: error?.message || error
-        })
-        return {rect: picture, banner: null}
-    }
-}
 
 /**
  * Строка или столбец считаются чёрными, если МЕДИАНА яркости вдоль них не выше
@@ -887,7 +844,12 @@ const analyzeSelectedSegment = async (
             requestedFrames: sampled.requested,
             distinctFrames: sampled.frames.length,
             usedFrames: detected.usedFrames,
-            barsPx: bars
+            barsPx: bars,
+            // Диагностика (11.11: у нарезки снизу осталось чёрное поле): верх/низ полосы
+            // в строках анализа по каждому кадру и средняя яркость картинки кадра.
+            // Полоса засчитывается, если одинаковую ширину показали ≥40% кадров.
+            perFrameTopBottom: detected.measuredFrames.map(frame => `${frame.top}/${frame.bottom}`).join(' '),
+            perFrameLuma: lumaValues.map(value => Math.round(value)).join(' ')
         })
 
         if (crop) {
@@ -896,12 +858,9 @@ const analyzeSelectedSegment = async (
             console.log('[REEL CROPDETECT] No black bars detected; keeping source dimensions')
         }
 
-        // Вторая проблема рядом с полосами: плашка канала в левом верхнем углу.
-        // Ищем её уже внутри картинки без полос.
-        const pictureRect = crop ?? {x: 0, y: 0, w: toEven(source.width), h: toEven(source.height)}
-        const {rect, banner} = await cropBelowWatermarkBanner(inputPath, segment, pictureRect)
-
-        return {crop: banner && rect !== pictureRect ? rect : crop, averageY}
+        // Логотип канала учитывается позже, при выборе квадрата (tracking/framing.ts):
+        // обход по X у нарезки или временное приближение у трейлера.
+        return {crop, averageY}
 
     } catch (error: any) {
         // Анализ вспомогательный: не допускаем, чтобы неудачный анализ
@@ -980,13 +939,57 @@ export const checkBlackBorders = async (videoPath: string): Promise<BorderCheckR
     }
 }
 
+/** Цветные кадры RGB24, уменьшенные до width по ширине (для поиска логотипа в clean). */
+const sampleRgbFrames = async (
+    videoPath: string,
+    times: number[],
+    width: number,
+    height: number
+): Promise<Buffer[]> => {
+    if (!ffmpegPath) {
+        throw new Error('[REEL LOGO CHECK] ffmpeg-static binary not found')
+    }
+    const binary = ffmpegPath
+    const frameBytes = width * height * 3
+    const results: Array<Buffer | null> = times.map(() => null)
+    let next = 0
+
+    const worker = async () => {
+        while (next < times.length) {
+            const index = next++
+            try {
+                const {stdout} = await execFileAsync(
+                    binary,
+                    [
+                        '-hide_banner', '-loglevel', 'error', '-nostdin',
+                        '-ss', times[index]!.toFixed(3),
+                        '-i', videoPath,
+                        '-an', '-sn', '-frames:v', '1',
+                        '-vf', `scale=${width}:${height}:flags=area`,
+                        '-pix_fmt', 'rgb24', '-f', 'rawvideo', '-'
+                    ],
+                    {encoding: 'buffer', timeout: 30_000, maxBuffer: frameBytes + 1024 * 1024}
+                )
+                if (stdout.length === frameBytes) results[index] = stdout
+            } catch {
+                // Кадр не получился: пропускаем.
+            }
+        }
+    }
+
+    await Promise.all(Array.from({length: Math.min(BORDER_PARALLEL, times.length)}, worker))
+    return results.filter((frame): frame is Buffer => frame !== null)
+}
+
 /**
- * Проверка готового клипа на плашку-ватермарку в левом верхнем углу. Возвращает,
- * сколько пикселей клипа сверху нужно срезать (0 — плашки нет или проверка выключена).
+ * Проверка готового клипа на логотип канала (tracking/logoDetector.ts): то же правило,
+ * что при выборе квадрата, по 24 кадрам. Возвращает, сколько пикселей клипа сверху
+ * нужно срезать (0 — логотипа нет или проверка выключена). Срабатывает, только если
+ * обход и приближение логотип не убрали.
  */
 export const checkWatermarkBannerInClip = async (
     videoPath: string
-): Promise<{cutTopPx: number, banner: WatermarkBanner | null}> => {
+): Promise<{cutTopPx: number, banner: LogoRect | null}> => {
     if (!watermarkCheckEnabled()) return {cutTopPx: 0, banner: null}
 
     const [dimensions, duration] = await Promise.all([
@@ -994,22 +997,25 @@ export const checkWatermarkBannerInClip = async (
         getInputVideoDuration(videoPath)
     ])
 
+    const width = Math.min(480, toEven(dimensions.width))
+    const height = Math.max(2, toEven(dimensions.height * width / dimensions.width))
     const margin = Math.min(0.3, duration / 10)
-    const banner = await detectWatermarkBanner(
+    const frames = await sampleRgbFrames(
         videoPath,
-        sampleTimes(margin, Math.max(0.1, duration - margin * 2), BANNER_SAMPLE_COUNT),
-        {x: 0, y: 0, w: toEven(dimensions.width), h: toEven(dimensions.height)},
-        true
+        sampleTimes(margin, Math.max(0.1, duration - margin * 2), LOGO_CHECK_SAMPLES),
+        width,
+        height
     )
 
-    if (!banner) return {cutTopPx: 0, banner: null}
+    const logo = findLogoInFrames(frames, width, height)
+    if (!logo) return {cutTopPx: 0, banner: null}
 
-    const cutTopPx = Math.ceil((banner.bottomShare + BANNER_MARGIN_SHARE) * dimensions.height)
+    const cutTopPx = Math.ceil((logo.bottom + BANNER_MARGIN_SHARE) * dimensions.height)
 
-    // Слишком большая «плашка» — ошибка поиска, клип не трогаем.
+    // Слишком большой «логотип» — ошибка поиска, клип не трогаем.
     return cutTopPx > dimensions.height * BANNER_MAX_CUT_SHARE
-        ? {cutTopPx: 0, banner}
-        : {cutTopPx, banner}
+        ? {cutTopPx: 0, banner: logo}
+        : {cutTopPx, banner: logo}
 }
 
 /** Квадрат, который ffmpeg вырежет из rect по центру (второй crop в фильтре). */
@@ -1089,7 +1095,7 @@ export const prepareInstagramVideo = async (
         segmentVariant?: number
         /**
          * Как выбирать квадрат по X: center — по центру картинки (трейлеры);
-         * track — следить за главным лицом (нарезки, tracking/faceTrack.ts).
+         * track — следить за главным лицом (нарезки, tracking/framing.ts).
          * По Y обрезка одна и та же: чёрные полосы и плашка канала.
          */
         framing?: 'center' | 'track'
@@ -1156,50 +1162,111 @@ export const prepareInstagramVideo = async (
 
         // Квадрат 1080×1080 из центра картинки без чёрных полос. Размытого фона,
         // виньетки и нижнего градиента больше нет: макет «чистое видео 1:1».
-        // Слежение за лицом (нарезки): траектория камеры по X внутри картинки без полос
-        // и плашки. Сбой или отсутствие лиц — обычный квадрат по центру.
+        // Кадрирование квадрата (tracking/framing.ts): один анализ фрагмента — склейки,
+        // логотип канала по моментам, лица (только у нарезок). Нарезка: камера по X за
+        // лицом, в обход логотипа. Трейлер: квадрат по центру, на время раскрытия
+        // логотипа — приближение под него. Сбой анализа — обычный квадрат по центру.
         const fullPicture: CropRect = {x: 0, y: 0, w: toEven(source.width), h: toEven(source.height)}
-        let faceTrack: FaceTrack | null = null
+        const analyzedPicture: CropRect = analysis.crop ?? fullPicture
+        const wantTrack = options.framing === 'track'
+        let segmentAnalysis: SegmentAnalysis | null = null
 
-        if (options.framing === 'track') {
+        if (wantTrack || watermarkCheckEnabled()) {
             try {
-                faceTrack = await trackMainFace(inputPath, segment, analysis.crop ?? fullPicture)
-                console.log('[REEL FACE TRACK]', faceTrack
-                    ? {...faceTrack.stats, cameraRangePx: [
-                        Math.round(Math.min(...faceTrack.centers)),
-                        Math.round(Math.max(...faceTrack.centers))
-                    ]}
-                    : 'No faces (or no room to move); centered square')
+                segmentAnalysis = await analyzeSegment(inputPath, segment, analyzedPicture, {withFaces: wantTrack})
+                if (segmentAnalysis && !watermarkCheckEnabled()) {
+                    segmentAnalysis = {...segmentAnalysis, logos: segmentAnalysis.logos.map(() => null)}
+                }
+                console.log('[REEL FRAMING ANALYSIS]', segmentAnalysis
+                    ? {...segmentAnalysis.stats, framing: options.framing ?? 'center'}
+                    : 'No frames; centered square')
             } catch (error: any) {
-                console.warn('[REEL FACE TRACK] Tracking failed; centered square', {
-                    message: error?.message || error
-                })
+                console.warn('[REEL FRAMING ANALYSIS] Failed; centered square', {message: error?.message || error})
             }
         }
 
-        const trackCommandsPath = path.join(path.dirname(outputPath), `${randomUUID()}_track.cmd`)
+        type Framing =
+            | {mode: 'center', picture: CropRect}
+            | {mode: 'track', picture: CropRect, frames: SegmentAnalysis, lefts: number[]}
+            | {mode: 'zoom', picture: CropRect, intervals: ZoomInterval[]}
 
-        const encodeClean = async (rect: CropRect | undefined) => {
-            const picture = rect ?? fullPicture
-            const side = toEven(Math.min(picture.w, picture.h))
-            const tracked = faceTrack !== null && picture.w - side >= 4
+        /** Как кадрировать картинку `rect` (после исправлений она может отличаться от анализа). */
+        const chooseFraming = (rect: CropRect): Framing => {
+            if (!segmentAnalysis) return {mode: 'center', picture: rect}
 
-            let squareFilter = `crop='min(iw,ih)':'min(iw,ih)',`
-            if (tracked) {
-                // Квадрат двигается по X покадрово (sendcmd → crop@track), по Y по центру картинки.
-                const {firstX, minX, maxX} = await writeTrackCommands(
-                    trackCommandsPath, faceTrack!, picture, side, outputFrameRate.fps, segment.durationSeconds
-                )
-                squareFilter =
-                    `sendcmd=f=${path.basename(trackCommandsPath)},` +
-                    `crop@track=${side}:${side}:${firstX}:${toEven((picture.h - side) / 2)},`
-                console.log('[REEL FACE TRACK] Moving square', {side, minX, maxX, picture: `${picture.w}:${picture.h}:${picture.x}:${picture.y}`})
+            let picture = rect
+            let frames = remapAnalysis(segmentAnalysis, analyzedPicture, picture)
+            let side = toEven(Math.min(picture.w, picture.h))
+
+            if (wantTrack && picture.w - side >= 4) {
+                let plan = planTrackedWindow(frames, picture, side)
+
+                if (!plan.feasible) {
+                    // Справа от логотипа места нет: запасной путь — срезать верх под ним.
+                    const cut = ceilEven((lowestLogoBottom(frames) + BANNER_MARGIN_SHARE) * picture.h)
+                    console.warn('[REEL FRAMING] Logo cannot be avoided by moving; cropping below it', {
+                        reason: plan.reason, cutTopPx: cut
+                    })
+                    if (cut < picture.h * BANNER_MAX_CUT_SHARE) {
+                        picture = {...picture, y: picture.y + cut, h: toEven(picture.h - cut)}
+                        frames = remapAnalysis(segmentAnalysis, analyzedPicture, picture)
+                        side = toEven(Math.min(picture.w, picture.h))
+                        plan = planTrackedWindow(frames, picture, side)
+                    }
+                }
+
+                if (plan.feasible) {
+                    console.log('[REEL FRAMING] Tracking', {trackedShots: plan.trackedShots, shots: frames.stats.shots})
+                    return {mode: 'track', picture, frames, lefts: plan.lefts}
+                }
             }
 
-            const cropFilter = rect || tracked ? `crop=${picture.w}:${picture.h}:${picture.x}:${picture.y},` : ''
+            const intervals = planCenterZoom(frames, picture, side)
+            if (intervals.length) {
+                console.log('[REEL FRAMING] Temporary zoom under the logo', {
+                    intervals: intervals.map(i => `${i.start.toFixed(1)}–${i.end.toFixed(1)}s cut ${i.cutTop}px`)
+                })
+                return {mode: 'zoom', picture, intervals}
+            }
+
+            return {mode: 'center', picture}
+        }
+
+        const trackCommandsPath = path.join(path.dirname(outputPath), `${randomUUID()}_track.cmd`)
+        // Меняется внутри encodeClean; приведение не даёт TypeScript сузить тип до 'center'.
+        let usedFraming = 'center' as Framing['mode']
+
+        const encodeClean = async (rect: CropRect | undefined) => {
+            const framing = chooseFraming(rect ?? fullPicture)
+            const picture = framing.picture
+            const side = toEven(Math.min(picture.w, picture.h))
+            const pictureCrop = `crop=${picture.w}:${picture.h}:${picture.x}:${picture.y},`
+            usedFraming = framing.mode
+
+            let squareAndScale: string
+            if (framing.mode === 'track') {
+                // Квадрат двигается по X покадрово (sendcmd → crop@track), по Y по центру картинки.
+                const {firstX, minX, maxX} = await writeTrackCommands(
+                    trackCommandsPath, framing.frames, framing.lefts, outputFrameRate.fps, segment.durationSeconds
+                )
+                console.log('[REEL FRAMING] Moving square', {side, minX, maxX, picture: `${picture.w}:${picture.h}:${picture.x}:${picture.y}`})
+                squareAndScale =
+                    `${pictureCrop}sendcmd=f=${path.basename(trackCommandsPath)},` +
+                    `crop@track=${side}:${side}:${firstX}:${toEven((picture.h - side) / 2)},` +
+                    `scale=${REEL_SIZE}:${REEL_SIZE}:flags=lanczos+accurate_rnd+full_chroma_int`
+            } else if (framing.mode === 'zoom') {
+                // Квадрат по центру; на интервалах логотипа zoompan приближает под него.
+                squareAndScale =
+                    `${pictureCrop}crop=${side}:${side}:${toEven((picture.w - side) / 2)}:${toEven((picture.h - side) / 2)},` +
+                    buildZoomFilter(framing.intervals, side, REEL_SIZE, outputFrameRate.rate)
+            } else {
+                squareAndScale =
+                    `${rect ? pictureCrop : ''}crop='min(iw,ih)':'min(iw,ih)',` +
+                    `scale=${REEL_SIZE}:${REEL_SIZE}:flags=lanczos+accurate_rnd+full_chroma_int`
+            }
+
             const filterComplex =
-                `[0:v]${cropFilter}${squareFilter}` +
-                `scale=${REEL_SIZE}:${REEL_SIZE}:flags=lanczos+accurate_rnd+full_chroma_int${colorCorrection},` +
+                `[0:v]${squareAndScale}${colorCorrection},` +
                 'setsar=1,format=yuv420p[vout]'
 
             await execFileAsync(
@@ -1283,7 +1350,7 @@ export const prepareInstagramVideo = async (
                     }
                     // При слежении квадрат ездит по картинке, поэтому сужается сама картинка,
                     // а не центральный квадрат (иначе камере некуда двигаться).
-                    const correctedRect = faceTrack
+                    const correctedRect = usedFraming === 'track'
                         ? shrinkPictureForBars(baseRect, barsToRemove, check.tolerancePx)
                         : shrinkRectForBars(baseRect, barsToRemove, check.tolerancePx)
 
