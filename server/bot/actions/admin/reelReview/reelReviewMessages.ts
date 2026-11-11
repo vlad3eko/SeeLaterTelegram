@@ -11,6 +11,7 @@ import {getSupabase} from "#server/global/engine/instagram/reel/jobs/dispatchRee
 import {resetAdminPublishLock} from "#server/global/engine/instagram/reel/jobs/adminPublishLock"
 import {
     reelCleanReviewKeyboard,
+    reelCustomHookKeyboard,
     reelFragmentChoiceKeyboard,
     reelHookChoiceKeyboard,
     reelReviewProgressKeyboard
@@ -144,6 +145,16 @@ const sendHookChoice = async (job: ReelReviewJob): Promise<number> => {
     const bot = await getBot()
     const options = readHookOptions(job)
 
+    // «✍️ Свой вариант»: бот ждёт текст хука следующим сообщением.
+    if (job.input_payload?.awaitingCustomHook) {
+        const message = await bot.telegram.sendMessage(adminChatId(job), [
+            `✍️ Напиши свой хук для ${titleOf(job)} одним сообщением.`,
+            'До 12 слов, без кавычек. Этот текст встанет на подложку вместо вариантов Gemini.',
+            REVIEW_HOURS_HINT
+        ].join('\n\n'), {reply_markup: reelCustomHookKeyboard(job.id)})
+        return message.message_id
+    }
+
     if (!options.length) {
         throw new Error('[REEL REVIEW] hook_choice without hook options')
     }
@@ -151,7 +162,7 @@ const sendHookChoice = async (job: ReelReviewJob): Promise<number> => {
     const text = [
         `✍️ Варианты хука для ${titleOf(job)}:`,
         options.map((hook, index) => `${index + 1}. ${hook}`).join('\n'),
-        'Нажми номер: этот хук встанет на видео.',
+        'Нажми номер: этот хук встанет на видео. «Новые варианты» — Gemini напишет другие, «Свой вариант» — напишешь сам.',
         REVIEW_HOURS_HINT
     ].join('\n\n')
 

@@ -2,7 +2,10 @@ import {Markup} from "telegraf"
 import {
     REEL_HOOK_OPTIONS_MAX,
     REEL_REVIEW_CANCEL,
+    REEL_REVIEW_CUSTOM_HOOK,
     REEL_REVIEW_FRAGMENT_PAGE,
+    REEL_REVIEW_HOOK_BACK,
+    REEL_REVIEW_REGEN_HOOKS,
     REEL_REVIEW_HOOKS,
     REEL_REVIEW_PICK_FRAGMENT,
     REEL_REVIEW_PICK_HOOK,
@@ -37,15 +40,29 @@ export const reelReviewProgressKeyboard = (jobId: string) =>
         [reelReviewCancelButton(jobId)]
     ]).reply_markup
 
-/** Под вариантами хука: по кнопке на вариант, в один ряд. */
+/**
+ * Под вариантами хука: по кнопке на вариант в один ряд, затем «Новые варианты» и
+ * «Свой вариант», затем «Отменить».
+ */
 export const reelHookChoiceKeyboard = (jobId: string, optionsCount: number) => {
     const count = Math.max(1, Math.min(REEL_HOOK_OPTIONS_MAX, optionsCount))
 
     return Markup.inlineKeyboard([
         Array.from({length: count}, (_, index) => reelReviewPickHookButton(jobId, index + 1)),
+        [
+            Markup.button.callback('🔁 Новые варианты', REEL_REVIEW_REGEN_HOOKS.encode({jobId})),
+            Markup.button.callback('✍️ Свой вариант', REEL_REVIEW_CUSTOM_HOOK.encode({jobId}))
+        ],
         [reelReviewCancelButton(jobId)]
     ]).reply_markup
 }
+
+/** Пока бот ждёт текст своего хука: вернуться к вариантам или отменить всё. */
+export const reelCustomHookKeyboard = (jobId: string) =>
+    Markup.inlineKeyboard([
+        [Markup.button.callback('◀️ К вариантам', REEL_REVIEW_HOOK_BACK.encode({jobId}))],
+        [reelReviewCancelButton(jobId)]
+    ]).reply_markup
 
 /**
  * Под альбомом фрагментов нарезки: номера фрагментов этой страницы (сквозные, 1–8),

@@ -152,16 +152,72 @@ export const requestCleanRebuild = (jobId: string, supabase: Supabase = getSupab
         })
     })
 
-/** «✨ Сгенерировать хук»: 4 варианта от Gemini по текущему clean. */
+/**
+ * «✨ Сгенерировать хук» под clean и «🔁 Новые варианты» под вариантами: Gemini заново
+ * пишет варианты по текущему clean.
+ */
 export const requestHookOptions = (jobId: string, supabase: Supabase = getSupabase()) =>
     requeueFromReview({
         jobId,
-        expectedStep: 'clean_review',
+        expectedStep: ['clean_review', 'hook_choice'],
         supabase,
-        patch: () => ({
+        patch: job => ({
             worker_phase: 'hooks',
-            hook_options: null
+            hook_options: null,
+            input_payload: {...(job.input_payload ?? {}), awaitingCustomHook: false}
         })
+    })
+
+/** «✍️ Свой вариант»: задача ждёт текст хука от администратора (input_payload.awaitingCustomHook). */
+export const startCustomHook = (jobId: string, supabase: Supabase = getSupabase()) =>
+    updateReview({
+        jobId,
+        expectedStep: 'hook_choice',
+        supabase,
+        patch: job => ({input_payload: {...(job.input_payload ?? {}), awaitingCustomHook: true}})
+    })
+
+/** «◀️ К вариантам»: перестать ждать свой хук. */
+export const stopCustomHook = (jobId: string, supabase: Supabase = getSupabase()) =>
+    updateReview({
+        jobId,
+        expectedStep: 'hook_choice',
+        supabase,
+        patch: job => ({input_payload: {...(job.input_payload ?? {}), awaitingCustomHook: false}})
+    })
+
+/** Задача этого администратора, которая ждёт текст своего хука (самая свежая), или null. */
+export const findJobAwaitingCustomHook = async (
+    adminTelegramId: number,
+    supabase: Supabase = getSupabase()
+): Promise<ReelReviewJob | null> => {
+    const {data, error} = await supabase
+        .from('reel_processing_jobs')
+        .select(REVIEW_COLUMNS)
+        .eq('admin_telegram_id', adminTelegramId)
+        .eq('status', 'awaiting_review')
+        .eq('step', 'hook_choice')
+        .eq('input_payload->>awaitingCustomHook', 'true')
+        .order('updated_at', {ascending: false})
+        .limit(1)
+        .maybeSingle()
+
+    if (error) throw new Error(`[REEL REVIEW CUSTOM HOOK LOOKUP ERROR] ${error.message}`)
+    return (data as unknown as ReelReviewJob | null) ?? null
+}
+
+/** Текст администратора стал хуком: воркер собирает Reel с ним. */
+export const chooseCustomHook = (jobId: string, hook: string, supabase: Supabase = getSupabase()) =>
+    requeueFromReview({
+        jobId,
+        expectedStep: 'hook_choice',
+        supabase,
+        patch: job => job.input_payload?.awaitingCustomHook
+            ? {
+                worker_phase: 'finish',
+                input_payload: {...(job.input_payload ?? {}), chosenHook: hook, awaitingCustomHook: false}
+            }
+            : null
     })
 
 /**

@@ -97,15 +97,17 @@ export const snapFragment = (raw: RawFragment, source: SourceBoundaries): RawFra
 
 const round = (value: number) => Math.round(value * 100) / 100
 
-const overlapShare = (a: RawFragment, b: RawFragment) => {
-    const overlap = Math.max(0, Math.min(a.end, b.end) - Math.max(a.start, b.start))
-    return overlap / Math.min(a.end - a.start, b.end - b.start)
-}
+// Почти тот же вариант: начало и конец совпадают с точностью до NEAR_SAME секунд.
+// Перекрытие само по себе не повод отбрасывать: перекрывающиеся варианты с другим
+// началом или концом — это разные версии нарезки (решение владельца 12.11).
+const NEAR_SAME = 6
+const nearlySame = (a: RawFragment, b: RawFragment) =>
+    Math.abs(a.start - b.start) < NEAR_SAME && Math.abs(a.end - b.end) < NEAR_SAME
 
 /**
  * Подгоняет все фрагменты, отбрасывает слишком короткие (короче 20 с после подгонки,
- * например в конце ролика) и почти совпадающие с уже принятыми (перекрытие больше
- * половины), сохраняет порядок модели (лучшие первыми), не больше FRAGMENTS_MAX.
+ * например в конце ролика) и почти совпадающие с уже принятыми (начало и конец ближе
+ * NEAR_SAME секунд), сохраняет порядок модели (лучшие первыми), не больше FRAGMENTS_MAX.
  */
 export const snapFragments = <T extends RawFragment>(fragments: T[], source: SourceBoundaries): T[] => {
     const accepted: T[] = []
@@ -113,7 +115,7 @@ export const snapFragments = <T extends RawFragment>(fragments: T[], source: Sou
         if (!(fragment.end > fragment.start)) continue
         const snapped = {...fragment, ...snapFragment(fragment, source)}
         if (snapped.end - snapped.start < 20) continue
-        if (accepted.some(other => overlapShare(other, snapped) > 0.5)) continue
+        if (accepted.some(other => nearlySame(other, snapped))) continue
         accepted.push(snapped)
         if (accepted.length >= FRAGMENTS_MAX) break
     }
