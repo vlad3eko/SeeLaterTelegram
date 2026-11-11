@@ -63,9 +63,19 @@ const sendAdminNotice = async (adminTelegramId: number, message: string): Promis
     }
 }
 
-const resetAdminPublishLock = async (
+// Снимает блокировку «публикация идёт» с сессии редактирования администратора.
+// Нужна и при переходе на проверку Reel (reelReviewMessages): проверка может ждать
+// часами, а с mode='publish' бот перехватывал бы обычные сообщения администратора.
+export const resetAdminPublishLock = async (
     supabase: SupabaseClient,
-    job: ReelJob
+    job: {
+        admin_telegram_id: number | string
+        media_id: number | string
+        media_type: string
+        content_type: string
+        key_trailer: string
+        input_payload: Record<string, any> | null
+    }
 ): Promise<void> => {
     try {
         const {data: user, error: userError} = await supabase
@@ -86,7 +96,7 @@ const resetAdminPublishLock = async (
             .eq('key_trailer', job.key_trailer)
             .eq('mode', 'publish')
 
-        const startedAt = asRecord(job.input_payload.session).publishStartedAt
+        const startedAt = asRecord(asRecord(job.input_payload).session).publishStartedAt
         if (startedAt != null) query = query.eq('publish_started_at', startedAt)
 
         const {error} = await query

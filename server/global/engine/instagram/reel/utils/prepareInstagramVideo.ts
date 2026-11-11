@@ -91,12 +91,54 @@ export const getInputVideoDuration = async (inputPath: string): Promise<number> 
 }
 
 /**
+ * Положения начала фрагмента для вариантов «Пересобрать»: первым идёт прежнее (base),
+ * затем по очереди позже и раньше него с шагом в половину фрагмента (не меньше 5 с),
+ * в пределах [minStart, maxStart]. Положения ближе 1 с друг к другу не повторяются.
+ */
+export const segmentVariantStarts = (
+    baseStart: number,
+    minStart: number,
+    maxStart: number,
+    durationSeconds: number
+): number[] => {
+    const step = Math.max(5, durationSeconds / 2)
+    const starts = [baseStart]
+    const isNew = (value: number) => starts.every(existing => Math.abs(existing - value) >= 1)
+
+    for (let k = 1; k <= 1000; k++) {
+        const later = baseStart + k * step
+        const earlier = baseStart - k * step
+        const laterFits = later <= maxStart
+        const earlierFits = earlier >= minStart
+
+        if (!laterFits && !earlierFits) {
+            // Ни одно новое положение целиком не помещается: добавляем края диапазона,
+            // если они ещё не взяты, и заканчиваем.
+            for (const edge of [maxStart, minStart]) {
+                if (isNew(edge)) starts.push(edge)
+            }
+            break
+        }
+
+        if (laterFits && isNew(later)) starts.push(later)
+        if (earlierFits && isNew(earlier)) starts.push(earlier)
+    }
+
+    return starts
+}
+
+/**
  * Selects the most useful middle section while reserving the trailer ending.
  * Long trailers: 40s, usually starting around midpoint - 10s.
  * 60-70s trailers: use the maximum duration that leaves 18s intro + 12s ending.
  * Short teasers: target 30s where possible, while leaving 20% (max 12s) at the end.
+ *
+ * `variant` (кнопка «Пересобрать» при ручной проверке clean): 0 даёт прежний фрагмент,
+ * следующие номера сдвигают окно той же длины внутри того же допустимого диапазона
+ * шагами по половине фрагмента, по очереди позже и раньше середины. Когда различных
+ * положений больше нет, варианты идут по кругу.
  */
-export const calculateReelSegment = (totalDurationSeconds: number): ReelSegment => {
+export const calculateReelSegment = (totalDurationSeconds: number, variant: number = 0): ReelSegment => {
     if (!Number.isFinite(totalDurationSeconds) || totalDurationSeconds <= 0) {
         throw new Error(`[REEL SEGMENT] Invalid duration: ${totalDurationSeconds}`)
     }
@@ -126,7 +168,10 @@ export const calculateReelSegment = (totalDurationSeconds: number): ReelSegment 
     const maxStart = Math.max(0, total - endGuard - durationSeconds)
     const minStart = Math.min(preferredMinimumStart, maxStart)
     const targetStart = total / 2 - 10
-    const startSeconds = clamp(targetStart, minStart, maxStart)
+    const baseStart = clamp(targetStart, minStart, maxStart)
+    const starts = segmentVariantStarts(baseStart, minStart, maxStart, durationSeconds)
+    const variantIndex = Number.isFinite(variant) ? Math.max(0, Math.floor(variant)) : 0
+    const startSeconds = starts[variantIndex % starts.length] ?? baseStart
     const endSeconds = Math.min(total, startSeconds + durationSeconds)
 
     return {
@@ -904,7 +949,11 @@ const formatBars = (result: BorderBars) =>
 
 export const prepareInstagramVideo = async (
     inputPath: string,
-    keyTrailer: string
+    keyTrailer: string,
+    options: {
+        /** Номер фрагмента трейлера (calculateReelSegment), 0 — прежний. */
+        segmentVariant?: number
+    } = {}
 ) => {
     if (!ffmpegPath) {
         throw new Error('[PREPARE INSTAGRAM VIDEO] ffmpeg-static binary not found')
@@ -923,10 +972,12 @@ export const prepareInstagramVideo = async (
         // Важно: inputPath должен быть ПОЛНЫМ исходным трейлером, а не заранее
         // обрезанным первым фрагментом.
         const totalDurationSeconds = await getInputVideoDuration(inputPath)
-        const segment = calculateReelSegment(totalDurationSeconds)
+        const segmentVariant = options.segmentVariant ?? 0
+        const segment = calculateReelSegment(totalDurationSeconds, segmentVariant)
 
         console.log('[REEL SEGMENT SELECTED]', {
             ...segment,
+            variant: segmentVariant,
             reservedStartSeconds: segment.startSeconds,
             reservedEndSeconds: Number(
                 (segment.totalDurationSeconds - segment.endSeconds).toFixed(3)

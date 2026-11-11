@@ -1,6 +1,5 @@
 import {Markup} from "telegraf"
-import {ContentTelegramMenu} from "~/utils/engines/content/strategy/enums";
-import {backButton} from "#server/bot/consts/buttons/admin/contentEngine/buttonsRepository";
+import {backButton, contentListCardButton} from "#server/bot/consts/buttons/admin/contentEngine/buttonsRepository";
 
 const getTitle = (
     item: any
@@ -30,10 +29,7 @@ export const createRichListKeyboard = (items: any[]) => {
                 const title = truncate(getTitle(item), 34)
 
                 return [
-                    Markup.button.callback(
-                        `${index + 1}. ${title}`,
-                        `bot:${item.query.type}:${item.query.contentType}:${item.query.id}`
-                    ),
+                    contentListCardButton(`${index + 1}. ${title}`, item.query),
                 ]
             }
         )

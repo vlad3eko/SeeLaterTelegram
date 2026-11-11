@@ -11,6 +11,24 @@ import {adminEditTypeCard} from "#server/bot/actions/admin/card/adminEditTypeCar
 import {adminDownloadTrailer} from "#server/bot/actions/admin/session/mods/adminDownloadTrailer";
 import {adminAddTrailerKey} from "#server/bot/actions/admin/session/adminAddTrailerKey";
 import {isAdmin} from "#server/bot/consts/admins";
+import {
+    ADMIN_CHANGE_TRAILER_KEY,
+    ADMIN_DOWNLOAD_TRAILER,
+    ADMIN_EDIT_CARD,
+    ADMIN_EDIT_MEDIA,
+    ADMIN_EDIT_OVERVIEW,
+    ADMIN_EDIT_TEXT,
+    ADMIN_EDIT_TYPE,
+    ADMIN_PUBLISH_CARD,
+    REEL_REVIEW_HOOKS,
+    REEL_REVIEW_PICK_HOOK,
+    REEL_REVIEW_REBUILD
+} from "#server/bot/callbacks/routes";
+import {
+    reelReviewGenerateHooks,
+    reelReviewPickHook,
+    reelReviewRebuild
+} from "#server/bot/actions/admin/reelReview/reelReviewActions";
 
 // Кнопки админа показывает только chosenCard, но callback_data можно подделать, а в webhook
 // мог прийти любой update. Поэтому право проверяем в самом обработчике.
@@ -34,14 +52,19 @@ const adminOnly = (handler: (ctx: any) => unknown) =>
     }
 
 export const registerAdminActions = (bot: Telegraf) => {
-    bot.action(/^edit_media_(\d+)_(movie|tv)_([^_]+)(?:_(.+))?$/, adminOnly(editAdminInlineMedia))
-    bot.action(/^publish_media_(\d+)_(movie|tv)_([^_]+)(?:_(.+?))?(?:_(true|false))?$/, adminOnly(publishAdminInlineMedia))
-    bot.action(/^download_trailer$/, adminOnly(adminDownloadTrailer))
-    bot.action(/^update_trailer_key$/, adminOnly(adminAddTrailerKey))
-    bot.action(/^admin_edit_media$/, adminOnly(adminEditMedia))
-    bot.action(/^admin_edit_text$/, adminOnly(adminEditText))
-    bot.action(/^admin_edit_overview$/, adminOnly(adminEditOverview))
-    bot.action(/^admin_edit_type_card$/, adminOnly(adminEditTypeCard))
+    bot.action(ADMIN_EDIT_CARD.pattern, adminOnly(editAdminInlineMedia))
+    bot.action(ADMIN_PUBLISH_CARD.pattern, adminOnly(publishAdminInlineMedia))
+    bot.action(ADMIN_DOWNLOAD_TRAILER.pattern, adminOnly(adminDownloadTrailer))
+    bot.action(ADMIN_CHANGE_TRAILER_KEY.pattern, adminOnly(adminAddTrailerKey))
+    bot.action(ADMIN_EDIT_MEDIA.pattern, adminOnly(adminEditMedia))
+    bot.action(ADMIN_EDIT_TEXT.pattern, adminOnly(adminEditText))
+    bot.action(ADMIN_EDIT_OVERVIEW.pattern, adminOnly(adminEditOverview))
+    bot.action(ADMIN_EDIT_TYPE.pattern, adminOnly(adminEditTypeCard))
+
+    // Проверка Reel перед публикацией: «Пересобрать», «Сгенерировать хук», «1»–«4».
+    bot.action(REEL_REVIEW_REBUILD.pattern, adminOnly(reelReviewRebuild))
+    bot.action(REEL_REVIEW_HOOKS.pattern, adminOnly(reelReviewGenerateHooks))
+    bot.action(REEL_REVIEW_PICK_HOOK.pattern, adminOnly(reelReviewPickHook))
 
     bot.on('message', async (ctx: any, next) => {
 

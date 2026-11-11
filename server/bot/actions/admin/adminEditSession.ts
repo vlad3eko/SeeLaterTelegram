@@ -11,6 +11,13 @@ export type ModeEditSession =
     | 'download'
     | 'trailer'
 
+/**
+ * Откуда взят ключ трейлера. `manual`: администратор сам прислал ссылку
+ * («Изменить ключ трейлера»), тогда публикация идёт с проверкой clean и выбором хука
+ * (ручная ветка). Иначе ключ из карточки и публикация автоматическая.
+ */
+export type TrailerKeySource = 'manual'
+
 export type AdminEditSession = {
     publishStartedAt?: number
     inlineMessageId?: string
@@ -25,6 +32,7 @@ export type AdminEditSession = {
     contentType: ContentType
 
     keyTrailer?: string
+    trailerKeySource?: TrailerKeySource
     comment?: string
     overview?: string
 
@@ -54,6 +62,7 @@ export type AdminEditSessionUpdate = {
     contentType?: ContentType
 
     keyTrailer?: string | null
+    trailerKeySource?: TrailerKeySource | null
     comment?: string | null
     overview?: string | null
 

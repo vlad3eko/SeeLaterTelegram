@@ -3,6 +3,7 @@ import {Markup} from "telegraf";
 import {addMessageSession} from "#server/bot/services/session/addMessageSession";
 import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
 import {telegramChannelShortLink} from "#server/global/oneLinkApp";
+import {checkSubscriptionButtonBot} from "#server/bot/consts/buttons/buttonsBot";
 
 export const failedChannelSubscriber = async (ctx: any) => {
 
@@ -13,10 +14,7 @@ export const failedChannelSubscriber = async (ctx: any) => {
                 'Подписаться',
                 telegramChannelShortLink
             ),
-            Markup.button.callback(
-                'Проверить подписку',
-                'check_sub'
-            )
+            checkSubscriptionButtonBot()
         ])
     )
 

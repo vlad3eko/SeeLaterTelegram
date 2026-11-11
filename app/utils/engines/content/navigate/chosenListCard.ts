@@ -1,4 +1,5 @@
 import type {typeRichCard} from "#server/global/engine/card/enum/types";
+import {CONTENT_LIST_CARD} from "#server/bot/callbacks/routes";
 import {engineRichCard} from "#server/global/engine/card/engineRichCard";
 import {ContentType} from "#server/global/engine/search/strategy/enums";
 import {SearchButtonBot} from "#server/bot/consts/buttons/buttonsBot";
@@ -8,7 +9,7 @@ import {getAdminEditSession} from "#server/bot/actions/admin/adminEditSession";
 
 export const chosenListCard = async (ctx: any) => {
 
-    const [, mediaType, contentType, mediaId] = ctx.match
+    const {mediaType, contentType, mediaId} = CONTENT_LIST_CARD.parse(ctx)
     const admin = isAdmin(ctx.from.id)
 
     try {

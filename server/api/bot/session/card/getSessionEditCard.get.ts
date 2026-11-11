@@ -73,6 +73,9 @@ export default defineEventHandler(async (event) => {
         keyTrailer:
             row.key_trailer ?? undefined,
 
+        trailerKeySource:
+            row.trailer_key_source === 'manual' ? 'manual' : undefined,
+
         comment:
             row.comment ?? undefined,
 

@@ -1,13 +1,12 @@
 
 import {executeDataProvider} from "~/utils/engines/content/strategy/executeDataProvider";
-import type {ContentStrategy} from "~/utils/engines/content/strategy/enums";
+import {CONTENT_STRATEGY} from "#server/bot/callbacks/routes";
 
 export const generateContentEntry = async (ctx: any) => {
 
     await ctx.answerCbQuery()
 
-    const strategy = ctx.match[1] as ContentStrategy
-    const userId = ctx.match[2]
+    const {strategy, userId} = CONTENT_STRATEGY.parse(ctx)
 
     const executeProvider = await executeDataProvider(ctx, strategy, userId)
 }

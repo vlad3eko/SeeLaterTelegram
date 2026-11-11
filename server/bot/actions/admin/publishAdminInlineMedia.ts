@@ -11,20 +11,18 @@ import {removeMessageSession} from "#server/bot/services/session/removeMessageSe
 import {constructRichCard} from "#server/global/engine/card/construct/constructRichCard";
 import {dispatchReelJob} from "#server/global/engine/instagram/reel/jobs/dispatchReelJob";
 import {internalFetch, internalTmdbFetch} from "#server/utils/api/internalFetch";
+import {ADMIN_PUBLISH_CARD} from "#server/bot/callbacks/routes";
 
 export const publishAdminInlineMedia = async (ctx: any) => {
-    const [
-        ,
-        mediaId,
+    const {
+        mediaId: parsedMediaId,
         mediaType,
         contentType,
         keyTrailer,
-        isRichTypeCardValue
-    ] = ctx.match
+        isRichTypeCard
+    } = ADMIN_PUBLISH_CARD.parse(ctx)
 
     const channelId = CHANEL_LINK
-    const parsedMediaId = Number(mediaId)
-    const isRichTypeCard = isRichTypeCardValue === 'true'
 
     const answerCallbackQuerySafely = async (text: string) => {
         try {
@@ -114,11 +112,14 @@ export const publishAdminInlineMedia = async (ctx: any) => {
     }
 
     if (keyTrailer !== undefined && session.keyTrailer !== keyTrailer) {
+        // Ключ из кнопки карточки отличается от сессии: ручной ключ больше не действует.
         session.keyTrailer = keyTrailer || undefined
         session.preparedInstagram = undefined
+        session.trailerKeySource = undefined
         await updateAdminEditSession(ctx.from.id, {
             keyTrailer: keyTrailer || null,
-            preparedInstagram: null
+            preparedInstagram: null,
+            trailerKeySource: null
         })
     }
 
@@ -152,6 +153,9 @@ export const publishAdminInlineMedia = async (ctx: any) => {
                 sourceUpdateId: updateId,
                 channelChatId: String(channelId),
                 finalizerUrl: `${URL_ACTIVE.replace(/\/$/, '')}/api/bot/reelJobs/finalize`,
+                // Ключ введён вручную: clean и хук проходят проверку администратора.
+                // Любой другой запуск (ключ из карточки, будущий автоподбор) идёт без вопросов.
+                reviewMode: session.trailerKeySource === 'manual' ? 'manual' : 'auto',
                 session: {
                     media: session.media,
                     mediaId: session.mediaId,
@@ -177,7 +181,9 @@ export const publishAdminInlineMedia = async (ctx: any) => {
                 ctx,
                 result.reused
                     ? 'Эта задача уже существует. Продолжаю её обработку/публикацию.'
-                    : 'Видео поставлено в обработку. После подготовки публикация в Telegram и Instagram выполнится автоматически.'
+                    : session.trailerKeySource === 'manual'
+                        ? 'Видео поставлено в обработку. Когда clean будет готов, пришлю его на проверку.'
+                        : 'Видео поставлено в обработку. После подготовки публикация в Telegram и Instagram выполнится автоматически.'
             )
         } catch (error) {
             console.error('[REEL JOB DISPATCH ERROR]', error)

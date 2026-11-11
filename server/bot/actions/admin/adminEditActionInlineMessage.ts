@@ -207,8 +207,10 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
             try {
                 // Сначала сохраняем новый ключ в Supabase.
                 // Старый подготовленный Reel больше использовать нельзя.
+                // Ключ введён вручную: публикация пойдёт с проверкой clean и выбором хука.
                 await updateAdminEditSession(ctx.from.id, {
                     keyTrailer,
+                    trailerKeySource: 'manual',
                     preparedInstagram: null,
                     mode: null,
                     publishStartedAt: null
@@ -227,6 +229,7 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
 
             // Синхронизируем локальный объект с Supabase.
             session.keyTrailer = keyTrailer
+            session.trailerKeySource = 'manual'
             session.preparedInstagram = undefined
             session.mode = undefined
             session.publishStartedAt = undefined
