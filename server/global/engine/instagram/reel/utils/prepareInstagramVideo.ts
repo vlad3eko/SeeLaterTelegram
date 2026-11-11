@@ -7,6 +7,12 @@ import ffmpegPath from 'ffmpeg-static'
 import {createHash, randomUUID} from 'node:crypto'
 import {getX264Args} from '#server/global/engine/instagram/reel/utils/encodeSettings'
 import {buildEnhanceFilters} from '#server/global/engine/instagram/reel/utils/enhanceSettings'
+import {
+    BANNER_SAMPLE_COUNT,
+    detectWatermarkBanner,
+    watermarkCheckEnabled,
+    type WatermarkBanner
+} from '#server/global/engine/instagram/reel/utils/watermarkBanner'
 
 const execFileAsync = promisify(execFile)
 
@@ -435,6 +441,65 @@ type SourceAnalysis = {
     averageY: number
 }
 
+/** Запас под плашкой-ватермаркой, доля высоты картинки (край плашки сглажен). */
+const BANNER_MARGIN_SHARE = 0.015
+
+/** Больше этой доли высоты сверху ради плашки не срезаем: это уже не плашка, а ошибка поиска. */
+const BANNER_MAX_CUT_SHARE = 0.3
+
+/**
+ * Срезает верх прямоугольника картинки ниже плашки-ватермарки (watermarkBanner.ts),
+ * если она найдена в кадрах фрагмента. Квадрат потом берётся из оставшейся
+ * картинки, прижатым к низу: ни сама плашка, ни её «вытянутая» версия в кадр
+ * не попадают. Сбой поиска сборку не останавливает.
+ */
+const cropBelowWatermarkBanner = async (
+    inputPath: string,
+    segment: ReelSegment,
+    picture: CropRect
+): Promise<{rect: CropRect, banner: WatermarkBanner | null}> => {
+    if (!watermarkCheckEnabled()) return {rect: picture, banner: null}
+
+    try {
+        const banner = await detectWatermarkBanner(
+            inputPath,
+            sampleTimes(segment.startSeconds, segment.durationSeconds, BANNER_SAMPLE_COUNT),
+            picture,
+            false
+        )
+
+        if (!banner) {
+            console.log('[REEL WATERMARK] No banner in the top left corner')
+            return {rect: picture, banner: null}
+        }
+
+        const cut = ceilEven((banner.bottomShare + BANNER_MARGIN_SHARE) * picture.h)
+
+        if (cut > picture.h * BANNER_MAX_CUT_SHARE) {
+            console.warn('[REEL WATERMARK] Banner looks too tall; not cropping', {banner, cutPx: cut})
+            return {rect: picture, banner}
+        }
+
+        const rect = {x: picture.x, y: picture.y + cut, w: picture.w, h: toEven(picture.h - cut)}
+
+        console.log('[REEL WATERMARK] Banner found; cropping below it', {
+            bottomPercent: Number((banner.bottomShare * 100).toFixed(1)),
+            rightPercent: Number((banner.rightShare * 100).toFixed(1)),
+            frames: `${banner.frames}/${banner.sampledFrames}`,
+            cutTopPx: cut,
+            crop: `${rect.w}:${rect.h}:${rect.x}:${rect.y}`
+        })
+
+        return {rect, banner}
+
+    } catch (error: any) {
+        console.warn('[REEL WATERMARK] Banner search failed; keeping the picture as is', {
+            message: error?.message || error
+        })
+        return {rect: picture, banner: null}
+    }
+}
+
 /**
  * Строка или столбец считаются чёрными, если МЕДИАНА яркости вдоль них не выше
  * этого значения (limited range: чёрный = 16). Именно медиана, а не максимум:
@@ -825,7 +890,12 @@ const analyzeSelectedSegment = async (
             console.log('[REEL CROPDETECT] No black bars detected; keeping source dimensions')
         }
 
-        return {crop, averageY}
+        // Вторая проблема рядом с полосами: плашка канала в левом верхнем углу.
+        // Ищем её уже внутри картинки без полос.
+        const pictureRect = crop ?? {x: 0, y: 0, w: toEven(source.width), h: toEven(source.height)}
+        const {rect, banner} = await cropBelowWatermarkBanner(inputPath, segment, pictureRect)
+
+        return {crop: banner && rect !== pictureRect ? rect : crop, averageY}
 
     } catch (error: any) {
         // Анализ вспомогательный: не допускаем, чтобы неудачный анализ
@@ -902,6 +972,38 @@ export const checkBlackBorders = async (videoPath: string): Promise<BorderCheckR
         usedFrames: detected.usedFrames,
         tolerancePx
     }
+}
+
+/**
+ * Проверка готового клипа на плашку-ватермарку в левом верхнем углу. Возвращает,
+ * сколько пикселей клипа сверху нужно срезать (0 — плашки нет или проверка выключена).
+ */
+export const checkWatermarkBannerInClip = async (
+    videoPath: string
+): Promise<{cutTopPx: number, banner: WatermarkBanner | null}> => {
+    if (!watermarkCheckEnabled()) return {cutTopPx: 0, banner: null}
+
+    const [dimensions, duration] = await Promise.all([
+        probeVideoDimensions(videoPath),
+        getInputVideoDuration(videoPath)
+    ])
+
+    const margin = Math.min(0.3, duration / 10)
+    const banner = await detectWatermarkBanner(
+        videoPath,
+        sampleTimes(margin, Math.max(0.1, duration - margin * 2), BANNER_SAMPLE_COUNT),
+        {x: 0, y: 0, w: toEven(dimensions.width), h: toEven(dimensions.height)},
+        true
+    )
+
+    if (!banner) return {cutTopPx: 0, banner: null}
+
+    const cutTopPx = Math.ceil((banner.bottomShare + BANNER_MARGIN_SHARE) * dimensions.height)
+
+    // Слишком большая «плашка» — ошибка поиска, клип не трогаем.
+    return cutTopPx > dimensions.height * BANNER_MAX_CUT_SHARE
+        ? {cutTopPx: 0, banner}
+        : {cutTopPx, banner}
 }
 
 /** Квадрат, который ffmpeg вырежет из rect по центру (второй crop в фильтре). */
@@ -1071,41 +1173,54 @@ export const prepareInstagramVideo = async (
         if (borderCheckEnabled()) {
             try {
                 let check = await checkBlackBorders(outputPath)
+                let bannerCheck = await checkWatermarkBannerInClip(outputPath)
                 console.log('[REEL BORDER CHECK]', {
                     ok: check.ok,
                     verified: check.verified,
                     bars: formatBars(check),
                     usedFrames: check.usedFrames,
-                    tolerancePx: check.tolerancePx
+                    tolerancePx: check.tolerancePx,
+                    watermarkCutTopPx: bannerCheck.cutTopPx
                 })
 
-                if (!check.ok) {
+                if (!check.ok || bannerCheck.cutTopPx > 0) {
                     const baseRect: CropRect = analysis.crop ?? {
                         x: 0,
                         y: 0,
                         w: toEven(source.width),
                         h: toEven(source.height)
                     }
-                    const correctedRect = shrinkRectForBars(baseRect, check, check.tolerancePx)
+                    // Плашка в клипе обрабатывается как полоса сверху своей высоты.
+                    const barsToRemove: BorderBars = {
+                        top: Math.max(check.ok ? 0 : check.top, bannerCheck.cutTopPx),
+                        right: check.ok ? 0 : check.right,
+                        bottom: check.ok ? 0 : check.bottom,
+                        left: check.ok ? 0 : check.left
+                    }
+                    const correctedRect = shrinkRectForBars(baseRect, barsToRemove, check.tolerancePx)
 
-                    console.warn('[REEL BORDER CHECK] Black borders found; re-encoding with a tighter crop', {
-                        found: formatBars(check),
+                    console.warn('[REEL BORDER CHECK] Black borders or watermark found; re-encoding with a tighter crop', {
+                        found: formatBars(barsToRemove),
+                        watermark: bannerCheck.banner,
                         crop: `${correctedRect.w}:${correctedRect.h}:${correctedRect.x}:${correctedRect.y}`
                     })
 
                     await encodeClean(correctedRect)
                     check = await checkBlackBorders(outputPath)
+                    bannerCheck = await checkWatermarkBannerInClip(outputPath)
 
                     console.log('[REEL BORDER CHECK] After correction', {
                         ok: check.ok,
                         verified: check.verified,
                         bars: formatBars(check),
-                        usedFrames: check.usedFrames
+                        usedFrames: check.usedFrames,
+                        watermarkCutTopPx: bannerCheck.cutTopPx
                     })
 
-                    if (!check.ok) {
+                    if (!check.ok || bannerCheck.cutTopPx > 0) {
                         const message =
-                            `[REEL BORDER CHECK] Black borders remain after correction: ${formatBars(check)}`
+                            `[REEL BORDER CHECK] Black borders or watermark remain after correction: ${formatBars(check)}, ` +
+                            `watermark ${bannerCheck.cutTopPx}px`
                         if (borderCheckStrict()) {
                             throw new Error(message)
                         }
