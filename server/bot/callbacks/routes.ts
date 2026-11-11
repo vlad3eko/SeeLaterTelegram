@@ -115,6 +115,14 @@ export const REEL_REVIEW_HOOKS = defineCallback<ReelReviewRef>({
     decode: match => ({jobId: match[1] ?? ''})
 })
 
+/** «✖️ Отменить»: остановить весь цикл проверки, ничего не публиковать. */
+export const REEL_REVIEW_CANCEL = defineCallback<ReelReviewRef>({
+    id: 'reel_review_cancel',
+    pattern: new RegExp(`^rr:cancel:(${UUID})$`),
+    encode: ({jobId}) => `rr:cancel:${jobId}`,
+    decode: match => ({jobId: match[1] ?? ''})
+})
+
 export const REEL_HOOK_OPTIONS_MAX = 4
 
 /** «1»…«4»: выбранный вариант хука (номер с единицы, как в сообщении). */

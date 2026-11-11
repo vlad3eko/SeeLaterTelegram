@@ -9,7 +9,8 @@ import {getSupabase} from "#server/global/engine/instagram/reel/jobs/dispatchRee
 import {resetAdminPublishLock} from "#server/global/engine/instagram/reel/jobs/adminPublishLock"
 import {
     reelCleanReviewKeyboard,
-    reelHookChoiceKeyboard
+    reelHookChoiceKeyboard,
+    reelReviewProgressKeyboard
 } from "#server/bot/consts/buttons/admin/buttonsReelReview"
 
 /**
@@ -50,10 +51,21 @@ export const deleteReelReviewMessage = async (job: Pick<ReelReviewJob, 'id' | 'a
     }
 }
 
-/** Короткое сообщение о состоянии; становится «текущим» и удалится следующим. */
-export const sendReelReviewStatus = async (job: Pick<ReelReviewJob, 'id' | 'admin_telegram_id'>, text: string) => {
+/**
+ * Короткое сообщение о состоянии; становится «текущим» и удалится следующим.
+ * `withCancel`: под ним кнопка «Отменить» (пока воркер работает над шагом).
+ */
+export const sendReelReviewStatus = async (
+    job: Pick<ReelReviewJob, 'id' | 'admin_telegram_id'>,
+    text: string,
+    {withCancel = false}: {withCancel?: boolean} = {}
+) => {
     try {
-        const message = await (await getBot()).telegram.sendMessage(Number(job.admin_telegram_id), text)
+        const message = await (await getBot()).telegram.sendMessage(
+            Number(job.admin_telegram_id),
+            text,
+            withCancel ? {reply_markup: reelReviewProgressKeyboard(job.id)} : undefined
+        )
         await setReelReviewMessage(job.id, message.message_id)
     } catch (error: any) {
         console.error('[REEL REVIEW STATUS ERROR]', error?.response?.description || error?.message || error)

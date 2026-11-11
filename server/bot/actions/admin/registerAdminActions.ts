@@ -20,11 +20,13 @@ import {
     ADMIN_EDIT_TEXT,
     ADMIN_EDIT_TYPE,
     ADMIN_PUBLISH_CARD,
+    REEL_REVIEW_CANCEL,
     REEL_REVIEW_HOOKS,
     REEL_REVIEW_PICK_HOOK,
     REEL_REVIEW_REBUILD
 } from "#server/bot/callbacks/routes";
 import {
+    reelReviewCancel,
     reelReviewGenerateHooks,
     reelReviewPickHook,
     reelReviewRebuild
@@ -61,10 +63,11 @@ export const registerAdminActions = (bot: Telegraf) => {
     bot.action(ADMIN_EDIT_OVERVIEW.pattern, adminOnly(adminEditOverview))
     bot.action(ADMIN_EDIT_TYPE.pattern, adminOnly(adminEditTypeCard))
 
-    // Проверка Reel перед публикацией: «Пересобрать», «Сгенерировать хук», «1»–«4».
+    // Проверка Reel перед публикацией: «Пересобрать», «Сгенерировать хук», «1»–«4», «Отменить».
     bot.action(REEL_REVIEW_REBUILD.pattern, adminOnly(reelReviewRebuild))
     bot.action(REEL_REVIEW_HOOKS.pattern, adminOnly(reelReviewGenerateHooks))
     bot.action(REEL_REVIEW_PICK_HOOK.pattern, adminOnly(reelReviewPickHook))
+    bot.action(REEL_REVIEW_CANCEL.pattern, adminOnly(reelReviewCancel))
 
     bot.on('message', async (ctx: any, next) => {
 

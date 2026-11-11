@@ -1,6 +1,7 @@
 import {Markup} from "telegraf"
 import {
     REEL_HOOK_OPTIONS_MAX,
+    REEL_REVIEW_CANCEL,
     REEL_REVIEW_HOOKS,
     REEL_REVIEW_PICK_HOOK,
     REEL_REVIEW_REBUILD
@@ -17,10 +18,20 @@ export const reelReviewHooksButton = (jobId: string) =>
 export const reelReviewPickHookButton = (jobId: string, option: number) =>
     Markup.button.callback(String(option), REEL_REVIEW_PICK_HOOK.encode({jobId, option}))
 
-/** Под clean-видео: пересобрать или перейти к хукам. */
+export const reelReviewCancelButton = (jobId: string) =>
+    Markup.button.callback('✖️ Отменить', REEL_REVIEW_CANCEL.encode({jobId}))
+
+/** Под clean-видео: пересобрать, перейти к хукам или отменить всё. */
 export const reelCleanReviewKeyboard = (jobId: string) =>
     Markup.inlineKeyboard([
-        [reelReviewRebuildButton(jobId), reelReviewHooksButton(jobId)]
+        [reelReviewRebuildButton(jobId), reelReviewHooksButton(jobId)],
+        [reelReviewCancelButton(jobId)]
+    ]).reply_markup
+
+/** Под сообщением «идёт обработка»: только отмена. */
+export const reelReviewProgressKeyboard = (jobId: string) =>
+    Markup.inlineKeyboard([
+        [reelReviewCancelButton(jobId)]
     ]).reply_markup
 
 /** Под вариантами хука: по кнопке на вариант, в один ряд. */
@@ -28,6 +39,7 @@ export const reelHookChoiceKeyboard = (jobId: string, optionsCount: number) => {
     const count = Math.max(1, Math.min(REEL_HOOK_OPTIONS_MAX, optionsCount))
 
     return Markup.inlineKeyboard([
-        Array.from({length: count}, (_, index) => reelReviewPickHookButton(jobId, index + 1))
+        Array.from({length: count}, (_, index) => reelReviewPickHookButton(jobId, index + 1)),
+        [reelReviewCancelButton(jobId)]
     ]).reply_markup
 }
