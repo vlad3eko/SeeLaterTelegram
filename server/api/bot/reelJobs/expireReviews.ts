@@ -7,6 +7,7 @@ import {
     deleteReelReviewMessage,
     sendReelReviewStatus
 } from '#server/bot/actions/admin/reelReview/reelReviewMessages'
+import {sweepReelTempFolders} from '#server/global/engine/instagram/reel/jobs/reelStorageCleanup'
 
 /**
  * Таймер ручной проверки Reel: задачи, где администратор не нажал ничего за 24 часа,
@@ -64,5 +65,15 @@ export default defineEventHandler(async (event) => {
 
     console.log('[REEL REVIEW EXPIRY]', {found: expiredIds.length, expired, failed: failed.length})
 
-    return {success: true, found: expiredIds.length, expired, failed}
+    // Тот же часовой вызов чистит temp/ и preview/ от файлов завершённых задач.
+    let sweep: Awaited<ReturnType<typeof sweepReelTempFolders>> | {error: string}
+    try {
+        sweep = await sweepReelTempFolders()
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        console.error('[REEL TEMP SWEEP ERROR]', message)
+        sweep = {error: message}
+    }
+
+    return {success: true, found: expiredIds.length, expired, failed, sweep}
 })

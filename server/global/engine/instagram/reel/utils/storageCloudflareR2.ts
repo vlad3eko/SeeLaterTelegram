@@ -2,12 +2,13 @@
 import {
     DeleteObjectCommand,
     HeadObjectCommand,
+    ListObjectsV2Command,
     PutObjectCommand,
     S3Client
 } from '@aws-sdk/client-s3'
 
 import {createReadStream} from 'node:fs'
-import {access, copyFile, mkdir, rm} from 'node:fs/promises'
+import {access, copyFile, mkdir, readdir, rm, stat} from 'node:fs/promises'
 import path from 'node:path'
 import {fileURLToPath, pathToFileURL} from 'node:url'
 
@@ -187,6 +188,52 @@ export const existsInCloudflareR2 = async (
 
         throw error
     }
+}
+
+
+export type CloudflareR2Object = {key: string, lastModified: Date}
+
+/**
+ * Все объекты с ключом, начинающимся с prefix (например `instagram/reels/temp/`).
+ * Нужен ежечасной чистке временных папок (reel/jobs/reelStorageCleanup.ts).
+ */
+export const listCloudflareR2Objects = async (prefix: string): Promise<CloudflareR2Object[]> => {
+    if (localStorageDirectory) {
+        const folder = prefix.replace(/\/+$/, '')
+        const directory = getLocalPathForKey(folder)
+        let names: string[]
+        try {
+            names = await readdir(directory)
+        } catch (error: any) {
+            if (error?.code === 'ENOENT') return []
+            throw error
+        }
+        const objects: CloudflareR2Object[] = []
+        for (const name of names) {
+            const info = await stat(path.join(directory, name))
+            if (info.isFile()) objects.push({key: `${folder}/${name}`, lastModified: info.mtime})
+        }
+        return objects
+    }
+
+    const objects: CloudflareR2Object[] = []
+    let continuationToken: string | undefined
+
+    do {
+        const page = await getS3().send(
+            new ListObjectsV2Command({
+                Bucket: r2Bucket,
+                Prefix: prefix,
+                ContinuationToken: continuationToken
+            })
+        )
+        for (const item of page.Contents ?? []) {
+            if (item.Key) objects.push({key: item.Key, lastModified: item.LastModified ?? new Date(0)})
+        }
+        continuationToken = page.IsTruncated ? page.NextContinuationToken : undefined
+    } while (continuationToken)
+
+    return objects
 }
 
 

@@ -13,6 +13,7 @@ import {
     requestHookOptions
 } from "#server/global/engine/instagram/reel/jobs/reelReview"
 import {deleteReelReviewMessage, sendReelReviewStatus} from "#server/bot/actions/admin/reelReview/reelReviewMessages"
+import {deleteReelTempFiles} from "#server/global/engine/instagram/reel/jobs/reelStorageCleanup"
 
 /**
  * Кнопки проверки Reel (только администратор, см. registerAdminActions).
@@ -138,19 +139,8 @@ export const reelReviewCancel = async (ctx: any) => {
         {withCancel: false}
     )
 
-    // Исходник держался в R2 ради «Пересобрать»; clean остаётся кэшем, как обычно.
-    // Модуль R2 подключается здесь, а не при загрузке бота: ему нужны переменные R2.
-    try {
-        const [{deleteFromCloudflareR2}, {reelR2Paths}] = await Promise.all([
-            import("#server/global/engine/instagram/reel/utils/storageCloudflareR2"),
-            import("#server/global/engine/instagram/reel/pipeline/reelWorkspace")
-        ])
-        await deleteFromCloudflareR2(
-            reelR2Paths({id: Number(job.media_id), type: job.media_type}, job.key_trailer).source
-        )
-    } catch (error) {
-        console.error('[REEL REVIEW CANCEL SOURCE CLEANUP ERROR]', error)
-    }
+    // Исходник и превью держались в R2 ради проверки; clean остаётся кэшем, как обычно.
+    await deleteReelTempFiles({mediaId: job.media_id, mediaType: job.media_type, keyTrailer: job.key_trailer})
 
     console.log('[REEL REVIEW CANCELLED]', {jobId, status: job.status, step: job.step})
 }
