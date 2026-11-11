@@ -7,11 +7,12 @@ import {
     deleteReelReviewMessage,
     sendReelReviewStatus
 } from '#server/bot/actions/admin/reelReview/reelReviewMessages'
-import {sweepReelTempFolders} from '#server/global/engine/instagram/reel/jobs/reelStorageCleanup'
+import {deleteReelTempFiles, sweepReelTempFolders} from '#server/global/engine/instagram/reel/jobs/reelStorageCleanup'
+import {deleteOldMessagesSession} from '#server/bot/services/session/deleteOldMessagesSession'
 
 /**
  * Таймер ручной проверки Reel: задачи, где администратор не нажал ничего за 24 часа,
- * идут дальше без него (хук выбирает Gemini, ролик публикуется). Вызывать раз в час
+ * отменяются целиком (решение владельца 12.11): ничего не публикуется. Вызывать раз в час
  * GET или POST с заголовком `Authorization: Bearer <CRON_SECRET>` (так его шлёт
  * Vercel Cron; Google Cloud Scheduler настраивается с тем же заголовком).
  */
@@ -52,9 +53,16 @@ export default defineEventHandler(async (event) => {
             expired.push(jobId)
 
             await deleteReelReviewMessage(job)
+            await deleteReelTempFiles({mediaId: job.media_id, mediaType: job.media_type, keyTrailer: job.key_trailer})
+            try {
+                await deleteOldMessagesSession(Number(job.admin_telegram_id))
+            } catch (cleanupError) {
+                console.error('[REEL REVIEW EXPIRY CHAT CLEANUP ERROR]', cleanupError)
+            }
             await sendReelReviewStatus(
                 job,
-                '⏰ Время выбора истекло: хук выберет Gemini, ролик доделывается и опубликуется без проверки.'
+                '⏰ Время выбора истекло (24 часа): публикация отменена, ничего не опубликовано. ' +
+                'Чтобы начать заново, нажми «Опубликовать» на карточке.'
             )
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error)

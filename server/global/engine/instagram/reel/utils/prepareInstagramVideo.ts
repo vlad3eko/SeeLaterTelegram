@@ -20,6 +20,7 @@ import {
     type ZoomInterval
 } from '#server/global/engine/instagram/reel/tracking/framing'
 import type {LogoRect} from '#server/global/engine/instagram/reel/tracking/logoDetector'
+import {fastDecoderArgs} from '#server/global/engine/instagram/reel/utils/ffmpegDecoder'
 import {unlink} from 'node:fs/promises'
 
 const execFileAsync = promisify(execFile)
@@ -1289,6 +1290,9 @@ export const prepareInstagramVideo = async (
                     // Обрезаем фрагмент на входе в том же проходе, в котором
                     // строится clean-видеокомпозиция. Отдельный trim/encode не нужен.
                     '-ss', segment.startSeconds.toFixed(3),
+                    // AV1-исходник декодируется libdav1d, если он есть в сборке ffmpeg (на воркере
+                    // есть; встроенный декодер av1 в разы медленнее).
+                    ...await fastDecoderArgs(inputPath),
                     '-i', inputPath,
                     '-filter_complex', filterComplex,
                     '-map', '[vout]',

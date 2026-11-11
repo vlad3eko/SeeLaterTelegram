@@ -29,7 +29,7 @@ import {
 // давал цикл, и на Vercel падал весь модуль бота (webhook, finalize).
 const getBot = async (): Promise<Telegraf> => (await import("#server/bot/bot")).bot
 
-const REVIEW_HOURS_HINT = 'Если ничего не выбрать за 24 часа, хук выберет Gemini и ролик опубликуется сам.'
+const REVIEW_HOURS_HINT = 'Если ничего не выбрать за 24 часа, публикация отменится и ничего не опубликуется.'
 
 const titleOf = (job: ReelReviewJob): string => {
     const content = job.input_payload?.content
@@ -206,7 +206,7 @@ const sendFragmentChoice = async (job: ReelReviewJob, supabase: ReturnType<typeo
         `🎞 Фрагменты для ${titleOf(job)}: ${first + 1}–${first + shown.length} из ${fragments.length}.`,
         list,
         'Нажми номер: из этого фрагмента соберётся clean.',
-        'Если ничего не выбрать за 24 часа, возьмётся фрагмент 1, хук выберет Gemini и ролик опубликуется сам.'
+        REVIEW_HOURS_HINT
     ].join('\n\n')
 
     const message = await bot.telegram.sendMessage(chatId, text, {

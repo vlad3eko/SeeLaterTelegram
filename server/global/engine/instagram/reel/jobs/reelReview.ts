@@ -10,7 +10,7 @@ const REVIEW_TIMEOUT_MS = 24 * 60 * 60 * 1000
  * awaiting_review/clean_review --«Пересобрать»-------> queued(clean, variant+1)
  * awaiting_review/clean_review --«Сгенерировать хук»-> queued(hooks)
  * awaiting_review/hook_choice  --«1»–«4»-------------> queued(finish, chosenHook)
- * awaiting_review/*            --истекло 24 ч--------> queued(finish, без хука, review_mode=auto)
+ * awaiting_review/*            --истекло 24 ч--------> failed/cancelled (ничего не публикуется)
  *
  * Каждый переход — условный update по текущему статусу и шагу: второе нажатие той же
  * кнопки, нажатие старой кнопки или гонка с истечением просто ничего не находят.
@@ -194,37 +194,42 @@ export const chooseReelHook = async (
 }
 
 /**
- * Время проверки истекло: дальше без администратора, по ветке без проверки
- * (хук выбирает Gemini по текущему clean). Возвращает задачу, если переход сделан.
+ * Время проверки истекло (24 ч без нажатий, решение владельца 12.11): вся публикация
+ * отменяется, как по кнопке «Отменить» — задача failed/cancelled, ничего не уходит ни в
+ * Telegram, ни в Instagram. Возвращает задачу до изменения, если переход сделан.
  */
-export const expireReelReview = (jobId: string, supabase: Supabase = getSupabase()) =>
-    requeueFromReview({
-        jobId,
-        expectedStep: ['fragment_choice', 'clean_review', 'hook_choice'],
-        supabase,
-        patch: job => {
-            const expiresAt = job.review_expires_at ? new Date(job.review_expires_at).getTime() : NaN
-            if (!Number.isFinite(expiresAt) || expiresAt > Date.now()) return null
+export const expireReelReview = async (
+    jobId: string,
+    supabase: Supabase = getSupabase()
+): Promise<ReelReviewJob | null> => {
+    const job = await getReelReviewJob(jobId, supabase)
+    if (!job || job.status !== 'awaiting_review') return null
 
-            if (job.step === 'fragment_choice') {
-                // Фрагмент не выбран: первый (лучший по Gemini), всё остальное без проверки.
-                const first = readFragments(job)[0] ?? null
-                return {
-                    worker_phase: 'full',
-                    review_mode: 'auto',
-                    hook_options: null,
-                    input_payload: {...(job.input_payload ?? {}), fragment: first, chosenHook: null}
-                }
-            }
+    const expiresAt = job.review_expires_at ? new Date(job.review_expires_at).getTime() : NaN
+    if (!Number.isFinite(expiresAt) || expiresAt > Date.now()) return null
 
-            return {
-                worker_phase: 'finish',
-                review_mode: 'auto',
-                hook_options: null,
-                input_payload: {...(job.input_payload ?? {}), chosenHook: null}
-            }
-        }
-    })
+    const {data, error} = await supabase
+        .from('reel_processing_jobs')
+        .update({
+            status: 'failed',
+            step: REEL_CANCELLED_STEP,
+            last_error: 'Время выбора истекло (24 часа): публикация отменена',
+            failed_at: new Date().toISOString(),
+            review_expires_at: null,
+            hook_options: null,
+            lease_token: null,
+            lease_expires_at: null,
+            updated_at: new Date().toISOString()
+        })
+        .eq('id', jobId)
+        .eq('status', 'awaiting_review')
+        .eq('step', job.step)
+        .select('id')
+        .maybeSingle()
+
+    if (error) throw new Error(`[REEL REVIEW EXPIRY ERROR] ${error.message}`)
+    return data ? job : null
+}
 
 /**
  * Статусы, из которых проверку можно отменить. Пока воркер работает (queued,
