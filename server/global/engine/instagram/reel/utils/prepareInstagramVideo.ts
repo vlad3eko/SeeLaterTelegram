@@ -13,6 +13,12 @@ import {
     watermarkCheckEnabled,
     type WatermarkBanner
 } from '#server/global/engine/instagram/reel/utils/watermarkBanner'
+import {
+    type FaceTrack,
+    trackMainFace,
+    writeTrackCommands
+} from '#server/global/engine/instagram/reel/tracking/faceTrack'
+import {unlink} from 'node:fs/promises'
 
 const execFileAsync = promisify(execFile)
 
@@ -1046,6 +1052,32 @@ const shrinkRectForBars = (
     }
 }
 
+/**
+ * Как shrinkRectForBars, но для режима слежения: полосы, найденные в клипе, срезаются
+ * с краёв всей картинки (масштаб по стороне квадрата), а не с центрального квадрата.
+ */
+const shrinkPictureForBars = (
+    rect: CropRect,
+    bars: BorderBars,
+    tolerancePx: number
+): CropRect => {
+    const scale = Math.min(rect.w, rect.h) / REEL_SIZE
+    const toSource = (value: number) =>
+        value >= tolerancePx ? ceilEven((value + 2) * scale) : 0
+
+    const left = toSource(bars.left)
+    const right = toSource(bars.right)
+    const top = toSource(bars.top)
+    const bottom = toSource(bars.bottom)
+
+    return {
+        x: rect.x + left,
+        y: rect.y + top,
+        w: toEven(rect.w - left - right),
+        h: toEven(rect.h - top - bottom)
+    }
+}
+
 const formatBars = (result: BorderBars) =>
     `top ${result.top}px, right ${result.right}px, bottom ${result.bottom}px, left ${result.left}px`
 
@@ -1055,6 +1087,12 @@ export const prepareInstagramVideo = async (
     options: {
         /** Номер фрагмента трейлера (calculateReelSegment), 0 — прежний. */
         segmentVariant?: number
+        /**
+         * Как выбирать квадрат по X: center — по центру картинки (трейлеры);
+         * track — следить за главным лицом (нарезки, tracking/faceTrack.ts).
+         * По Y обрезка одна и та же: чёрные полосы и плашка канала.
+         */
+        framing?: 'center' | 'track'
     } = {}
 ) => {
     if (!ffmpegPath) {
@@ -1118,10 +1156,49 @@ export const prepareInstagramVideo = async (
 
         // Квадрат 1080×1080 из центра картинки без чёрных полос. Размытого фона,
         // виньетки и нижнего градиента больше нет: макет «чистое видео 1:1».
+        // Слежение за лицом (нарезки): траектория камеры по X внутри картинки без полос
+        // и плашки. Сбой или отсутствие лиц — обычный квадрат по центру.
+        const fullPicture: CropRect = {x: 0, y: 0, w: toEven(source.width), h: toEven(source.height)}
+        let faceTrack: FaceTrack | null = null
+
+        if (options.framing === 'track') {
+            try {
+                faceTrack = await trackMainFace(inputPath, segment, analysis.crop ?? fullPicture)
+                console.log('[REEL FACE TRACK]', faceTrack
+                    ? {...faceTrack.stats, cameraRangePx: [
+                        Math.round(Math.min(...faceTrack.centers)),
+                        Math.round(Math.max(...faceTrack.centers))
+                    ]}
+                    : 'No faces (or no room to move); centered square')
+            } catch (error: any) {
+                console.warn('[REEL FACE TRACK] Tracking failed; centered square', {
+                    message: error?.message || error
+                })
+            }
+        }
+
+        const trackCommandsPath = path.join(path.dirname(outputPath), `${randomUUID()}_track.cmd`)
+
         const encodeClean = async (rect: CropRect | undefined) => {
-            const cropFilter = rect ? `crop=${rect.w}:${rect.h}:${rect.x}:${rect.y},` : ''
+            const picture = rect ?? fullPicture
+            const side = toEven(Math.min(picture.w, picture.h))
+            const tracked = faceTrack !== null && picture.w - side >= 4
+
+            let squareFilter = `crop='min(iw,ih)':'min(iw,ih)',`
+            if (tracked) {
+                // Квадрат двигается по X покадрово (sendcmd → crop@track), по Y по центру картинки.
+                const {firstX, minX, maxX} = await writeTrackCommands(
+                    trackCommandsPath, faceTrack!, picture, side, outputFrameRate.fps, segment.durationSeconds
+                )
+                squareFilter =
+                    `sendcmd=f=${path.basename(trackCommandsPath)},` +
+                    `crop@track=${side}:${side}:${firstX}:${toEven((picture.h - side) / 2)},`
+                console.log('[REEL FACE TRACK] Moving square', {side, minX, maxX, picture: `${picture.w}:${picture.h}:${picture.x}:${picture.y}`})
+            }
+
+            const cropFilter = rect || tracked ? `crop=${picture.w}:${picture.h}:${picture.x}:${picture.y},` : ''
             const filterComplex =
-                `[0:v]${cropFilter}crop='min(iw,ih)':'min(iw,ih)',` +
+                `[0:v]${cropFilter}${squareFilter}` +
                 `scale=${REEL_SIZE}:${REEL_SIZE}:flags=lanczos+accurate_rnd+full_chroma_int${colorCorrection},` +
                 'setsar=1,format=yuv420p[vout]'
 
@@ -1160,12 +1237,19 @@ export const prepareInstagramVideo = async (
                 ],
                 {
                     timeout: 240_000,
-                    maxBuffer: 20 * 1024 * 1024
+                    maxBuffer: 20 * 1024 * 1024,
+                    // sendcmd читает файл команд по имени: путь без «C:» и пробелов.
+                    cwd: path.dirname(trackCommandsPath)
                 }
             )
         }
 
-        await encodeClean(analysis.crop)
+        try {
+            await encodeClean(analysis.crop)
+        } catch (error) {
+            await unlink(trackCommandsPath).catch(() => undefined)
+            throw error
+        }
 
         // Проверка готового клипа. Результат поиска полос по исходнику не доверяем
         // вслепую: если в клипе осталась полоса, один раз пересобираем его с
@@ -1197,7 +1281,11 @@ export const prepareInstagramVideo = async (
                         bottom: check.ok ? 0 : check.bottom,
                         left: check.ok ? 0 : check.left
                     }
-                    const correctedRect = shrinkRectForBars(baseRect, barsToRemove, check.tolerancePx)
+                    // При слежении квадрат ездит по картинке, поэтому сужается сама картинка,
+                    // а не центральный квадрат (иначе камере некуда двигаться).
+                    const correctedRect = faceTrack
+                        ? shrinkPictureForBars(baseRect, barsToRemove, check.tolerancePx)
+                        : shrinkRectForBars(baseRect, barsToRemove, check.tolerancePx)
 
                     console.warn('[REEL BORDER CHECK] Black borders or watermark found; re-encoding with a tighter crop', {
                         found: formatBars(barsToRemove),
@@ -1237,6 +1325,8 @@ export const prepareInstagramVideo = async (
                 })
             }
         }
+
+        await unlink(trackCommandsPath).catch(() => undefined)
 
         console.log('[PREPARE INSTAGRAM VIDEO DONE]', {
             outputPath,

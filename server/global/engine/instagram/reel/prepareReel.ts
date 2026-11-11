@@ -117,12 +117,15 @@ export const prepareReelCleanPhase = async ({
     keyTrailer,
     content,
     segmentVariant,
-    rebuild
+    rebuild,
+    framing = 'center'
 }: {
     keyTrailer: string
     content: ReelContent
     segmentVariant: number
     rebuild: boolean
+    /** track — нарезка: камера следит за лицом по X; кэш clean не используется. */
+    framing?: 'center' | 'track'
 }): Promise<{cleanR2: string, previewR2: string}> => {
     assertTrailerKey(keyTrailer)
 
@@ -133,9 +136,11 @@ export const prepareReelCleanPhase = async ({
             keyTrailer,
             content,
             workspace,
-            reuseCache: !rebuild,
+            // Кэш clean мог быть собран по центру (тот же ключ раньше был трейлером).
+            reuseCache: !rebuild && framing === 'center',
             segmentVariant,
-            reuseStoredSource: true
+            reuseStoredSource: true,
+            framing
         })
 
         const previewR2 = await createCleanPreview({

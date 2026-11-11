@@ -439,7 +439,9 @@ const main = async (): Promise<void> => {
                 content,
                 segmentVariant,
                 // Первый показ может взять clean из кэша; «Пересобрать» увеличивает вариант.
-                rebuild: segmentVariant > 0
+                rebuild: segmentVariant > 0,
+                // Нарезка: камера следит за главным лицом по X; трейлер — квадрат по центру.
+                framing: input.videoType === 'clip' ? 'track' : 'center'
             })
 
             await awaitReview({

@@ -160,7 +160,14 @@ COPY server/models/ggml-small.bin /app/server/models/ggml-small.bin
 # Build the worker bundle. The Nuxt #server alias is mapped to /app/server.
 COPY workers/reel-worker/package.json workers/reel-worker/package-lock.json /app/workers/reel-worker/
 WORKDIR /app/workers/reel-worker
-RUN npm ci --include=dev
+# onnxruntime-node (face tracking for clips, reel/tracking/): on linux/x64 its
+# install script would download the CUDA execution provider (gigabytes, no GPU
+# here), so it is skipped. The package ships binaries for every platform; only
+# linux/x64 (~46 MB) is kept, and the CPU binding is checked to load.
+ENV ONNXRUNTIME_NODE_INSTALL=skip
+RUN npm ci --include=dev \
+    && find node_modules/onnxruntime-node/bin -mindepth 3 -maxdepth 3 -type d ! -path '*/linux/x64' -exec rm -rf {} + \
+    && node -e "require('onnxruntime-node'); console.log('[onnxruntime-node OK]')"
 
 COPY workers/reel-worker/src/ /app/workers/reel-worker/src/
 COPY server/global/engine/instagram/reel/ /app/server/global/engine/instagram/reel/
