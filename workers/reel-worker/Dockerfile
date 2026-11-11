@@ -218,7 +218,7 @@ RUN npm ci --omit=dev
 WORKDIR /app
 RUN mkdir -p /app/media-tools \
     && curl -fsSL \
-       https://github.com/yt-dlp/yt-dlp/releases/download/2026.08.19/yt-dlp_linux \
+       https://github.com/yt-dlp/yt-dlp/releases/download/2026.10.26/yt-dlp_linux \
        -o /app/media-tools/yt-dlp \
     && chmod 755 /app/media-tools/yt-dlp \
     && /app/media-tools/yt-dlp --version \
