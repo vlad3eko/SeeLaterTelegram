@@ -1,4 +1,4 @@
-import {bot} from "#server/bot/bot"
+import type {Telegraf} from "telegraf"
 import {
     getReelReviewJob,
     readHookOptions,
@@ -6,7 +6,7 @@ import {
     setReelReviewMessage
 } from "#server/global/engine/instagram/reel/jobs/reelReview"
 import {getSupabase} from "#server/global/engine/instagram/reel/jobs/dispatchReelJob"
-import {resetAdminPublishLock} from "#server/global/engine/instagram/reel/jobs/finalizeReelPublication"
+import {resetAdminPublishLock} from "#server/global/engine/instagram/reel/jobs/adminPublishLock"
 import {
     reelCleanReviewKeyboard,
     reelHookChoiceKeyboard
@@ -19,6 +19,11 @@ import {
  * В чате всегда одно сообщение проверки на задачу: перед новым удаляется прошлое
  * (`review_message_id`), в том числе «Видео отправлено на доработку».
  */
+
+// Бот берётся при отправке, а не при загрузке модуля: этот модуль подключают обработчики
+// кнопок, которые сами загружаются при создании бота. Статический импорт `#server/bot/bot`
+// давал цикл, и на Vercel падал весь модуль бота (webhook, finalize).
+const getBot = async (): Promise<Telegraf> => (await import("#server/bot/bot")).bot
 
 const REVIEW_HOURS_HINT = 'Если ничего не выбрать за 24 часа, хук выберет Gemini и ролик опубликуется сам.'
 
@@ -38,7 +43,7 @@ export const deleteReelReviewMessage = async (job: Pick<ReelReviewJob, 'id' | 'a
     if (!job.review_message_id) return
 
     try {
-        await bot.telegram.deleteMessage(Number(job.admin_telegram_id), Number(job.review_message_id))
+        await (await getBot()).telegram.deleteMessage(Number(job.admin_telegram_id), Number(job.review_message_id))
     } catch (error: any) {
         // Сообщение могли удалить руками или оно старше 48 часов (Telegram не даёт удалить).
         console.warn('[REEL REVIEW MESSAGE DELETE SKIPPED]', error?.response?.description || error?.message || error)
@@ -48,7 +53,7 @@ export const deleteReelReviewMessage = async (job: Pick<ReelReviewJob, 'id' | 'a
 /** Короткое сообщение о состоянии; становится «текущим» и удалится следующим. */
 export const sendReelReviewStatus = async (job: Pick<ReelReviewJob, 'id' | 'admin_telegram_id'>, text: string) => {
     try {
-        const message = await bot.telegram.sendMessage(Number(job.admin_telegram_id), text)
+        const message = await (await getBot()).telegram.sendMessage(Number(job.admin_telegram_id), text)
         await setReelReviewMessage(job.id, message.message_id)
     } catch (error: any) {
         console.error('[REEL REVIEW STATUS ERROR]', error?.response?.description || error?.message || error)
@@ -56,6 +61,7 @@ export const sendReelReviewStatus = async (job: Pick<ReelReviewJob, 'id' | 'admi
 }
 
 const sendCleanReview = async (job: ReelReviewJob): Promise<number> => {
+    const bot = await getBot()
     const chatId = adminChatId(job)
     const fragment = (Number(job.clean_variant) || 0) + 1
     const lines = [
@@ -95,6 +101,7 @@ const sendCleanReview = async (job: ReelReviewJob): Promise<number> => {
 }
 
 const sendHookChoice = async (job: ReelReviewJob): Promise<number> => {
+    const bot = await getBot()
     const options = readHookOptions(job)
 
     if (!options.length) {
