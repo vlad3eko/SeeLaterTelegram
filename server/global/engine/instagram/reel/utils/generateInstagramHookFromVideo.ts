@@ -218,6 +218,9 @@ const selectHook = (parsed: ParsedHookResponse): string | undefined =>
 /** Сколько вариантов показывается администратору при ручной проверке (кнопки 1–4). */
 export const HOOK_OPTIONS_COUNT = 4
 
+/** Вариант для выбора администратором может быть длиннее одиночного хука. */
+const OPTION_MAX_WORDS = 10
+
 
 type HookSource = 'video' | 'text'
 
@@ -591,7 +594,21 @@ export const generateInstagramHookOptionsFromVideo = async (
     context: InstagramHookContext
 ): Promise<string[]> => {
     const result = await requestHookFromVideo(videoPath, context)
-    const options = rankHooks(result.parsed).slice(0, HOOK_OPTIONS_COUNT)
+
+    // Сначала варианты по правилам одиночного хука (3–7 слов, без штампов первыми),
+    // затем остальные варианты модели до OPTION_MAX_WORDS слов: модель часто пишет 8–9
+    // слов, и строгое правило оставляло администратору один вариант из четырёх (11.11).
+    // Длинный хук подложка ужимает сама.
+    const ranked = rankHooks(result.parsed)
+    const seen = new Set(ranked.map(hook => hook.toLowerCase()))
+    const longer = result.parsed.candidates.filter(hook => {
+        const words = countWords(hook)
+        const fresh = !seen.has(hook.toLowerCase())
+        seen.add(hook.toLowerCase())
+        return fresh && words >= HOOK_MIN_WORDS && words <= OPTION_MAX_WORDS &&
+            hook.toUpperCase() !== HOOK_UNDETERMINED
+    })
+    const options = [...ranked, ...longer].slice(0, HOOK_OPTIONS_COUNT)
 
     // rankHooks пуст быть не может: requestHook уже нашёл в этом ответе хук.
     return options.length ? options : [result.hook]

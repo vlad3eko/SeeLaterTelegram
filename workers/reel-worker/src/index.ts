@@ -11,6 +11,8 @@ import {
     prepareReelCleanPhase,
     prepareReelHookOptionsPhase
 } from "../../../server/global/engine/instagram/reel/prepareReel";
+import {prepareClipFragments} from "../../../server/global/engine/instagram/reel/fragments/prepareClipFragments";
+import type {ClipFragment} from "../../../server/global/engine/instagram/reel/fragments/types";
 
 type JsonRecord = Record<string, unknown>
 
@@ -42,6 +44,11 @@ type ReelInputPayload = {
     chosenHook?: string | null
     /** clip — нарезка: исходник в R2 не удаляется до полной публикации. */
     videoType?: 'trailer' | 'clip'
+    /** Нарезка: фрагменты от Gemini (до 8) и выбранный администратором. */
+    fragments?: ClipFragment[]
+    fragment?: ClipFragment | null
+    fragmentPage?: number
+    fragmentError?: string | null
     finalizerToken?: string
     finalizerUrl?: string
     content?: {
@@ -433,6 +440,33 @@ const main = async (): Promise<void> => {
 
         if (phase === 'clean') {
             const segmentVariant = Math.max(0, Number(claimedJob.clean_variant ?? 0) || 0)
+            const isClip = input.videoType === 'clip'
+
+            // Нарезка без выбранного фрагмента: сначала Gemini предлагает до 8 фрагментов,
+            // администратор выбирает один из альбома превью. Сбой выбора не останавливает
+            // проверку: clean собирается из фрагмента по умолчанию (середина), причина видна
+            // администратору.
+            if (isClip && !input.fragment && !input.fragmentError) {
+                try {
+                    const {fragments} = await prepareClipFragments({keyTrailer, content})
+
+                    await awaitReview({
+                        step: 'fragment_choice',
+                        hook_options: null,
+                        input_payload: {...input, fragments, fragmentPage: 0, fragment: null, fragmentError: null}
+                    })
+
+                    console.log('[REEL WORKER FRAGMENTS READY]', {jobId, count: fragments.length})
+                    await handOver(input)
+                    return
+                } catch (error) {
+                    const message = getErrorMessage(error).split(/\r?\n/)[0]!.slice(0, 300)
+                    console.warn('[REEL WORKER FRAGMENTS FAILED] Falling back to the default fragment', {jobId, message})
+                    input.fragmentError = message
+                }
+            }
+
+            const chosen = isClip ? input.fragment : null
 
             const {cleanR2, previewR2} = await prepareReelCleanPhase({
                 keyTrailer,
@@ -441,14 +475,16 @@ const main = async (): Promise<void> => {
                 // Первый показ может взять clean из кэша; «Пересобрать» увеличивает вариант.
                 rebuild: segmentVariant > 0,
                 // Нарезка: камера следит за главным лицом по X; трейлер — квадрат по центру.
-                framing: input.videoType === 'clip' ? 'track' : 'center'
+                framing: isClip ? 'track' : 'center',
+                segment: chosen ? {startSeconds: chosen.start, endSeconds: chosen.end} : undefined
             })
 
             await awaitReview({
                 step: 'clean_review',
                 clean_r2_url: cleanR2,
                 clean_preview_r2_url: previewR2,
-                hook_options: null
+                hook_options: null,
+                input_payload: input
             })
 
             console.log('[REEL WORKER CLEAN READY FOR REVIEW]', {jobId, segmentVariant, cleanR2})
@@ -482,7 +518,12 @@ const main = async (): Promise<void> => {
                 keepSource: input.videoType === 'clip',
                 options: {onHookGenerated}
             })
-            : await prepareReel(keyTrailer, hook, content, {onHookGenerated})
+            : await prepareReel(keyTrailer, hook, content, {
+                onHookGenerated,
+                // Нарезка, у которой истёк выбор фрагмента: первый фрагмент Gemini и слежение.
+                ...(input.videoType === 'clip' ? {framing: 'track' as const} : {}),
+                ...(input.fragment ? {segment: {startSeconds: input.fragment.start, endSeconds: input.fragment.end}} : {})
+            })
 
         if (chosenHook) {
             // Хук администратора ложится туда же, где лежит хук Gemini у остальных задач.

@@ -1,4 +1,8 @@
 import {getSupabase, startQueuedJob} from "#server/global/engine/instagram/reel/jobs/dispatchReelJob"
+import {type ClipFragment, FRAGMENTS_PER_PAGE} from "#server/global/engine/instagram/reel/fragments/types"
+
+/** Сколько ждать решения администратора на шаге проверки (как в воркере, REEL_REVIEW_TIMEOUT_MS). */
+const REVIEW_TIMEOUT_MS = 24 * 60 * 60 * 1000
 
 /**
  * Переходы задачи Reel на шагах ручной проверки (см. TASKS.md).
@@ -6,13 +10,13 @@ import {getSupabase, startQueuedJob} from "#server/global/engine/instagram/reel/
  * awaiting_review/clean_review --«Пересобрать»-------> queued(clean, variant+1)
  * awaiting_review/clean_review --«Сгенерировать хук»-> queued(hooks)
  * awaiting_review/hook_choice  --«1»–«4»-------------> queued(finish, chosenHook)
- * awaiting_review/*            --истекло 24 ч--------> queued(finish, без хука, review_mode=auto)
+ * awaiting_review/*            --истекло 24 ч--------> failed/cancelled (ничего не публикуется)
  *
  * Каждый переход — условный update по текущему статусу и шагу: второе нажатие той же
  * кнопки, нажатие старой кнопки или гонка с истечением просто ничего не находят.
  */
 
-export type ReelReviewStep = 'clean_review' | 'hook_choice'
+export type ReelReviewStep = 'fragment_choice' | 'clean_review' | 'hook_choice'
 
 export type ReelReviewJob = {
     id: string
@@ -190,26 +194,42 @@ export const chooseReelHook = async (
 }
 
 /**
- * Время проверки истекло: дальше без администратора, по ветке без проверки
- * (хук выбирает Gemini по текущему clean). Возвращает задачу, если переход сделан.
+ * Время проверки истекло (24 ч без нажатий, решение владельца 12.11): вся публикация
+ * отменяется, как по кнопке «Отменить» — задача failed/cancelled, ничего не уходит ни в
+ * Telegram, ни в Instagram. Возвращает задачу до изменения, если переход сделан.
  */
-export const expireReelReview = (jobId: string, supabase: Supabase = getSupabase()) =>
-    requeueFromReview({
-        jobId,
-        expectedStep: ['clean_review', 'hook_choice'],
-        supabase,
-        patch: job => {
-            const expiresAt = job.review_expires_at ? new Date(job.review_expires_at).getTime() : NaN
-            if (!Number.isFinite(expiresAt) || expiresAt > Date.now()) return null
+export const expireReelReview = async (
+    jobId: string,
+    supabase: Supabase = getSupabase()
+): Promise<ReelReviewJob | null> => {
+    const job = await getReelReviewJob(jobId, supabase)
+    if (!job || job.status !== 'awaiting_review') return null
 
-            return {
-                worker_phase: 'finish',
-                review_mode: 'auto',
-                hook_options: null,
-                input_payload: {...(job.input_payload ?? {}), chosenHook: null}
-            }
-        }
-    })
+    const expiresAt = job.review_expires_at ? new Date(job.review_expires_at).getTime() : NaN
+    if (!Number.isFinite(expiresAt) || expiresAt > Date.now()) return null
+
+    const {data, error} = await supabase
+        .from('reel_processing_jobs')
+        .update({
+            status: 'failed',
+            step: REEL_CANCELLED_STEP,
+            last_error: 'Время выбора истекло (24 часа): публикация отменена',
+            failed_at: new Date().toISOString(),
+            review_expires_at: null,
+            hook_options: null,
+            lease_token: null,
+            lease_expires_at: null,
+            updated_at: new Date().toISOString()
+        })
+        .eq('id', jobId)
+        .eq('status', 'awaiting_review')
+        .eq('step', job.step)
+        .select('id')
+        .maybeSingle()
+
+    if (error) throw new Error(`[REEL REVIEW EXPIRY ERROR] ${error.message}`)
+    return data ? job : null
+}
 
 /**
  * Статусы, из которых проверку можно отменить. Пока воркер работает (queued,
@@ -281,6 +301,106 @@ const tryCancelReelReview = async (
 
     return {cancelled: true, job}
 }
+
+/** Фрагменты нарезки, предложенные Gemini (input_payload.fragments). */
+export const readFragments = (job: Pick<ReelReviewJob, 'input_payload'>): ClipFragment[] =>
+    Array.isArray(job.input_payload?.fragments)
+        ? (job.input_payload!.fragments as ClipFragment[]).filter(f =>
+            Number.isFinite(f?.start) && Number.isFinite(f?.end) && f.end > f.start)
+        : []
+
+/**
+ * Условно изменить задачу на шаге проверки без запуска воркера (листание альбома,
+ * возврат к фрагментам). Возвращает задачу до изменения или null, если она уже не там.
+ */
+const updateReview = async ({
+    jobId,
+    expectedStep,
+    patch,
+    supabase
+}: {
+    jobId: string
+    expectedStep: ReelReviewStep
+    patch: (job: ReelReviewJob) => Record<string, unknown> | null
+    supabase: Supabase
+}): Promise<ReelReviewJob | null> => {
+    const job = await getReelReviewJob(jobId, supabase)
+    if (!job || job.status !== 'awaiting_review' || job.step !== expectedStep) return null
+
+    const update = patch(job)
+    if (!update) return null
+
+    const {data, error} = await supabase
+        .from('reel_processing_jobs')
+        .update({...update, updated_at: new Date().toISOString()})
+        .eq('id', jobId)
+        .eq('status', 'awaiting_review')
+        .eq('step', expectedStep)
+        .select('id')
+        .maybeSingle()
+
+    if (error) throw new Error(`[REEL REVIEW UPDATE ERROR] ${error.message}`)
+    return data ? job : null
+}
+
+/** «Следующие варианты» / «◀️ Назад»: страница альбома фрагментов. */
+export const setFragmentPage = (jobId: string, page: number, supabase: Supabase = getSupabase()) =>
+    updateReview({
+        jobId,
+        expectedStep: 'fragment_choice',
+        supabase,
+        patch: job => {
+            const pages = Math.ceil(readFragments(job).length / FRAGMENTS_PER_PAGE)
+            if (page < 0 || page >= pages) return null
+            return {input_payload: {...(job.input_payload ?? {}), fragmentPage: page}}
+        }
+    })
+
+/** Номер фрагмента (1–8): воркер собирает clean из него. */
+export const chooseReelFragment = async (
+    jobId: string,
+    number: number,
+    supabase: Supabase = getSupabase()
+): Promise<{job: ReelReviewJob, fragment: ClipFragment} | null> => {
+    let chosen: ClipFragment | undefined
+
+    const job = await requeueFromReview({
+        jobId,
+        expectedStep: 'fragment_choice',
+        supabase,
+        patch: current => {
+            chosen = readFragments(current)[number - 1]
+            if (!chosen) return null
+            return {
+                worker_phase: 'clean',
+                clean_variant: 0,
+                hook_options: null,
+                input_payload: {...(current.input_payload ?? {}), fragment: chosen, chosenHook: null}
+            }
+        }
+    })
+
+    return job && chosen ? {job, fragment: chosen} : null
+}
+
+/**
+ * «🎞 Другой фрагмент» под clean нарезки: обратно к альбому (первая страница), без
+ * воркера — фрагменты и их превью уже готовы.
+ */
+export const backToFragments = (jobId: string, supabase: Supabase = getSupabase()) =>
+    updateReview({
+        jobId,
+        expectedStep: 'clean_review',
+        supabase,
+        patch: job => readFragments(job).length
+            ? {
+                step: 'fragment_choice',
+                input_payload: {...(job.input_payload ?? {}), fragmentPage: 0, fragment: null},
+                review_expires_at: new Date(Date.now() + REVIEW_TIMEOUT_MS).toISOString(),
+                last_error: null
+            }
+            : null
+    })
 
 /** Задачи, у которых истекло время проверки (не больше `limit` за вызов). */
 export const listExpiredReelReviews = async (

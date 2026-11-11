@@ -1,19 +1,31 @@
 import {
     REEL_REVIEW_CANCEL,
+    REEL_REVIEW_FRAGMENT_PAGE,
     REEL_REVIEW_HOOKS,
+    REEL_REVIEW_PICK_FRAGMENT,
     REEL_REVIEW_PICK_HOOK,
     REEL_REVIEW_REBUILD
 } from "#server/bot/callbacks/routes"
 import {
+    backToFragments,
     cancelReelReview,
+    chooseReelFragment,
     chooseReelHook,
     getReelReviewJob,
+    readFragments,
     type ReelReviewJob,
     requestCleanRebuild,
-    requestHookOptions
+    requestHookOptions,
+    setFragmentPage
 } from "#server/global/engine/instagram/reel/jobs/reelReview"
-import {deleteReelReviewMessage, sendReelReviewStatus} from "#server/bot/actions/admin/reelReview/reelReviewMessages"
+import {
+    deleteReelReviewMessage,
+    sendReelReviewMessage,
+    sendReelReviewStatus
+} from "#server/bot/actions/admin/reelReview/reelReviewMessages"
+import {formatClock} from "#server/global/engine/instagram/reel/fragments/types"
 import {deleteReelTempFiles} from "#server/global/engine/instagram/reel/jobs/reelStorageCleanup"
+import {deleteOldMessagesSession} from "#server/bot/services/session/deleteOldMessagesSession"
 
 /**
  * Кнопки проверки Reel (только администратор, см. registerAdminActions).
@@ -53,7 +65,9 @@ const replaceWithStatus = async (
     await deleteReelReviewMessage({
         id: job.id,
         admin_telegram_id: job.admin_telegram_id,
-        review_message_id: ctx.callbackQuery?.message?.message_id ?? job.review_message_id
+        review_message_id: ctx.callbackQuery?.message?.message_id ?? job.review_message_id,
+        // Альбом превью фрагментов (если был) удаляется вместе с сообщением.
+        input_payload: job.input_payload
     })
     await sendReelReviewStatus(job, text, {withCancel})
 }
@@ -74,6 +88,22 @@ const reportStartError = async (ctx: any, action: string, error: unknown) => {
 
 export const reelReviewRebuild = async (ctx: any) => {
     const {jobId} = REEL_REVIEW_REBUILD.parse(ctx)
+
+    // Нарезка: «🎞 Другой фрагмент» — обратно к альбому вариантов, без воркера.
+    const current = await getReelReviewJob(jobId).catch(() => null)
+    if (current?.input_payload?.videoType === 'clip' && readFragments(current).length) {
+        let back: ReelReviewJob | null
+        try {
+            back = await backToFragments(jobId)
+        } catch (error) {
+            return reportStartError(ctx, 'BACK TO FRAGMENTS', error)
+        }
+        if (!back) return dropStaleKeyboard(ctx)
+
+        await answer(ctx, 'Возвращаю к фрагментам')
+        await sendReelReviewMessage(jobId)
+        return
+    }
 
     let job: ReelReviewJob | null
     try {
@@ -102,6 +132,47 @@ export const reelReviewGenerateHooks = async (ctx: any) => {
 
     await answer(ctx, 'Генерирую варианты хука')
     await replaceWithStatus(ctx, job, '✨ Gemini смотрит видео и пишет варианты хука. Это займёт пару минут.')
+}
+
+/** «1»–«8» под альбомом фрагментов: clean собирается из выбранного фрагмента. */
+export const reelReviewPickFragment = async (ctx: any) => {
+    const {jobId, fragment: number} = REEL_REVIEW_PICK_FRAGMENT.parse(ctx)
+
+    let result: Awaited<ReturnType<typeof chooseReelFragment>>
+    try {
+        result = await chooseReelFragment(jobId, number)
+    } catch (error) {
+        return reportStartError(ctx, 'PICK FRAGMENT', error)
+    }
+
+    if (!result) return dropStaleKeyboard(ctx)
+
+    const {fragment} = result
+    await answer(ctx, `Выбран фрагмент ${number}`)
+    await replaceWithStatus(
+        ctx,
+        result.job,
+        `🎬 Фрагмент ${number}: ${formatClock(fragment.start)}–${formatClock(fragment.end)}` +
+        `${fragment.title ? `, «${fragment.title}»` : ''}. Собираю clean со слежением за лицом.`
+    )
+}
+
+/** «Следующие варианты (N)» / «◀️ Назад»: другая страница альбома, без воркера. */
+export const reelReviewFragmentPage = async (ctx: any) => {
+    const {jobId, page} = REEL_REVIEW_FRAGMENT_PAGE.parse(ctx)
+
+    let job: ReelReviewJob | null
+    try {
+        job = await setFragmentPage(jobId, page)
+    } catch (error) {
+        console.error('[REEL REVIEW FRAGMENT PAGE ERROR]', error)
+        return answer(ctx, 'Не удалось переключить варианты, попробуй ещё раз')
+    }
+
+    if (!job) return dropStaleKeyboard(ctx)
+
+    await answer(ctx, page > 0 ? 'Следующие варианты' : 'Первые варианты')
+    await sendReelReviewMessage(jobId)
 }
 
 export const reelReviewCancel = async (ctx: any) => {
@@ -141,6 +212,14 @@ export const reelReviewCancel = async (ctx: any) => {
 
     // Исходник и превью держались в R2 ради проверки; clean остаётся кэшем, как обычно.
     await deleteReelTempFiles({mediaId: job.media_id, mediaType: job.media_type, keyTrailer: job.key_trailer})
+
+    // Чат администратора: сообщения, отмеченные в сессии (ссылка, тип видео и т. п.),
+    // удаляются его же функцией, как по /clear. Уведомление об отмене остаётся.
+    try {
+        await deleteOldMessagesSession(ctx.from.id)
+    } catch (error) {
+        console.error('[REEL REVIEW CANCEL CHAT CLEANUP ERROR]', error)
+    }
 
     console.log('[REEL REVIEW CANCELLED]', {jobId, status: job.status, step: job.step})
 }

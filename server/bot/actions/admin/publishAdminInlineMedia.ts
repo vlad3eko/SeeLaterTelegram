@@ -186,7 +186,9 @@ export const publishAdminInlineMedia = async (ctx: any) => {
                 // Ручная проверка: сообщение с кнопкой «Отменить»; его заменит clean.
                 await sendReelReviewStatus(
                     {id: result.jobId, admin_telegram_id: ctx.from.id},
-                    'Видео поставлено в обработку. Когда clean будет готов, пришлю его на проверку.',
+                    session.videoType === 'clip'
+                        ? 'Нарезка поставлена в обработку. Gemini ищет удачные фрагменты: пришлю альбом вариантов на выбор (несколько минут).'
+                        : 'Видео поставлено в обработку. Когда clean будет готов, пришлю его на проверку.',
                     {withCancel: true}
                 )
             } else {

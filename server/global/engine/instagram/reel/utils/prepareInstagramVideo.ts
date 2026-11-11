@@ -20,6 +20,7 @@ import {
     type ZoomInterval
 } from '#server/global/engine/instagram/reel/tracking/framing'
 import type {LogoRect} from '#server/global/engine/instagram/reel/tracking/logoDetector'
+import {fastDecoderArgs} from '#server/global/engine/instagram/reel/utils/ffmpegDecoder'
 import {unlink} from 'node:fs/promises'
 
 const execFileAsync = promisify(execFile)
@@ -1093,6 +1094,8 @@ export const prepareInstagramVideo = async (
     options: {
         /** Номер фрагмента трейлера (calculateReelSegment), 0 — прежний. */
         segmentVariant?: number
+        /** Фрагмент, выбранный администратором (нарезка): заменяет автоматический выбор. */
+        segment?: {startSeconds: number, endSeconds: number}
         /**
          * Как выбирать квадрат по X: center — по центру картинки (трейлеры);
          * track — следить за главным лицом (нарезки, tracking/framing.ts).
@@ -1119,7 +1122,15 @@ export const prepareInstagramVideo = async (
         // обрезанным первым фрагментом.
         const totalDurationSeconds = await getInputVideoDuration(inputPath)
         const segmentVariant = options.segmentVariant ?? 0
-        const segment = calculateReelSegment(totalDurationSeconds, segmentVariant)
+        const chosen = options.segment
+        const segment: ReelSegment = chosen && chosen.endSeconds > chosen.startSeconds
+            ? {
+                totalDurationSeconds,
+                startSeconds: Math.max(0, chosen.startSeconds),
+                endSeconds: Math.min(totalDurationSeconds, chosen.endSeconds),
+                durationSeconds: Math.min(totalDurationSeconds, chosen.endSeconds) - Math.max(0, chosen.startSeconds)
+            }
+            : calculateReelSegment(totalDurationSeconds, segmentVariant)
 
         console.log('[REEL SEGMENT SELECTED]', {
             ...segment,
@@ -1279,6 +1290,9 @@ export const prepareInstagramVideo = async (
                     // Обрезаем фрагмент на входе в том же проходе, в котором
                     // строится clean-видеокомпозиция. Отдельный trim/encode не нужен.
                     '-ss', segment.startSeconds.toFixed(3),
+                    // AV1-исходник декодируется libdav1d, если он есть в сборке ffmpeg (на воркере
+                    // есть; встроенный декодер av1 в разы медленнее).
+                    ...await fastDecoderArgs(inputPath),
                     '-i', inputPath,
                     '-filter_complex', filterComplex,
                     '-map', '[vout]',

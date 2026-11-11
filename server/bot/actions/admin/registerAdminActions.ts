@@ -23,13 +23,17 @@ import {
     ADMIN_PUBLISH_CARD,
     ADMIN_VIDEO_TYPE,
     REEL_REVIEW_CANCEL,
+    REEL_REVIEW_FRAGMENT_PAGE,
     REEL_REVIEW_HOOKS,
+    REEL_REVIEW_PICK_FRAGMENT,
     REEL_REVIEW_PICK_HOOK,
     REEL_REVIEW_REBUILD
 } from "#server/bot/callbacks/routes";
 import {
     reelReviewCancel,
+    reelReviewFragmentPage,
     reelReviewGenerateHooks,
+    reelReviewPickFragment,
     reelReviewPickHook,
     reelReviewRebuild
 } from "#server/bot/actions/admin/reelReview/reelReviewActions";
@@ -71,6 +75,8 @@ export const registerAdminActions = (bot: Telegraf) => {
     bot.action(REEL_REVIEW_HOOKS.pattern, adminOnly(reelReviewGenerateHooks))
     bot.action(REEL_REVIEW_PICK_HOOK.pattern, adminOnly(reelReviewPickHook))
     bot.action(REEL_REVIEW_CANCEL.pattern, adminOnly(reelReviewCancel))
+    bot.action(REEL_REVIEW_PICK_FRAGMENT.pattern, adminOnly(reelReviewPickFragment))
+    bot.action(REEL_REVIEW_FRAGMENT_PAGE.pattern, adminOnly(reelReviewFragmentPage))
 
     bot.on('message', async (ctx: any, next) => {
 

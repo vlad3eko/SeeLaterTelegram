@@ -10,6 +10,7 @@ import {createInstagramCaption} from "#server/global/engine/instagram/reel/capti
 import {publishInstagramReel} from "#server/global/publishers/instagram/publishInstagramReel";
 import {deleteCloudflareR2ObjectByUrl} from "#server/global/engine/instagram/reel/utils/storageCloudflareR2";
 import {deleteReelTempFiles} from "#server/global/engine/instagram/reel/jobs/reelStorageCleanup";
+import {deleteOldMessagesSession} from "#server/bot/services/session/deleteOldMessagesSession";
 import {resetAdminPublishLock} from "#server/global/engine/instagram/reel/jobs/adminPublishLock";
 
 type TelegramRichMessageResponse = {
@@ -56,6 +57,25 @@ const asRecord = (value: unknown): Record<string, any> =>
     value && typeof value === 'object' && !Array.isArray(value)
         ? value as Record<string, any>
         : {}
+
+const clearAdminChatAfterReel = async (job: ReelJob): Promise<void> => {
+    const adminId = Number(job.admin_telegram_id)
+    const reviewMessageId = Number((job as ReelJob & {review_message_id?: number | null}).review_message_id ?? 0)
+
+    if (reviewMessageId) {
+        try {
+            await bot.telegram.deleteMessage(adminId, reviewMessageId)
+        } catch (error: any) {
+            console.warn('[REEL FINALIZER REVIEW MESSAGE DELETE SKIPPED]', error?.response?.description || error?.message || error)
+        }
+    }
+
+    try {
+        await deleteOldMessagesSession(adminId)
+    } catch (error) {
+        console.error('[REEL FINALIZER CHAT CLEANUP ERROR]', error)
+    }
+}
 
 const sendAdminNotice = async (adminTelegramId: number, message: string): Promise<void> => {
     try {
@@ -349,6 +369,11 @@ export const finalizeReelPublication = async (
         } catch (error) {
             console.error('[REEL FINALIZER SESSION CLEANUP ERROR]', error)
         }
+
+        // Публикация закончена: чистим чат администратора (решение владельца 12.11) —
+        // сообщения, отмеченные в сессии (ссылка, тип видео, ответы), и последнее
+        // сообщение проверки Reel. Итоговое уведомление ниже остаётся.
+        await clearAdminChatAfterReel(job)
 
         await sendAdminNotice(
             Number(job.admin_telegram_id),
