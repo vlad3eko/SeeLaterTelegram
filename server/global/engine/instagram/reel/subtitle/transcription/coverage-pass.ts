@@ -1,4 +1,4 @@
-import type { WhisperTranscript, WordTiming } from '../types.js';
+import type { SoundCue, WhisperTranscript, WordTiming } from '../types.js';
 import { isRateLimitError } from '../utils/rate-limit.js';
 import {
     findUncoveredSpeech,
@@ -30,6 +30,8 @@ export type CoverageSummary = {
     stoppedByRateLimit: boolean;
     /** Ranges too short to be worth a request. */
     skippedShort: number;
+    /** Ranges that lie in a sound cue of Whisper (music, applause): no speech to look for. */
+    skippedSoundCue: number;
 };
 
 const REPLACE_MIN_SHARE = 0.5;
@@ -66,7 +68,112 @@ export function dropShortRanges(ranges: SpeechRange[], minSeconds: number): Spee
     return ranges.filter(range => range.end - range.start >= minSeconds - 1e-6);
 }
 
+/**
+ * A range that mostly lies inside a sound cue of Whisper ("[музыка]", "[аплодисменты]")
+ * holds no speech that Gemini skipped: a clip of it comes back empty or with an
+ * invented line (measured: a 8.7 s range inside "[музыка]" came back empty, another one
+ * answered with a single Chinese character), and costs a request all the same.
+ * REEL_SUBTITLE_COVERAGE_SKIP_CUES=off sends such ranges anyway.
+ */
+const SOUND_CUE_MIN_SHARE = 0.7;
+
+export function skipCueRanges(env: NodeJS.ProcessEnv = process.env): boolean {
+    return !['off', '0', 'false', 'no'].includes(
+        (env.REEL_SUBTITLE_COVERAGE_SKIP_CUES ?? 'on').trim().toLowerCase(),
+    );
+}
+
+/** Pure: splits `ranges` into the ones worth a request and the ones inside sound cues. */
+export function splitRangesBySoundCues(
+    ranges: SpeechRange[],
+    cues: Array<Pick<SoundCue, 'start' | 'end'>>,
+): { speech: SpeechRange[]; inCues: SpeechRange[] } {
+    const speech: SpeechRange[] = [];
+    const inCues: SpeechRange[] = [];
+
+    for (const range of ranges) {
+        const length = range.end - range.start;
+        // Cues are separate, so the overlaps add up (a cue never overlaps another one).
+        const covered = cues.reduce(
+            (sum, cue) => sum + Math.max(0, Math.min(cue.end, range.end) - Math.max(cue.start, range.start)),
+            0,
+        );
+
+        if (length > 0 && covered / length >= SOUND_CUE_MIN_SHARE) {
+            inCues.push(range);
+        } else {
+            speech.push(range);
+        }
+    }
+
+    return { speech, inCues };
+}
+
 const centreOf = (word: WordTiming): number => (word.start + word.end) / 2;
+
+const echoToken = (text: string): string => text
+    .toLocaleUpperCase('ru-RU')
+    .replace(/Ё/gu, 'Е')
+    .replace(/[^\p{L}\p{N}]+/gu, '');
+
+/** Seconds: how far a leftover may sit from the clip words it repeats. */
+const ECHO_MAX_DISTANCE_SECONDS = 3;
+
+/**
+ * Pure: drops words of `kept` that repeat, one for one, the first or the last words
+ * of `added` right next to the replaced range. They are leftovers of the first
+ * request that sat just outside the range (the centre of a word cut by the range
+ * edge, or a word with a wrong timestamp), so the clip transcript brought the
+ * same line a second time ("Ты Питер" before "Ты Питер Паркер?").
+ */
+export function dropEchoedWords(kept: WordTiming[], added: WordTiming[]): WordTiming[] {
+    if (added.length === 0) return kept;
+
+    const sortedAdded = [...added].sort((a, b) => a.start - b.start || a.end - b.end);
+    const addedTokens = sortedAdded.map(word => echoToken(word.text));
+    const ordered = [...kept].sort((a, b) => a.start - b.start || a.end - b.end);
+    const firstStart = sortedAdded[0]!.start;
+    const lastStart = sortedAdded[sortedAdded.length - 1]!.start;
+    const drop = new Set<WordTiming>();
+
+    const before = ordered.filter(word => word.start < firstStart);
+
+    for (let count = Math.min(before.length, addedTokens.length); count >= 1; count -= 1) {
+        const tail = before.slice(-count);
+
+        if (firstStart - tail[0]!.start > ECHO_MAX_DISTANCE_SECONDS) continue;
+
+        if (tail.every((word, offset) => {
+            const token = echoToken(word.text);
+
+            return token !== '' && token === addedTokens[offset];
+        })) {
+            tail.forEach(word => drop.add(word));
+            break;
+        }
+    }
+
+    const after = ordered.filter(word => word.start > lastStart);
+
+    for (let count = Math.min(after.length, addedTokens.length); count >= 1; count -= 1) {
+        const head = after.slice(0, count);
+
+        if (head[count - 1]!.start - lastStart > ECHO_MAX_DISTANCE_SECONDS) continue;
+
+        const tokens = addedTokens.slice(-count);
+
+        if (head.every((word, offset) => {
+            const token = echoToken(word.text);
+
+            return token !== '' && token === tokens[offset];
+        })) {
+            head.forEach(word => drop.add(word));
+            break;
+        }
+    }
+
+    return drop.size === 0 ? kept : kept.filter(word => !drop.has(word));
+}
 
 /** Pure: adds `extra` words that do not sit on an already transcribed word. */
 export function mergeCoverageWords(
@@ -104,12 +211,13 @@ export function replaceCoverageWords(
         return { words: mergeCoverageWords(existing, extra), removed: 0 };
     }
 
-    const kept = existing.filter(word => !inside(word));
     const added = extra.filter(inside);
+    const keptBefore = existing.filter(word => !inside(word));
+    const kept = dropEchoedWords(keptBefore, added);
 
     return {
         words: [...kept, ...added].sort((a, b) => a.start - b.start || a.end - b.end),
-        removed: removable.length,
+        removed: removable.length + keptBefore.length - kept.length,
     };
 }
 
@@ -176,9 +284,13 @@ export async function fillUncoveredSpeech(
     transcript: WhisperTranscript,
     envelope: VoiceEnvelope,
     transcribeClip: (range: SpeechRange) => Promise<WordTiming[]>,
-): Promise<{ transcript: WhisperTranscript; summary: CoverageSummary }> {
+    soundCues: Array<Pick<SoundCue, 'start' | 'end'>> = [],
+): Promise<{ transcript: WhisperTranscript; summary: CoverageSummary; musicRanges: SpeechRange[] }> {
     const found = findUncoveredSpeech(transcript.words, envelope, maxClips());
-    const ranges = dropShortRanges(found, minRangeSeconds());
+    const longEnough = dropShortRanges(found, minRangeSeconds());
+    const { speech: ranges, inCues } = skipCueRanges()
+        ? splitRangesBySoundCues(longEnough, soundCues)
+        : { speech: longEnough, inCues: [] as SpeechRange[] };
     const result = await transcribeRanges(transcript.words, ranges, transcribeClip);
     const summary: CoverageSummary = {
         ranges: ranges.map(range => ({
@@ -189,8 +301,9 @@ export async function fillUncoveredSpeech(
         addedWords: result.addedWords,
         replacedWords: result.replacedWords,
         stoppedByRateLimit: result.stoppedByRateLimit,
-        skippedShort: found.length - ranges.length,
+        skippedShort: found.length - longEnough.length,
+        skippedSoundCue: inCues.length,
     };
 
-    return { transcript: { ...transcript, words: result.words }, summary };
+    return { transcript: { ...transcript, words: result.words }, summary, musicRanges: inCues };
 }

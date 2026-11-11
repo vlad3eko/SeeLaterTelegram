@@ -1,5 +1,5 @@
 import {readFile, writeFile} from 'node:fs/promises';
-import type { WhisperOptions, WhisperTranscript, WordTiming } from '../types.js';
+import type { SoundCue, WhisperOptions, WhisperTranscript, WordTiming } from '../types.js';
 import {
     assertFileExists,
     prepareOutputPath,
@@ -222,6 +222,15 @@ async function transcribeWithGeminiPipeline(options: WhisperOptions): Promise<Wh
         timeoutMs: options.timeoutMs,
     }));
 
+    // Diagnostics for the dry run: what Gemini heard, before the re-timing, the checks
+    // and the translation. The file lies in the subtitle work directory, which is
+    // deleted when the reel is finished; a failed write must not stop the pipeline.
+    await writeFile(
+        options.outputPath.replace(/(\.ndjson)?$/u, '.gemini-original.json'),
+        `${JSON.stringify(geminiTranscript.words)}\n`,
+        'utf8',
+    ).catch(() => undefined);
+
     // Gemini text, Whisper timing (see retime-words.ts). Gemini word
     // timestamps drift early towards the end of a clip, which made the
     // caption lead grow to 2–3 s. Set REEL_SUBTITLE_GEMINI_TIMING=gemini
@@ -242,7 +251,7 @@ async function transcribeWithGeminiPipeline(options: WhisperOptions): Promise<Wh
         : 0;
     const checked = await withBudgetReserve(reserveMs, async () => {
         const timed = await stage('whisper-timing', () => retimeGeminiWithWhisper(geminiTranscript, options));
-        const covered = await stage('coverage-pass', () => fillSkippedSpeech(timed, options));
+        const covered = await stage('coverage-pass', () => fillSkippedSpeech(timed.transcript, options, timed.soundCues));
 
         return stage('transcript-check', () => verifySpeech(covered.transcript, options, covered.tried));
     });
@@ -328,6 +337,7 @@ async function translateForeign(
 async function fillSkippedSpeech(
     transcript: WhisperTranscript,
     options: WhisperOptions,
+    soundCues: SoundCue[] = [],
 ): Promise<{ transcript: WhisperTranscript; tried: SpeechRange[] }> {
     const mode = (process.env.REEL_SUBTITLE_COVERAGE_PASS ?? 'on').trim().toLowerCase();
 
@@ -338,16 +348,18 @@ async function fillSkippedSpeech(
     try {
         const ffmpegPath = options.ffmpegPath ?? process.env.WHISPER_FFMPEG_PATH ?? 'ffmpeg';
         const envelope = await readVoiceEnvelope(options.inputPath, ffmpegPath);
-        const { transcript: filled, summary } = await fillUncoveredSpeech(
+        const { transcript: filled, summary, musicRanges } = await fillUncoveredSpeech(
             transcript,
             envelope,
             clipTranscriber(options),
+            soundCues,
         );
 
         console.info('[SUBTITLE] Skipped speech re-transcribed', summary);
 
-        // The stretches already sent are not asked about again by the check.
-        return { transcript: filled, tried: summary.ranges };
+        // The stretches already sent are not asked about again by the check; neither
+        // are the ones inside a sound cue (music), which hold no speech to find.
+        return { transcript: filled, tried: [...summary.ranges, ...musicRanges] };
     } catch (error) {
         console.warn(
             '[SUBTITLE] Coverage pass failed; transcript kept as it was.',
@@ -506,16 +518,21 @@ async function snapTranscriptToVoice(
     }
 }
 
+/**
+ * `soundCues` are the non-speech cues Whisper heard ("[музыка]"). They are not part of the
+ * result transcript (the Gemini pipeline has none); the coverage pass only uses them to
+ * leave music out of its requests.
+ */
 async function retimeGeminiWithWhisper(
     transcript: WhisperTranscript,
     options: WhisperOptions,
-): Promise<WhisperTranscript> {
+): Promise<{ transcript: WhisperTranscript; soundCues: SoundCue[] }> {
     const timingSource = (
         process.env.REEL_SUBTITLE_GEMINI_TIMING ?? 'whisper'
     ).trim().toLowerCase();
 
     if (timingSource !== 'whisper' || transcript.words.length === 0) {
-        return transcript;
+        return { transcript, soundCues: [] };
     }
 
     try {
@@ -526,7 +543,7 @@ async function retimeGeminiWithWhisper(
 
         if (whisperTranscript.words.length === 0) {
             console.warn('[SUBTITLE] Whisper timing pass returned no words; keeping Gemini timestamps.');
-            return transcript;
+            return { transcript, soundCues: whisperTranscript.soundCues };
         }
 
         const { words, summary } = retimeWordsByReference(
@@ -539,16 +556,16 @@ async function retimeGeminiWithWhisper(
         // Too few matches means the two transcripts disagree: keep Gemini.
         if (summary.matched < Math.max(2, Math.ceil(summary.words * 0.4))) {
             console.warn('[SUBTITLE] Too few Gemini/Whisper word matches; keeping Gemini timestamps.', summary);
-            return transcript;
+            return { transcript, soundCues: whisperTranscript.soundCues };
         }
 
-        return { ...transcript, words };
+        return { transcript: { ...transcript, words }, soundCues: whisperTranscript.soundCues };
     } catch (error) {
         console.warn(
             '[SUBTITLE] Whisper timing pass failed; keeping Gemini timestamps.',
             error instanceof Error ? error.message : String(error),
         );
-        return transcript;
+        return { transcript, soundCues: [] };
     }
 }
 

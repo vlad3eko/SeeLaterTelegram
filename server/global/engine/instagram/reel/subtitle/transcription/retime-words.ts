@@ -56,6 +56,69 @@ function similarity(a: string, b: string): number {
     return 1 - levenshtein(a, b) / Math.max(a.length, b.length);
 }
 
+/**
+ * Whisper sometimes gives a run of words one and the same timestamp (measured:
+ * «Ты» 15.983–15.983, «Питер» 15.983–15.983, «Паркер?» 15.983–17.983 while the
+ * voice said them at 16.5, 16.6 and 17.0 s). Words stacked on one point have
+ * no usable timing of their own; matched against them, the Gemini words piled up
+ * there as well, the coverage pass then re-transcribed only the last of them
+ * and the rest stayed as phantom duplicates. A run like this is spread over the
+ * span of its last word, in proportion to the word lengths.
+ */
+const COLLAPSED_MAX_SECONDS = 0.03;
+const MIN_SPREAD_WORD_SECONDS = 0.08;
+
+export function repairCollapsedWords(words: WordTiming[]): WordTiming[] {
+    const result = words.map(word => ({ ...word }));
+    let index = 0;
+
+    while (index < result.length) {
+        const first = result[index]!;
+
+        if (first.end - first.start >= COLLAPSED_MAX_SECONDS) {
+            index += 1;
+            continue;
+        }
+
+        // The collapsed word, the words that start at the same point and the first
+        // proper word among them (it carries the end of the span).
+        let last = index;
+
+        while (
+            last + 1 < result.length &&
+            Math.abs(result[last + 1]!.start - first.start) < COLLAPSED_MAX_SECONDS
+        ) {
+            last += 1;
+
+            if (result[last]!.end - result[last]!.start >= COLLAPSED_MAX_SECONDS) break;
+        }
+
+        // A lone zero-length word is left as it is (the caller gives it a minimum length).
+        if (last > index) {
+            const run = result.slice(index, last + 1);
+            const spanStart = first.start;
+            const spanEnd = Math.max(
+                result[last]!.end,
+                spanStart + run.length * MIN_SPREAD_WORD_SECONDS,
+            );
+            const lengths = run.map(word => Math.max(1, normalizeToken(word.text).length));
+            const total = lengths.reduce((sum, value) => sum + value, 0);
+            let cursor = spanStart;
+
+            run.forEach((word, offset) => {
+                const span = (spanEnd - spanStart) * (lengths[offset]! / total);
+                word.start = cursor;
+                word.end = cursor + span;
+                cursor += span;
+            });
+        }
+
+        index = last + 1;
+    }
+
+    return result;
+}
+
 const MIN_SIMILARITY = 0.5;
 const SENTENCE_END = /[.!?…][»”’"')\]]*$/u;
 /** Pairs further apart than this in time are never matched. */
@@ -63,8 +126,9 @@ const MAX_TIME_DISTANCE_S = 3;
 
 export function retimeWordsByReference(
     textWords: WordTiming[],
-    referenceWords: WordTiming[],
+    rawReferenceWords: WordTiming[],
 ): { words: WordTiming[]; summary: RetimeSummary } {
+    const referenceWords = repairCollapsedWords(rawReferenceWords);
     const n = textWords.length;
     const m = referenceWords.length;
     const textTokens = textWords.map(word => normalizeToken(word.text));

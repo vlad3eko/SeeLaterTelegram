@@ -1,7 +1,11 @@
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { resolveSubtitleConfig } from './config.js';
+import {
+  getFormatSubtitleOverrides,
+  mergeSubtitleOverrides,
+  resolveSubtitleConfig,
+} from './config.js';
 import { buildInstagramSubtitleBlocks } from './layout/build-subtitle-blocks.js';
 import { generateInstagramSubtitleAss, getMaximumDialogueEndSeconds } from './render/generate-ass.js';
 import { transcribeInstagramTranscript } from './transcription/whisper.js';
@@ -39,11 +43,18 @@ export async function prepareInstagramSubtitleTrack(
     wordOrder: path.join(runDirectory, 'word-order.json'),
   };
 
-  const config = resolveSubtitleConfig(options.config);
   const fontFilePath = options.fontFilePath ??
     process.env.SUBTITLE_FONT_PATH ??
     path.resolve('public/instagram/fonts/Montserrat-ExtraBold.ttf');
   const videoInfo = await probeInstagramVideo(inputVideoPath, options.ffprobePath);
+  // Letter size and row spacing depend on the frame shape (square vs vertical);
+  // explicit options.config still wins over the format preset.
+  const config = resolveSubtitleConfig(
+    mergeSubtitleOverrides(
+      getFormatSubtitleOverrides(videoInfo.width, videoInfo.height),
+      options.config,
+    ),
+  );
 
   const transcript = await transcribeInstagramTranscript({
     inputPath: inputVideoPath,
@@ -124,6 +135,7 @@ export async function prepareInstagramSubtitleTrack(
     width: videoInfo.width,
     height: videoInfo.height,
     requiredVideoTailSeconds,
+    speechWindows: blocks.map(({ start, displayEnd }) => ({ start, end: displayEnd })),
   };
 
   console.info('[SUBTITLE] ASS track prepared for decorateInstagramVideo()', {

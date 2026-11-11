@@ -7,6 +7,37 @@ import {
 } from '@aws-sdk/client-s3'
 
 import {createReadStream} from 'node:fs'
+import {access, copyFile, mkdir, rm} from 'node:fs/promises'
+import path from 'node:path'
+import {fileURLToPath, pathToFileURL} from 'node:url'
+
+
+// ЛОКАЛЬНЫЙ РЕЖИМ ДЛЯ РАЗРАБОТКИ.
+// Если задана REEL_LOCAL_STORAGE_DIR, вместо Cloudflare R2 используется папка на диске:
+// те же ключи (instagram/reels/clean/...), только файлы лежат в этой папке, а «публичная
+// ссылка» — это file:///... Облачные переменные при этом не нужны и R2 не трогается.
+// Нужен для tmp-прогона публикации (reel/scripts/dryrun-publish.ts).
+// В Vercel и Cloud Run режим запрещён, чтобы рабочий кэш не подменился папкой контейнера.
+const localStorageDirectoryRaw = process.env.REEL_LOCAL_STORAGE_DIR?.trim()
+
+if (
+    localStorageDirectoryRaw &&
+    (
+        process.env.VERCEL === '1' ||
+        process.env.CLOUD_RUN_JOB ||
+        process.env.K_SERVICE
+    )
+) {
+    throw new Error(
+        '[R2 LOCAL] REEL_LOCAL_STORAGE_DIR is for local development only and must not be set in Vercel or Cloud Run'
+    )
+}
+
+const localStorageDirectory = localStorageDirectoryRaw
+    ? path.resolve(localStorageDirectoryRaw)
+    : undefined
+
+export const isCloudflareR2LocalMode = Boolean(localStorageDirectory)
 
 
 const r2AccountId = process.env.CLOUDFLARE_R2_ACCOUNT_ID
@@ -16,29 +47,56 @@ const r2Bucket = process.env.CLOUDFLARE_R2_BUCKET
 const r2PublicUrl = process.env.CLOUDFLARE_R2_PUBLIC_URL
 
 if (
-    !r2AccountId ||
-    !r2AccessKeyId ||
-    !r2SecretAccessKey ||
-    !r2Bucket ||
-    !r2PublicUrl
+    !localStorageDirectory &&
+    (
+        !r2AccountId ||
+        !r2AccessKeyId ||
+        !r2SecretAccessKey ||
+        !r2Bucket ||
+        !r2PublicUrl
+    )
 ) {
     throw new Error('Cloudflare R2 environment variables are missing')
 }
 
 
-const normalizedPublicUrl = r2PublicUrl.replace(/\/+$/, '')
+const normalizedPublicUrl = (r2PublicUrl ?? '').replace(/\/+$/, '')
 
 
-const s3 = new S3Client({
-    region: 'auto',
+const s3 = localStorageDirectory
+    ? undefined
+    : new S3Client({
+        region: 'auto',
 
-    endpoint: `https://${r2AccountId}.r2.cloudflarestorage.com`,
+        endpoint: `https://${r2AccountId}.r2.cloudflarestorage.com`,
 
-    credentials: {
-        accessKeyId: r2AccessKeyId,
-        secretAccessKey: r2SecretAccessKey
+        credentials: {
+            accessKeyId: r2AccessKeyId!,
+            secretAccessKey: r2SecretAccessKey!
+        }
+    })
+
+
+const getS3 = (): S3Client => {
+    if (!s3) {
+        throw new Error('[R2] Cloud client is not available in local storage mode')
     }
-})
+
+    return s3
+}
+
+
+// Путь файла в локальной папке для ключа R2. Ключ не может выйти за пределы папки.
+const getLocalPathForKey = (key: string): string => {
+    const root = localStorageDirectory!
+    const target = path.resolve(root, ...key.split('/'))
+
+    if (target !== root && !target.startsWith(root + path.sep)) {
+        throw new Error('[R2 LOCAL] Object key points outside the local storage directory')
+    }
+
+    return target
+}
 
 
 export const storageCloudflareR2 = async (
@@ -46,9 +104,20 @@ export const storageCloudflareR2 = async (
     key: string
 ): Promise<string> => {
 
+    if (localStorageDirectory) {
+        const target = getLocalPathForKey(key)
+
+        await mkdir(path.dirname(target), {recursive: true})
+        await copyFile(filePath, target)
+
+        console.log('[R2 LOCAL STORED]', {key, target})
+
+        return pathToFileURL(target).href
+    }
+
     const fileStream = createReadStream(filePath)
 
-    await s3.send(
+    await getS3().send(
         new PutObjectCommand({
             Bucket: r2Bucket,
             Key: key,
@@ -65,7 +134,12 @@ export const deleteFromCloudflareR2 = async (
     key: string
 ) => {
 
-    await s3.send(
+    if (localStorageDirectory) {
+        await rm(getLocalPathForKey(key), {force: true})
+        return
+    }
+
+    await getS3().send(
         new DeleteObjectCommand({
             Bucket: r2Bucket,
             Key: key
@@ -78,8 +152,23 @@ export const existsInCloudflareR2 = async (
     key: string
 ) => {
 
+    if (localStorageDirectory) {
+        try {
+            await access(getLocalPathForKey(key))
+
+            return true
+
+        } catch (error: any) {
+            if (error?.code === 'ENOENT') {
+                return false
+            }
+
+            throw error
+        }
+    }
+
     try {
-        await s3.send(
+        await getS3().send(
             new HeadObjectCommand({
                 Bucket: r2Bucket,
                 Key: key
@@ -102,12 +191,30 @@ export const existsInCloudflareR2 = async (
 
 
 export const getCloudflareR2Url = (key: string) => {
+    if (localStorageDirectory) {
+        return pathToFileURL(getLocalPathForKey(key)).href
+    }
+
     return `${normalizedPublicUrl}/${key}`
 }
 
 
 // Получаем ключ R2 из публичной ссылки.
 export const getCloudflareR2KeyFromUrl = (url: string): string => {
+    if (localStorageDirectory) {
+        if (!url.startsWith('file:')) {
+            throw new Error('[R2 DELETE] URL does not belong to the local storage directory')
+        }
+
+        const relative = path.relative(localStorageDirectory, fileURLToPath(url))
+
+        if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
+            throw new Error('[R2 DELETE] URL does not belong to the local storage directory')
+        }
+
+        return relative.split(path.sep).join('/')
+    }
+
     const prefix = `${normalizedPublicUrl}/`
 
     if (!url.startsWith(prefix)) {

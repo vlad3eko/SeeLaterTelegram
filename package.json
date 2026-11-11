@@ -5,6 +5,8 @@
   "scripts": {
     "build": "nuxt build && node scripts/prepareMediaTools.mjs",
     "dev": "nuxt dev --host 127.0.0.1",
+    "reel:setup-ytdlp": "node scripts/setupLocalYtDlp.mjs",
+    "reel:dryrun": "tsx --tsconfig tsconfig.reel-dryrun.json --env-file=.env server/global/engine/instagram/reel/scripts/dryrun-publish.ts",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare"

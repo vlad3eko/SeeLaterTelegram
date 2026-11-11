@@ -1,5 +1,4 @@
 import {randomUUID} from 'node:crypto'
-import {existsSync} from 'node:fs'
 import process from 'node:process'
 import {
     setInterval,
@@ -28,8 +27,6 @@ type ReelInputPayload = {
         overview?: string
         genre?: string | Array<{id?: number; name?: string} | string>
         rating?: number | string
-        subtitlesPath?: string
-        highlightWord?: string
     }
 }
 
@@ -260,14 +257,6 @@ const main = async (): Promise<void> => {
             throw new Error(`[JOB INPUT] Invalid media_type: ${mediaType}`)
         }
 
-        // subtitlesPath — это локальный путь внутри worker-контейнера.
-        // Путь с Vercel или компьютера администратора здесь использовать нельзя.
-        if (contentInput?.subtitlesPath && !existsSync(contentInput.subtitlesPath)) {
-            throw new Error(
-                `[JOB INPUT] subtitlesPath does not exist in worker container: ${contentInput.subtitlesPath}`
-            )
-        }
-
         await updateOwnedJob({step: 'rendering'})
 
         const content = {
@@ -276,9 +265,7 @@ const main = async (): Promise<void> => {
             title: contentInput?.title,
             overview: contentInput?.overview,
             genre: contentInput?.genre,
-            rating: contentInput?.rating,
-            subtitlesPath: contentInput?.subtitlesPath,
-            highlightWord: contentInput?.highlightWord
+            rating: contentInput?.rating
         }
 
         console.log('[REEL WORKER PROCESSING]', {
@@ -292,9 +279,7 @@ const main = async (): Promise<void> => {
         const prepared = await prepareReel(
             keyTrailer,
             hook,
-            undefined,
             content,
-            'publish',
             {
                 onHookGenerated: async (generatedHook: string) => {
                     const normalizedHook = generatedHook.trim()
@@ -344,7 +329,6 @@ const main = async (): Promise<void> => {
             result_payload: {
                 keyTrailer,
                 cleanR2,
-                telegramFileId: prepared.telegramFileId ?? null,
                 completedAt: new Date().toISOString()
             },
 

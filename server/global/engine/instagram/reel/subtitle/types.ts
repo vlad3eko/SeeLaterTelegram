@@ -466,4 +466,6 @@ export type GenerateInstagramSubtitleTrackResult = {
     /** Minimum video tail required after the source end to show the final no-next-phrase exit wave. */
     requiredVideoTailSeconds: number;
     wordOrderPath?: string;
+    /** Time windows of the phrases on screen; the "save" call picks a quiet spot by them. */
+    speechWindows: Array<{ start: number; end: number }>;
 };
