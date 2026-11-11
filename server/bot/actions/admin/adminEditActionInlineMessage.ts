@@ -10,6 +10,7 @@ import {extractYouTubeVideoId} from "#server/global/engine/instagram/reel/utils/
 import {NOTIFICATION_MESSAGE} from "#server/global/notifications/sendNotificationMessage";
 import {addMessageSession} from "#server/bot/services/session/addMessageSession";
 import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
+import {adminVideoTypeKeyboard} from "#server/bot/consts/buttons/admin/buttonsAdmin";
 
 export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditSession) => {
 
@@ -208,9 +209,11 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
                 // Сначала сохраняем новый ключ в Supabase.
                 // Старый подготовленный Reel больше использовать нельзя.
                 // Ключ введён вручную: публикация пойдёт с проверкой clean и выбором хука.
+                // Тип видео выбирается кнопками ниже; пока не выбран — трейлер.
                 await updateAdminEditSession(ctx.from.id, {
                     keyTrailer,
                     trailerKeySource: 'manual',
+                    videoType: null,
                     preparedInstagram: null,
                     mode: null,
                     publishStartedAt: null
@@ -230,6 +233,7 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
             // Синхронизируем локальный объект с Supabase.
             session.keyTrailer = keyTrailer
             session.trailerKeySource = 'manual'
+            session.videoType = undefined
             session.preparedInstagram = undefined
             session.mode = undefined
             session.publishStartedAt = undefined
@@ -254,7 +258,13 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
                 return
             }
 
-            message = await ctx.reply(NOTIFICATION_MESSAGE.reply.SuccessTrailerUpdated)
+            message = await ctx.reply(
+                `${NOTIFICATION_MESSAGE.reply.SuccessTrailerUpdated}
+
+Это трейлер или нарезка? Трейлер кадрируется по центру; ` +
+                'исходник нарезки хранится до полной публикации. Если не выбрать, будет трейлер.',
+                {reply_markup: adminVideoTypeKeyboard(undefined)}
+            )
             await addMessageSession(ctx.from.id, SessionMessageType.Success, {messageId: message.message_id})
             return
         }

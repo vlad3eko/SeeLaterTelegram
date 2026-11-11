@@ -133,7 +133,8 @@ export const obtainCleanVideo = async ({
     workspace,
     reuseCache,
     segmentVariant,
-    reuseStoredSource
+    reuseStoredSource,
+    framing = 'center'
 }: {
     keyTrailer: string
     content: ReelContent
@@ -141,6 +142,8 @@ export const obtainCleanVideo = async ({
     reuseCache: boolean
     segmentVariant: number
     reuseStoredSource: boolean
+    /** center — трейлер (квадрат по центру); track — нарезка (следить за лицом по X). */
+    framing?: 'center' | 'track'
 }): Promise<CleanVideo> => {
     const paths = reelR2Paths(content, keyTrailer)
 
@@ -155,7 +158,7 @@ export const obtainCleanVideo = async ({
     // На входе полный исходный трейлер, clean собирается одним проходом FFmpeg.
     const cleanPath = await runReelStep(
         'PREPARE_INSTAGRAM_VIDEO',
-        () => prepareInstagramVideo(sourcePath, keyTrailer, {segmentVariant})
+        () => prepareInstagramVideo(sourcePath, keyTrailer, {segmentVariant, framing})
     )
     workspace.trackFile(cleanPath)
 
@@ -165,7 +168,7 @@ export const obtainCleanVideo = async ({
         () => storageCloudflareR2(cleanPath, paths.clean)
     )
 
-    console.log('[REEL CLEAN VIDEO SAVED]', {r2Url, segmentVariant})
+    console.log('[REEL CLEAN VIDEO SAVED]', {r2Url, segmentVariant, framing})
 
     return {path: cleanPath, r2Url, fromCache: false, sourceTouched: true}
 }

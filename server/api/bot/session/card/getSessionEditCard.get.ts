@@ -76,6 +76,9 @@ export default defineEventHandler(async (event) => {
         trailerKeySource:
             row.trailer_key_source === 'manual' ? 'manual' : undefined,
 
+        videoType:
+            row.video_type === 'clip' || row.video_type === 'trailer' ? row.video_type : undefined,
+
         comment:
             row.comment ?? undefined,
 

@@ -19,6 +19,8 @@ type ReelSessionSnapshot = {
     inlineMessageId?: string
     publishStartedAt?: number
     isRichTypeCard: boolean
+    /** trailer — квадрат по центру; clip — нарезка, исходник хранится до полной публикации. */
+    videoType?: 'trailer' | 'clip'
 }
 
 /**
@@ -355,6 +357,8 @@ export const dispatchReelJob = async ({
             publishStartedAt: session.publishStartedAt ?? null,
             isRichTypeCard: session.isRichTypeCard
         },
+        // Читают воркер (хранить ли исходник) и финализатор (удалить его после публикации).
+        videoType: session.videoType === 'clip' ? 'clip' : 'trailer',
         finalizerToken: callbackToken,
         finalizerUrl
     }
@@ -397,6 +401,23 @@ export const dispatchReelJob = async ({
             removed: staleReviews.map(row => row.id),
             keyTrailer: session.keyTrailer
         })
+
+        // Исходник старого ключа держался в R2 ради проверки (у нарезки — до публикации).
+        // Проверка отменена, исходник больше не нужен. Модуль R2 подключается здесь же.
+        try {
+            const [{deleteFromCloudflareR2}, {reelR2Paths}] = await Promise.all([
+                import('#server/global/engine/instagram/reel/utils/storageCloudflareR2'),
+                import('#server/global/engine/instagram/reel/pipeline/reelWorkspace')
+            ])
+            for (const row of staleReviews) {
+                if (!row.key_trailer) continue
+                await deleteFromCloudflareR2(
+                    reelR2Paths({id: session.mediaId, type: session.mediaType}, row.key_trailer).source
+                )
+            }
+        } catch (error) {
+            console.error('[REEL STALE REVIEW SOURCE CLEANUP ERROR]', error)
+        }
 
         rows = rows.filter(row => !staleReviews.includes(row))
     }

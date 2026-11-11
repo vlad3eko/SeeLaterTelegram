@@ -46,11 +46,13 @@ export const ensureAdminEditSession = async (ctx: any): Promise<AdminEditSession
             session.keyTrailer = keyTrailer || undefined
             session.preparedInstagram = undefined
             session.trailerKeySource = undefined
+            session.videoType = undefined
 
             await updateAdminEditSession(ctx.from.id, {
                     keyTrailer: keyTrailer || null,
                     preparedInstagram: null,
-                    trailerKeySource: null
+                    trailerKeySource: null,
+                    videoType: null
                 })
         }
         return session

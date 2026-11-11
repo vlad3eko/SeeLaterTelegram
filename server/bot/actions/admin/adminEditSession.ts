@@ -18,6 +18,9 @@ export type ModeEditSession =
  */
 export type TrailerKeySource = 'manual'
 
+/** Тип видео по ручной ссылке: trailer (по умолчанию) или clip — нарезка/фрагмент. */
+export type SessionVideoType = 'trailer' | 'clip'
+
 export type AdminEditSession = {
     publishStartedAt?: number
     inlineMessageId?: string
@@ -33,6 +36,7 @@ export type AdminEditSession = {
 
     keyTrailer?: string
     trailerKeySource?: TrailerKeySource
+    videoType?: SessionVideoType
     comment?: string
     overview?: string
 
@@ -63,6 +67,7 @@ export type AdminEditSessionUpdate = {
 
     keyTrailer?: string | null
     trailerKeySource?: TrailerKeySource | null
+    videoType?: SessionVideoType | null
     comment?: string | null
     overview?: string | null
 
