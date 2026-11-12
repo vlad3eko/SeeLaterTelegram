@@ -47,6 +47,11 @@ export type SegmentAnalysis = {
      * стоял на позиции прошлого плана, а потом перескакивал (жалоба владельца 12.11).
      */
     shotStarts: number[]
+    /**
+     * Для каждого начала плана: true — плавный переход (шторка, наплыв; найден только по
+     * смене цветов, резкой склейки нет). Камера на нём едет плавно, а не прыгает.
+     */
+    softStarts: boolean[]
     /** Центр главного лица по X в долях ширины картинки, или null. */
     faceCenters: Array<number | null>
     /** Подтверждённый логотип кадра (общая рамка), или null. */
@@ -54,20 +59,42 @@ export type SegmentAnalysis = {
     stats: {
         frames: number
         shots: number
+        /** Границы, найденные только по смене цветов (scdet их не отметил). */
+        shotsFromColorOnly: number
         framesWithFaces: number
         framesWithLogo: number
     }
 }
 
-export const ANALYSIS_FPS = 4
+/**
+ * Кадров анализа в секунду. 6, а не 4: план от ~0,2 с получает свой кадр анализа
+ * (в трейлерах много быстрых склеек).
+ */
+export const ANALYSIS_FPS = 6
 /** Логотип канала стоит на одном месте хотя бы столько секунд (огонь и блики — нет). */
 const LOGO_STILL_SECONDS = 1.5
 const ANALYSIS_WIDTH = FACE_INPUT_SIZE
 
 /** Расстояние между цветовыми гистограммами соседних кадров (0–1), выше — склейка. */
 const CUT_HISTOGRAM_DISTANCE = 0.28
-/** План короче этого сливается с предыдущим (ложные склейки на вспышках). */
-const MIN_SHOT_SECONDS = 1
+/**
+ * Граница, найденная только по смене цветов (scdet её не отметил), не ближе этого к
+ * предыдущей границе: так отсекаются вспышки. Точные склейки scdet принимаются всегда.
+ */
+const MIN_COLOR_SHOT_SECONDS = 0.5
+/** Склейки scdet ближе этого друг к другу — одна склейка (берётся последняя). */
+const CUT_MERGE_SECONDS = 0.1
+/**
+ * Несколько склеек scdet между двумя соседними кадрами анализа, а кадры по обе стороны
+ * почти одинаковы по цвету — это вспышка (вход и выход), а не смена плана.
+ */
+const FLASH_HISTOGRAM_DISTANCE = 0.1
+/**
+ * Плавный переход (шторка, наплыв): камера переезжает к новому плану за это время,
+ * по середине — граница. Резкий прыжок посреди шторки виден (12.11, тест 6, 4,2 с:
+ * человек уже открылся, а квадрат ещё на месте прошлого плана).
+ */
+const SOFT_TRANSITION_SECONDS = 0.5
 /** Порог точного поиска склеек ffmpeg scdet (оценка 0–100). */
 const SCDET_THRESHOLD = 10
 /** Лицо входит в группу, если его площадь не меньше этой доли площади главного. */
@@ -100,12 +127,30 @@ const ZOOM_RAMP_SECONDS = 0.6
 
 const toEven = (value: number) => Math.round(value / 2) * 2
 
+/**
+ * Один проход по фрагменту:
+ * - кадры анализа примерно ANALYSIS_FPS в секунду С НАСТОЯЩИМ ВРЕМЕНЕМ каждого кадра.
+ *   Раньше выборку делал фильтр fps, который округляет время кадра к сетке: кадр
+ *   «1,25 с» на деле был кадром 1,293 с (уже новый план), и время склейки бралось по
+ *   метке сетки — на кадр-два раньше настоящей (12.11, жалоба «передёргивание на смене
+ *   плана»). Теперь select берёт настоящие кадры, showinfo сообщает их время;
+ * - оценка scdet для КАЖДОГО кадра (metadata print), чтобы склейку, которую видно только
+ *   по смене цветов, поставить на кадр с наибольшей оценкой, а не на кадр анализа.
+ */
 const readFrames = async (
     inputPath: string,
     startSeconds: number,
     durationSeconds: number,
     rect: PictureRect
-): Promise<{width: number, height: number, frames: Buffer[], cutTimes: number[]}> => {
+): Promise<{
+    width: number
+    height: number
+    frames: Buffer[]
+    /** Время каждого кадра анализа от начала фрагмента, секунды. */
+    frameTimes: number[]
+    /** Оценка scdet (0–100) каждого кадра фрагмента. */
+    scores: Array<{time: number, score: number}>
+}> => {
     if (!ffmpegPath) {
         throw new Error('[REEL FRAMING] ffmpeg-static binary not found')
     }
@@ -113,9 +158,9 @@ const readFrames = async (
     const width = Math.min(ANALYSIS_WIDTH, toEven(rect.w))
     const height = Math.min(FACE_INPUT_SIZE, Math.max(2, toEven(rect.h * width / rect.w)))
     const frameBytes = width * height * 3
+    // Чуть меньше шага, чтобы при 24 к/с брался каждый 4-й кадр, а не через раз 4-й и 5-й.
+    const step = (1 / ANALYSIS_FPS - 0.004).toFixed(4)
 
-    // Две ветки одного прохода: кадры для анализа (ANALYSIS_FPS) и точный поиск склеек
-    // по всем кадрам (scdet на уменьшенной картинке, время пишется в лог).
     const args = [
         '-hide_banner', '-loglevel', 'info', '-nostats', '-nostdin',
         '-ss', startSeconds.toFixed(3),
@@ -126,19 +171,23 @@ const readFrames = async (
         '-filter_complex',
         // Уменьшаем один раз до разделения на ветки (4K в каждой ветке — лишняя работа).
         `[0:v]crop=${rect.w}:${rect.h}:${rect.x}:${rect.y},scale=${width}:${height}:flags=area,split[a][b];` +
-        `[a]fps=${ANALYSIS_FPS}[frames];` +
-        `[b]scale=320:-2,scdet=threshold=${SCDET_THRESHOLD},nullsink`,
+        `[a]select='isnan(prev_selected_t)+gte(t-prev_selected_t,${step})',showinfo[frames];` +
+        `[b]scale=320:-2,scdet=threshold=${SCDET_THRESHOLD},metadata=mode=print:key=lavfi.scd.score,nullsink`,
         '-map', '[frames]',
+        // Кадры отдаются как есть, без подгонки под частоту выхода.
+        '-fps_mode', 'passthrough',
         '-pix_fmt', 'bgr24', '-f', 'rawvideo', '-'
     ]
 
     return new Promise((resolve, reject) => {
         const child = spawn(ffmpegPath as unknown as string, args, {stdio: ['ignore', 'pipe', 'pipe']})
         const frames: Buffer[] = []
-        const cutTimes: number[] = []
+        const frameTimes: number[] = []
+        const scores: Array<{time: number, score: number}> = []
         let pending: Buffer = Buffer.alloc(0)
         let stderr = ''
         let stderrLine = ''
+        let scoreTime: number | undefined
         const timer = setTimeout(() => child.kill('SIGKILL'), 240_000)
 
         child.stdout.on('data', (chunk: Buffer) => {
@@ -154,8 +203,23 @@ const readFrames = async (
             const lines = (stderrLine + text).split(/\r?\n/)
             stderrLine = lines.pop() ?? ''
             for (const line of lines) {
-                const match = line.match(/lavfi\.scd\.time:\s*([\d.]+)/)
-                if (match) cutTimes.push(Number(match[1]))
+                if (line.includes('Parsed_showinfo')) {
+                    const shown = line.match(/\bn:\s*\d+\s+pts:\s*-?\d+\s+pts_time:\s*(-?[\d.]+)/)
+                    if (shown) frameTimes.push(Number(shown[1]))
+                    continue
+                }
+                if (line.includes('Parsed_metadata')) {
+                    const frame = line.match(/pts_time:\s*(-?[\d.]+)/)
+                    if (frame) {
+                        scoreTime = Number(frame[1])
+                        continue
+                    }
+                    const score = line.match(/lavfi\.scd\.score=([\d.]+)/)
+                    if (score && scoreTime !== undefined) {
+                        scores.push({time: scoreTime, score: Number(score[1])})
+                        scoreTime = undefined
+                    }
+                }
             }
         })
         child.on('error', error => {
@@ -164,8 +228,21 @@ const readFrames = async (
         })
         child.on('close', code => {
             clearTimeout(timer)
-            if (code === 0 || frames.length > 0) resolve({width, height, frames, cutTimes})
-            else reject(new Error(`[REEL FRAMING] ffmpeg exited with ${code}: ${stderr}`))
+            if (code !== 0 && frames.length === 0) {
+                reject(new Error(`[REEL FRAMING] ffmpeg exited with ${code}: ${stderr}`))
+                return
+            }
+            // Времена не совпали с кадрами (не тот вывод showinfo) — шаг выборки.
+            const times = frameTimes.length === frames.length
+                ? frameTimes
+                : frames.map((_, i) => i / ANALYSIS_FPS)
+            if (frameTimes.length !== frames.length) {
+                console.warn('[REEL FRAMING] Frame times mismatch; using the sampling step', {
+                    frames: frames.length,
+                    times: frameTimes.length
+                })
+            }
+            resolve({width, height, frames, frameTimes: times, scores})
         })
     })
 }
@@ -211,28 +288,60 @@ const histogramDistance = (a: Float32Array, b: Float32Array) => {
     return 1 - intersection
 }
 
-/** Склейки: номер плана для каждого кадра; планы короче MIN_SHOT_SECONDS слиты с предыдущим. */
-const detectShots = (histograms: Float32Array[]): number[] => {
-    const starts = [0]
-    for (let i = 1; i < histograms.length; i++) {
-        if (histogramDistance(histograms[i - 1]!, histograms[i]!) > CUT_HISTOGRAM_DISTANCE) starts.push(i)
+/**
+ * Границы планов (время первого кадра нового плана) и номер плана каждого кадра анализа.
+ * - Склейка scdet между двумя соседними кадрами анализа — граница ровно в её момент.
+ *   Несколько склеек там, где кадры по обе стороны одинаковы по цвету, — вспышка.
+ * - Смена цветов без склейки scdet — граница на кадре с наибольшей оценкой scdet между
+ *   этими кадрами анализа, не ближе MIN_COLOR_SHOT_SECONDS к предыдущей границе.
+ * Раньше граница бралась только по смене цветов (план «лицо — ответное лицо» в одной
+ * комнате пропускался) и планы короче секунды сливались с соседним.
+ */
+const detectShots = (
+    times: number[],
+    histograms: Float32Array[],
+    scores: Array<{time: number, score: number}>
+): {shots: number[], shotStarts: number[], softStarts: boolean[], fromColorOnly: number} => {
+    const cuts: number[] = []
+    for (const {time, score} of scores) {
+        if (score < SCDET_THRESHOLD) continue
+        if (cuts.length && time - cuts[cuts.length - 1]! < CUT_MERGE_SECONDS) cuts[cuts.length - 1] = time
+        else cuts.push(time)
     }
 
-    const minFrames = Math.max(1, Math.round(MIN_SHOT_SECONDS * ANALYSIS_FPS))
-    const merged = [0]
-    for (const start of starts.slice(1)) {
-        if (start - merged[merged.length - 1]! >= minFrames) merged.push(start)
-    }
-    // Последний план тоже не короче минимума.
-    if (merged.length > 1 && histograms.length - merged[merged.length - 1]! < minFrames) merged.pop()
+    const boundaries: number[] = []
+    const soft: boolean[] = []
+    let fromColorOnly = 0
+    for (let i = 1; i < times.length; i++) {
+        const from = times[i - 1]!
+        const to = times[i]!
+        const distance = histogramDistance(histograms[i - 1]!, histograms[i]!)
+        const inside = cuts.filter(time => time > from + 1e-6 && time <= to + 1e-6)
 
-    const shots: number[] = []
-    let shot = 0
-    for (let i = 0; i < histograms.length; i++) {
-        if (shot + 1 < merged.length && i >= merged[shot + 1]!) shot++
-        shots.push(shot)
+        if (inside.length) {
+            if (inside.length > 1 && distance < FLASH_HISTOGRAM_DISTANCE) continue
+            boundaries.push(inside[inside.length - 1]!)
+            soft.push(false)
+        } else if (distance > CUT_HISTOGRAM_DISTANCE) {
+            const previous = boundaries[boundaries.length - 1] ?? 0
+            if (to - previous < MIN_COLOR_SHOT_SECONDS) continue
+            const strongest = scores
+                .filter(item => item.time > from + 1e-6 && item.time <= to + 1e-6)
+                .reduce<{time: number, score: number} | undefined>((best, item) =>
+                    !best || item.score > best.score ? item : best, undefined)
+            boundaries.push(strongest?.time ?? to)
+            soft.push(true)
+            fromColorOnly++
+        }
     }
-    return shots
+
+    const shotStarts = [0, ...boundaries]
+    const shots = times.map(time => {
+        let shot = 0
+        while (shot + 1 < shotStarts.length && time >= shotStarts[shot + 1]! - 1e-6) shot++
+        return shot
+    })
+    return {shots, shotStarts, softStarts: [false, ...soft], fromColorOnly}
 }
 
 export const analyzeSegment = async (
@@ -241,20 +350,13 @@ export const analyzeSegment = async (
     picture: PictureRect,
     {withFaces}: {withFaces: boolean}
 ): Promise<SegmentAnalysis | null> => {
-    const {width, height, frames, cutTimes} = await readFrames(inputPath, segment.startSeconds, segment.durationSeconds, picture)
+    const {width, height, frames, frameTimes, scores} =
+        await readFrames(inputPath, segment.startSeconds, segment.durationSeconds, picture)
     if (!frames.length) return null
 
-    const times = frames.map((_, i) => i / ANALYSIS_FPS)
-    const shots = detectShots(frames.map(frame => colorHistogram(frame, width, height)))
-
-    // Начало плана: точная склейка между двумя отсчётами, где сменился план; если scdet её
-    // не отметил — момент первого отсчёта нового плана.
-    const shotStarts: number[] = [0]
-    for (let i = 1; i < shots.length; i++) {
-        if (shots[i] === shots[i - 1]) continue
-        const exact = cutTimes.filter(t => t > times[i - 1]! && t <= times[i]! + 1e-6)
-        shotStarts.push(exact.length ? exact[exact.length - 1]! : times[i]!)
-    }
+    const times = frameTimes
+    const {shots, shotStarts, softStarts, fromColorOnly} =
+        detectShots(times, frames.map(frame => colorHistogram(frame, width, height)), scores)
     const logos = filterConsistentLogos(
         frames.map(frame => findLogosInFrame(frame, width, height, 'bgr')),
         {minFrameGap: Math.round(ANALYSIS_FPS * LOGO_STILL_SECONDS)}
@@ -277,11 +379,13 @@ export const analyzeSegment = async (
         times,
         shots,
         shotStarts,
+        softStarts,
         faceCenters,
         logos,
         stats: {
             frames: frames.length,
-            shots: (shots[shots.length - 1] ?? 0) + 1,
+            shots: shotStarts.length,
+            shotsFromColorOnly: fromColorOnly,
             framesWithFaces: faceCenters.filter(c => c !== null).length,
             framesWithLogo: logos.filter(l => l !== null).length
         }
@@ -508,7 +612,23 @@ export const buildZoomFilter = (
  * отсчёте анализа.
  */
 const interpolate = (analysis: SegmentAnalysis, values: number[], time: number) => {
-    const {times, shots, shotStarts} = analysis
+    const {times, shots, shotStarts, softStarts} = analysis
+
+    // Плавный переход: переезд между последним положением прошлого плана и первым
+    // положением нового за SOFT_TRANSITION_SECONDS вокруг границы.
+    const half = SOFT_TRANSITION_SECONDS / 2
+    for (let shot = 1; shot < shotStarts.length; shot++) {
+        const start = shotStarts[shot]!
+        if (!softStarts[shot] || time <= start - half || time >= start + half) continue
+        let before = -1
+        for (let i = 0; i < shots.length; i++) if (shots[i]! < shot) before = i
+        const after = shots.findIndex(value => value >= shot)
+        if (before < 0 || after < 0) break
+        const ratio = (time - (start - half)) / SOFT_TRANSITION_SECONDS
+        const eased = ratio * ratio * (3 - 2 * ratio)
+        return values[before]! + (values[after]! - values[before]!) * eased
+    }
+
     if (time <= times[0]!) return values[0]!
     for (let i = 0; i + 1 < times.length; i++) {
         if (time < times[i + 1]!) {
@@ -523,7 +643,17 @@ const interpolate = (analysis: SegmentAnalysis, values: number[], time: number) 
     return values[values.length - 1]!
 }
 
-/** Файл sendcmd для crop@track: левый край квадрата на каждом кадре выхода. */
+/** Команда срабатывает на кадрах начиная с этого времени; положение берётся чуть позже. */
+const COMMAND_LEAD_SECONDS = 0.002
+
+/**
+ * Файл sendcmd для crop@track: левый край квадрата по сетке кадров выхода и отдельная
+ * команда ровно перед первым кадром каждого нового плана. Раньше команды шли только по
+ * сетке 1/30 с: первый кадр нового плана (например, 1,293 с между командами 1,267 и
+ * 1,300) показывался со старыми координатами, и на следующем кадре квадрат дёргался.
+ * Каждая команда применяется к кадрам с временем ≥ своего; положение для неё берётся на
+ * COMMAND_LEAD_SECONDS позже, поэтому команда сетки за миг до склейки уже ставит новое.
+ */
 export const writeTrackCommands = async (
     filePath: string,
     analysis: SegmentAnalysis,
@@ -537,9 +667,16 @@ export const writeTrackCommands = async (
     let previous: number | undefined
     const frameCount = Math.ceil(durationSeconds * outputFps) + 1
 
-    for (let frame = 0; frame < frameCount; frame++) {
-        const time = frame / outputFps
-        const left = toEven(interpolate(analysis, lefts, time))
+    const eventTimes = [
+        ...Array.from({length: frameCount}, (_, frame) => frame / outputFps),
+        ...analysis.shotStarts
+            // Плавные переходы идут по сетке кадров, отдельная команда нужна только склейке.
+            .filter((start, shot) => start > 0 && start < durationSeconds && !analysis.softStarts[shot])
+            .map(start => Math.max(0, start - COMMAND_LEAD_SECONDS))
+    ].sort((a, b) => a - b)
+
+    for (const time of eventTimes) {
+        const left = toEven(interpolate(analysis, lefts, time + COMMAND_LEAD_SECONDS))
         minX = Math.min(minX, left)
         maxX = Math.max(maxX, left)
         if (left !== previous) {
