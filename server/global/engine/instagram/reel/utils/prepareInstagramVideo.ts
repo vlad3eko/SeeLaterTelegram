@@ -479,13 +479,18 @@ const BORDER_SAMPLE_COUNT = 12
 /** Ширина кадров для анализа исходника (4K уменьшается до 960 пикселей). */
 const BORDER_ANALYSIS_WIDTH = 960
 
-/** Полоса принимается, если одинаковую ширину показывает столько кадров. */
-const BORDER_SOURCE_SUPPORT = 0.4
+/** Исходник: полоса — толщина, которую показывают хотя бы столько кадров (estimateBarRows). */
+const BORDER_SOURCE_SUPPORT = 0.75
 
-/** Для проверки клипа: настоящая полоса есть почти во всех кадрах, а статичная тёмная сцена нет. */
+/**
+ * Проверка готового клипа: полоса принимается, только если одинаковую ширину (±2 строки)
+ * показали столько кадров (estimateConsistentRows). Здесь нужна осторожность: найденная
+ * полоса вызывает пересборку с дополнительным срезом, а тёмная сцена в квадрате легко
+ * сойдёт за поле (12.11 на тёмном тесте правило «толщина у 75% кадров» нашло слева 82 px).
+ */
 const BORDER_CHECK_SUPPORT = 0.75
 
-/** Разброс ширины одной и той же полосы между кадрами, строки анализа. */
+/** Разброс ширины одной и той же полосы между кадрами для проверки клипа, строки анализа. */
 const BORDER_TOLERANCE_ROWS = 2
 
 /** Минимум пригодных (не чёрных) кадров, при котором результату можно верить. */
@@ -681,13 +686,30 @@ const measureFrameBars = (
 }
 
 /**
- * Типичная ширина полосы по набору кадров. Подходит значение, которое с допуском
- * повторяется минимум в minSupport кадрах; из таких берётся наибольшее. Так
- * тёмная сцена (полоса в одном кадре «выросла» за счёт чёрного неба) и кадр
- * без полос (смена формата) не сдвигают результат, а настоящая полоса,
- * постоянная по всему ролику, всегда набирает нужную поддержку.
+ * Ширина полосы по набору кадров: наибольшая толщина, которую показывают хотя бы
+ * minSupport кадров (minSupport-е значение по убыванию).
+ *
+ * Настоящая полоса есть в каждом кадре, а тёмная картинка у края может её только
+ * удлинить, но не укоротить. Раньше требовалось, чтобы одинаковую ширину (±2 строки)
+ * показали 40% кадров; в тёмном трейлере (12.11, «uulCiZcAB54») замеры низа разъехались
+ * (69, 69, 69, 70, 72, 73, 100, 122, 147, 189, 190), порог не набрался — и нижнее поле
+ * в 14% кадра записалось как 0. Теперь здесь 69, как у верха. Удлинение тёмной сценой
+ * сдвигает оценку, только если оно есть почти во всех кадрах (тогда срезается немного
+ * лишней тёмной картинки, но не остаётся поля). Кадров без полос (смена формата) больше
+ * четверти — оценка уменьшается; оставшуюся полосу находит проверка готового клипа.
  */
 const estimateBarRows = (runs: number[], minSupport: number): number => {
+    if (runs.length < minSupport) return 0
+    const descending = [...runs].sort((a, b) => b - a)
+    return descending[minSupport - 1] ?? 0
+}
+
+/**
+ * Для проверки готового клипа: значение, которое с допуском повторяется минимум в
+ * minSupport кадрах; из таких наибольшее. Тёмная сцена с плавающей границей сюда не
+ * проходит, а полоса, оставшаяся в клипе, одинакова во всех кадрах.
+ */
+const estimateConsistentRows = (runs: number[], minSupport: number): number => {
     const sorted = [...runs].sort((a, b) => a - b)
     let best = 0
 
@@ -716,7 +738,8 @@ type DetectedBars = BorderBars & {
 /** Полосы по всем кадрам, в строках анализа. null — пригодных кадров мало. */
 const detectBars = (
     frames: GrayFrames,
-    supportShare: number
+    supportShare: number,
+    mode: 'source' | 'check'
 ): DetectedBars | null => {
     const measured = frames.frames
         .map(frame => measureFrameBars(frame, frames.width, frames.height))
@@ -727,8 +750,9 @@ const detectBars = (
     }
 
     const minSupport = Math.max(2, Math.ceil(measured.length * supportShare))
+    const estimator = mode === 'source' ? estimateBarRows : estimateConsistentRows
     const estimate = (pick: (bars: BorderBars) => number) =>
-        estimateBarRows(measured.map(pick), minSupport)
+        estimator(measured.map(pick), minSupport)
 
     return {
         top: estimate(bars => bars.top),
@@ -788,7 +812,7 @@ const analyzeSelectedSegment = async (
             false
         )
 
-        const detected = detectBars(sampled, BORDER_SOURCE_SUPPORT)
+        const detected = detectBars(sampled, BORDER_SOURCE_SUPPORT, 'source')
         if (!detected) {
             console.warn('[REEL CROPDETECT] Not enough usable frames; keeping source dimensions', {
                 requested: sampled.requested,
@@ -849,7 +873,7 @@ const analyzeSelectedSegment = async (
             barsPx: bars,
             // Диагностика (11.11: у нарезки снизу осталось чёрное поле): верх/низ полосы
             // в строках анализа по каждому кадру и средняя яркость картинки кадра.
-            // Полоса засчитывается, если одинаковую ширину показали ≥40% кадров.
+            // Полоса — толщина, которую показали ≥75% кадров (estimateBarRows).
             perFrameTopBottom: detected.measuredFrames.map(frame => `${frame.top}/${frame.bottom}`).join(' '),
             perFrameLuma: lumaValues.map(value => Math.round(value)).join(' ')
         })
@@ -902,7 +926,7 @@ export const checkBlackBorders = async (videoPath: string): Promise<BorderCheckR
     )
 
     const tolerancePx = borderTolerancePx()
-    const detected = detectBars(sampled, BORDER_CHECK_SUPPORT)
+    const detected = detectBars(sampled, BORDER_CHECK_SUPPORT, 'check')
 
     if (!detected) {
         return {
