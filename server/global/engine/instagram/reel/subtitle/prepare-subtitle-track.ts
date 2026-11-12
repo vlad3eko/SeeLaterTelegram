@@ -70,6 +70,7 @@ export async function prepareInstagramSubtitleTrack(
     maxLen: 1,
     timeoutMs: options.timeoutMs,
     context: options.context,
+    preTranscribed: options.preTranscribed,
   });
 
   // Recogniser output is untrusted: drop broken words, clamp times to the video.

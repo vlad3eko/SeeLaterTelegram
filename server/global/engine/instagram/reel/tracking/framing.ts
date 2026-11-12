@@ -98,7 +98,6 @@ const ZOOM_MAX_CUT_SHARE = 0.3
 const ZOOM_RAMP_SECONDS = 0.6
 
 const toEven = (value: number) => Math.round(value / 2) * 2
-const smoothstep = (r: number) => r * r * (3 - 2 * r)
 
 const readFrames = async (
     inputPath: string,

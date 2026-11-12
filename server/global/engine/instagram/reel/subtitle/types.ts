@@ -388,6 +388,12 @@ export type WhisperOptions = {
     maxLen?: number;
     timeoutMs?: number;
     context?: SubtitleContext;
+    /**
+     * Words Gemini already transcribed for this clip (time from the clip start), e.g.
+     * the clip-fragment step's transcript of the whole source. The Gemini pipeline then
+     * skips its own Gemini request; the Whisper timing, checks and translation still run.
+     */
+    preTranscribed?: WordTiming[];
 };
 
 export type RenderSubtitlesOptions = {
@@ -448,6 +454,8 @@ export type GenerateInstagramSubtitleTrackOptions = {
     timeoutMs?: number;
     /** Title and overview of the film or series, for the transcript check. */
     context?: SubtitleContext;
+    /** See WhisperOptions.preTranscribed. */
+    preTranscribed?: WordTiming[];
 };
 
 export type GenerateInstagramSubtitleTrackResult = {

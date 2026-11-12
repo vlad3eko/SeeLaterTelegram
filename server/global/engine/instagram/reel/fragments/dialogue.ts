@@ -99,21 +99,15 @@ export const buildDialogue = (words: WordTiming[], duration: number): Dialogue =
     return {lines, blocks}
 }
 
-/** Расшифровка исходника; сбой — null (фрагменты выбираются по-старому, без текста). */
-export const transcribeSource = async (sourcePath: string, duration: number): Promise<Dialogue | null> => {
+/** Слова всего исходника (Gemini Transcribe); сбой — null (фрагменты выбираются без текста). */
+export const transcribeSourceWords = async (sourcePath: string): Promise<WordTiming[] | null> => {
     try {
         const transcript = await transcribeInstagramTranscriptWithGemini({
             inputPath: sourcePath,
             ...(ffmpegPath ? {ffmpegPath: ffmpegPath as unknown as string} : {}),
             timeoutMs: 10 * 60_000
         })
-        const dialogue = buildDialogue(transcript.words, duration)
-        console.log('[REEL FRAGMENTS] Dialogue', {
-            words: transcript.words.length,
-            lines: dialogue.lines.length,
-            blocks: dialogue.blocks.length
-        })
-        return dialogue
+        return transcript.words
     } catch (error) {
         console.warn('[REEL FRAGMENTS] Transcription failed; choosing fragments without dialogue', {
             message: error instanceof Error ? error.message : String(error)

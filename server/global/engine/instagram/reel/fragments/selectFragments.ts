@@ -28,6 +28,8 @@ import {
 
 const FILE_PROCESSING_TIMEOUT_MS = 180_000
 const REQUEST_TIMEOUT_MS = 180_000
+const ROUNDS = 2
+const ROUND_PAUSE_MS = 15_000
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
@@ -120,6 +122,10 @@ const askModels = async (
     {models = hookModels(), thinking = 'low'}: {models?: string[], thinking?: 'low' | 'medium' | 'high'} = {}
 ): Promise<string> => {
     let lastError: unknown
+    // Второй круг по моделям после паузы: всплески «high demand» (503) у Gemini временные
+    // (12.11 при проверке обе модели подряд отказывали, через минуту отвечали).
+    for (let round = 0; round < ROUNDS; round++) {
+    if (round > 0) await sleep(ROUND_PAUSE_MS)
     for (const model of models) {
         const startedAt = Date.now()
         try {
@@ -145,8 +151,9 @@ const askModels = async (
             return text
         } catch (error) {
             lastError = error
-            console.warn(`${label} Attempt failed`, {model, message: error instanceof Error ? error.message : String(error)})
+            console.warn(`${label} Attempt failed`, {model, round, message: error instanceof Error ? error.message : String(error)})
         }
+    }
     }
     throw lastError ?? new Error(`${label} No model answered`)
 }
@@ -286,57 +293,26 @@ export const requestFragmentsFromGemini = async (
         }
         if (!file.uri) throw new Error('[REEL FRAGMENTS] Processed video has no URI')
 
-        const prompt = buildFragmentsPrompt(context, index)
-        let lastError: unknown
-
-        for (const model of hookModels()) {
-            const startedAt = Date.now()
-            try {
-                const interaction = await ai.interactions.create(
-                    {
-                        model,
-                        generation_config: {thinking_level: 'low'},
-                        input: [
-                            {type: 'video', uri: file.uri, mime_type: file.mimeType || 'video/mp4'},
-                            {type: 'text', text: prompt}
-                        ]
-                    } as never,
-                    {
-                        timeout_ms: REQUEST_TIMEOUT_MS,
-                        retries: {
-                            strategy: 'backoff',
-                            backoff: {initialInterval: 1_000, maxInterval: 5_000, exponent: 2, maxElapsedTime: 20_000},
-                            retryConnectionErrors: true
-                        },
-                        retry_codes: ['503']
-                    } as never
-                ) as {id?: string, status?: string, output_text?: string}
-
-                if (interaction.id) interactionIds.push(interaction.id)
-                if (interaction.status !== 'completed') {
-                    throw new Error(`[REEL FRAGMENTS] Interaction ended with status ${interaction.status}`)
-                }
-
-                const fragments = parseFragmentsResponse(String(interaction.output_text ?? ''), index.duration)
+        let fragments: ClipFragment[] = []
+        await askModels(
+            ai,
+            [
+                {type: 'video', uri: file.uri, mime_type: file.mimeType || 'video/mp4'},
+                {type: 'text', text: buildFragmentsPrompt(context, index)}
+            ],
+            interactionIds,
+            '[REEL FRAGMENTS]',
+            (text, model, durationMs) => {
+                fragments = parseFragmentsResponse(text, index.duration)
                 console.log('[REEL FRAGMENTS] Gemini answer', {
                     model,
-                    durationMs: Date.now() - startedAt,
+                    durationMs,
                     fragments: fragments.map(f => `${f.start.toFixed(1)}–${f.end.toFixed(1)} ${f.title}`)
                 })
-
-                if (!fragments.length) throw new Error('[REEL FRAGMENTS] No usable fragments in the answer')
-                return fragments
-
-            } catch (error) {
-                lastError = error
-                console.warn('[REEL FRAGMENTS] Attempt failed', {
-                    model,
-                    message: error instanceof Error ? error.message : String(error)
-                })
+                return fragments.length > 0
             }
-        }
-
-        throw lastError ?? new Error('[REEL FRAGMENTS] No model answered')
+        )
+        return fragments
 
     } finally {
         for (const id of interactionIds) {
