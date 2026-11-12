@@ -28,6 +28,8 @@ import {
 
 const FILE_PROCESSING_TIMEOUT_MS = 180_000
 const REQUEST_TIMEOUT_MS = 180_000
+/** Проверка сюжета — текст без видео: дольше этого ждать модель незачем. */
+const STORY_TIMEOUT_MS = 60_000
 const ROUNDS = 2
 const ROUND_PAUSE_MS = 15_000
 
@@ -119,7 +121,11 @@ const askModels = async (
     interactionIds: string[],
     label: string,
     accept: (text: string, model: string, durationMs: number) => boolean,
-    {models = hookModels(), thinking = 'low'}: {models?: string[], thinking?: 'low' | 'medium' | 'high'} = {}
+    {models = hookModels(), thinking = 'low', timeoutMs = REQUEST_TIMEOUT_MS}: {
+        models?: string[]
+        thinking?: 'low' | 'medium' | 'high'
+        timeoutMs?: number
+    } = {}
 ): Promise<string> => {
     let lastError: unknown
     // Второй круг по моделям после паузы: всплески «high demand» (503) у Gemini временные
@@ -132,7 +138,7 @@ const askModels = async (
             const interaction = await ai.interactions.create(
                 {model, generation_config: {thinking_level: thinking}, input} as never,
                 {
-                    timeout_ms: REQUEST_TIMEOUT_MS,
+                    timeout_ms: timeoutMs,
                     retries: {
                         strategy: 'backoff',
                         backoff: {initialInterval: 1_000, maxInterval: 5_000, exponent: 2, maxElapsedTime: 20_000},
@@ -238,7 +244,9 @@ export const reviewFragmentStory = async (
             },
             // Здесь нужна внимательность к репликам, а не видео: запрос текстовый и дешёвый,
             // поэтому сначала сильная модель с рассуждением.
-            {models: storyModels(), thinking: 'medium'}
+            // Текстовый запрос отвечает за секунды; 12.11 gemini-3.8-flash висел до общего
+            // тайм-аута 180 с, и шаг фрагментов ждал лишние три минуты.
+            {models: storyModels(), thinking: 'medium', timeoutMs: STORY_TIMEOUT_MS}
         )
 
         const reviewed = fragments.map((fragment, index) => {

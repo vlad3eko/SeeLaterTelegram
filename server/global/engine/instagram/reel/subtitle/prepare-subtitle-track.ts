@@ -65,7 +65,7 @@ export async function prepareInstagramSubtitleTrack(
     // compiled with --enable-whisper.
     ffmpegPath: options.whisperFfmpegPath,
     language,
-    queueSeconds: options.queueSeconds ?? 10,
+    queueSeconds: options.queueSeconds,
     useGpu: options.useGpu ?? false,
     maxLen: 1,
     timeoutMs: options.timeoutMs,
