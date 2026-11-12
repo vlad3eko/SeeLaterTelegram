@@ -2,7 +2,9 @@ import {Markup} from "telegraf"
 import {
     REEL_HOOK_OPTIONS_MAX,
     REEL_REVIEW_CANCEL,
+    REEL_REVIEW_CONFIRM_HOOK,
     REEL_REVIEW_CUSTOM_HOOK,
+    REEL_REVIEW_EDIT_HOOK,
     REEL_REVIEW_FRAGMENT_PAGE,
     REEL_REVIEW_HOOK_BACK,
     REEL_REVIEW_REGEN_HOOKS,
@@ -60,6 +62,17 @@ export const reelHookChoiceKeyboard = (jobId: string, optionsCount: number) => {
 /** Пока бот ждёт текст своего хука: вернуться к вариантам или отменить всё. */
 export const reelCustomHookKeyboard = (jobId: string) =>
     Markup.inlineKeyboard([
+        [Markup.button.callback('◀️ К вариантам', REEL_REVIEW_HOOK_BACK.encode({jobId}))],
+        [reelReviewCancelButton(jobId)]
+    ]).reply_markup
+
+/** Свой хук прислан: опубликовать с ним, исправить, вернуться к вариантам или отменить всё. */
+export const reelCustomHookConfirmKeyboard = (jobId: string) =>
+    Markup.inlineKeyboard([
+        [
+            Markup.button.callback('✅ Опубликовать', REEL_REVIEW_CONFIRM_HOOK.encode({jobId})),
+            Markup.button.callback('✏️ Изменить', REEL_REVIEW_EDIT_HOOK.encode({jobId}))
+        ],
         [Markup.button.callback('◀️ К вариантам', REEL_REVIEW_HOOK_BACK.encode({jobId}))],
         [reelReviewCancelButton(jobId)]
     ]).reply_markup

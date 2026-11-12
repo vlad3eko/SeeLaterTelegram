@@ -161,6 +161,22 @@ export const REEL_REVIEW_HOOK_BACK = defineCallback<ReelReviewRef>({
     decode: match => ({jobId: match[1] ?? ''})
 })
 
+/** «✅ Опубликовать» под своим хуком: хук подтверждён, воркер собирает Reel. */
+export const REEL_REVIEW_CONFIRM_HOOK = defineCallback<ReelReviewRef>({
+    id: 'reel_review_confirm_hook',
+    pattern: new RegExp(`^rr:hookok:(${UUID})$`),
+    encode: ({jobId}) => `rr:hookok:${jobId}`,
+    decode: match => ({jobId: match[1] ?? ''})
+})
+
+/** «✏️ Изменить» под своим хуком: бот снова ждёт текст хука. */
+export const REEL_REVIEW_EDIT_HOOK = defineCallback<ReelReviewRef>({
+    id: 'reel_review_edit_hook',
+    pattern: new RegExp(`^rr:hookedit:(${UUID})$`),
+    encode: ({jobId}) => `rr:hookedit:${jobId}`,
+    decode: match => ({jobId: match[1] ?? ''})
+})
+
 /** Номер фрагмента нарезки (1–8, сквозной по страницам альбома). */
 export const REEL_REVIEW_PICK_FRAGMENT = defineCallback<ReelReviewRef & {fragment: number}>({
     id: 'reel_review_fragment',
