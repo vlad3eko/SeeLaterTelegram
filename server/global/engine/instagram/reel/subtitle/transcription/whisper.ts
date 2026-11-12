@@ -1,4 +1,5 @@
 import {readFile, writeFile} from 'node:fs/promises';
+import os from 'node:os';
 import type { SoundCue, WhisperOptions, WhisperTranscript, WordTiming } from '../types.js';
 import {
     assertFileExists,
@@ -40,11 +41,37 @@ function whisperTimeoutMs(env: NodeJS.ProcessEnv = process.env): number {
   return Number.isFinite(value) && value >= 30_000 && value <= 30 * 60 * 1000 ? value : DEFAULT_WHISPER_TIMEOUT_MS;
 }
 
+/**
+ * Size of the audio pieces the FFmpeg whisper filter hands to whisper.cpp. Whisper pads
+ * every piece to its 30 s window, so 10 s pieces cost three full encoder passes per 30 s
+ * of audio: on the 4 vCPU worker a 57 s clean took 200–245 s and usually hit the 6 min
+ * timeout (logs 10–12.11). 30 s pieces need one pass per window.
+ * REEL_SUBTITLE_WHISPER_QUEUE_SECONDS (1–60) overrides it.
+ */
+export const DEFAULT_WHISPER_QUEUE_SECONDS = 30;
+
+function whisperQueueSeconds(requested: number | undefined, env: NodeJS.ProcessEnv = process.env): number {
+  const raw = Number(env.REEL_SUBTITLE_WHISPER_QUEUE_SECONDS);
+  if (Number.isFinite(raw) && raw >= 1 && raw <= 60) return raw;
+  return requested ?? DEFAULT_WHISPER_QUEUE_SECONDS;
+}
+
+/**
+ * Threads for whisper.cpp: the filter takes the filter-graph thread count, which is set
+ * explicitly to the machine's CPUs (REEL_SUBTITLE_WHISPER_THREADS overrides, 1–32).
+ */
+function whisperThreads(env: NodeJS.ProcessEnv = process.env): number {
+  const raw = Number(env.REEL_SUBTITLE_WHISPER_THREADS);
+  if (Number.isInteger(raw) && raw >= 1 && raw <= 32) return raw;
+  return Math.max(1, Math.min(32, os.cpus().length || 1));
+}
+
 export async function transcribeWithWhisper(options: WhisperOptions): Promise<WhisperTranscript> {
   const ffmpegPath = options.ffmpegPath ?? process.env.WHISPER_FFMPEG_PATH ?? 'ffmpeg';
   // The code is placed into an FFmpeg filter graph: only a plain code may pass.
   const language = assertLanguageCode(options.language ?? 'ru');
-  const queueSeconds = options.queueSeconds ?? 10;
+  const queueSeconds = whisperQueueSeconds(options.queueSeconds);
+  const threads = whisperThreads();
   const maxLen = options.maxLen ?? 1;
   const useGpu = options.useGpu ?? false;
 
@@ -108,6 +135,7 @@ export async function transcribeWithWhisper(options: WhisperOptions): Promise<Wh
     inputPath: options.inputPath,
     language,
     queueSeconds,
+    threads,
     maxLen,
     useGpu,
   });
@@ -118,6 +146,7 @@ export async function transcribeWithWhisper(options: WhisperOptions): Promise<Wh
 
   await runProcess(ffmpegPath, [
     '-hide_banner', '-nostdin', '-y',
+    '-filter_threads', String(threads),
     '-i', options.inputPath,
     '-vn',
     '-af', filter,

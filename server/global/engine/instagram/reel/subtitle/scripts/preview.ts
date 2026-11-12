@@ -157,7 +157,7 @@ async function main(): Promise<void> {
         outputPath: path.join(outDir, 'whisper-word-timestamps.ndjson'),
         ffmpegPath: args.ffmpeg,
         language: args.language ?? 'ru',
-        queueSeconds: Number(args.queue ?? 10),
+        ...(args.queue ? {queueSeconds: Number(args.queue)} : {}),
         useGpu: args['use-gpu'] === 'true',
         maxLen: 1,
       });

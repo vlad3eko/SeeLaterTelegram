@@ -185,7 +185,6 @@ export const finishReel = async ({
                         overview: content.overview,
                     },
 
-                    queueSeconds: 10,
                     useGpu: false,
 
                     // Оставляем только готовый ASS.
