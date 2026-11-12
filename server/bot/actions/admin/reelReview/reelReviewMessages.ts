@@ -3,6 +3,7 @@ import {
     getReelReviewJob,
     readFragments,
     readHookOptions,
+    readPendingCustomHook,
     type ReelReviewJob,
     setReelReviewMessage
 } from "#server/global/engine/instagram/reel/jobs/reelReview"
@@ -11,6 +12,7 @@ import {getSupabase} from "#server/global/engine/instagram/reel/jobs/dispatchRee
 import {resetAdminPublishLock} from "#server/global/engine/instagram/reel/jobs/adminPublishLock"
 import {
     reelCleanReviewKeyboard,
+    reelCustomHookConfirmKeyboard,
     reelCustomHookKeyboard,
     reelFragmentChoiceKeyboard,
     reelHookChoiceKeyboard,
@@ -144,6 +146,20 @@ const sendCleanReview = async (job: ReelReviewJob): Promise<number> => {
 const sendHookChoice = async (job: ReelReviewJob): Promise<number> => {
     const bot = await getBot()
     const options = readHookOptions(job)
+
+    // Свой хук прислан: показать его и спросить подтверждение (опечатка не должна сразу
+    // уйти в ролик). Новый текст в чате заменяет этот хук.
+    const pending = readPendingCustomHook(job)
+    if (job.input_payload?.awaitingCustomHook && pending) {
+        const message = await bot.telegram.sendMessage(adminChatId(job), [
+            `Твой хук для ${titleOf(job)}:`,
+            `«${pending}»`,
+            'Проверь, нет ли опечатки: этот текст встанет на подложку ролика.',
+            '«Опубликовать» — собираю Reel с этим хуком. «Изменить» — пришлёшь другой текст (можно и просто написать новый).',
+            REVIEW_HOURS_HINT
+        ].join('\n\n'), {reply_markup: reelCustomHookConfirmKeyboard(job.id)})
+        return message.message_id
+    }
 
     // «✍️ Свой вариант»: бот ждёт текст хука следующим сообщением.
     if (job.input_payload?.awaitingCustomHook) {

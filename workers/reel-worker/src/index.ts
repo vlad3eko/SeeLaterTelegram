@@ -516,7 +516,11 @@ const main = async (): Promise<void> => {
                 chosenHook: chosenHook || undefined,
                 fallbackHook: hook,
                 keepSource: input.videoType === 'clip',
-                options: {onHookGenerated}
+                options: {
+                    onHookGenerated,
+                    // Субтитры нарезки берут слова фрагмента из расшифровки исходника.
+                    ...(input.fragment ? {segment: {startSeconds: input.fragment.start, endSeconds: input.fragment.end}} : {})
+                }
             })
             : await prepareReel(keyTrailer, hook, content, {
                 onHookGenerated,

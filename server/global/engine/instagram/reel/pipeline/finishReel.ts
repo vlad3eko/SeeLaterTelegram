@@ -15,6 +15,7 @@ import {
     runReelStep,
     type ReelWorkspace
 } from "#server/global/engine/instagram/reel/pipeline/reelWorkspace"
+import {loadSourceTranscript, wordsForSegment} from "#server/global/engine/instagram/reel/fragments/sourceTranscript"
 
 const hookContext = (content: ReelContent) => ({
     title: content.title,
@@ -101,6 +102,11 @@ export const generateHookOptions = async ({
     })
 
 export type FinishReelOptions = {
+    /**
+     * Нарезка: фрагмент исходника, из которого собран clean. Субтитры берут слова этого
+     * фрагмента из сохранённой расшифровки исходника (без второго запроса к Gemini).
+     */
+    segment?: {startSeconds: number, endSeconds: number}
     generateSubtitles?: boolean
     keepSubtitleDebugArtifacts?: boolean
     onSubtitleTrackReady?: (track: {
@@ -155,6 +161,10 @@ export const finishReel = async ({
         workspace.trackDirectory(path.join(subtitleRootDirectory, subtitleRunId))
 
         try {
+            // Слова фрагмента из расшифровки исходника (шаг выбора фрагментов), если есть.
+            const stored = options.segment ? await loadSourceTranscript(content, keyTrailer) : null
+            const preTranscribed = stored && options.segment ? wordsForSegment(stored.words, options.segment) : undefined
+
             const subtitleTrack = await runReelStep(
                 'GENERATE_INSTAGRAM_SUBTITLES',
                 () => prepareInstagramSubtitleTrack({
@@ -180,6 +190,7 @@ export const finishReel = async ({
 
                     // Оставляем только готовый ASS.
                     keepDebugArtifacts: keepSubtitleDebugArtifacts ?? false,
+                    ...(preTranscribed?.length ? {preTranscribed} : {}),
                 })
             )
 

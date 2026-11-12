@@ -215,12 +215,19 @@ async function stage<T>(name: string, run: () => Promise<T>): Promise<T> {
  * transcribeInstagramTranscript). Runs under the time budget set by the caller.
  */
 async function transcribeWithGeminiPipeline(options: WhisperOptions): Promise<WhisperTranscript> {
-    const geminiTranscript = await stage('gemini-transcript', () => transcribeInstagramTranscriptWithGemini({
-        inputPath: options.inputPath,
-        ffmpegPath: options.ffmpegPath,
-        language: options.language,
-        timeoutMs: options.timeoutMs,
-    }));
+    // Words transcribed earlier (the clip-fragment step) replace the Gemini request:
+    // the same audio is not sent to Gemini twice.
+    const geminiTranscript: WhisperTranscript = options.preTranscribed?.length
+        ? { words: options.preTranscribed, soundCues: [] }
+        : await stage('gemini-transcript', () => transcribeInstagramTranscriptWithGemini({
+            inputPath: options.inputPath,
+            ffmpegPath: options.ffmpegPath,
+            language: options.language,
+            timeoutMs: options.timeoutMs,
+        }));
+    if (options.preTranscribed?.length) {
+        console.info('[SUBTITLE] Using the saved source transcript', { wordCount: options.preTranscribed.length });
+    }
 
     // Diagnostics for the dry run: what Gemini heard, before the re-timing, the checks
     // and the translation. The file lies in the subtitle work directory, which is

@@ -102,7 +102,8 @@ const getLocalPathForKey = (key: string): string => {
 
 export const storageCloudflareR2 = async (
     filePath: string,
-    key: string
+    key: string,
+    contentType = 'video/mp4'
 ): Promise<string> => {
 
     if (localStorageDirectory) {
@@ -123,7 +124,7 @@ export const storageCloudflareR2 = async (
             Bucket: r2Bucket,
             Key: key,
             Body: fileStream,
-            ContentType: 'video/mp4'
+            ContentType: contentType
         })
     )
 

@@ -37,7 +37,7 @@ export const deleteReelTempFiles = async (
     const paths = reelR2Paths({id: Number(job.mediaId), type: job.mediaType}, job.keyTrailer)
     // Превью clean и превью фрагментов нарезки (до 8); несуществующие ключи R2 удаляет молча.
     const previews = [paths.preview, ...Array.from({length: 8}, (_, i) => paths.fragmentPreview(i + 1))]
-    const keys = keepSource ? previews : [...previews, paths.source]
+    const keys = keepSource ? previews : [...previews, paths.source, paths.transcript]
 
     try {
         const {deleteFromCloudflareR2} = await loadR2()
@@ -83,10 +83,12 @@ export const sweepReelTempFolders = async (
 
         if (ACTIVE_STATUSES.has(job.status) || (job.status === 'failed' && RESUMABLE_FAILED_STEPS.has(job.step))) {
             protectedKeys.add(paths.source)
+            protectedKeys.add(paths.transcript)
             protectedKeys.add(paths.preview)
             protectedPrefixes.push(paths.previewPrefix)
         } else if (isClip && job.step === 'published_telegram_only') {
             protectedKeys.add(paths.source)
+            protectedKeys.add(paths.transcript)
         }
     }
 

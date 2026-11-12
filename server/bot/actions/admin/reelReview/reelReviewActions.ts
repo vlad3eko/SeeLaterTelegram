@@ -1,6 +1,8 @@
 import {
     REEL_REVIEW_CANCEL,
+    REEL_REVIEW_CONFIRM_HOOK,
     REEL_REVIEW_CUSTOM_HOOK,
+    REEL_REVIEW_EDIT_HOOK,
     REEL_REVIEW_FRAGMENT_PAGE,
     REEL_REVIEW_HOOK_BACK,
     REEL_REVIEW_REGEN_HOOKS,
@@ -12,8 +14,10 @@ import {
 import {
     backToFragments,
     cancelReelReview,
-    chooseCustomHook,
+    confirmCustomHook,
+    editCustomHook,
     findJobAwaitingCustomHook,
+    setPendingCustomHook,
     startCustomHook,
     stopCustomHook,
     chooseReelFragment,
@@ -235,34 +239,66 @@ export const handleCustomHookText = async (ctx: any): Promise<boolean> => {
         return true
     }
 
-    let chosen: ReelReviewJob | null
+    // Хук не уходит в сборку сразу: бот показывает его с кнопками «Опубликовать» и
+    // «Изменить», чтобы опечатка не попала в ролик (запрос владельца 12.11).
+    let pending: ReelReviewJob | null
     try {
-        chosen = await chooseCustomHook(job.id, hook)
+        pending = await setPendingCustomHook(job.id, hook)
     } catch (error) {
-        console.error('[REEL REVIEW CUSTOM HOOK START ERROR]', error)
+        console.error('[REEL REVIEW CUSTOM HOOK SAVE ERROR]', error)
         try {
-            await ctx.reply('Не удалось запустить сборку. Нажми «Опубликовать» на карточке ещё раз, задача продолжится с этого шага.')
+            await ctx.reply('Не получилось сохранить хук. Пришли его ещё раз.')
         } catch {
             // Ответ необязателен.
         }
         return true
     }
-    if (!chosen) return false
+    if (!pending) return false
 
-    await deleteReelReviewMessage({
-        id: chosen.id,
-        admin_telegram_id: chosen.admin_telegram_id,
-        review_message_id: chosen.review_message_id,
-        input_payload: chosen.input_payload
-    })
-    await sendReelReviewStatus(
-        chosen,
-        `✅ Хук: «${hook}». Собираю Reel (субтитры, оформление), потом опубликую.`,
-        {withCancel: true}
-    )
-
-    console.log('[REEL REVIEW CUSTOM HOOK]', {jobId: chosen.id, hook})
+    // Сообщение «напиши хук» (или прошлое подтверждение) заменяется подтверждением.
+    await sendReelReviewMessage(job.id)
+    console.log('[REEL REVIEW CUSTOM HOOK PENDING]', {jobId: job.id, hook})
     return true
+}
+
+/** «✅ Опубликовать» под своим хуком: Reel собирается с подтверждённым хуком. */
+export const reelReviewConfirmHook = async (ctx: any) => {
+    const {jobId} = REEL_REVIEW_CONFIRM_HOOK.parse(ctx)
+
+    let result: Awaited<ReturnType<typeof confirmCustomHook>>
+    try {
+        result = await confirmCustomHook(jobId)
+    } catch (error) {
+        return reportStartError(ctx, 'CONFIRM HOOK', error)
+    }
+
+    if (!result) return dropStaleKeyboard(ctx)
+
+    await answer(ctx, 'Собираю Reel')
+    await replaceWithStatus(
+        ctx,
+        result.job,
+        `✅ Хук: «${result.hook}». Собираю Reel (субтитры, оформление), потом опубликую.`
+    )
+    console.log('[REEL REVIEW CUSTOM HOOK]', {jobId, hook: result.hook})
+}
+
+/** «✏️ Изменить» под своим хуком: бот снова ждёт текст. */
+export const reelReviewEditHook = async (ctx: any) => {
+    const {jobId} = REEL_REVIEW_EDIT_HOOK.parse(ctx)
+
+    let job: ReelReviewJob | null
+    try {
+        job = await editCustomHook(jobId)
+    } catch (error) {
+        console.error('[REEL REVIEW EDIT HOOK ERROR]', error)
+        return answer(ctx, 'Не получилось, попробуй ещё раз')
+    }
+
+    if (!job) return dropStaleKeyboard(ctx)
+
+    await answer(ctx, 'Жду новый хук')
+    await sendReelReviewMessage(jobId)
 }
 
 /** «1»–«8» под альбомом фрагментов: clean собирается из выбранного фрагмента. */

@@ -23,7 +23,9 @@ import {
     ADMIN_PUBLISH_CARD,
     ADMIN_VIDEO_TYPE,
     REEL_REVIEW_CANCEL,
+    REEL_REVIEW_CONFIRM_HOOK,
     REEL_REVIEW_CUSTOM_HOOK,
+    REEL_REVIEW_EDIT_HOOK,
     REEL_REVIEW_FRAGMENT_PAGE,
     REEL_REVIEW_HOOK_BACK,
     REEL_REVIEW_REGEN_HOOKS,
@@ -35,7 +37,9 @@ import {
 import {
     handleCustomHookText,
     reelReviewCancel,
+    reelReviewConfirmHook,
     reelReviewCustomHook,
+    reelReviewEditHook,
     reelReviewFragmentPage,
     reelReviewHookBack,
     reelReviewRegenHooks,
@@ -87,6 +91,8 @@ export const registerAdminActions = (bot: Telegraf) => {
     bot.action(REEL_REVIEW_REGEN_HOOKS.pattern, adminOnly(reelReviewRegenHooks))
     bot.action(REEL_REVIEW_CUSTOM_HOOK.pattern, adminOnly(reelReviewCustomHook))
     bot.action(REEL_REVIEW_HOOK_BACK.pattern, adminOnly(reelReviewHookBack))
+    bot.action(REEL_REVIEW_CONFIRM_HOOK.pattern, adminOnly(reelReviewConfirmHook))
+    bot.action(REEL_REVIEW_EDIT_HOOK.pattern, adminOnly(reelReviewEditHook))
 
     bot.on('message', async (ctx: any, next) => {
 

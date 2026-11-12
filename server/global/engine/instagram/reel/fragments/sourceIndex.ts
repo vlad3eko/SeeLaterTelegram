@@ -11,12 +11,16 @@ import {fastDecoderArgs} from '#server/global/engine/instagram/reel/utils/ffmpeg
  * - лёгкая копия для Gemini (360p, 8 к/с, звук моно) — грузить 4K в Gemini незачем,
  *   он смотрит видео примерно кадр в секунду;
  * - точные склейки (scdet по всем кадрам на уменьшенной картинке);
- * - паузы в звуке (silencedetect) — естественные начала и концы реплик.
+ * - паузы в звуке (silencedetect) — естественные начала и концы реплик;
+ * - копия 640×360 с родной частотой кадров и звуком, из которой режутся превью
+ *   фрагментов (раньше каждое из 8 превью заново декодировало минуту 4K-исходника).
  */
 
 export type SourceIndex = SourceBoundaries & {
     /** Лёгкая копия для Gemini (временный файл). */
     proxyPath: string
+    /** Копия 640×360 для превью фрагментов (временный файл). */
+    previewSourcePath: string
 }
 
 const SCDET_THRESHOLD = 10
@@ -54,16 +58,20 @@ export const buildSourceIndex = async (sourcePath: string, workDirectory: string
 
     const duration = await getInputVideoDuration(sourcePath)
     const proxyPath = path.join(workDirectory, `${randomUUID()}_proxy.mp4`)
+    const previewSourcePath = path.join(workDirectory, `${randomUUID()}_preview_source.mp4`)
 
     // Кадр уменьшается один раз до разделения на ветки: масштабирование 4K в каждой
-    // ветке занимало больше времени, чем само декодирование.
+    // ветке занимало больше времени, чем само декодирование. bilinear, а не
+    // fast_bilinear: при уменьшении 4K в шесть раз fast_bilinear даёт рябь, а с этой
+    // картинки теперь режутся превью для администратора.
     const videoArgs = [
         '-hide_banner', '-loglevel', 'info', '-nostats', '-nostdin', '-y',
         ...await fastDecoderArgs(sourcePath),
         '-i', sourcePath,
         '-filter_complex',
-        '[0:v]scale=640:-2:flags=fast_bilinear,split[a][b];[a]scale=-2:360,fps=8[proxy];' +
-        `[b]scale=320:-2,scdet=threshold=${SCDET_THRESHOLD},nullsink`,
+        '[0:v]scale=640:-2:flags=bilinear,split=3[a][b][c];[a]scale=-2:360,fps=8[proxy];' +
+        `[b]scale=320:-2,scdet=threshold=${SCDET_THRESHOLD},nullsink;` +
+        '[c]scale=640:360:force_original_aspect_ratio=decrease,pad=640:360:(ow-iw)/2:(oh-ih)/2,format=yuv420p[prev]',
         '-map', '[proxy]',
         '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '32'
     ]
@@ -73,12 +81,19 @@ export const buildSourceIndex = async (sourcePath: string, workDirectory: string
         '-c:a', 'aac', '-b:a', '48k', '-ac', '1'
     ]
     const outputArgs = ['-movflags', '+faststart', proxyPath]
+    // Вторая выходная копия: превью-исходник (ключевой кадр раз в 2 с для точной нарезки).
+    const previewArgs = (withAudio: boolean) => [
+        '-map', '[prev]',
+        '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '22', '-g', '48',
+        ...(withAudio ? ['-map', '0:a:0', '-c:a', 'aac', '-b:a', '96k'] : ['-an']),
+        '-movflags', '+faststart', previewSourcePath
+    ]
 
     // Ролик без звука: второй проход без звуковой ветки (пауз тогда нет).
-    let result = await runIndexPass([...videoArgs, ...audioArgs, ...outputArgs], 15 * 60_000)
+    let result = await runIndexPass([...videoArgs, ...audioArgs, ...outputArgs, ...previewArgs(true)], 15 * 60_000)
     if (result.code !== 0) {
         console.warn('[REEL FRAGMENTS] Index pass with audio failed; retrying without audio', {log: result.log.slice(-5)})
-        result = await runIndexPass([...videoArgs, '-an', ...outputArgs], 15 * 60_000)
+        result = await runIndexPass([...videoArgs, '-an', ...outputArgs, ...previewArgs(false)], 15 * 60_000)
     }
     if (result.code !== 0) {
         throw new Error(`[REEL FRAGMENTS] Source index failed: ${result.log.slice(-5).join(' | ')}`)
@@ -109,5 +124,5 @@ export const buildSourceIndex = async (sourcePath: string, workDirectory: string
         silences: silences.length
     })
 
-    return {duration, cuts, silences, proxyPath}
+    return {duration, cuts, silences, proxyPath, previewSourcePath}
 }

@@ -29,6 +29,8 @@ export const reelR2Paths = (content: Pick<ReelContent, 'id' | 'type'>, keyTraile
     return {
         /** Полный исходный трейлер. При ручной проверке живёт до финала (для «Пересобрать»). */
         source: `instagram/reels/temp/${base}.mp4`,
+        /** Расшифровка всего исходника нарезки (fragments/sourceTranscript.ts), живёт с исходником. */
+        transcript: `instagram/reels/temp/${base}_transcript.json`,
         clean: `instagram/reels/clean/${base}_clean.mp4`,
         /** Лёгкая копия clean для показа в Telegram (Bot API берёт видео по ссылке до 20 МБ). */
         preview: `instagram/reels/preview/${base}_preview.mp4`,

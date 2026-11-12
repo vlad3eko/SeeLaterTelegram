@@ -164,7 +164,7 @@ export const requestHookOptions = (jobId: string, supabase: Supabase = getSupaba
         patch: job => ({
             worker_phase: 'hooks',
             hook_options: null,
-            input_payload: {...(job.input_payload ?? {}), awaitingCustomHook: false}
+            input_payload: {...(job.input_payload ?? {}), awaitingCustomHook: false, pendingCustomHook: null}
         })
     })
 
@@ -177,14 +177,42 @@ export const startCustomHook = (jobId: string, supabase: Supabase = getSupabase(
         patch: job => ({input_payload: {...(job.input_payload ?? {}), awaitingCustomHook: true}})
     })
 
-/** «◀️ К вариантам»: перестать ждать свой хук. */
+/** «◀️ К вариантам»: перестать ждать свой хук (и забыть неподтверждённый). */
 export const stopCustomHook = (jobId: string, supabase: Supabase = getSupabase()) =>
     updateReview({
         jobId,
         expectedStep: 'hook_choice',
         supabase,
-        patch: job => ({input_payload: {...(job.input_payload ?? {}), awaitingCustomHook: false}})
+        patch: job => ({input_payload: {...(job.input_payload ?? {}), awaitingCustomHook: false, pendingCustomHook: null}})
     })
+
+/**
+ * Свой хук прислан, но ещё не подтверждён (запрос владельца 12.11: опечатка не должна
+ * сразу уходить в публикацию). Бот показывает его с кнопками «Опубликовать» и
+ * «Изменить». Ввод остаётся открытым: новый текст заменяет неподтверждённый хук.
+ */
+export const setPendingCustomHook = (jobId: string, hook: string, supabase: Supabase = getSupabase()) =>
+    updateReview({
+        jobId,
+        expectedStep: 'hook_choice',
+        supabase,
+        patch: job => job.input_payload?.awaitingCustomHook
+            ? {input_payload: {...(job.input_payload ?? {}), pendingCustomHook: hook}}
+            : null
+    })
+
+/** «✏️ Изменить»: неподтверждённый хук забыт, бот снова ждёт текст. */
+export const editCustomHook = (jobId: string, supabase: Supabase = getSupabase()) =>
+    updateReview({
+        jobId,
+        expectedStep: 'hook_choice',
+        supabase,
+        patch: job => ({input_payload: {...(job.input_payload ?? {}), awaitingCustomHook: true, pendingCustomHook: null}})
+    })
+
+/** Неподтверждённый свой хук задачи или пустая строка. */
+export const readPendingCustomHook = (job: Pick<ReelReviewJob, 'input_payload'>): string =>
+    typeof job.input_payload?.pendingCustomHook === 'string' ? job.input_payload.pendingCustomHook.trim() : ''
 
 /** Задача этого администратора, которая ждёт текст своего хука (самая свежая), или null. */
 export const findJobAwaitingCustomHook = async (
@@ -206,19 +234,36 @@ export const findJobAwaitingCustomHook = async (
     return (data as unknown as ReelReviewJob | null) ?? null
 }
 
-/** Текст администратора стал хуком: воркер собирает Reel с ним. */
-export const chooseCustomHook = (jobId: string, hook: string, supabase: Supabase = getSupabase()) =>
-    requeueFromReview({
+/**
+ * «✅ Опубликовать» под своим хуком: подтверждённый текст становится хуком, воркер
+ * собирает Reel. Возвращает задачу и хук или null (уже нажато, время вышло, хук изменён).
+ */
+export const confirmCustomHook = async (
+    jobId: string,
+    supabase: Supabase = getSupabase()
+): Promise<{job: ReelReviewJob, hook: string} | null> => {
+    let hook = ''
+    const job = await requeueFromReview({
         jobId,
         expectedStep: 'hook_choice',
         supabase,
-        patch: job => job.input_payload?.awaitingCustomHook
-            ? {
-                worker_phase: 'finish',
-                input_payload: {...(job.input_payload ?? {}), chosenHook: hook, awaitingCustomHook: false}
-            }
-            : null
+        patch: current => {
+            hook = readPendingCustomHook(current)
+            return hook
+                ? {
+                    worker_phase: 'finish',
+                    input_payload: {
+                        ...(current.input_payload ?? {}),
+                        chosenHook: hook,
+                        awaitingCustomHook: false,
+                        pendingCustomHook: null
+                    }
+                }
+                : null
+        }
     })
+    return job ? {job, hook} : null
+}
 
 /**
  * «1»–«4»: выбранный хук идёт в ролик. Возвращает задачу и текст хука или null,

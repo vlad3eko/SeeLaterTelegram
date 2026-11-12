@@ -98,10 +98,13 @@ export const deleteStoredSource = async (
     content: Pick<ReelContent, 'id' | 'type'>,
     keyTrailer: string
 ): Promise<void> => {
-    const sourceR2Path = reelR2Paths(content, keyTrailer).source
+    const paths = reelR2Paths(content, keyTrailer)
+    const sourceR2Path = paths.source
 
     try {
+        // Расшифровка нарезки живёт столько же, сколько исходник.
         await deleteFromCloudflareR2(sourceR2Path)
+        await deleteFromCloudflareR2(paths.transcript)
         console.log('[R2 SOURCE DELETED]', sourceR2Path)
     } catch (error) {
         console.error('[R2 SOURCE DELETE ERROR]', error)

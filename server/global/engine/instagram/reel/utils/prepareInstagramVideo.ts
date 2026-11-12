@@ -1354,10 +1354,17 @@ export const prepareInstagramVideo = async (
         // вслепую: если в клипе осталась полоса, один раз пересобираем его с
         // дополнительной обрезкой ровно на найденную ширину. Логотип в клипе только
         // пишется в лог: квадрат уже выбран в обход «B», а плашку убирает приближение.
+        // Проверка логотипа в clean только для лога: 24 кадра тратятся, лишь если анализ
+        // фрагмента логотип вообще видел.
+        const logoSeen = (segmentAnalysis?.stats.framesWithLogo ?? 0) > 0
+        const checkBanner = async () => logoSeen
+            ? checkWatermarkBannerInClip(outputPath)
+            : {cutTopPx: 0, banner: null}
+
         if (borderCheckEnabled()) {
             try {
                 let check = await checkBlackBorders(outputPath)
-                let bannerCheck = await checkWatermarkBannerInClip(outputPath)
+                let bannerCheck = await checkBanner()
                 console.log('[REEL BORDER CHECK]', {
                     ok: check.ok,
                     verified: check.verified,
@@ -1383,9 +1390,9 @@ export const prepareInstagramVideo = async (
                         bottom: check.bottom,
                         left: check.left
                     }
-                    // При слежении квадрат ездит по картинке, поэтому сужается сама картинка,
-                    // а не центральный квадрат (иначе камере некуда двигаться).
-                    const correctedRect = usedFraming === 'track'
+                    // При слежении и при сдвиге квадрата правее логотипа квадрат стоит не по
+                    // центру, поэтому сужается сама картинка, а квадрат выбирается заново.
+                    const correctedRect = usedFraming !== 'center'
                         ? shrinkPictureForBars(baseRect, barsToRemove, check.tolerancePx)
                         : shrinkRectForBars(baseRect, barsToRemove, check.tolerancePx)
 
@@ -1396,7 +1403,7 @@ export const prepareInstagramVideo = async (
 
                     await encodeClean(correctedRect)
                     check = await checkBlackBorders(outputPath)
-                    bannerCheck = await checkWatermarkBannerInClip(outputPath)
+                    bannerCheck = await checkBanner()
 
                     console.log('[REEL BORDER CHECK] After correction', {
                         ok: check.ok,
