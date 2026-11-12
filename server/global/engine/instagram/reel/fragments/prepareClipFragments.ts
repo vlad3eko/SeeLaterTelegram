@@ -12,7 +12,9 @@ import {
 } from '#server/global/engine/instagram/reel/pipeline/reelWorkspace'
 import {freshR2Url, obtainSourceVideo} from '#server/global/engine/instagram/reel/pipeline/cleanVideo'
 import {buildSourceIndex} from '#server/global/engine/instagram/reel/fragments/sourceIndex'
-import {requestFragmentsFromGemini} from '#server/global/engine/instagram/reel/fragments/selectFragments'
+import {requestFragmentsFromGemini, reviewFragmentStory} from '#server/global/engine/instagram/reel/fragments/selectFragments'
+import {transcribeSource} from '#server/global/engine/instagram/reel/fragments/dialogue'
+import {getInputVideoDuration} from '#server/global/engine/instagram/reel/utils/prepareInstagramVideo'
 import {snapFragments} from '#server/global/engine/instagram/reel/fragments/snapFragments'
 import type {ClipFragment} from '#server/global/engine/instagram/reel/fragments/types'
 import {fastDecoderArgs} from '#server/global/engine/instagram/reel/utils/ffmpegDecoder'
@@ -43,7 +45,8 @@ const renderPreview = async (sourcePath: string, fragment: ClipFragment, outputP
 
 /**
  * Шаг «выбор фрагмента» для нарезки (ручная ветка): исходник (из R2 temp или с YouTube),
- * карта исходника, до 8 фрагментов от Gemini, подгонка границ, превью каждого в R2.
+ * карта исходника и расшифровка реплик (параллельно), до 8 фрагментов от Gemini,
+ * подгонка границ по разговорам, проверка сюжета каждого фрагмента, превью в R2.
  * Исходник остаётся в R2 (нужен для clean выбранного фрагмента).
  */
 export const prepareClipFragments = async ({
@@ -58,14 +61,30 @@ export const prepareClipFragments = async ({
     try {
         const sourcePath = await obtainSourceVideo({keyTrailer, content, workspace, reuseStoredSource: true})
 
-        const index = await runReelStep('BUILD_SOURCE_INDEX', () =>
-            buildSourceIndex(sourcePath, path.dirname(sourcePath)))
-        workspace.trackFile(index.proxyPath)
+        // Карта исходника и расшифровка независимы: идут одновременно. Сбой расшифровки
+        // не останавливает шаг (фрагменты выбираются по склейкам и паузам, как раньше).
+        const duration = await getInputVideoDuration(sourcePath)
+        const [sourceIndex, dialogue] = await Promise.all([
+            runReelStep('BUILD_SOURCE_INDEX', () => buildSourceIndex(sourcePath, path.dirname(sourcePath))),
+            runReelStep('TRANSCRIBE_SOURCE', () => transcribeSource(sourcePath, duration))
+        ])
+        workspace.trackFile(sourceIndex.proxyPath)
+        const index = {...sourceIndex, dialogue}
+        const context = {title: content.title, overview: content.overview}
 
         const proposed = await runReelStep('GEMINI_SELECT_FRAGMENTS', () =>
-            requestFragmentsFromGemini(index, {title: content.title, overview: content.overview}))
+            requestFragmentsFromGemini(index, context))
 
-        const fragments = snapFragments(proposed, index)
+        let fragments = snapFragments(proposed, index)
+        if (dialogue && fragments.length) {
+            console.log('[REEL FRAGMENTS] Before story review', fragments.map(f => `${f.start}–${f.end}`))
+            const reviewed = await runReelStep('GEMINI_REVIEW_FRAGMENT_STORY', () =>
+                reviewFragmentStory(fragments, dialogue, context))
+            // Исправленные варианты первыми; если исправление совпало с другим вариантом,
+            // остаётся прежняя версия этого фрагмента (вариантов не становится меньше).
+            const resnapped = snapFragments([...reviewed, ...fragments], index)
+            if (resnapped.length) fragments = resnapped
+        }
         if (!fragments.length) {
             throw new Error('[REEL FRAGMENTS] No fragments left after snapping')
         }
