@@ -22,13 +22,16 @@ import {fastDecoderArgs} from '#server/global/engine/instagram/reel/utils/ffmpeg
  *    кадров; иначе — центр картинки (решение владельца).
  *  - Внутри плана камера стоит на медиане положения лица и едет медленно, только если
  *    человек ушёл больше чем на 20% квадрата.
- *  - Логотип: в каждый момент левый край квадрата правее логотипа; ограничение заранее
- *    распространяется на ±1 с, поэтому камера отъезжает до раскрытия и возвращается после.
- *  - Если места справа от логотипа нет — infeasible, вызывающий срезает верх.
+ *  - Постоянный логотип канала (маленький «B»): левый край квадрата всегда правее него.
+ *    Это постоянное ограничение, камера из-за логотипа не ездит.
+ *  - Если места справа от «B» нет — infeasible, вызывающий срезает верх на весь ролик.
  *
- * Трейлер (planCenterZoom): квадрат по центру. Если логотип заходит в квадрат, на это
- * время (±1 с, с плавным входом и выходом) кадр приближается под логотип (zoompan),
- * остальное время — полный квадрат.
+ * Трейлер: квадрат по центру (правее «B», если тот в него заходит).
+ *
+ * Приближение (planLogoZoom, оба режима) — ТОЛЬКО когда «B» раскрывается в плашку и
+ * плашка заходит в квадрат там, где он стоит (решение владельца 12.11: «зум может
+ * происходить только в одном случае»). На это время (±1 с, плавно) кадр приближается
+ * под плашку (zoompan), остальное время — полный квадрат без зума.
  */
 
 export type PictureRect = {x: number, y: number, w: number, h: number}
@@ -56,6 +59,8 @@ export type SegmentAnalysis = {
 }
 
 export const ANALYSIS_FPS = 4
+/** Логотип канала стоит на одном месте хотя бы столько секунд (огонь и блики — нет). */
+const LOGO_STILL_SECONDS = 1.5
 const ANALYSIS_WIDTH = FACE_INPUT_SIZE
 
 /** Расстояние между цветовыми гистограммами соседних кадров (0–1), выше — склейка. */
@@ -81,8 +86,14 @@ const PAN_SPEED_SHARE = 0.3
 const SMOOTH_SECONDS = 1
 /** Логотип: запас справа и снизу, доля стороны квадрата. */
 const LOGO_MARGIN_SHARE = 0.02
-/** Камера и приближение готовятся к логотипу заранее и отпускают после, секунды. */
+/** Приближение начинается до раскрытия плашки и отпускает после, секунды. */
 const LOGO_LEAD_SECONDS = 1
+/** Плашка раскрыта: её правый край правее «B» больше чем на эту долю ширины картинки. */
+const LOGO_EXPANDED_SHARE = 0.02
+/** Раскрытие подтверждено хотя бы в стольких отсчётах анализа подряд (по интервалу). */
+const ZOOM_MIN_SAMPLES = 2
+/** Больше этой доли квадрата сверху приближением не убираем. */
+const ZOOM_MAX_CUT_SHARE = 0.3
 /** Длительность плавного входа и выхода приближения, секунды. */
 const ZOOM_RAMP_SECONDS = 0.6
 
@@ -244,7 +255,10 @@ export const analyzeSegment = async (
         const exact = cutTimes.filter(t => t > times[i - 1]! && t <= times[i]! + 1e-6)
         shotStarts.push(exact.length ? exact[exact.length - 1]! : times[i]!)
     }
-    const logos = filterConsistentLogos(frames.map(frame => findLogosInFrame(frame, width, height, 'bgr')))
+    const logos = filterConsistentLogos(
+        frames.map(frame => findLogosInFrame(frame, width, height, 'bgr')),
+        {minFrameGap: Math.round(ANALYSIS_FPS * LOGO_STILL_SECONDS)}
+    )
         .map(unionLogo)
 
     const faceCenters: Array<number | null> = []
@@ -300,9 +314,19 @@ export const remapAnalysis = (
     }
 }
 
-/** Самый низкий край логотипа по фрагменту, доля высоты картинки (0 — логотипа нет). */
-export const lowestLogoBottom = (analysis: SegmentAnalysis): number =>
-    Math.max(0, ...analysis.logos.map(logo => logo?.bottom ?? 0))
+/**
+ * Постоянный логотип канала (маленький «B») по фрагменту, доли картинки, или null.
+ * Берётся нижняя пятая часть правых краёв: большую часть времени виден именно «B»,
+ * раскрытая плашка короче.
+ */
+export const persistentLogo = (analysis: SegmentAnalysis): {right: number, bottom: number} | null => {
+    const present = analysis.logos.filter((logo): logo is LogoRect => logo !== null)
+    if (!present.length) return null
+    return {
+        right: quantile(present.map(logo => logo.right), 0.2),
+        bottom: quantile(present.map(logo => logo.bottom), 0.5)
+    }
+}
 
 const median = (values: number[]) => {
     const sorted = [...values].sort((a, b) => a - b)
@@ -328,6 +352,12 @@ const smoothWithinShots = (values: number[], shots: number[], radius: number) =>
         return sum / count
     })
 
+/** Самый левый край квадрата, при котором постоянный логотип не попадает в кадр, пиксели. */
+export const logoMinLeft = (analysis: SegmentAnalysis, picture: PictureRect, side: number): number => {
+    const base = persistentLogo(analysis)
+    return base ? Math.ceil(base.right * picture.w + side * LOGO_MARGIN_SHARE) : 0
+}
+
 export type TrackPlan =
     | {feasible: true, lefts: number[], trackedShots: number}
     | {feasible: false, reason: string}
@@ -340,11 +370,10 @@ export const planTrackedWindow = (
     picture: PictureRect,
     side: number
 ): TrackPlan => {
-    const {shots, faceCenters, logos, times} = analysis
+    const {shots, faceCenters, times} = analysis
     const maxLeft = Math.max(0, picture.w - side)
     const pictureCenter = picture.w / 2
     const radius = Math.max(1, Math.round(SMOOTH_SECONDS * ANALYSIS_FPS))
-    const leadFrames = Math.round(LOGO_LEAD_SECONDS * ANALYSIS_FPS)
 
     // 1. Цель камеры (центр квадрата, пиксели картинки).
     const targets: number[] = new Array(times.length).fill(pictureCenter)
@@ -384,76 +413,66 @@ export const planTrackedWindow = (
         first = last + 1
     }
 
-    // 2. Ограничение логотипом: левый край квадрата правее логотипа (с запасом),
-    //    заранее распространённое на ±LOGO_LEAD_SECONDS.
-    const margin = side * LOGO_MARGIN_SHARE
-    const rawMinLeft = logos.map(logo => (logo ? Math.ceil(logo.right * picture.w + margin) : 0))
-    const minLeft = rawMinLeft.map((_, i) => {
-        let value = 0
-        for (let k = Math.max(0, i - leadFrames); k <= Math.min(rawMinLeft.length - 1, i + leadFrames); k++) {
-            value = Math.max(value, rawMinLeft[k]!)
-        }
-        return value
-    })
-
-    const impossible = minLeft.findIndex(value => value > maxLeft)
-    if (impossible >= 0) {
-        return {
-            feasible: false,
-            reason: `logo leaves no room at ${times[impossible]!.toFixed(1)}s (needs left ≥ ${minLeft[impossible]}, max ${maxLeft})`
-        }
+    // 2. Постоянное ограничение логотипом: квадрат всегда правее «B». Раскрытие плашки
+    //    камеру не двигает — на это время planLogoZoom даёт приближение.
+    const minLeft = logoMinLeft(analysis, picture, side)
+    if (minLeft > maxLeft) {
+        return {feasible: false, reason: `logo leaves no room (needs left ≥ ${minLeft}, max ${maxLeft})`}
     }
 
-    const clampLeft = (left: number, i: number) => Math.max(minLeft[i]!, Math.min(maxLeft, left))
+    const clampLeft = (left: number) => Math.max(minLeft, Math.min(maxLeft, left))
 
-    // 3. Левый край, сглаживание внутри плана, снова ограничение (сглаженное среднее
-    //    значений ≥ minLeft соседних моментов уже ≥ ограничения без запаса, но на всякий
-    //    случай ограничиваем ещё раз).
-    const lefts = targets.map((target, i) => clampLeft(target - side / 2, i))
-    const smoothed = smoothWithinShots(lefts, shots, radius).map((left, i) => toEven(clampLeft(left, i)))
+    // 3. Левый край, сглаживание внутри плана, снова ограничение.
+    const lefts = targets.map(target => clampLeft(target - side / 2))
+    const smoothed = smoothWithinShots(lefts, shots, radius).map(left => toEven(clampLeft(left)))
 
     return {feasible: true, lefts: smoothed, trackedShots}
-}
-
-/** Логотип заходит в квадрат по центру: сколько пикселей квадрата сверху он закрывает. */
-const logoCutInCenterSquare = (logo: LogoRect, picture: PictureRect, side: number): number => {
-    const squareLeft = (picture.w - side) / 2
-    const squareTop = (picture.h - side) / 2
-    const logoRight = logo.right * picture.w
-    const logoBottom = logo.bottom * picture.h
-    if (logoRight <= squareLeft || logoBottom <= squareTop) return 0
-    return Math.ceil(logoBottom - squareTop + side * LOGO_MARGIN_SHARE)
 }
 
 export type ZoomInterval = {start: number, end: number, cutTop: number}
 
 /**
- * Трейлер: интервалы, когда логотип заходит в центральный квадрат, и сколько сверху
- * квадрата нужно убрать. Пустой список — приближать не нужно.
+ * Интервалы, когда «B» раскрыт в плашку и плашка заходит в квадрат с левым краем
+ * lefts[i] (пиксели картинки, по моменту анализа), и сколько сверху квадрата убрать.
+ * Сам «B» приближения не вызывает никогда. Пустой список — приближать не нужно.
  */
-export const planCenterZoom = (
+export const planLogoZoom = (
     analysis: SegmentAnalysis,
     picture: PictureRect,
-    side: number
+    side: number,
+    lefts: number[]
 ): ZoomInterval[] => {
+    const base = persistentLogo(analysis)
+    if (!base) return []
+
     const step = 1 / ANALYSIS_FPS
-    const intervals: ZoomInterval[] = []
+    const squareTop = (picture.h - side) / 2
+    const margin = side * LOGO_MARGIN_SHARE
+    const maxCut = Math.floor(side * ZOOM_MAX_CUT_SHARE)
+    const intervals: Array<ZoomInterval & {samples: number}> = []
 
     analysis.logos.forEach((logo, i) => {
-        const cut = logo ? logoCutInCenterSquare(logo, picture, side) : 0
-        if (!cut) return
+        if (!logo || logo.right <= base.right + LOGO_EXPANDED_SHARE) return
+        const logoRight = logo.right * picture.w
+        const logoBottom = logo.bottom * picture.h
+        if (logoRight + margin <= lefts[i]! || logoBottom <= squareTop) return
+
+        const cutTop = Math.min(maxCut, Math.ceil(logoBottom - squareTop + margin))
         const time = analysis.times[i]!
         const last = intervals[intervals.length - 1]
-        // Соседние моменты с логотипом — один интервал (пропуск до 1 с допустим).
+        // Соседние моменты раскрытия — один интервал (пропуск до 1 с допустим).
         if (last && time - last.end <= 1 + 1e-6) {
             last.end = time + step
-            last.cutTop = Math.max(last.cutTop, cut)
+            last.cutTop = Math.max(last.cutTop, cutTop)
+            last.samples++
         } else {
-            intervals.push({start: time, end: time + step, cutTop: cut})
+            intervals.push({start: time, end: time + step, cutTop, samples: 1})
         }
     })
 
     return intervals
+        .filter(interval => interval.samples >= ZOOM_MIN_SAMPLES)
+        .map(({start, end, cutTop}) => ({start, end, cutTop}))
 }
 
 /**
