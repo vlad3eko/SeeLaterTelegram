@@ -74,10 +74,10 @@ export const prepareReel = async (
             content,
             workspace,
             // Выбранный фрагмент или слежение — свой clean, кэш по центру не годится.
-            reuseCache: !options.segment && (options.framing ?? 'center') === 'center',
+            reuseCache: !options.segment && (options.framing ?? 'track') === 'center',
             segmentVariant: 0,
             reuseStoredSource: Boolean(options.segment),
-            framing: options.framing ?? 'center',
+            framing: options.framing ?? 'track',
             segment: options.segment
         })
         sourceTouched = clean.sourceTouched
@@ -124,7 +124,7 @@ export const prepareReelCleanPhase = async ({
     content,
     segmentVariant,
     rebuild,
-    framing = 'center',
+    framing = 'track',
     segment
 }: {
     keyTrailer: string

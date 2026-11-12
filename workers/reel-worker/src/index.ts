@@ -474,8 +474,9 @@ const main = async (): Promise<void> => {
                 segmentVariant,
                 // Первый показ может взять clean из кэша; «Пересобрать» увеличивает вариант.
                 rebuild: segmentVariant > 0,
-                // Нарезка: камера следит за главным лицом по X; трейлер — квадрат по центру.
-                framing: isClip ? 'track' : 'center',
+                // Камера следит за главным лицом по X и у нарезок, и у трейлеров (решение
+                // владельца 12.11); план без лица — центр картинки.
+                framing: 'track',
                 segment: chosen ? {startSeconds: chosen.start, endSeconds: chosen.end} : undefined
             })
 
@@ -524,8 +525,9 @@ const main = async (): Promise<void> => {
             })
             : await prepareReel(keyTrailer, hook, content, {
                 onHookGenerated,
-                // Нарезка, у которой истёк выбор фрагмента: первый фрагмент Gemini и слежение.
-                ...(input.videoType === 'clip' ? {framing: 'track' as const} : {}),
+                // Слежение за лицом у всех роликов; нарезка, у которой истёк выбор
+                // фрагмента, берёт первый фрагмент Gemini.
+                framing: 'track' as const,
                 ...(input.fragment ? {segment: {startSeconds: input.fragment.start, endSeconds: input.fragment.end}} : {})
             })
 
