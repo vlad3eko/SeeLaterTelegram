@@ -33,8 +33,21 @@ const MAX_WIDTH = 0.6
 const MIN_FILL = 0.7
 const MIN_BASE = 0.3
 const HUE_TOLERANCE = 22
-/** Одна и та же полоса логотипа в разных кадрах: верх и низ совпадают с этим допуском. */
+/** Один и тот же логотип в разных кадрах: верх и низ совпадают с этим допуском… */
 const BAND_TOLERANCE = 0.02
+/** …а левый край — с этим (логотип стоит на месте, раскрывается только вправо). */
+const LEFT_TOLERANCE = 0.015
+
+/**
+ * Признаки, отличающие плашку от огня и ярких предметов сцены (12.11: пламя в нарезке
+ * принималось за логотип и включало приближение без причины):
+ * - ровный оттенок: у плашки он один, у пламени плавает от красного к жёлтому
+ *   (яркость не сравниваем: на сжатом кадре края белых букв дают розовые пиксели);
+ * - прямые края: контур рамки почти целиком закрашен цветом или надписью;
+ * - область не обрезана краем зоны поиска (огонь уходит вниз и вправо за неё).
+ */
+const MAX_HUE_SPREAD = 10
+const MIN_EDGE_COVERAGE = 0.7
 
 export type PixelOrder = 'rgb' | 'bgr'
 
@@ -97,6 +110,7 @@ export const findLogosInFrame = (
         // Связная область одного оттенка (4-связность).
         const seedHue = hues[start]!
         let minX = regionW, maxX = -1, minY = regionH, maxY = -1, area = 0
+        let hueSquares = 0
         stack.push(start)
         visited[start] = 1
 
@@ -105,6 +119,8 @@ export const findLogosInFrame = (
             const x = index % regionW
             const y = (index - x) / regionW
             area++
+            const hueOffset = hueDistance(hues[index]!, seedHue)
+            hueSquares += hueOffset * hueOffset
             if (x < minX) minX = x
             if (x > maxX) maxX = x
             if (y < minY) minY = y
@@ -131,10 +147,38 @@ export const findLogosInFrame = (
         if (
             boxW < width * MIN_WIDTH || boxW > width * MAX_WIDTH ||
             boxH < height * MIN_HEIGHT || boxH > height * MAX_HEIGHT ||
-            minX > width * MAX_LEFT || minY > height * MAX_TOP
+            minX > width * MAX_LEFT || minY > height * MAX_TOP ||
+            // Обрезано зоной поиска снизу или справа — это часть большого объекта сцены.
+            maxY >= regionH - 1 || maxX >= regionW - 1
         ) {
             continue
         }
+
+        // Ровный оттенок внутри области.
+        if (Math.sqrt(hueSquares / area) > MAX_HUE_SPREAD) continue
+
+        // Прямые края: доля контура рамки, закрашенная цветом логотипа или надписью.
+        const isLogoPixel = (x: number, y: number) => {
+            const hue = hues[y * regionW + x]!
+            if (hue >= 0 && hueDistance(hue, seedHue) <= HUE_TOLERANCE) return true
+            const [r, g, b] = pixel(x, y)
+            return isLettering(r, g, b)
+        }
+        let edge = 0
+        let edgeCovered = 0
+        for (let x = minX; x <= maxX; x++) {
+            for (const y of minY === maxY ? [minY] : [minY, maxY]) {
+                edge++
+                if (isLogoPixel(x, y)) edgeCovered++
+            }
+        }
+        for (let y = minY + 1; y < maxY; y++) {
+            for (const x of minX === maxX ? [minX] : [minX, maxX]) {
+                edge++
+                if (isLogoPixel(x, y)) edgeCovered++
+            }
+        }
+        if (edgeCovered / Math.max(1, edge) < MIN_EDGE_COVERAGE) continue
 
         // Заполнение рамки: цвет логотипа плюс белая надпись внутри.
         let lettering = 0
@@ -162,18 +206,37 @@ export const findLogosInFrame = (
 }
 
 /**
- * Оставляет только рамки, чья полоса по высоте (верх и низ) повторяется хотя бы
- * в двух кадрах набора. Возвращает по кадру список подтверждённых рамок.
+ * Оставляет только рамки, которые стоят на месте: левый край, верх и низ повторяются
+ * хотя бы в двух кадрах набора, разнесённых не меньше чем на minFrameGap кадров
+ * (правый край у раскрывающейся плашки меняется; языки пламени в соседних кадрах похожи,
+ * но за полторы секунды сдвигаются).
+ *
+ * Кроме того, логотип канала виден почти весь ролик: рамка с тем же левым краем и верхом
+ * должна встретиться хотя бы в minShare кадров (плашка раскрывается из того же угла, что
+ * и «B», поэтому её кадры тоже засчитываются; неподвижный кусок стены на один план — нет).
+ * Возвращает по кадру список подтверждённых рамок.
  */
-export const filterConsistentLogos = (perFrame: LogoRect[][]): LogoRect[][] => {
+export const filterConsistentLogos = (
+    perFrame: LogoRect[][],
+    {minFrameGap = 1, minShare = 0.2}: {minFrameGap?: number, minShare?: number} = {}
+): LogoRect[][] => {
     const all = perFrame.flatMap((logos, frame) => logos.map(logo => ({logo, frame})))
+    const minFrames = Math.max(2, Math.ceil(perFrame.length * minShare))
 
-    const confirmed = (candidate: {logo: LogoRect, frame: number}) =>
-        all.some(other =>
-            other.frame !== candidate.frame &&
-            Math.abs(other.logo.top - candidate.logo.top) <= BAND_TOLERANCE &&
+    const sameCorner = (a: LogoRect, b: LogoRect) =>
+        Math.abs(a.left - b.left) <= LEFT_TOLERANCE &&
+        Math.abs(a.top - b.top) <= BAND_TOLERANCE
+
+    const confirmed = (candidate: {logo: LogoRect, frame: number}) => {
+        const stays = all.some(other =>
+            Math.abs(other.frame - candidate.frame) >= minFrameGap &&
+            sameCorner(other.logo, candidate.logo) &&
             Math.abs(other.logo.bottom - candidate.logo.bottom) <= BAND_TOLERANCE
         )
+        if (!stays) return false
+        const frames = new Set(all.filter(other => sameCorner(other.logo, candidate.logo)).map(other => other.frame))
+        return frames.size >= minFrames
+    }
 
     return perFrame.map((logos, frame) =>
         logos.filter(logo => confirmed({logo, frame}))

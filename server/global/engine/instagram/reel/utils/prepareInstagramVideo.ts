@@ -11,8 +11,9 @@ import {
     analyzeSegment,
     buildZoomFilter,
     findLogoInFrames,
-    lowestLogoBottom,
-    planCenterZoom,
+    logoMinLeft,
+    persistentLogo,
+    planLogoZoom,
     planTrackedWindow,
     remapAnalysis,
     type SegmentAnalysis,
@@ -985,8 +986,9 @@ const sampleRgbFrames = async (
 /**
  * Проверка готового клипа на логотип канала (tracking/logoDetector.ts): то же правило,
  * что при выборе квадрата, по 24 кадрам. Возвращает, сколько пикселей клипа сверху
- * нужно срезать (0 — логотипа нет или проверка выключена). Срабатывает, только если
- * обход и приближение логотип не убрали.
+ * пришлось бы срезать (0 — логотипа нет или проверка выключена). Только для лога:
+ * клип из-за неё не пересобирается (постоянный срез сверху — тот же зум без причины,
+ * решение владельца 12.11).
  */
 export const checkWatermarkBannerInClip = async (
     videoPath: string
@@ -1175,8 +1177,8 @@ export const prepareInstagramVideo = async (
         // виньетки и нижнего градиента больше нет: макет «чистое видео 1:1».
         // Кадрирование квадрата (tracking/framing.ts): один анализ фрагмента — склейки,
         // логотип канала по моментам, лица (только у нарезок). Нарезка: камера по X за
-        // лицом, в обход логотипа. Трейлер: квадрат по центру, на время раскрытия
-        // логотипа — приближение под него. Сбой анализа — обычный квадрат по центру.
+        // лицом, всегда правее «B». Трейлер: квадрат по центру. Приближение — только пока
+        // «B» раскрыт в плашку и она заходит в квадрат. Сбой анализа — квадрат по центру.
         const fullPicture: CropRect = {x: 0, y: 0, w: toEven(source.width), h: toEven(source.height)}
         const analyzedPicture: CropRect = analysis.crop ?? fullPicture
         const wantTrack = options.framing === 'track'
@@ -1198,8 +1200,15 @@ export const prepareInstagramVideo = async (
 
         type Framing =
             | {mode: 'center', picture: CropRect}
-            | {mode: 'track', picture: CropRect, frames: SegmentAnalysis, lefts: number[]}
-            | {mode: 'zoom', picture: CropRect, intervals: ZoomInterval[]}
+            | {mode: 'track', picture: CropRect, frames: SegmentAnalysis, lefts: number[], intervals: ZoomInterval[]}
+            | {mode: 'zoom', picture: CropRect, left: number, intervals: ZoomInterval[]}
+
+        const logZoom = (intervals: ZoomInterval[]) => {
+            if (!intervals.length) return
+            console.log('[REEL FRAMING] Zoom while the logo banner is expanded', {
+                intervals: intervals.map(i => `${i.start.toFixed(1)}–${i.end.toFixed(1)}s cut ${i.cutTop}px`)
+            })
+        }
 
         /** Как кадрировать картинку `rect` (после исправлений она может отличаться от анализа). */
         const chooseFraming = (rect: CropRect): Framing => {
@@ -1209,35 +1218,38 @@ export const prepareInstagramVideo = async (
             let frames = remapAnalysis(segmentAnalysis, analyzedPicture, picture)
             let side = toEven(Math.min(picture.w, picture.h))
 
-            if (wantTrack && picture.w - side >= 4) {
-                let plan = planTrackedWindow(frames, picture, side)
-
-                if (!plan.feasible) {
-                    // Справа от логотипа места нет: запасной путь — срезать верх под ним.
-                    const cut = ceilEven((lowestLogoBottom(frames) + BANNER_MARGIN_SHARE) * picture.h)
-                    console.warn('[REEL FRAMING] Logo cannot be avoided by moving; cropping below it', {
-                        reason: plan.reason, cutTopPx: cut
-                    })
-                    if (cut < picture.h * BANNER_MAX_CUT_SHARE) {
-                        picture = {...picture, y: picture.y + cut, h: toEven(picture.h - cut)}
-                        frames = remapAnalysis(segmentAnalysis, analyzedPicture, picture)
-                        side = toEven(Math.min(picture.w, picture.h))
-                        plan = planTrackedWindow(frames, picture, side)
-                    }
-                }
-
-                if (plan.feasible) {
-                    console.log('[REEL FRAMING] Tracking', {trackedShots: plan.trackedShots, shots: frames.stats.shots})
-                    return {mode: 'track', picture, frames, lefts: plan.lefts}
+            // Постоянный «B» не обойти сдвигом (картинка почти квадратная): срезаем верх под
+            // ним на весь ролик — постоянно, без движения зума.
+            if (logoMinLeft(frames, picture, side) > Math.max(0, picture.w - side)) {
+                const base = persistentLogo(frames)
+                const cut = base ? ceilEven((base.bottom + BANNER_MARGIN_SHARE) * picture.h) : 0
+                console.warn('[REEL FRAMING] Logo cannot be avoided by moving; cropping below it', {cutTopPx: cut})
+                if (cut > 0 && cut < picture.h * BANNER_MAX_CUT_SHARE) {
+                    picture = {...picture, y: picture.y + cut, h: toEven(picture.h - cut)}
+                    frames = remapAnalysis(segmentAnalysis, analyzedPicture, picture)
+                    side = toEven(Math.min(picture.w, picture.h))
                 }
             }
 
-            const intervals = planCenterZoom(frames, picture, side)
-            if (intervals.length) {
-                console.log('[REEL FRAMING] Temporary zoom under the logo', {
-                    intervals: intervals.map(i => `${i.start.toFixed(1)}–${i.end.toFixed(1)}s cut ${i.cutTop}px`)
-                })
-                return {mode: 'zoom', picture, intervals}
+            const maxLeft = Math.max(0, picture.w - side)
+
+            if (wantTrack && maxLeft >= 4) {
+                const plan = planTrackedWindow(frames, picture, side)
+                if (plan.feasible) {
+                    const intervals = planLogoZoom(frames, picture, side, plan.lefts)
+                    console.log('[REEL FRAMING] Tracking', {trackedShots: plan.trackedShots, shots: frames.stats.shots})
+                    logZoom(intervals)
+                    return {mode: 'track', picture, frames, lefts: plan.lefts, intervals}
+                }
+                console.warn('[REEL FRAMING] Tracking not possible; centered square', {reason: plan.reason})
+            }
+
+            // Квадрат по центру; если «B» в него заходит — сдвиг вправо ровно на нужное.
+            const left = toEven(Math.min(maxLeft, Math.max(maxLeft / 2, logoMinLeft(frames, picture, side))))
+            const intervals = planLogoZoom(frames, picture, side, frames.times.map(() => left))
+            logZoom(intervals)
+            if (intervals.length || left !== toEven(maxLeft / 2)) {
+                return {mode: 'zoom', picture, left, intervals}
             }
 
             return {mode: 'center', picture}
@@ -1261,15 +1273,21 @@ export const prepareInstagramVideo = async (
                     trackCommandsPath, framing.frames, framing.lefts, outputFrameRate.fps, segment.durationSeconds
                 )
                 console.log('[REEL FRAMING] Moving square', {side, minX, maxX, picture: `${picture.w}:${picture.h}:${picture.x}:${picture.y}`})
+                // Приближение (zoompan) — только на интервалах раскрытой плашки; без них
+                // обычное масштабирование.
                 squareAndScale =
                     `${pictureCrop}sendcmd=f=${path.basename(trackCommandsPath)},` +
                     `crop@track=${side}:${side}:${firstX}:${toEven((picture.h - side) / 2)},` +
-                    `scale=${REEL_SIZE}:${REEL_SIZE}:flags=lanczos+accurate_rnd+full_chroma_int`
+                    (framing.intervals.length
+                        ? buildZoomFilter(framing.intervals, side, REEL_SIZE, outputFrameRate.rate)
+                        : `scale=${REEL_SIZE}:${REEL_SIZE}:flags=lanczos+accurate_rnd+full_chroma_int`)
             } else if (framing.mode === 'zoom') {
-                // Квадрат по центру; на интервалах логотипа zoompan приближает под него.
+                // Квадрат по центру (или правее «B»); на интервалах раскрытой плашки zoompan.
                 squareAndScale =
-                    `${pictureCrop}crop=${side}:${side}:${toEven((picture.w - side) / 2)}:${toEven((picture.h - side) / 2)},` +
-                    buildZoomFilter(framing.intervals, side, REEL_SIZE, outputFrameRate.rate)
+                    `${pictureCrop}crop=${side}:${side}:${framing.left}:${toEven((picture.h - side) / 2)},` +
+                    (framing.intervals.length
+                        ? buildZoomFilter(framing.intervals, side, REEL_SIZE, outputFrameRate.rate)
+                        : `scale=${REEL_SIZE}:${REEL_SIZE}:flags=lanczos+accurate_rnd+full_chroma_int`)
             } else {
                 squareAndScale =
                     `${rect ? pictureCrop : ''}crop='min(iw,ih)':'min(iw,ih)',` +
@@ -1334,7 +1352,8 @@ export const prepareInstagramVideo = async (
 
         // Проверка готового клипа. Результат поиска полос по исходнику не доверяем
         // вслепую: если в клипе осталась полоса, один раз пересобираем его с
-        // дополнительной обрезкой ровно на найденную ширину.
+        // дополнительной обрезкой ровно на найденную ширину. Логотип в клипе только
+        // пишется в лог: квадрат уже выбран в обход «B», а плашку убирает приближение.
         if (borderCheckEnabled()) {
             try {
                 let check = await checkBlackBorders(outputPath)
@@ -1347,20 +1366,22 @@ export const prepareInstagramVideo = async (
                     tolerancePx: check.tolerancePx,
                     watermarkCutTopPx: bannerCheck.cutTopPx
                 })
+                if (bannerCheck.banner) {
+                    console.warn('[REEL BORDER CHECK] Logo still visible in the clip (log only)', {banner: bannerCheck.banner})
+                }
 
-                if (!check.ok || bannerCheck.cutTopPx > 0) {
+                if (!check.ok) {
                     const baseRect: CropRect = analysis.crop ?? {
                         x: 0,
                         y: 0,
                         w: toEven(source.width),
                         h: toEven(source.height)
                     }
-                    // Плашка в клипе обрабатывается как полоса сверху своей высоты.
                     const barsToRemove: BorderBars = {
-                        top: Math.max(check.ok ? 0 : check.top, bannerCheck.cutTopPx),
-                        right: check.ok ? 0 : check.right,
-                        bottom: check.ok ? 0 : check.bottom,
-                        left: check.ok ? 0 : check.left
+                        top: check.top,
+                        right: check.right,
+                        bottom: check.bottom,
+                        left: check.left
                     }
                     // При слежении квадрат ездит по картинке, поэтому сужается сама картинка,
                     // а не центральный квадрат (иначе камере некуда двигаться).
@@ -1368,9 +1389,8 @@ export const prepareInstagramVideo = async (
                         ? shrinkPictureForBars(baseRect, barsToRemove, check.tolerancePx)
                         : shrinkRectForBars(baseRect, barsToRemove, check.tolerancePx)
 
-                    console.warn('[REEL BORDER CHECK] Black borders or watermark found; re-encoding with a tighter crop', {
+                    console.warn('[REEL BORDER CHECK] Black borders found; re-encoding with a tighter crop', {
                         found: formatBars(barsToRemove),
-                        watermark: bannerCheck.banner,
                         crop: `${correctedRect.w}:${correctedRect.h}:${correctedRect.x}:${correctedRect.y}`
                     })
 
@@ -1386,10 +1406,9 @@ export const prepareInstagramVideo = async (
                         watermarkCutTopPx: bannerCheck.cutTopPx
                     })
 
-                    if (!check.ok || bannerCheck.cutTopPx > 0) {
+                    if (!check.ok) {
                         const message =
-                            `[REEL BORDER CHECK] Black borders or watermark remain after correction: ${formatBars(check)}, ` +
-                            `watermark ${bannerCheck.cutTopPx}px`
+                            `[REEL BORDER CHECK] Black borders remain after correction: ${formatBars(check)}`
                         if (borderCheckStrict()) {
                             throw new Error(message)
                         }
