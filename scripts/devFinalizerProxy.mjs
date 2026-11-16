@@ -1,0 +1,61 @@
+// Прокси для локальной разработки: туннель (cloudflared) смотрит сюда, а не на dev-сервер Nuxt.
+// Наружу проходит только POST /api/bot/reelJobs/finalize — его вызывает воркер Cloud Run,
+// когда Reel готов или ждёт проверки. Всё остальное (исходники Vite, webhook без проверки
+// секрета в dev, служебные роуты) из интернета недоступно: ответ 404.
+//
+//   node scripts/devFinalizerProxy.mjs            порт 3001 -> http://127.0.0.1:3000
+//   cloudflared tunnel --url http://127.0.0.1:3001
+//
+// Адрес туннеля (https://….trycloudflare.com) записать в .env как REEL_FINALIZER_BASE_URL
+// и перезапустить npm run dev.
+
+import http from 'node:http'
+
+const LISTEN_PORT = Number(process.env.DEV_PROXY_PORT || 3001)
+const TARGET = process.env.DEV_PROXY_TARGET || 'http://127.0.0.1:3000'
+const ALLOWED_PATH = '/api/bot/reeljobs/finalize'
+const MAX_BODY_BYTES = 64 * 1024
+
+const server = http.createServer((request, response) => {
+    const path = (request.url ?? '').split('?')[0].replace(/\/+$/, '').toLowerCase()
+
+    if (request.method !== 'POST' || path !== ALLOWED_PATH) {
+        response.writeHead(404).end()
+        return
+    }
+
+    const chunks = []
+    let size = 0
+
+    request.on('data', chunk => {
+        size += chunk.length
+        if (size > MAX_BODY_BYTES) {
+            response.writeHead(413).end()
+            request.destroy()
+            return
+        }
+        chunks.push(chunk)
+    })
+
+    request.on('end', async () => {
+        if (response.writableEnded) return
+        try {
+            const upstream = await fetch(`${TARGET}/api/bot/reelJobs/finalize`, {
+                method: 'POST',
+                headers: {'content-type': request.headers['content-type'] ?? 'application/json'},
+                body: Buffer.concat(chunks)
+            })
+            const body = Buffer.from(await upstream.arrayBuffer())
+            response.writeHead(upstream.status, {'content-type': upstream.headers.get('content-type') ?? 'application/json'})
+            response.end(body)
+            console.log('[DEV FINALIZER PROXY]', upstream.status)
+        } catch (error) {
+            console.error('[DEV FINALIZER PROXY] dev server is not reachable:', error?.message ?? error)
+            response.writeHead(502).end()
+        }
+    })
+})
+
+server.listen(LISTEN_PORT, '127.0.0.1', () => {
+    console.log(`[DEV FINALIZER PROXY] 127.0.0.1:${LISTEN_PORT} -> ${TARGET} (only POST ${ALLOWED_PATH})`)
+})

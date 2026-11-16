@@ -155,7 +155,9 @@ export const publishAdminInlineMedia = async (ctx: any) => {
                 adminTelegramId: Number(ctx.from.id),
                 sourceUpdateId: updateId,
                 channelChatId: String(channelId),
-                finalizerUrl: `${URL_ACTIVE.replace(/\/$/, '')}/api/bot/reelJobs/finalize`,
+                // REEL_FINALIZER_BASE_URL: публичный адрес для воркера Cloud Run, когда бот
+                // запущен локально (npm run dev + туннель, см. scripts/devFinalizerProxy.mjs).
+                finalizerUrl: `${(process.env.REEL_FINALIZER_BASE_URL?.trim() || URL_ACTIVE).replace(/\/$/, '')}/api/bot/reelJobs/finalize`,
                 // Ключ введён вручную: clean и хук проходят проверку администратора.
                 // Любой другой запуск (ключ из карточки, будущий автоподбор) идёт без вопросов.
                 reviewMode: session.trailerKeySource === 'manual' ? 'manual' : 'auto',
