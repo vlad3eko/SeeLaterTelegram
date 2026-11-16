@@ -10,23 +10,50 @@ import {normalizeTmdbMedia} from '~/utils/media/normalizeTmdbMedia'
 export type ParsedTrailerTitle = {
     name: string
     year?: number
+    /** Трейлер нового сезона сериала: годом не проверяется (год TMDB — год первого сезона). */
+    isSeason?: boolean
 }
 
+/** Слова трейлера в названии (англ. каналы студий): «Official Final Trailer 2», «Teaser Trailer», «[HD]». */
+const TRAILER_WORDS =
+    /\b(?:official\s+)?(?:final\s+|new\s+|main\s+|first\s+|teaser\s+)?(?:trailer|teaser)(?:\s*#?\s*\d+)?\b|\[?\b(?:hd|4k|uhd)\b\]?/gi
+
 export const parseTrailerTitle = (title: string): ParsedTrailerTitle | null => {
-    const name = title.split(/\s+[—–-]\s+/)[0]?.replace(/\s+/g, ' ').trim() ?? ''
+    // Название — первая часть до « — », « - » или « | » (русские и английские каналы):
+    //   «Бункер — Русский трейлер (Дубляж, 4К, 2027)», «Dune: Part Three | Final Trailer»,
+    //   «Killing Castro (2026) Teaser Trailer - Diego Boneta …», «Wednesday: Season 2 | Official Teaser».
+    const firstPart = title.split(/\s+[—–-]\s+|\s*\|\s*/)[0] ?? ''
+    const rest = title.slice(firstPart.length)
+    // «Wednesday: Season 2 | …» и «Bad Monkey — Season 2 Official Trailer»: сезон в любой части.
+    const isSeason = /\bseason\s+\d+/i.test(title)
+
+    const yearInName = firstPart.match(/\((19\d{2}|20\d{2})\)/)?.[1]
+    const name = firstPart
+        .replace(/\((?:19|20)\d{2}\)/g, ' ')
+        .replace(TRAILER_WORDS, ' ')
+        // Сезон сериала: в TMDB это один сериал («Wednesday: Season 2» → «Wednesday»).
+        .replace(/[:\s]+season\s+\d+\b.*$/i, '')
+        .replace(/^(?:marvel\s+studios[’']?|disney[’']?s|pixar[’']?s)\s+/i, '')
+        .replace(/[\s:,–—-]+$/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
     if (!name) return null
 
+    // Год: в скобках («(Дубляж, 2027)», «Killing Castro (2026)»), иначе в хвосте после названия
+    // («… | In Theaters March 5, 2026»). Число в самом названии («Blade Runner 2099») — не год.
     const brackets = [...title.matchAll(/\(([^()]*)\)/g)].map(match => match[1]!).join(' ')
-    const years = [...brackets.matchAll(/\b(19\d{2}|20\d{2})\b/g)].map(match => Number(match[1]))
-    const year = years.at(-1)
+    const fromBrackets = [...brackets.matchAll(/\b(19\d{2}|20\d{2})\b/g)].map(match => Number(match[1]))
+    const fromRest = [...rest.matchAll(/\b(19\d{2}|20\d{2})\b/g)].map(match => Number(match[1]))
+    const year = fromBrackets.at(-1) ?? (yearInName ? Number(yearInName) : fromRest.at(-1))
 
-    return {name, ...(year ? {year} : {})}
+    return {name, ...(year ? {year} : {}), ...(isSeason ? {isSeason} : {})}
 }
 
 const normalize = (value: string | undefined) =>
     String(value ?? '')
         .toLowerCase()
         .replace(/ё/g, 'е')
+        .replace(/&/g, ' and ')
         .replace(/[«»"'“”„:;,.!?()[\]–—-]/g, ' ')
         .replace(/\s+/g, ' ')
         .trim()
@@ -69,16 +96,27 @@ export const matchTmdbMedia = async (parsed: ParsedTrailerTitle): Promise<Matche
     const wanted = normalize(parsed.name)
 
     const candidates = (search.results ?? [])
-        .filter((item: Record<string, any>) => item.media_type === 'movie' || item.media_type === 'tv')
+        .filter((item: Record<string, any>) => parsed.isSeason
+            ? item.media_type === 'tv'
+            : item.media_type === 'movie' || item.media_type === 'tv')
         .filter((item: Record<string, any>) =>
             [item.title, item.name, item.original_title, item.original_name].some(value => normalize(value) === wanted))
         .map((item: Record<string, any>) => {
             const year = yearOf(item)
-            const distance = parsed.year && year ? Math.abs(parsed.year - year) : parsed.year ? 50 : 0
+            const distance = parsed.isSeason
+                ? 0
+                : parsed.year && year ? Math.abs(parsed.year - year) : parsed.year ? 50 : 0
             return {item, distance}
         })
         // Год из ролика, если он есть, должен быть близок: трейлер выходит до премьеры или в её год.
         .filter(({distance}: {distance: number}) => distance <= 2)
+        // Года в ролике нет («The Riot | Official Trailer | Netflix»): трейлеры выходят к новинкам,
+        // поэтому старый однофамилец (фильм 2014 года) не подходит. Сезоны сериалов — исключение.
+        .filter(({item}: {item: Record<string, any>}) => {
+            if (parsed.year || parsed.isSeason) return true
+            const year = yearOf(item)
+            return !year || year >= new Date().getFullYear() - 1
+        })
         .sort((a: any, b: any) => a.distance - b.distance || (b.item.popularity ?? 0) - (a.item.popularity ?? 0))
 
     const best = candidates[0]?.item

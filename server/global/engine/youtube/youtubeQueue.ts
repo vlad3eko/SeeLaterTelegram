@@ -1,7 +1,7 @@
 import {getSupabase, dispatchReelJob} from '#server/global/engine/instagram/reel/jobs/dispatchReelJob'
 import {listChannelVideos, type ChannelVideo} from '#server/global/engine/youtube/channelFeed'
 import {matchTmdbMedia, parseTrailerTitle} from '#server/global/engine/youtube/matchTmdbMedia'
-import {youtubeQueueConfig} from '#server/global/engine/youtube/config'
+import {EXCLUDED_TITLE_WORDS, youtubeQueueConfig, type WatchedChannel} from '#server/global/engine/youtube/config'
 import {BOT_ADMINS} from '#server/global/oneLinkApp'
 
 /**
@@ -58,7 +58,8 @@ const notifyAdmin = async (text: string) => {
 const videoUrl = (videoId: string) => `https://www.youtube.com/watch?v=${videoId}`
 
 /** 1. Новые ролики каналов → очередь. Первая встреча с каналом: всё, что уже есть, — skipped. */
-const syncChannel = async (supabase: Supabase, channelId: string, config: ReturnType<typeof youtubeQueueConfig>) => {
+const syncChannel = async (supabase: Supabase, channel: WatchedChannel, config: ReturnType<typeof youtubeQueueConfig>) => {
+    const channelId = channel.id
     const {videos, source} = await listChannelVideos(channelId, {apiKey: config.apiKey})
 
     const {count, error: countError} = await supabase
@@ -73,7 +74,12 @@ const syncChannel = async (supabase: Supabase, channelId: string, config: Return
 
     const classify = (video: ChannelVideo): {status: 'queued' | 'skipped', reason?: string} => {
         if (baseline) return {status: 'skipped', reason: 'было на канале до начала слежения'}
-        if (!video.title.toLowerCase().includes(config.keyword)) return {status: 'skipped', reason: `нет «${config.keyword}» в названии`}
+        const title = video.title.toLowerCase()
+        if (!channel.keywords.some(keyword => title.includes(keyword))) {
+            return {status: 'skipped', reason: `нет «${channel.keywords.join(' / ')}» в названии`}
+        }
+        const excluded = EXCLUDED_TITLE_WORDS.find(word => title.includes(word))
+        if (excluded) return {status: 'skipped', reason: `не трейлер фильма («${excluded}»)`}
         if (video.publishedAt && now - Date.parse(video.publishedAt) > maxAgeMs) {
             return {status: 'skipped', reason: `старше ${config.maxAgeHours} ч`}
         }
@@ -112,11 +118,8 @@ const syncChannel = async (supabase: Supabase, channelId: string, config: Return
     if (error) throw new Error(`[YOUTUBE QUEUE] ${error.message}`)
 
     const queued = (inserted ?? []).filter(row => row.status === 'queued')
-    console.log('[YOUTUBE QUEUE SYNC]', {channelId, source, seen: videos.length, inserted: inserted?.length ?? 0, queued: queued.length, baseline})
-
-    for (const row of queued) {
-        await notifyAdmin(`🆕 В очередь автопубликации: ${row.title}\n${videoUrl(row.video_id)}`)
-    }
+    // Без сообщения на каждый ролик: у студий их несколько в день. Сообщение приходит при сборке Reel.
+    console.log('[YOUTUBE QUEUE SYNC]', {channel: channel.name, source, seen: videos.length, inserted: inserted?.length ?? 0, queued: queued.length, baseline})
 }
 
 /** Строки первой версии (dispatched/published): ролик уже в reel_processing_jobs, из очереди убрать. */
@@ -156,14 +159,16 @@ const dispatchNext = async (supabase: Supabase, config: ReturnType<typeof youtub
     const row = (Array.isArray(data) ? data[0] : data) as QueueRow | undefined
     if (!row) return null
 
-    const fail = async (message: string) => {
+    // notify: false — ожидаемые пропуски (трейлер игры или подкаста, фильм недавно публиковался):
+    // только запись в таблице, без сообщения.
+    const fail = async (message: string, {notify = true}: {notify?: boolean} = {}) => {
         await updateRow(supabase, row.id, {status: 'failed', last_error: message, finished_at: new Date().toISOString()})
-        await notifyAdmin(`⚠️ Автопубликация пропущена: ${row.title}\nПричина: ${message}\n${videoUrl(row.video_id)}`)
+        if (notify) await notifyAdmin(`⚠️ Автопубликация пропущена: ${row.title}\nПричина: ${message}\n${videoUrl(row.video_id)}`)
         return {videoId: row.video_id, result: 'failed', message}
     }
 
     const parsed = parseTrailerTitle(row.title)
-    if (!parsed) return fail('не удалось выделить название фильма')
+    if (!parsed) return fail('не удалось выделить название фильма', {notify: false})
 
     let matched
     try {
@@ -173,7 +178,25 @@ const dispatchNext = async (supabase: Supabase, config: ReturnType<typeof youtub
         await updateRow(supabase, row.id, {status: 'queued', last_error: errorText(matchError)})
         return {videoId: row.video_id, result: 'retry', message: errorText(matchError)}
     }
-    if (!matched) return fail(`в TMDB нет точного совпадения для «${parsed.name}»${parsed.year ? ` (${parsed.year})` : ''}`)
+    if (!matched) return fail(`в TMDB нет точного совпадения для «${parsed.name}»${parsed.year ? ` (${parsed.year})` : ''}`, {notify: false})
+
+    // Один фильм часто выходит на нескольких каналах (студия, Disney+, потом дубляж): не чаще
+    // раза в YOUTUBE_QUEUE_FILM_COOLDOWN_DAYS.
+    if (config.filmCooldownDays > 0) {
+        const since = new Date(Date.now() - config.filmCooldownDays * 24 * 60 * 60_000).toISOString()
+        const {data: recent, error: recentError} = await supabase
+            .from('reel_processing_jobs')
+            .select('published_at')
+            .eq('media_id', matched.mediaId)
+            .eq('media_type', matched.mediaType)
+            .eq('status', 'published')
+            .gte('published_at', since)
+            .limit(1)
+        if (recentError) throw new Error(`[YOUTUBE QUEUE] ${recentError.message}`)
+        if (recent?.length) {
+            return fail(`«${matched.tmdbTitle}» уже публиковался за последние ${config.filmCooldownDays} дн.`, {notify: false})
+        }
+    }
 
     const mediaPatch = {
         media_id: matched.mediaId,
@@ -271,14 +294,19 @@ export const processYoutubeQueue = async () => {
         console.error('[YOUTUBE QUEUE CLEANUP ERROR]', errorText(error))
     }
 
-    for (const channelId of config.channels) {
-        try {
-            await syncChannel(supabase, channelId, config)
-        } catch (error) {
-            errors.push(errorText(error))
-            console.error('[YOUTUBE QUEUE SYNC ERROR]', {channelId, message: errorText(error)})
+    // Каналы по четыре одновременно: с yt-dlp каждый занимает несколько секунд.
+    const pending = [...config.channels]
+    const syncWorker = async () => {
+        for (let channel = pending.shift(); channel; channel = pending.shift()) {
+            try {
+                await syncChannel(supabase, channel, config)
+            } catch (error) {
+                errors.push(`${channel.name}: ${errorText(error)}`)
+                console.error('[YOUTUBE QUEUE SYNC ERROR]', {channel: channel.name, message: errorText(error)})
+            }
         }
     }
+    await Promise.all([syncWorker(), syncWorker(), syncWorker(), syncWorker()])
 
     // Воркер Cloud Run сообщает о готовом Reel по https (dispatchReelJob требует https). В npm run dev
     // без туннеля адреса нет: ролики спокойно ждут в очереди, попытки не тратятся.
@@ -289,13 +317,20 @@ export const processYoutubeQueue = async () => {
         return {dispatched: null, errors, waiting: 'no https finalizer URL'}
     }
 
-    let dispatched = null
+    // Пропуск (фильм не найден, недавно публиковался) задачу не ставит и интервал не тратит:
+    // сразу пробуем следующий ролик, но не больше 10 за тик.
+    const results: unknown[] = []
     try {
-        dispatched = await dispatchNext(supabase, config)
+        for (let attempt = 0; attempt < 10; attempt++) {
+            const result = await dispatchNext(supabase, config)
+            if (!result) break
+            results.push(result)
+            if (result.result !== 'failed') break
+        }
     } catch (error) {
         errors.push(errorText(error))
         console.error('[YOUTUBE QUEUE DISPATCH ERROR]', errorText(error))
     }
 
-    return {dispatched, errors}
+    return {dispatched: results, errors}
 }
