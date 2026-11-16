@@ -58,11 +58,16 @@ export const getTelegramMediaImages = async (
 
         const first = needUpload[0]
 
+        // Финализатор публикации строит карточку без ctx (constructRichCard(undefined, …)): у фильма,
+        // чью карточку ни разу не открывали (автопубликация из очереди YouTube), постеров в кэше нет,
+        // и загружать их приходится через самого бота.
+        const telegram = ctx?.telegram ?? (await import('#server/bot/bot')).bot.telegram
+
         let messages: any[] = []
 
         if (needUpload.length === 1) {
             messages = [
-                await ctx.telegram.sendPhoto(
+                await telegram.sendPhoto(
                     process.env.TELEGRAM_MEDIA_STORAGE_CHAT_ID,
                     Input.fromURL(
                         `https://image.tmdb.org/t/p/w780${first!.path}`
@@ -70,7 +75,7 @@ export const getTelegramMediaImages = async (
                 )
             ]
         } else {
-            messages = await ctx.telegram.sendMediaGroup(
+            messages = await telegram.sendMediaGroup(
                 process.env.TELEGRAM_MEDIA_STORAGE_CHAT_ID,
                 needUpload.map(item => ({
                     type: 'photo' as const,
