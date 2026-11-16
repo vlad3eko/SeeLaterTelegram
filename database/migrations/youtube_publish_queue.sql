@@ -55,6 +55,35 @@ create index if not exists youtube_publish_queue_pending
 create index if not exists youtube_publish_queue_channel
     on public.youtube_publish_queue (channel_id);
 
+-- Название канала, с которого взят ролик (добавлено 16.11). Новые строки получают его из
+-- server/global/engine/youtube/config.ts; уже существующие заполняются здесь по id канала.
+alter table public.youtube_publish_queue
+    add column if not exists channel_name text;
+
+update public.youtube_publish_queue as queue
+set channel_name = known.name
+from (values
+    ('UC6A-Z0jDKemh9-CwGbj5yog', 'KinomanTrailers'),
+    ('UCjmJDM5pRKbUlVIzDYYWb6g', 'Warner Bros.'),
+    ('UCq0OueAsdxH6b8nyAspwViw', 'Universal Pictures'),
+    ('UCz97F7dMxBNOfGYu3rx8aCw', 'Sony Pictures Entertainment'),
+    ('UCF9imwPMSGz4Vq1NiTWCC7g', 'Paramount Pictures'),
+    ('UC2-BeLxzUBSs0uSrmzWhJuQ', '20th Century Studios'),
+    ('UC_5niPa-d35gg88HaS7RrIw', 'Disney'),
+    ('UC_IRYSp4auq7hKLvziWVH6w', 'Pixar'),
+    ('UCvC4D8onUfXzvjTOM-dBfEA', 'Marvel Entertainment'),
+    ('UCJ6nMHaJPZvsJ-HmUmj1SeA', 'Lionsgate Movies'),
+    ('UCuPivVjnfNo4mb3Oog_frZg', 'A24'),
+    ('UCU4SM3j_9TNWaSu8KdGV50g', 'Focus Features'),
+    ('UCpy5dRhZd-JbZP4NsrnLt1w', 'NEON'),
+    ('UCWOA1ZGywLbqmigxE4Qlvuw', 'Netflix'),
+    ('UCQJWtTnAHhEG5w4uN0udnUQ', 'Prime Video'),
+    ('UC1Myj674wRVXB9I4c6Hm5zA', 'Apple TV'),
+    ('UCIrgJInjLS2BhlHOMDW7v0g', 'Disney Plus')
+) as known(id, name)
+where queue.channel_id = known.id
+  and queue.channel_name is null;
+
 -- Только service_role (бот на сервере). Политик для anon/authenticated нет.
 alter table public.youtube_publish_queue enable row level security;
 

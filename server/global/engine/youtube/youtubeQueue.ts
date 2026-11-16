@@ -101,6 +101,7 @@ const syncChannel = async (supabase: Supabase, channel: WatchedChannel, config: 
         const {status, reason} = classify(video)
         return {
             channel_id: channelId,
+            channel_name: channel.name,
             video_id: video.videoId,
             title: video.title,
             video_published_at: video.publishedAt ?? null,
