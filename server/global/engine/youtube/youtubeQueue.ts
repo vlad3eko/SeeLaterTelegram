@@ -138,6 +138,18 @@ const updateRow = async (supabase: Supabase, id: number, patch: Record<string, u
 
 /** 2. Следующий ролик очереди → задача Reel (если подошёл интервал), строка удаляется. */
 const dispatchNext = async (supabase: Supabase, config: ReturnType<typeof youtubeQueueConfig>) => {
+    // Интервал от последней задачи Reel из очереди (то же условие есть в claim_youtube_queue_item;
+    // здесь — на случай старой версии функции в базе).
+    const {data: lastJob, error: lastError} = await supabase
+        .from('reel_processing_jobs')
+        .select('created_at')
+        .gte('source_update_id', QUEUE_SOURCE_UPDATE_OFFSET)
+        .order('created_at', {ascending: false})
+        .limit(1)
+        .maybeSingle()
+    if (lastError) throw new Error(`[YOUTUBE QUEUE] ${lastError.message}`)
+    if (lastJob && Date.now() - Date.parse(lastJob.created_at) < config.intervalMinutes * 60_000) return null
+
     const {data, error} = await supabase.rpc('claim_youtube_queue_item', {p_interval_minutes: config.intervalMinutes})
     if (error) throw new Error(`[YOUTUBE QUEUE CLAIM] ${error.message}`)
 

@@ -73,7 +73,28 @@ export const getSupabase = () => createClient(
 const encodeBase64Url = (value: string | Buffer): string =>
     Buffer.from(value).toString('base64url')
 
+/**
+ * npm run dev без ключа сервисного аккаунта: токен вошедшего пользователя gcloud CLI
+ * (тот же аккаунт, которым собирают и обновляют воркер). На Vercel ключ задан всегда.
+ */
+const getGcloudCliAccessToken = async (): Promise<string> => {
+    const {execFile} = await import('node:child_process')
+    const {promisify} = await import('node:util')
+    const {stdout} = await promisify(execFile)('gcloud', ['auth', 'print-access-token'], {
+        timeout: 30_000,
+        // gcloud на Windows — это gcloud.cmd; аргументы постоянные, без пользовательских данных.
+        shell: process.platform === 'win32'
+    })
+    const token = String(stdout).trim()
+    if (!token) throw new Error('[CLOUD RUN AUTH] gcloud auth print-access-token returned nothing')
+    return token
+}
+
 const getGoogleAccessToken = async (): Promise<string> => {
+    if (!process.env.GCP_SERVICE_ACCOUNT_JSON_B64?.trim() && process.env.NODE_ENV === 'development') {
+        return getGcloudCliAccessToken()
+    }
+
     const encodedCredentials = requiredEnv('GCP_SERVICE_ACCOUNT_JSON_B64')
     let credentials: {
         type?: string
