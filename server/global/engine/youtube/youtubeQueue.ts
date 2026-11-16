@@ -147,6 +147,8 @@ const dispatchNext = async (supabase: Supabase, config: ReturnType<typeof youtub
         .from('reel_processing_jobs')
         .select('created_at')
         .gte('source_update_id', QUEUE_SOURCE_UPDATE_OFFSET)
+        // Только задачи, для которых Cloud Run действительно запущен: неудачный запуск не тратит интервал.
+        .not('worker_execution_name', 'is', null)
         .order('created_at', {ascending: false})
         .limit(1)
         .maybeSingle()

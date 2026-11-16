@@ -86,9 +86,11 @@ begin
     -- Последняя задача Reel, поставленная из очереди. Строка очереди удаляется в момент
     -- постановки, поэтому время берётся из самих задач: у задач очереди source_update_id
     -- начинается с 10^12 (QUEUE_SOURCE_UPDATE_OFFSET в youtubeQueue.ts).
+    -- Только задачи, для которых Cloud Run действительно запущен (неудачный запуск интервал не тратит).
     select max(created_at) into v_last
     from public.reel_processing_jobs
-    where source_update_id >= 1000000000000;
+    where source_update_id >= 1000000000000
+      and worker_execution_name is not null;
 
     if v_last is not null
        and v_last > now() - make_interval(mins => greatest(1, coalesce(p_interval_minutes, 120))) then
