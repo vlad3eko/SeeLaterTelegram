@@ -25,6 +25,10 @@ export const editAdminInlineMedia = async (ctx: any) => {
                 type: session.mediaType,
                 status: 'ready',
                 contentType: session.contentType,
+                // Правки из сессии: без них повторное «Редактировать» рисовало карточку
+                // с исходным описанием TMDB, и изменённое описание пропадало.
+                addComment: session.comment,
+                addOverview: session.overview,
                 keyTrailer: session.keyTrailer,
                 mediaOverride: session.currentMedia
             }
