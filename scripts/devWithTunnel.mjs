@@ -10,9 +10,16 @@
 // Ctrl-C останавливает всё. Нужен cloudflared в PATH (winget install Cloudflare.cloudflared).
 
 import {spawn} from 'node:child_process'
+import {existsSync} from 'node:fs'
 import path from 'node:path'
 
 const root = process.cwd()
+
+// Терминал, открытый до установки cloudflared, не видит его в PATH: берём путь установки winget.
+const cloudflaredBinary = process.env.CLOUDFLARED_PATH?.trim() || [
+    'C:\\Program Files (x86)\\cloudflared\\cloudflared.exe',
+    'C:\\Program Files\\cloudflared\\cloudflared.exe'
+].find(candidate => process.platform === 'win32' && existsSync(candidate)) || 'cloudflared'
 const children = []
 
 const stopAll = (code = 0) => {
@@ -38,7 +45,7 @@ const run = (command, args, options = {}) => {
 run(process.execPath, [path.join(root, 'scripts', 'devFinalizerProxy.mjs')], {stdio: 'inherit'})
 
 const tunnelUrl = await new Promise((resolve, reject) => {
-    const tunnel = run('cloudflared', ['tunnel', '--no-autoupdate', '--url', 'http://127.0.0.1:3001'], {
+    const tunnel = run(cloudflaredBinary, ['tunnel', '--no-autoupdate', '--url', 'http://127.0.0.1:3001'], {
         stdio: ['ignore', 'ignore', 'pipe']
     })
     const timer = setTimeout(() => reject(new Error('cloudflared did not report a tunnel URL in 60 s')), 60_000)
