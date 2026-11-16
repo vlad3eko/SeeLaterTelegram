@@ -5,16 +5,19 @@
 --   2. Не чаще раза в интервал (по умолчанию 2 часа) claim_youtube_queue_item выдаёт самый
 --      старый queued; бот находит фильм в TMDB и ставит обычную задачу Reel (dispatchReelJob,
 --      без проверки) — дальше воркер и финализатор, как при кнопке «Опубликовать».
+--      Как только задача поставлена, строка из очереди УДАЛЯЕТСЯ: ролик живёт дальше
+--      в reel_processing_jobs. Повторно в очередь он не попадёт: проверка канала пропускает
+--      ролики, чей ключ уже есть в reel_processing_jobs или published_media_messages.
 --
 -- Статусы:
 --   skipped      — ролик был на канале до начала слежения или в названии нет ключевого слова;
 --   queued       — ждёт своей очереди;
 --   dispatching  — выдан таймеру, идёт поиск фильма и постановка задачи (несколько секунд);
---   dispatched   — задача Reel поставлена (reel_job_id), ждём публикации;
---   published    — задача Reel опубликована;
---   failed       — фильм не найден, задача Reel упала и т. п. (last_error).
+--   failed       — фильм не найден в TMDB и т. п. (last_error); остаётся, чтобы не ставиться снова.
+--   (dispatched и published остались от первой версии и больше не используются.)
 --
--- Выполнить в Supabase SQL Editor до первого запуска таймера. Повторный запуск безопасен.
+-- Выполнить в Supabase SQL Editor до первого запуска таймера. Повторный запуск безопасен
+-- (обновляет функцию claim_youtube_queue_item).
 
 begin;
 
@@ -80,9 +83,12 @@ begin
         return;
     end if;
 
-    select max(dispatched_at) into v_last
-    from public.youtube_publish_queue
-    where dispatched_at is not null;
+    -- Последняя задача Reel, поставленная из очереди. Строка очереди удаляется в момент
+    -- постановки, поэтому время берётся из самих задач: у задач очереди source_update_id
+    -- начинается с 10^12 (QUEUE_SOURCE_UPDATE_OFFSET в youtubeQueue.ts).
+    select max(created_at) into v_last
+    from public.reel_processing_jobs
+    where source_update_id >= 1000000000000;
 
     if v_last is not null
        and v_last > now() - make_interval(mins => greatest(1, coalesce(p_interval_minutes, 120))) then

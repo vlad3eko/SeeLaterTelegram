@@ -9,11 +9,13 @@ import {BOT_ADMINS} from '#server/global/oneLinkApp'
  * database/migrations/youtube_publish_queue.sql).
  *
  * Один «тик» (вызывает таймер: /api/bot/youtubeQueue/tick или dev-плагин):
- *   1. sync    — новые ролики каналов с ключевым словом («дубляж») встают в очередь (queued);
- *   2. refresh — поставленные задачи Reel, которые опубликовались или упали, закрываются;
- *   3. dispatch — если с прошлой постановки прошёл интервал, самый старый queued: фильм ищется
+ *   1. sync    — новые ролики каналов с ключевым словом («дубляж») встают в очередь (queued).
+ *      Ролики, чей ключ уже есть в reel_processing_jobs или published_media_messages, не
+ *      ставятся: они уже взяты в работу или опубликованы;
+ *   2. dispatch — если с прошлой постановки прошёл интервал, самый старый queued: фильм ищется
  *      в TMDB, ставится обычная задача Reel без проверки (как кнопка «Опубликовать» с ключом
- *      из карточки). Дальше воркер Cloud Run и финализатор — без изменений.
+ *      из карточки), и строка из очереди удаляется — дальше ролик живёт в reel_processing_jobs.
+ *      Воркер Cloud Run и финализатор — без изменений.
  */
 
 type QueueRow = {
@@ -78,8 +80,18 @@ const syncChannel = async (supabase: Supabase, channelId: string, config: Return
         return {status: 'queued'}
     }
 
+    // Уже взятые в работу или опубликованные ролики (их строки из очереди удалены).
+    const videoIds = videos.map(video => video.videoId)
+    const [jobs, posts] = await Promise.all([
+        supabase.from('reel_processing_jobs').select('key_trailer').in('key_trailer', videoIds),
+        supabase.from('published_media_messages').select('key_trailer').in('key_trailer', videoIds)
+    ])
+    if (jobs.error) throw new Error(`[YOUTUBE QUEUE] ${jobs.error.message}`)
+    if (posts.error) throw new Error(`[YOUTUBE QUEUE] ${posts.error.message}`)
+    const taken = new Set([...(jobs.data ?? []), ...(posts.data ?? [])].map(row => String(row.key_trailer)))
+
     // Старые первыми: id в таблице растёт в порядке выхода роликов (у yt-dlp нет даты).
-    const rows = [...videos].reverse().map(video => {
+    const rows = [...videos].reverse().filter(video => !taken.has(video.videoId)).map(video => {
         const {status, reason} = classify(video)
         return {
             channel_id: channelId,
@@ -91,10 +103,12 @@ const syncChannel = async (supabase: Supabase, channelId: string, config: Return
         }
     })
 
-    const {data: inserted, error} = await supabase
-        .from('youtube_publish_queue')
-        .upsert(rows, {onConflict: 'video_id', ignoreDuplicates: true})
-        .select('id,video_id,title,status')
+    const {data: inserted, error} = rows.length
+        ? await supabase
+            .from('youtube_publish_queue')
+            .upsert(rows, {onConflict: 'video_id', ignoreDuplicates: true})
+            .select('id,video_id,title,status')
+        : {data: [], error: null}
     if (error) throw new Error(`[YOUTUBE QUEUE] ${error.message}`)
 
     const queued = (inserted ?? []).filter(row => row.status === 'queued')
@@ -105,47 +119,13 @@ const syncChannel = async (supabase: Supabase, channelId: string, config: Return
     }
 }
 
-/** 2. Закрыть строки, чья задача Reel завершилась. */
-const refreshDispatched = async (supabase: Supabase) => {
-    const {data: rows, error} = await supabase
+/** Строки первой версии (dispatched/published): ролик уже в reel_processing_jobs, из очереди убрать. */
+const removeLegacyRows = async (supabase: Supabase) => {
+    const {error} = await supabase
         .from('youtube_publish_queue')
-        .select('id,title,video_id,reel_job_id')
-        .eq('status', 'dispatched')
+        .delete()
+        .in('status', ['dispatched', 'published'])
     if (error) throw new Error(`[YOUTUBE QUEUE] ${error.message}`)
-    if (!rows?.length) return
-
-    const jobIds = rows.map(row => row.reel_job_id).filter(Boolean) as string[]
-    const {data: jobs, error: jobsError} = await supabase
-        .from('reel_processing_jobs')
-        .select('id,status,step,last_error')
-        .in('id', jobIds)
-    if (jobsError) throw new Error(`[YOUTUBE QUEUE] ${jobsError.message}`)
-
-    const byId = new Map((jobs ?? []).map(job => [job.id, job]))
-
-    for (const row of rows) {
-        const job = row.reel_job_id ? byId.get(row.reel_job_id) : undefined
-        let patch: Record<string, unknown> | null = null
-
-        if (!job) {
-            // Запись задачи заменила новая публикация того же фильма (одна запись на фильм).
-            patch = {status: 'failed', last_error: 'задача Reel удалена или заменена'}
-        } else if (job.status === 'published') {
-            patch = job.step === 'published_telegram_only'
-                ? {status: 'failed', last_error: 'опубликовано только в Telegram: Reel для Instagram не получился'}
-                : {status: 'published', last_error: null}
-        } else if (job.status === 'failed' && !RESUMABLE_FAILED_STEPS.includes(job.step)) {
-            patch = {status: 'failed', last_error: String(job.last_error ?? job.step ?? 'задача Reel упала').slice(0, 500)}
-        }
-
-        if (patch) {
-            await supabase
-                .from('youtube_publish_queue')
-                .update({...patch, finished_at: new Date().toISOString(), updated_at: new Date().toISOString()})
-                .eq('id', row.id)
-                .eq('status', 'dispatched')
-        }
-    }
 }
 
 const updateRow = async (supabase: Supabase, id: number, patch: Record<string, unknown>) => {
@@ -156,7 +136,7 @@ const updateRow = async (supabase: Supabase, id: number, patch: Record<string, u
     if (error) console.error('[YOUTUBE QUEUE UPDATE ERROR]', {id, message: error.message})
 }
 
-/** 3. Следующий ролик очереди → задача Reel (если подошёл интервал). */
+/** 2. Следующий ролик очереди → задача Reel (если подошёл интервал), строка удаляется. */
 const dispatchNext = async (supabase: Supabase, config: ReturnType<typeof youtubeQueueConfig>) => {
     const {data, error} = await supabase.rpc('claim_youtube_queue_item', {p_interval_minutes: config.intervalMinutes})
     if (error) throw new Error(`[YOUTUBE QUEUE CLAIM] ${error.message}`)
@@ -237,14 +217,15 @@ const dispatchNext = async (supabase: Supabase, config: ReturnType<typeof youtub
             }
         })
 
-        await updateRow(supabase, row.id, {
-            ...mediaPatch,
-            status: 'dispatched',
-            reel_job_id: result.jobId,
-            dispatched_at: new Date().toISOString(),
-            not_before: null,
-            last_error: null
-        })
+        // Задача Reel поставлена: дальше ролик живёт в reel_processing_jobs, из очереди он удаляется.
+        // Если удаление не прошло, строка останется dispatching и через 15 минут будет взята снова:
+        // dispatchReelJob с тем же source_update_id вернёт ту же задачу, второй не будет.
+        const {error: deleteError} = await supabase
+            .from('youtube_publish_queue')
+            .delete()
+            .eq('id', row.id)
+        if (deleteError) console.error('[YOUTUBE QUEUE DELETE ERROR]', {id: row.id, message: deleteError.message})
+
         await notifyAdmin(`▶️ Автопубликация: собираю Reel «${matched.tmdbTitle}» из ${row.title}\n${videoUrl(row.video_id)}`)
         console.log('[YOUTUBE QUEUE DISPATCHED]', {videoId: row.video_id, jobId: result.jobId, mediaId: matched.mediaId})
         return {videoId: row.video_id, result: 'dispatched', jobId: result.jobId}
@@ -271,6 +252,13 @@ export const processYoutubeQueue = async () => {
     const supabase = getSupabase()
     const errors: string[] = []
 
+    try {
+        await removeLegacyRows(supabase)
+    } catch (error) {
+        errors.push(errorText(error))
+        console.error('[YOUTUBE QUEUE CLEANUP ERROR]', errorText(error))
+    }
+
     for (const channelId of config.channels) {
         try {
             await syncChannel(supabase, channelId, config)
@@ -278,13 +266,6 @@ export const processYoutubeQueue = async () => {
             errors.push(errorText(error))
             console.error('[YOUTUBE QUEUE SYNC ERROR]', {channelId, message: errorText(error)})
         }
-    }
-
-    try {
-        await refreshDispatched(supabase)
-    } catch (error) {
-        errors.push(errorText(error))
-        console.error('[YOUTUBE QUEUE REFRESH ERROR]', errorText(error))
     }
 
     // Воркер Cloud Run сообщает о готовом Reel по https (dispatchReelJob требует https). В npm run dev
