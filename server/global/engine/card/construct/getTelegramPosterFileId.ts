@@ -63,39 +63,52 @@ export const getTelegramMediaImages = async (
         // и загружать их приходится через самого бота.
         const telegram = ctx?.telegram ?? (await import('#server/bot/bot')).bot.telegram
 
-        let messages: any[] = []
+        const uploadOne = (path: string) => telegram.sendPhoto(
+            process.env.TELEGRAM_MEDIA_STORAGE_CHAT_ID,
+            Input.fromURL(`https://image.tmdb.org/t/p/w780${path}`)
+        )
+
+        // Сообщение на каждый загружаемый файл (null — Telegram не смог скачать картинку).
+        let messages: Array<any | null> = []
 
         if (needUpload.length === 1) {
-            messages = [
-                await telegram.sendPhoto(
-                    process.env.TELEGRAM_MEDIA_STORAGE_CHAT_ID,
-                    Input.fromURL(
-                        `https://image.tmdb.org/t/p/w780${first!.path}`
-                    )
-                )
-            ]
+            messages = [await uploadOne(first!.path).catch((error: any) => {
+                console.warn('[TELEGRAM MEDIA] Poster upload failed; card without it', {path: first!.path, error: error?.response?.description ?? error?.message})
+                return null
+            })]
         } else {
-            messages = await telegram.sendMediaGroup(
-                process.env.TELEGRAM_MEDIA_STORAGE_CHAT_ID,
-                needUpload.map(item => ({
-                    type: 'photo' as const,
-                    media: Input.fromURL(
-                        `https://image.tmdb.org/t/p/w780${item.path}`
-                    )
-                }))
-            )
+            try {
+                messages = await telegram.sendMediaGroup(
+                    process.env.TELEGRAM_MEDIA_STORAGE_CHAT_ID,
+                    needUpload.map(item => ({
+                        type: 'photo' as const,
+                        media: Input.fromURL(
+                            `https://image.tmdb.org/t/p/w780${item.path}`
+                        )
+                    }))
+                )
+            } catch (error: any) {
+                // Один недоступный постер («failed to get HTTP URL content») валил всю группу,
+                // а с ней и карточку-список целиком. Повторяем по одному; недоступный — без картинки.
+                console.warn('[TELEGRAM MEDIA] Group upload failed; uploading one by one', error?.response?.description ?? error?.message)
+                messages = []
+                for (const item of needUpload) {
+                    messages.push(await uploadOne(item.path).catch((oneError: any) => {
+                        console.warn('[TELEGRAM MEDIA] Poster upload failed; card without it', {path: item.path, error: oneError?.response?.description ?? oneError?.message})
+                        return null
+                    }))
+                }
+            }
         }
 
         await Promise.all(
             messages.map(async (message: any, index: number) => {
 
                 const fileId =
-                    message.photo?.[message.photo.length - 1]?.file_id
+                    message?.photo?.[message.photo.length - 1]?.file_id
 
                 if (!fileId) {
-                    throw new Error(
-                        `Telegram did not return file_id for ${needUpload[index]!.path}`
-                    )
+                    return
                 }
 
                 const key = needUpload[index]!.key
