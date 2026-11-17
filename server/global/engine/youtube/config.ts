@@ -24,13 +24,32 @@ const TRAILER = ['trailer', 'teaser']
 
 /**
  * Ролики с этими словами не ставятся, даже если в названии есть «trailer»: трейлеры игр и
- * переизданий, подкасты, ролики о съёмках (студии выкладывают их вперемешку с трейлерами).
+ * переизданий, подкасты, ролики о съёмках, анонсы анонсов и промо-ролики с хэштегами
+ * (студии выкладывают их вперемешку с трейлерами).
  */
 export const EXCLUDED_TITLE_WORDS = [
+    // Игры
     'roblox', 'fortnite', 'minecraft', 'gameplay', 'game trailer', 'video game',
+    'dlc', 'launch trailer', 'expansion', 'season pass', 'early access',
+    // Не трейлер фильма
     'podcast', 'featurette', 'behind the scenes', 'deep dive', 'reaction', 'recap',
-    'steelbook', 'blu-ray', 'anniversary', 'collector', 're-release', 'rerelease'
+    'steelbook', 'blu-ray', 'anniversary', 'collector', 're-release', 'rerelease',
+    // Анонс трейлера, а не сам трейлер («Bottoms up! Trailer tomorrow.»)
+    'trailer tomorrow', 'trailer drops', 'trailer coming', 'trailer arrives'
 ]
+
+/**
+ * Промо-ролики с хэштегом («Watch the new trailer for #RemainMovie»): короткие нарезки, полный
+ * трейлер выходит отдельным роликом. Только хэштег со словом: «Official Trailer #2» — настоящий трейлер.
+ */
+export const EXCLUDED_TITLE_PATTERNS = [/#\p{L}/u]
+
+/** Слово или шаблон, по которому ролик не трейлер фильма, или undefined. */
+export const findExcludedTitleReason = (title: string): string | undefined => {
+    const lower = title.toLowerCase()
+    return EXCLUDED_TITLE_WORDS.find(word => lower.includes(word)) ??
+        (EXCLUDED_TITLE_PATTERNS.some(pattern => pattern.test(title)) ? 'хэштег' : undefined)
+}
 
 const DEFAULT_CHANNELS: WatchedChannel[] = [
     // Русские трейлеры: только дубляж.

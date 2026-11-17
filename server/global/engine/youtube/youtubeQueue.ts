@@ -1,7 +1,7 @@
 import {getSupabase, dispatchReelJob} from '#server/global/engine/instagram/reel/jobs/dispatchReelJob'
 import {listChannelVideos, type ChannelVideo} from '#server/global/engine/youtube/channelFeed'
 import {matchTmdbMedia, parseTrailerTitle} from '#server/global/engine/youtube/matchTmdbMedia'
-import {EXCLUDED_TITLE_WORDS, youtubeQueueConfig, type WatchedChannel} from '#server/global/engine/youtube/config'
+import {findExcludedTitleReason, youtubeQueueConfig, type WatchedChannel} from '#server/global/engine/youtube/config'
 import {BOT_ADMINS} from '#server/global/oneLinkApp'
 
 /**
@@ -78,7 +78,7 @@ const syncChannel = async (supabase: Supabase, channel: WatchedChannel, config: 
         if (!channel.keywords.some(keyword => title.includes(keyword))) {
             return {status: 'skipped', reason: `нет «${channel.keywords.join(' / ')}» в названии`}
         }
-        const excluded = EXCLUDED_TITLE_WORDS.find(word => title.includes(word))
+        const excluded = findExcludedTitleReason(video.title)
         if (excluded) return {status: 'skipped', reason: `не трейлер фильма («${excluded}»)`}
         if (video.publishedAt && now - Date.parse(video.publishedAt) > maxAgeMs) {
             return {status: 'skipped', reason: `старше ${config.maxAgeHours} ч`}
