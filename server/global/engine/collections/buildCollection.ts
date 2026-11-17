@@ -269,7 +269,13 @@ export const collectCandidates = async (
                 raw.push(item)
             }
             if (!body.total_pages || page >= body.total_pages) break
-            if (page === MAX_PAGES) capped = true
+            if (page === MAX_PAGES) {
+                // «Скоро» отсортировано по популярности: если хвост уже ниже порога, дальше тоже — счёт точный.
+                const last = body.results?.at(-1)
+                const tailUseful = direction === 'released' ||
+                    Number(last?.popularity) >= MIN_UPCOMING_POPULARITY[section.mediaType]
+                if (tailUseful) capped = true
+            }
         }
     }
 
@@ -293,11 +299,12 @@ const rankScore = (candidate: Candidate, direction: 'released' | 'upcoming', max
     const popularity = Number(candidate.item.popularity) || 0
     if (direction === 'upcoming') return popularity
 
+    // Одна шкала 0…1 для всех, иначе завершённые (сырые голоса) всегда выше идущих.
+    const votesNorm = Math.log1p(votes) / maxLogVotes
     const status = candidate.details?.status
     const stillAiring = candidate.details && !['Ended', 'Canceled'].includes(status)
-    if (!stillAiring) return votes
+    if (!stillAiring) return votesNorm
 
-    const votesNorm = Math.log1p(votes) / maxLogVotes
     const popularityNorm = Math.log1p(popularity) / maxLogPopularity
     return AIRING_POPULARITY_WEIGHT * popularityNorm + (1 - AIRING_POPULARITY_WEIGHT) * votesNorm
 }

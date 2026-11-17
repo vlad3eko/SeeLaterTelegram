@@ -74,11 +74,11 @@ const PROMPT: Record<WizardState['screen'], string> = {
     period: 'За какой период? В скобках — сколько нашлось.'
 }
 
-/** Число на кнопке периода: «(5)», «(100+)»; undefined — ещё считается. */
+/** Число на кнопке периода: «(5)», «(87+)»; undefined — ещё считается. */
 export type PeriodCounts = Partial<Record<string, {count: number, capped: boolean}>>
 
 const countLabel = (count?: {count: number, capped: boolean}) =>
-    !count ? '' : count.capped ? ' (100+)' : ` (${count.count})`
+    !count ? '' : ` (${count.count}${count.capped ? '+' : ''})`
 
 export const renderWizard = (state: WizardState, note?: string, counts?: PeriodCounts) => {
     const header = '🎞 <b>Подборка</b>'
