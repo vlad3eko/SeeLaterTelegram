@@ -22,7 +22,7 @@ const truncate = (text: string, maxLength: number) =>
         ? text.slice(0, maxLength - 1) + '…'
         : text
 
-export const createRichListKeyboard = (items: any[]) => {
+export const createRichListKeyboard = (items: any[], footerRows?: any[][]) => {
 
     const rows = items
         .map((item: any, index: number) => {
@@ -34,9 +34,13 @@ export const createRichListKeyboard = (items: any[]) => {
             }
         )
 
-    rows.push([
-        backButton()
-    ])
+    if (footerRows?.length) {
+        rows.push(...footerRows)
+    } else {
+        rows.push([
+            backButton()
+        ])
+    }
 
     return Markup.inlineKeyboard(rows).reply_markup
 }

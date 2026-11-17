@@ -210,7 +210,19 @@ export const REEL_REVIEW_PICK_HOOK = defineCallback<ReelReviewRef & {option: num
 export const CHECK_SUBSCRIPTION = defineStaticCallback('check_sub', 'check_sub')
 
 // ---------------------------------------------------------------------------
-// Контент-движок админа (/g)
+// Подборки /g (server/bot/actions/collections/): одно действие и необязательный аргумент.
+// Выбор пользователя хранится в таблице collection_wizard, в кнопке — только шаг.
+// ---------------------------------------------------------------------------
+
+export const COLLECTION_ACTION = defineCallback<{action: string, arg?: string}>({
+    id: 'collection',
+    pattern: /^col:([a-z]+)(?::([A-Za-z0-9_-]{1,40}))?$/,
+    encode: ({action, arg}) => arg ? `col:${action}:${arg}` : `col:${action}`,
+    decode: match => ({action: match[1] ?? '', ...(match[2] ? {arg: match[2]} : {})})
+})
+
+// ---------------------------------------------------------------------------
+// Контент-движок админа (старый /g; обработчики оставлены для старых сообщений)
 // ---------------------------------------------------------------------------
 
 export const CONTENT_STRATEGY = defineCallback<{strategy: ContentStrategy, userId: number}>({

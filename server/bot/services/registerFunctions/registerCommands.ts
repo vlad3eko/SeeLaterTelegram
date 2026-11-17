@@ -13,7 +13,7 @@ import {genresConvert} from "~/utils/convert/genresConvert";
 import {commandStart} from "#server/bot/commands/commandStart";
 import {commandHelp} from "#server/bot/commands/commandHelp";
 import {commandClear} from "#server/bot/commands/commandClear";
-import {commandContent} from "#server/bot/commands/commandContent";
+import {startCollections} from "#server/bot/actions/collections/collectionsActions";
 import {menuBot} from "#server/bot/handlers/commands/start/menuBot";
 import {LEGACY_MENU_BOT} from "#server/bot/callbacks/routes";
 import {contentTypeToTag} from "~/utils/convert/contentTypeConvert";
@@ -167,7 +167,8 @@ export function registerCommands(bot: Telegraf) {
 
     bot.command('help', commandHelp)
     bot.command('clear', commandClear)
-    bot.command('g', commandContent)
+    // Подборки (мастер, server/bot/actions/collections/); прежний генератор — commandContent.ts, не подключён.
+    bot.command('g', startCollections)
     // Кнопки menu_bot в коде больше нет: обработчик оставлен для старых сообщений.
     bot.action(LEGACY_MENU_BOT.pattern, menuBot)
 }

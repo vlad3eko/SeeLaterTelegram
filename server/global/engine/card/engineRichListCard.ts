@@ -1,12 +1,13 @@
 import type {queryCTX, queryRichCard} from "#server/global/engine/card/enum/types"
-import {constructRichListCard} from "#server/global/engine/card/construct/constructRichListCard"
+import {constructRichListCard, type RichListOptions} from "#server/global/engine/card/construct/constructRichListCard"
 import {tryGenerateCard} from "#server/global/engine/card/construct/tryGenerateCard"
 import {sendRichMessage} from "#server/global/engine/card/transport/sendRichMessage"
 import {normalizeRichContext} from "#server/global/engine/card/construct/normalizeRichContext"
 
 export const engineRichListCard = async (
     ctx: queryCTX | any | undefined,
-    queries: queryRichCard[]
+    queries: queryRichCard[],
+    options: RichListOptions = {}
 ) => {
 
     const richCtx =
@@ -16,7 +17,7 @@ export const engineRichListCard = async (
     if (!queries.length) return
 
     const {caption, keyboard} =
-        await constructRichListCard(richCtx, queries)
+        await constructRichListCard(richCtx, queries, options)
 
     /*
      * inline message
