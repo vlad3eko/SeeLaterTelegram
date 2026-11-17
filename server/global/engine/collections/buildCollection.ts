@@ -2,6 +2,7 @@ import {
     EXCLUDED_GENRES,
     genreByKey,
     periodByKey,
+    PERIODS,
     type PeriodKey,
     SECTIONS,
     type SectionKey,
@@ -269,4 +270,56 @@ export const buildCollection = async (
     }
 
     return {params, items, rest, stats: {candidates: candidates.length, checkedTrailers: checked, withoutTrailer}}
+}
+
+/**
+ * Интервалы того же направления, которые шире заданного, от ближайшего к самому широкому.
+ * Порядок считается по датам, а не по списку: «Этот год» в январе короче «Последних полугода»,
+ * а «До конца года» в ноябре короче «Ближайших 3 месяцев».
+ */
+export const widerPeriods = (period: PeriodKey): PeriodKey[] => {
+    const direction = periodByKey(period)!.direction
+    const span = (key: PeriodKey) => {
+        const {from, to} = periodRange(key)
+        return direction === 'released'
+            ? (from ? Date.parse(from) : Number.NEGATIVE_INFINITY)
+            : (to ? Date.parse(to) : Number.POSITIVE_INFINITY)
+    }
+    const baseSpan = span(period)
+
+    return PERIODS
+        .filter(other => other.direction === direction && other.key !== period)
+        .map(other => other.key)
+        .filter(key => direction === 'released' ? span(key) < baseSpan : span(key) > baseSpan)
+        .sort((a, b) => direction === 'released' ? span(b) - span(a) : span(a) - span(b))
+}
+
+export type WidenedCollectionResult = CollectionResult & {
+    requestedPeriod: PeriodKey
+    usedPeriod: PeriodKey
+    widened: boolean
+}
+
+/**
+ * Топ с автоматическим расширением интервала (решение владельца 17.11): если в заданном
+ * интервале меньше minSize тайтлов с трейлером, топ собирается заново по следующему, более
+ * широкому интервалу — и так до самого широкого. Если не хватает и там, возвращается лучшее,
+ * что нашлось (карточка показывает «нашлось N»).
+ */
+export const buildCollectionWidening = async (
+    params: CollectionParams,
+    {size = COLLECTION_SIZE, minSize = COLLECTION_SIZE}: {size?: number, minSize?: number} = {}
+): Promise<WidenedCollectionResult> => {
+    let best: CollectionResult | null = null
+
+    for (const period of [params.period, ...widerPeriods(params.period)]) {
+        const result = await buildCollection({...params, period}, {size, minSize})
+        if (!best || result.items.length > best.items.length) best = result
+        if (result.items.length >= minSize) {
+            return {...result, params: {...params, period}, requestedPeriod: params.period, usedPeriod: period, widened: period !== params.period}
+        }
+    }
+
+    const usedPeriod = best!.params.period
+    return {...best!, requestedPeriod: params.period, usedPeriod, widened: usedPeriod !== params.period}
 }
