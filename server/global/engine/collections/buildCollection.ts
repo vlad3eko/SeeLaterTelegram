@@ -54,6 +54,7 @@ export type CollectionResult = {
 export const COLLECTION_SIZE = 10
 
 const MAX_CANDIDATE_PAGES = 3
+const MAX_CANDIDATE_PAGES_UPCOMING = 5
 
 /**
  * Профиль ранжирования интервала. Голоса — для фильмов; у сериалов в TMDB голосов
@@ -187,8 +188,10 @@ export const buildCollection = async (
     // У сериалов «новые серии» (air_date) иначе вернут и сериалы без первого показа в истории.
     if (section.mediaType === 'tv' && section.dateField === 'air_date') query.set('include_null_first_air_dates', 'false')
 
+    // У анонсов трейлер есть далеко не у всех: кандидатов берётся больше.
+    const maxPages = periodByKey(params.period)!.direction === 'upcoming' ? MAX_CANDIDATE_PAGES_UPCOMING : MAX_CANDIDATE_PAGES
     const candidates: Raw[] = []
-    for (let page = 1; page <= MAX_CANDIDATE_PAGES; page++) {
+    for (let page = 1; page <= maxPages; page++) {
         query.set('page', String(page))
         const body = await tmdbGet<{results?: Raw[], total_pages?: number}>(`discover/${section.mediaType}?${query}`)
         candidates.push(...(body.results ?? []))
