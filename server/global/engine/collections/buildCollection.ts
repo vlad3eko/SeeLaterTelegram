@@ -80,9 +80,14 @@ const PROFILES: Record<PeriodKey, Profile> = {
 
 const TV_VOTES_FACTOR = 0.3
 
-/** «Скоро»: анонсы с популярностью TMDB ниже этой — совсем незаметные, в топ не берутся. */
-const MIN_UPCOMING_POPULARITY_MOVIE = 3
-const MIN_UPCOMING_POPULARITY_TV = 2
+/**
+ * «Скоро»: анонсы с популярностью TMDB ниже этой — совсем незаметные, в топ не берутся.
+ * Порог низкий: до начала промо популярность даже у ожидаемых фильмов около 2–3
+ * («Тихое место 3» — 2.9, «Зловещие мертвецы: Гнев» — 1.9 на 17.11.2026). Основной
+ * мусор отсекает проверка названия (hasReadableTitle).
+ */
+const MIN_UPCOMING_POPULARITY_MOVIE = 1.5
+const MIN_UPCOMING_POPULARITY_TV = 1
 
 /** Название на кириллице или латинице (цифры и знаки допустимы), без букв других письменностей. */
 export const hasReadableTitle = (title: string) =>
