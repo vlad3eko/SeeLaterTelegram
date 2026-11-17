@@ -79,6 +79,15 @@ const PROFILES: Record<PeriodKey, Profile> = {
 
 const TV_VOTES_FACTOR = 0.3
 
+/** «Скоро»: анонсы с популярностью TMDB ниже этой — совсем незаметные, в топ не берутся. */
+const MIN_UPCOMING_POPULARITY_MOVIE = 3
+const MIN_UPCOMING_POPULARITY_TV = 2
+
+/** Название на кириллице или латинице (цифры и знаки допустимы), без букв других письменностей. */
+export const hasReadableTitle = (title: string) =>
+    /[\p{Script=Latin}\p{Script=Cyrillic}0-9]/u.test(title) &&
+    !/[\p{L}--[\p{Script=Latin}\p{Script=Cyrillic}]]/v.test(title)
+
 const pad = (value: number) => String(value).padStart(2, '0')
 const isoDate = (date: Date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
 const shift = (days = 0, months = 0, years = 0) => {
@@ -179,6 +188,17 @@ export const buildCollection = async (
         candidates.push(...(body.results ?? []))
         if (!body.total_pages || page >= body.total_pages) break
     }
+
+    // Отсев: тайтлы без русского и английского названия (название только тайской вязью,
+    // деванагари, хангылем и т. п.) не для нашей аудитории; у «Скоро» оценок ещё нет, поэтому
+    // совсем незаметные анонсы отсекаются по популярности.
+    const minUpcomingPopularity = section.mediaType === 'tv' ? MIN_UPCOMING_POPULARITY_TV : MIN_UPCOMING_POPULARITY_MOVIE
+    const isUpcoming = periodByKey(params.period)!.direction === 'upcoming'
+    const filtered = candidates.filter(item =>
+        hasReadableTitle(String(item.title || item.name || '')) &&
+        (!isUpcoming || Number(item.popularity) >= minUpcomingPopularity))
+    candidates.length = 0
+    candidates.push(...filtered)
 
     // Ранжирование.
     const voted = candidates.filter(item => Number(item.vote_count) > 0)
