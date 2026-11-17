@@ -108,6 +108,20 @@ const backFrom = (state: WizardState): WizardState => {
     }
 }
 
+/** На каком экране допустимо действие (кнопки «Назад», «Закрыть», карточки — везде). */
+const ALLOWED_ON_SCREEN: Record<string, WizardState['screen'][]> = {
+    s: ['root'],
+    ss: ['series'],
+    c: ['criterion'],
+    f: ['filter'],
+    tg: ['filter'],
+    tt: ['filter'],
+    rs: ['filter'],
+    ok: ['filter'],
+    d: ['direction'],
+    p: ['period']
+}
+
 const toggle = (list: string[], key: string) =>
     list.includes(key) ? list.filter(item => item !== key) : [...list, key]
 
@@ -281,6 +295,15 @@ export const collectionAction = async (ctx: any) => {
             row.messageId = ctx.callbackQuery.message.message_id
         }
         let state = row.state
+
+        // Кнопка не с текущего экрана (старое сообщение, двойное нажатие) — просто перерисовать мастер.
+        const screenFor = ALLOWED_ON_SCREEN[action]
+        if (screenFor && !screenFor.includes(state.screen)) {
+            await safeAnswer(ctx, 'Меню обновлено — выберите заново.')
+            await showWizard(ctx, row)
+            await saveWizard(row)
+            return
+        }
 
         switch (action) {
             case 'x':
