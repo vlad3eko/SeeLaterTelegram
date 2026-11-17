@@ -101,6 +101,14 @@ const tvCardStrategy = {
             }
         ),
 
+        // Актёры — как у фильмов (режиссёр + 5 из титров); отдельный вызов: у сериала postersList — обложки сезонов.
+        cast: mode === 'item'
+            ? (await getTelegramMediaImages(ctx?.ctx, query.id, query.type, {
+                poster: [],
+                postersList: normalizeEnrichImages('movie', data.credits)
+            })).postersList
+            : [],
+
         genres: data.genres,
         seasons: data.seasons
     }),

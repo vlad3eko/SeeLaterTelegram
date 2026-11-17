@@ -8,7 +8,8 @@ import type {Direction, SectionKey, YearRangeKey} from '#server/global/engine/co
  * Экран и выбор живут здесь: в callback_data Telegram помещается только 64 байта.
  */
 
-export type WizardScreen = 'root' | 'series' | 'criterion' | 'filter' | 'direction' | 'period'
+/** home — режимы /g; result — меню превратилось в подборку; title — открыт тайтл из подборки. */
+export type WizardScreen = 'home' | 'root' | 'series' | 'criterion' | 'filter' | 'direction' | 'period' | 'result' | 'title'
 
 /** Раздел верхнего меню (схема владельца 17.11). Этап 1: фильмы и сериалы, остальное — позже. */
 export type SectionGroup = 'movies' | 'series' | 'cartoons' | 'cseries' | 'anime' | 'people'
@@ -26,6 +27,8 @@ export type WizardState = {
     year?: YearRangeKey
     openYear: boolean
     direction?: Direction
+    /** Подборка, в которую превратилось сообщение мастера (screen result/title). */
+    collectionId?: string
 }
 
 export type WizardRow = {
@@ -36,7 +39,7 @@ export type WizardRow = {
 }
 
 export const emptyState = (): WizardState => ({
-    screen: 'root',
+    screen: 'home',
     genres: [],
     tags: [],
     openGenres: true,

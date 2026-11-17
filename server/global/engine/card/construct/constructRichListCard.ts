@@ -10,6 +10,8 @@ export type RichListOptions = {
     footerRows?: any[][]
     /** Дата у сериалов: первая серия или последняя вышедшая. */
     tvDate?: 'first' | 'last'
+    /** Своя кнопка строки (подборки /g: открыть тайтл с возвратом к подборке). */
+    itemButton?: (text: string, index: number) => any
 }
 
 export const constructRichListCard = async (
@@ -35,6 +37,6 @@ export const constructRichListCard = async (
     return {
         items,
         caption,
-        keyboard: createRichListKeyboard(items, options.footerRows)
+        keyboard: createRichListKeyboard(items, options.footerRows, options.itemButton)
     }
 }

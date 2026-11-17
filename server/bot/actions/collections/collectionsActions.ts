@@ -1,20 +1,32 @@
-import {Markup} from 'telegraf'
 import {COLLECTION_ACTION} from '#server/bot/callbacks/routes'
 import {getSupabase} from '#server/global/engine/instagram/reel/jobs/dispatchReelJob'
-import {engineRichListCard} from '#server/global/engine/card/engineRichListCard'
+import {constructRichListCard} from '#server/global/engine/card/construct/constructRichListCard'
+import {tryGenerateCard} from '#server/global/engine/card/construct/tryGenerateCard'
+import {engineRichCard} from '#server/global/engine/card/engineRichCard'
 import {
     buildCollectionFor,
     COLLECTION_SIZE,
+    collectionWindow,
     countCollection,
     type CollectionItem,
     type CollectionParams
 } from '#server/global/engine/collections/buildCollection'
 import {mapLimit} from '#server/global/engine/collections/tmdb'
 import {findTrailers} from '#server/global/engine/collections/trailers'
-import {genreByKey, PERIODS, periodByKey, SECTIONS, tagByKey, yearRangeByKey, type PeriodKey} from '#server/global/engine/collections/catalog'
+import {
+    genreByKey,
+    isPastYearRange,
+    PERIODS,
+    periodByKey,
+    SECTIONS,
+    tagByKey,
+    yearRangeByKey,
+    type PeriodKey
+} from '#server/global/engine/collections/catalog'
 import {addMessageSession} from '#server/bot/services/session/addMessageSession'
 import {SessionMessageType} from '#server/bot/consts/types/SessionMessageTypes'
 import type {ContentType} from '#server/global/engine/search/strategy/enums'
+import {isAdmin} from '#server/bot/consts/admins'
 import {
     canPublishCollections,
     canUseCollections,
@@ -25,25 +37,24 @@ import {
     type WizardState
 } from '#server/bot/actions/collections/wizardState'
 import {
+    btn,
     collectionNote,
     collectionTitle,
     GROUPS,
     renderWizard,
-    type PeriodCounts
+    type PeriodCounts,
+    type RenderOptions
 } from '#server/bot/actions/collections/wizardView'
 
 /**
- * Мастер подборок /g (план — TASKS.md «ТЕКУЩАЯ ЗАДАЧА: подборки /g»):
- * Подборка → раздел → (сериалы: вышли полностью / новые серии и сезоны / скоро) →
- * Фильтр (жанры, теги, год) или Популярное → (фильмы: уже вышли / скоро) →
- * интервал с числом найденного → карточка «топ-10 с трейлерами».
- * Всё меню — одно сообщение, кнопки меняются на месте. Карточка — отдельное сообщение.
+ * /g (план — TASKS.md «ТЕКУЩАЯ ЗАДАЧА: подборки /g»): режимы → «Подборка» → раздел →
+ * (сериалы: вышли полностью / новые серии и сезоны / скоро) → Фильтр (жанры, теги, год) или
+ * Популярное → (фильмы: уже вышли / скоро) → интервал с числом найденного → подборка.
+ * Всё — одно сообщение: меню превращается в подборку (топ-10 с трейлерами), из подборки
+ * открывается тайтл, «Назад в меню» возвращает меню на место.
  */
 
 const DENIED = 'Подборки пока недоступны.'
-
-const btn = (text: string, action: string, arg?: string) =>
-    Markup.button.callback(text, COLLECTION_ACTION.encode({action, ...(arg ? {arg} : {})}))
 
 const safeAnswer = async (ctx: any, text?: string, alert = false) => {
     try {
@@ -56,9 +67,53 @@ const safeAnswer = async (ctx: any, text?: string, alert = false) => {
 const isNotModified = (error: any) =>
     String(error?.response?.description ?? error?.message ?? '').includes('message is not modified')
 
-/** Перерисовать сообщение мастера (по id из базы, чтобы работало и из карточки). */
-const showWizard = async (ctx: any, row: WizardRow, note?: string, counts?: PeriodCounts) => {
-    const {text, keyboard} = renderWizard(row.state, note, counts)
+type CollectionRecord = {
+    rank: number
+    media_type: 'movie' | 'tv'
+    content_type: string
+    id: number
+    title?: string
+    year?: number | null
+    score: number
+    trailer_key: string
+    trailer_language: string
+}
+
+type CollectionRow = {
+    id: string
+    telegram_id: number
+    params: CollectionParams & {match?: 'and' | 'or'}
+    items: CollectionRecord[]
+    candidates: Array<{id: number, score: number}>
+    page: number
+}
+
+const paramsFor = (state: WizardState, period: PeriodKey): CollectionParams | null => {
+    if (!state.section || !state.criterion) return null
+    return {
+        section: state.section,
+        criterion: state.criterion,
+        ...(state.criterion === 'filter'
+            ? {genres: state.genres, tags: state.tags, ...(state.year ? {year: state.year} : {})}
+            : {}),
+        period
+    }
+}
+
+/** Периоды направления, у которых есть пересечение с блоком «Год» (иначе кнопка бессмысленна). */
+const availablePeriods = (state: WizardState) =>
+    PERIODS.filter(period => {
+        if (period.direction !== state.direction) return false
+        const params = paramsFor(state, period.key)
+        return Boolean(params && collectionWindow(params))
+    })
+
+/** Перерисовать сообщение мастера (по id из базы). */
+const showWizard = async (ctx: any, row: WizardRow, options: RenderOptions = {}) => {
+    const {text, keyboard} = renderWizard(row.state, {
+        ...options,
+        periods: options.periods ?? availablePeriods(row.state)
+    })
     const chatId = row.chatId ?? ctx.chat?.id
     if (chatId && row.messageId) {
         try {
@@ -79,7 +134,7 @@ const showWizard = async (ctx: any, row: WizardRow, note?: string, counts?: Peri
     await addMessageSession(ctx.from.id, SessionMessageType.Menu, {messageId: message.message_id})
 }
 
-/** Команда /g: новое меню подборки. */
+/** Команда /g: меню режимов. */
 export const startCollections = async (ctx: any) => {
     const telegramId = Number(ctx.from?.id)
     try {
@@ -102,9 +157,20 @@ export const startCollections = async (ctx: any) => {
     await saveWizard(row)
 }
 
+/** Следующий экран после фильтра или «Популярного». */
+const afterCriterion = (state: WizardState): WizardState => {
+    const direction = state.section ? SECTIONS[state.section].direction : undefined
+    if (state.group === 'series' && direction) return {...state, screen: 'period', direction}
+    // Фильм из диапазона «1985–2000» или «2000–2015» уже вышел: «Скоро» не спрашиваем.
+    if (isPastYearRange(state.year)) return {...state, screen: 'period', direction: 'released'}
+    return {...state, screen: 'direction'}
+}
+
 /** Родительский экран для «Назад». */
 const backFrom = (state: WizardState): WizardState => {
     switch (state.screen) {
+        case 'root':
+            return emptyState()
         case 'series':
             return {...state, screen: 'root', group: undefined, section: undefined}
         case 'criterion':
@@ -115,21 +181,22 @@ const backFrom = (state: WizardState): WizardState => {
             return {...state, screen: 'criterion', criterion: undefined}
         case 'direction':
             return {...state, screen: state.criterion === 'filter' ? 'filter' : 'criterion', direction: undefined, ...(state.criterion === 'popular' ? {criterion: undefined} : {})}
-        case 'period':
-            // У сериалов направление задано подразделом — экрана «Уже вышли / Скоро» нет.
-            if (state.group === 'series') {
-                return state.criterion === 'filter'
-                    ? {...state, screen: 'filter', direction: undefined}
-                    : {...state, screen: 'criterion', criterion: undefined, direction: undefined}
-            }
-            return {...state, screen: 'direction', direction: undefined}
+        case 'period': {
+            // Экрана «Уже вышли / Скоро» не было (сериалы, фильмы с прошедшим «Годом») — назад к фильтру.
+            const skippedDirection = state.group === 'series' || isPastYearRange(state.year)
+            if (!skippedDirection) return {...state, screen: 'direction', direction: undefined}
+            return state.criterion === 'filter'
+                ? {...state, screen: 'filter', direction: undefined}
+                : {...state, screen: 'criterion', criterion: undefined, direction: undefined}
+        }
         default:
             return emptyState()
     }
 }
 
-/** На каком экране допустимо действие (кнопки «Назад», «Закрыть», карточки — везде). */
+/** На каком экране допустимо действие. */
 const ALLOWED_ON_SCREEN: Record<string, WizardState['screen'][]> = {
+    m: ['home'],
     s: ['root'],
     ss: ['series'],
     c: ['criterion'],
@@ -140,31 +207,16 @@ const ALLOWED_ON_SCREEN: Record<string, WizardState['screen'][]> = {
     rs: ['filter'],
     ok: ['filter'],
     d: ['direction'],
-    p: ['period']
+    p: ['period'],
+    more: ['result'],
+    t: ['result'],
+    car: ['result'],
+    cb: ['result'],
+    l: ['title']
 }
 
 const toggle = (list: string[], key: string) =>
     list.includes(key) ? list.filter(item => item !== key) : [...list, key]
-
-/** Следующий экран после выбора критерия: у сериалов направление известно из подраздела. */
-const afterCriterion = (state: WizardState): WizardState => {
-    const direction = state.section ? SECTIONS[state.section].direction : undefined
-    return state.group === 'series' && direction
-        ? {...state, screen: 'period', direction}
-        : {...state, screen: 'direction'}
-}
-
-const paramsFor = (state: WizardState, period: PeriodKey): CollectionParams | null => {
-    if (!state.section || !state.criterion) return null
-    return {
-        section: state.section,
-        criterion: state.criterion,
-        ...(state.criterion === 'filter'
-            ? {genres: state.genres, tags: state.tags, ...(state.year ? {year: state.year} : {})}
-            : {}),
-        period
-    }
-}
 
 /** Какую дату показывать у сериалов в карточке: у «Скоро» — первую серию, иначе последнюю. */
 const tvDateFor = (section?: string): 'first' | 'last' | undefined => {
@@ -177,13 +229,19 @@ const sameSelection = (a: WizardState, b: WizardState) =>
     JSON.stringify([b.screen, b.section, b.criterion, b.genres, b.tags, b.year, b.direction])
 
 /**
- * Числа на кнопках периодов: сколько тайтлов нашлось (без трейлеров и картинок).
- * Пока считаем, кнопки без чисел; если пользователь ушёл с экрана — не перерисовываем.
+ * Экран периода с числами на кнопках (сколько нашлось с трейлером). Пока считаем —
+ * «Подсчёт вариантов»; если период один (фильм с «Годом» 1985–2000) — сразу подборка.
  */
-const showPeriodCounts = async (ctx: any, row: WizardRow) => {
+const enterPeriod = async (ctx: any, row: WizardRow) => {
     const state = row.state
-    const periods = PERIODS.filter(period => period.direction === state.direction)
-    await showWizard(ctx, row, '⏳ Считаю, сколько нашлось за каждый период…')
+    const periods = availablePeriods(state)
+    if (periods.length === 1) {
+        await buildAndSend(ctx, row, periods[0]!.key)
+        await saveWizard(row)
+        return
+    }
+
+    await showWizard(ctx, row, {counting: true, periods})
     await saveWizard(row)
 
     const counts: PeriodCounts = {}
@@ -199,26 +257,10 @@ const showPeriodCounts = async (ctx: any, row: WizardRow) => {
 
     const current = await loadWizard(row.telegramId)
     if (!sameSelection(current.state, state) || current.messageId !== row.messageId) return
-    await showWizard(ctx, row, undefined, counts)
+    await showWizard(ctx, row, {counts, periods})
 }
 
-const toQuery = (item: CollectionItem) => ({
-    id: item.id,
-    type: item.mediaType,
-    status: 'ready' as const,
-    contentType: item.contentType as ContentType,
-    keyTrailer: item.trailer.key
-})
-
-const cardFooter = (telegramId: number, collectionId: string, hasMore: boolean) => [
-    ...(canPublishCollections(telegramId) ? [[btn('🎠 Собрать карусель', 'car', collectionId)]] : []),
-    [
-        ...(hasMore ? [btn('🔁 Ещё вариант', 'more', collectionId)] : []),
-        btn('◀️ К подборке', 'cb', collectionId)
-    ]
-]
-
-const itemRecord = (item: CollectionItem) => ({
+const recordOf = (item: CollectionItem): CollectionRecord => ({
     rank: item.rank,
     media_type: item.mediaType,
     content_type: item.contentType,
@@ -230,20 +272,74 @@ const itemRecord = (item: CollectionItem) => ({
     trailer_language: item.trailer.language
 })
 
-/** Интервал выбран: собрать топ строго за этот период, сохранить подборку, прислать карточку. */
+const queryOf = (record: CollectionRecord) => ({
+    id: record.id,
+    type: record.media_type,
+    status: 'ready' as const,
+    contentType: record.content_type as ContentType,
+    keyTrailer: record.trailer_key
+})
+
+const loadCollection = async (collectionId: string | undefined, telegramId: number): Promise<CollectionRow | null> => {
+    if (!collectionId) return null
+    const {data, error} = await getSupabase()
+        .from('collections')
+        .select('id,telegram_id,params,items,candidates,page')
+        .eq('id', collectionId)
+        .maybeSingle()
+    if (error) throw new Error(`[COLLECTIONS] ${error.message}`)
+    if (!data || Number(data.telegram_id) !== telegramId) return null
+    return data as CollectionRow
+}
+
+const richTarget = (ctx: any, row: WizardRow) => ({
+    ctx,
+    chatId: row.chatId ?? ctx.chat?.id,
+    messageId: row.messageId,
+    isAdmin: isAdmin(row.telegramId)
+})
+
+/** Сообщение мастера → карточка подборки (текущая страница). */
+const showCollection = async (ctx: any, row: WizardRow, collection: CollectionRow) => {
+    const state = row.state
+    const page = Number(collection.page ?? 0)
+    const count = collection.items.length
+    const note = page === 0 ? collectionNote(count, collection.params.match ?? 'and') : ''
+    const hasMore = (collection.candidates ?? []).length > 0
+
+    const footerRows = [
+        ...(canPublishCollections(row.telegramId) ? [[btn('🎠 Собрать карусель', 'car')]] : []),
+        [
+            btn('◀️ Назад в меню', 'cb', undefined, 'danger'),
+            ...(hasMore ? [btn('🔁 Ещё вариант', 'more', undefined, 'success')] : [])
+        ]
+    ]
+
+    const target = richTarget(ctx, row)
+    const {caption, keyboard} = await constructRichListCard(target, collection.items.map(queryOf), {
+        title: collectionTitle(state, count, collection.params.period, page, collection.params.match ?? 'and') + (note ? `\n${note}` : ''),
+        footerRows,
+        tvDate: tvDateFor(collection.params.section),
+        itemButton: (text, index) => btn(text, 't', String(index))
+    })
+    await tryGenerateCard(target, caption, keyboard)
+}
+
+/** Интервал выбран: собрать топ строго за этот период, сохранить, превратить меню в подборку. */
 const buildAndSend = async (ctx: any, row: WizardRow, period: PeriodKey) => {
     const state = row.state
     const params = paramsFor(state, period)
     if (!params || !periodByKey(period)) {
-        await showWizard(ctx, {...row, state: emptyState()})
+        row.state = emptyState()
+        await showWizard(ctx, row)
         return
     }
 
-    await showWizard(ctx, row, '⏳ Собираю топ: ищу тайтлы и проверяю трейлеры…')
+    await showWizard(ctx, row, {note: '⏳ Собираю топ: ищу тайтлы и проверяю трейлеры…'})
 
     const result = await buildCollectionFor(params)
     if (!result.items.length) {
-        await showWizard(ctx, row, '😕 За этот период ничего не нашлось с трейлером. Выберите другой период или вернитесь и измените фильтр.')
+        await showWizard(ctx, row, {note: '😕 За этот период ничего не нашлось с трейлером. Выберите другой период или вернитесь и измените фильтр.'})
         return
     }
 
@@ -252,41 +348,25 @@ const buildAndSend = async (ctx: any, row: WizardRow, period: PeriodKey) => {
         .insert({
             telegram_id: row.telegramId,
             params: {...params, match: result.match},
-            items: result.items.map(itemRecord),
+            items: result.items.map(recordOf),
             candidates: result.rest,
             page: 0
         })
-        .select('id')
+        .select('id,telegram_id,params,items,candidates,page')
         .single()
     if (error) throw new Error(`[COLLECTIONS] Save failed: ${error.message}`)
 
-    const note = collectionNote(result.items.length, result.match)
-    await engineRichListCard(ctx, result.items.map(toQuery), {
-        title: collectionTitle(state, result.items.length, period, 0, result.match) + (note ? `\n${note}` : ''),
-        footerRows: cardFooter(row.telegramId, saved.id, result.rest.length > 0),
-        tvDate: tvDateFor(state.section)
-    })
-
-    await showWizard(ctx, row, '✅ Подборка готова — она ниже. Можно выбрать другой период или вернуться назад.')
+    row.state = {...state, screen: 'result', collectionId: saved.id}
+    await showCollection(ctx, row, saved as CollectionRow)
+    await saveWizard(row)
 }
 
-/** «Ещё вариант»: следующие 10 с трейлером из оставшихся кандидатов той же подборки. */
-const sendMore = async (ctx: any, collectionId: string) => {
-    const supabase = getSupabase()
-    const {data: collection, error} = await supabase
-        .from('collections')
-        .select('id,telegram_id,params,candidates,page')
-        .eq('id', collectionId)
-        .maybeSingle()
-    if (error) throw new Error(`[COLLECTIONS] ${error.message}`)
-    if (!collection || Number(collection.telegram_id) !== Number(ctx.from.id)) {
-        await safeAnswer(ctx, 'Подборка не найдена — соберите новую через /g.', true)
-        return
-    }
-
-    const section = SECTIONS[collection.params.section as keyof typeof SECTIONS]
-    const rest = (collection.candidates ?? []) as Array<{id: number, score: number}>
-    if (!section || !rest.length) {
+/** «Ещё вариант»: следующие 10 с трейлером из оставшихся кандидатов — в том же сообщении. */
+const showMore = async (ctx: any, row: WizardRow) => {
+    const collection = await loadCollection(row.state.collectionId, row.telegramId)
+    const section = collection ? SECTIONS[collection.params.section] : undefined
+    const rest = collection?.candidates ?? []
+    if (!collection || !section || !rest.length) {
         await safeAnswer(ctx, 'Больше вариантов нет.', true)
         return
     }
@@ -305,50 +385,36 @@ const sendMore = async (ctx: any, collectionId: string) => {
         }
     }
     if (!picked.length) {
+        await getSupabase().from('collections').update({candidates: []}).eq('id', collection.id)
         await safeAnswer(ctx, 'Больше вариантов с трейлером нет.', true)
         return
     }
 
     const page = Number(collection.page ?? 0) + 1
-    const remaining = rest.slice(cursor)
-    const items = picked.map((entry, index) => ({
-        rank: page * COLLECTION_SIZE + index + 1,
-        media_type: section.mediaType,
-        content_type: section.contentType,
-        id: entry.id,
-        score: entry.score,
-        trailer_key: entry.trailer.key,
-        trailer_language: entry.trailer.language
-    }))
-
-    await supabase
-        .from('collections')
-        .update({items, candidates: remaining, page, updated_at: new Date().toISOString()})
-        .eq('id', collectionId)
-
-    const state: WizardState = {
-        ...emptyState(),
-        group: section.mediaType === 'tv' ? 'series' : 'movies',
-        section: collection.params.section,
-        criterion: collection.params.criterion,
-        genres: collection.params.genres ?? [],
-        tags: collection.params.tags ?? [],
-        ...(yearRangeByKey(collection.params.year) ? {year: collection.params.year} : {})
+    const updated: CollectionRow = {
+        ...collection,
+        page,
+        candidates: rest.slice(cursor),
+        items: picked.map((entry, index) => ({
+            rank: page * COLLECTION_SIZE + index + 1,
+            media_type: section.mediaType,
+            content_type: section.contentType,
+            id: entry.id,
+            score: entry.score,
+            trailer_key: entry.trailer.key,
+            trailer_language: entry.trailer.language
+        }))
     }
-    await engineRichListCard(ctx, picked.map(entry => ({
-        id: entry.id,
-        type: section.mediaType,
-        status: 'ready' as const,
-        contentType: section.contentType as ContentType,
-        keyTrailer: entry.trailer.key
-    })), {
-        title: collectionTitle(state, picked.length, collection.params.period ?? collection.params.used_period, page, collection.params.match ?? 'and'),
-        footerRows: cardFooter(Number(ctx.from.id), collectionId, remaining.length > 0),
-        tvDate: tvDateFor(collection.params.section)
-    })
+
+    await getSupabase()
+        .from('collections')
+        .update({items: updated.items, candidates: updated.candidates, page, updated_at: new Date().toISOString()})
+        .eq('id', collection.id)
+
+    await showCollection(ctx, row, updated)
 }
 
-/** Все кнопки мастера и карточки подборки. */
+/** Все кнопки /g. */
 export const collectionAction = async (ctx: any) => {
     const telegramId = Number(ctx.from?.id)
     if (!canUseCollections(telegramId)) {
@@ -360,23 +426,24 @@ export const collectionAction = async (ctx: any) => {
 
     try {
         if (action === 'noop') return safeAnswer(ctx)
-        if (action === 'more') return sendMore(ctx, String(arg))
-        if (action === 'car') return safeAnswer(ctx, 'Сборка карусели появится на следующем этапе.', true)
 
         const row = await loadWizard(telegramId)
-        // Нажата кнопка в сообщении мастера — запоминаем его как текущее.
-        if (action !== 'cb' && ctx.callbackQuery?.message) {
-            row.chatId = ctx.callbackQuery.message.chat.id
-            row.messageId = ctx.callbackQuery.message.message_id
+        const pressed = ctx.callbackQuery?.message
+        // Кнопка из старого сообщения (до последнего /g) — не трогаем текущее меню.
+        if (pressed && row.messageId && pressed.message_id !== row.messageId) {
+            return safeAnswer(ctx, 'Это старое меню — откройте /g заново.', true)
+        }
+        if (pressed) {
+            row.chatId = pressed.chat.id
+            row.messageId = pressed.message_id
         }
         let state = row.state
 
-        // Кнопка не с текущего экрана (старое сообщение, двойное нажатие) — просто перерисовать мастер.
+        // Кнопка не с текущего экрана (двойное нажатие) — просто перерисовать.
         const screenFor = ALLOWED_ON_SCREEN[action]
         if (screenFor && !screenFor.includes(state.screen)) {
             await safeAnswer(ctx, 'Меню обновлено — выберите заново.')
-            await showWizard(ctx, row)
-            await saveWizard(row)
+            if (state.screen !== 'result' && state.screen !== 'title') await showWizard(ctx, row)
             return
         }
 
@@ -386,6 +453,10 @@ export const collectionAction = async (ctx: any) => {
                 await ctx.deleteMessage().catch(() => undefined)
                 await saveWizard({telegramId, state: emptyState()})
                 return
+
+            case 'm':
+                state = {...emptyState(), screen: 'root'}
+                break
 
             case 'b':
                 state = backFrom(state)
@@ -403,7 +474,7 @@ export const collectionAction = async (ctx: any) => {
 
             case 'ss':
                 if (arg === 'series_completed' || arg === 'series_new' || arg === 'series_upcoming') {
-                    state = {...state, screen: 'criterion', section: arg}
+                    state = {...state, screen: 'criterion', section: arg, ...(arg === 'series_upcoming' ? {year: undefined} : {})}
                 }
                 break
 
@@ -427,7 +498,9 @@ export const collectionAction = async (ctx: any) => {
                 break
 
             case 'ty':
-                if (arg && yearRangeByKey(arg)) state = {...state, year: state.year === arg ? undefined : arg as WizardState['year']}
+                if (arg && yearRangeByKey(arg) && state.section !== 'series_upcoming') {
+                    state = {...state, year: state.year === arg ? undefined : arg as WizardState['year']}
+                }
                 break
 
             case 'rs':
@@ -446,18 +519,49 @@ export const collectionAction = async (ctx: any) => {
                 break
 
             case 'p': {
+                if (!availablePeriods(state).some(period => period.key === arg)) return safeAnswer(ctx)
                 await safeAnswer(ctx, 'Собираю подборку…')
-                row.state = state
                 await saveWizard(row)
                 await buildAndSend(ctx, row, arg as PeriodKey)
                 return
             }
 
-            case 'cb':
+            case 'more':
+                await showMore(ctx, row)
+                return
+
+            case 'car':
+                return safeAnswer(ctx, 'Сборка карусели появится на следующем этапе.', true)
+
+            case 't': {
+                const collection = await loadCollection(state.collectionId, telegramId)
+                const record = collection?.items[Number(arg)]
+                if (!record) return safeAnswer(ctx, 'Тайтл не найден.', true)
                 await safeAnswer(ctx)
-                await showWizard(ctx, row)
+                await engineRichCard(richTarget(ctx, row), queryOf(record), {
+                    footerRows: [[btn('◀️ К подборке', 'l', undefined, 'danger')]]
+                })
+                row.state = {...state, screen: 'title'}
                 await saveWizard(row)
                 return
+            }
+
+            case 'l': {
+                const collection = await loadCollection(state.collectionId, telegramId)
+                if (!collection) return safeAnswer(ctx, 'Подборка не найдена — соберите новую.', true)
+                await safeAnswer(ctx)
+                row.state = {...state, screen: 'result'}
+                await showCollection(ctx, row, collection)
+                await saveWizard(row)
+                return
+            }
+
+            case 'cb': {
+                // «Назад в меню»: подборка снова становится меню на экране периода.
+                const toPeriod: WizardState = {...state, screen: 'period', collectionId: undefined}
+                state = availablePeriods(toPeriod).length > 1 ? toPeriod : backFrom(toPeriod)
+                break
+            }
 
             default:
                 return safeAnswer(ctx)
@@ -466,7 +570,7 @@ export const collectionAction = async (ctx: any) => {
         row.state = state
         await safeAnswer(ctx)
         if (state.screen === 'period') {
-            await showPeriodCounts(ctx, row)
+            await enterPeriod(ctx, row)
             return
         }
         await showWizard(ctx, row)

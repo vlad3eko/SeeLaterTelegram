@@ -6,7 +6,8 @@ import {normalizeRichContext} from "#server/global/engine/card/construct/normali
 
 export const engineRichCard = async (
     ctx: queryCTX | any | undefined,
-    query: queryRichCard
+    query: queryRichCard,
+    options: {footerRows?: any[][]} = {}
 ) => {
 
     const richCtx = normalizeRichContext(ctx)
@@ -14,6 +15,11 @@ export const engineRichCard = async (
 
     const {caption, keyboard} =
         await constructRichCard(richCtx, query)
+
+    // Доп. ряды снизу (подборки /g: «К подборке»).
+    if (options.footerRows?.length && keyboard?.inline_keyboard) {
+        keyboard.inline_keyboard.push(...options.footerRows)
+    }
 
     const canEditMessage =
         Boolean(richCtx.inlineMessageId)

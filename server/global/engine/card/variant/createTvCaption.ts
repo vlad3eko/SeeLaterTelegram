@@ -16,6 +16,7 @@ export const createTvCaption = (
     const media = dataCollection.data.media
     const images = dataCollection.data.images
     const seasons = data.media.seasons || []
+    const cast = (data.cast || []).filter((person): person is NonNullable<typeof person> => Boolean(person?.fileId))
 
     const lastEpisode = media.last_episode_to_air
     const nextEpisode = media.next_episode_to_air
@@ -274,6 +275,54 @@ export const createTvCaption = (
                     ]
                 },
 
+                ...(cast.length
+                        ? [
+                            {
+                                type: 'divider'
+                            },
+
+                            dataCollection.heading(
+                                'Актёры',
+                                3
+                            ),
+
+                            {
+                                type: 'details',
+                                summary: 'показать/скрыть',
+                                blocks: [
+                                    {
+                                        type: 'collage',
+                                        blocks: cast.map(person => ({
+                                            type: 'photo',
+                                            photo: {
+                                                type: 'photo',
+                                                media: person.fileId
+                                            }
+                                        })),
+                                        caption: {
+                                            text: 'Первые лица'
+                                        }
+                                    },
+                                    {
+                                        type: 'table',
+                                        is_bordered: true,
+                                        is_compact: true,
+                                        cells: [
+                                            [
+                                                {text: 'Имя', is_header: true},
+                                                {text: 'Роль', is_header: true}
+                                            ],
+                                            ...cast.map(person => [
+                                                {text: person.name || '—'},
+                                                {text: person.role || '—'}
+                                            ])
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                        : []
+                ),
 
                 {
                     type: 'blockquote',

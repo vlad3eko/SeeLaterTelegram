@@ -3,7 +3,7 @@ import {COLLECTION_ACTION} from '#server/bot/callbacks/routes'
 import {
     GENRES,
     genreByKey,
-    PERIODS,
+    type Period,
     periodByKey,
     SECTIONS,
     TAG_GROUPS,
@@ -23,10 +23,13 @@ type ButtonStyle = 'success' | 'danger' | 'primary'
  * primary — синяя; старые клиенты Telegram показывают обычную). Решение владельца 18.11:
  * шаги вперёд — зелёные, «Сбросить» и «Назад» — красные.
  */
-const btn = (text: string, action: string, arg?: string, style?: ButtonStyle) => ({
+export const btn = (text: string, action: string, arg?: string, style?: ButtonStyle) => ({
     ...Markup.button.callback(text, COLLECTION_ACTION.encode({action, ...(arg ? {arg} : {})})),
     ...(style ? {style} : {})
 })
+
+/** Неактивная кнопка (Bot API 10.3, DisabledButton): видна, но ничего не делает. */
+const disabledBtn = (text: string) => ({text, disabled: {}})
 
 const escapeHtml = (value: string) =>
     value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -42,6 +45,9 @@ export const GROUPS: Array<{key: SectionGroup, label: string, ready: boolean}> =
 
 export const CRITERION_LABEL = {filter: 'Фильтр', popular: 'Популярное'} as const
 export const DIRECTION_LABEL = {released: 'Уже вышли', upcoming: 'Скоро'} as const
+
+/** У «Сериалы · Скоро» год не выбирается: первая серия ещё впереди. */
+export const yearLocked = (state: WizardState) => state.section === 'series_upcoming'
 
 /** Краткое описание выбора для текста сообщения. */
 export const describeSelection = (state: WizardState): string[] => {
@@ -59,43 +65,61 @@ export const describeSelection = (state: WizardState): string[] => {
         const tags = state.tags.map(key => tagByKey(key)?.label).filter(Boolean)
         lines.push(`Жанры: ${genres.length ? genres.join(', ') : '—'}`)
         lines.push(`Теги: ${tags.length ? tags.join(', ') : '—'}`)
-        lines.push(`Год: ${yearRangeByKey(state.year)?.label ?? '—'}`)
+        if (!yearLocked(state)) lines.push(`Год: ${yearRangeByKey(state.year)?.label ?? '—'}`)
     }
     if (state.direction && state.group === 'movies') lines.push(`Выход: ${DIRECTION_LABEL[state.direction]}`)
     return lines
 }
 
 const PROMPT: Record<WizardState['screen'], string> = {
+    home: 'Выберите режим.',
     root: 'Выберите раздел.',
     series: 'Какие сериалы?',
     criterion: 'Как собрать топ?',
     filter: 'Отметьте жанры, теги и год. Сначала ищу тайтлы, подходящие под все отмеченные жанры и теги, а если их мало — под любой из них.',
     direction: 'Уже вышли или скоро выйдут?',
-    period: 'За какой период? В скобках — сколько нашлось.'
+    period: 'За какой период? В скобках — сколько нашлось с трейлером.',
+    result: '',
+    title: ''
 }
 
-/** Число на кнопке периода: «(5)», «(87+)»; undefined — ещё считается. */
+/** Число на кнопке периода: «(5)», «(40+)»; undefined — ещё считается. */
 export type PeriodCounts = Partial<Record<string, {count: number, capped: boolean}>>
 
 const countLabel = (count?: {count: number, capped: boolean}) =>
     !count ? '' : ` (${count.count}${count.capped ? '+' : ''})`
 
-export const renderWizard = (state: WizardState, note?: string, counts?: PeriodCounts) => {
+export type RenderOptions = {
+    note?: string
+    counts?: PeriodCounts
+    /** Идёт подсчёт: вместо вопроса — «Подсчёт вариантов». */
+    counting?: boolean
+    /** Периоды, которые есть смысл показывать (пересекаются с блоком «Год»). */
+    periods?: Period[]
+}
+
+export const renderWizard = (state: WizardState, options: RenderOptions = {}) => {
+    const {note, counts, counting, periods = []} = options
     const header = '🎞 <b>Подборка</b>'
     const selection = describeSelection(state).map(line => escapeHtml(line))
-    const text = [header, ...(selection.length ? ['', ...selection] : []), '', escapeHtml(PROMPT[state.screen]), ...(note ? ['', note] : [])].join('\n')
+    const prompt = counting ? '⏳ Подсчёт вариантов…' : PROMPT[state.screen]
+    const text = [header, ...(selection.length ? ['', ...selection] : []), '', escapeHtml(prompt), ...(note ? ['', note] : [])].join('\n')
 
     const rows: any[][] = []
     const back = [btn('◀️ Назад', 'b', undefined, 'danger')]
 
     switch (state.screen) {
+        case 'home':
+            rows.push([btn('🎞 Подборка', 'm', undefined, 'success')])
+            rows.push([btn('✖️ Закрыть', 'x', undefined, 'danger')])
+            break
         case 'root': {
             for (let i = 0; i < GROUPS.length; i += 2) {
                 rows.push(GROUPS.slice(i, i + 2).map(group => group.ready
                     ? btn(group.label, 's', group.key, 'success')
                     : btn(`${group.label} · скоро`, 's', group.key)))
             }
-            rows.push([btn('✖️ Закрыть', 'x', undefined, 'danger')])
+            rows.push(back)
             break
         }
         case 'series':
@@ -122,15 +146,19 @@ export const renderWizard = (state: WizardState, note?: string, counts?: PeriodC
                 for (const [group, groupLabel] of Object.entries(TAG_GROUPS)) {
                     const groupTags = tags.filter(tag => tag.group === group)
                     if (!groupTags.length) continue
-                    rows.push([btn(`— ${groupLabel} —`, 'noop')])
+                    rows.push([disabledBtn(`— ${groupLabel} —`)])
                     const tagButtons = groupTags.map(tag =>
                         btn(`${state.tags.includes(tag.key) ? '✅ ' : ''}${tag.label}`, 'tt', tag.key))
                     for (let i = 0; i < tagButtons.length; i += 2) rows.push(tagButtons.slice(i, i + 2))
                 }
             }
-            rows.push([btn(`${state.openYear ? '▼' : '▶'} Год${state.year ? ` (${yearRangeByKey(state.year)?.label})` : ''}`, 'f', 'y', 'primary')])
-            if (state.openYear) {
-                rows.push(YEAR_RANGES.map(range => btn(`${state.year === range.key ? '🔘 ' : ''}${range.label}`, 'ty', range.key)))
+            if (yearLocked(state)) {
+                rows.push([disabledBtn('🔒 Год — для «Скоро» не выбирается')])
+            } else {
+                rows.push([btn(`${state.openYear ? '▼' : '▶'} Год${state.year ? ` (${yearRangeByKey(state.year)?.label})` : ''}`, 'f', 'y', 'primary')])
+                if (state.openYear) {
+                    rows.push(YEAR_RANGES.map(range => btn(`${state.year === range.key ? '🔘 ' : ''}${range.label}`, 'ty', range.key)))
+                }
             }
             rows.push([btn('♻️ Сбросить', 'rs', undefined, 'danger'), btn('Готово ▶️', 'ok', undefined, 'success')])
             rows.push(back)
@@ -141,12 +169,12 @@ export const renderWizard = (state: WizardState, note?: string, counts?: PeriodC
             rows.push(back)
             break
         case 'period': {
-            const periods = PERIODS.filter(period => period.direction === state.direction)
             for (let i = 0; i < periods.length; i += 2) {
                 rows.push(periods.slice(i, i + 2).map(period => {
                     const count = counts?.[period.key]
-                    const empty = count && count.count === 0 && !count.capped
-                    return btn(`${period.label}${countLabel(count)}`, 'p', period.key, empty ? undefined : 'success')
+                    // Ничего не нашлось — кнопка неактивна, нажимать бесполезно.
+                    if (count && count.count === 0 && !count.capped) return disabledBtn(`${period.label} (0)`)
+                    return btn(`${period.label}${countLabel(count)}`, 'p', period.key, 'success')
                 }))
             }
             rows.push(back)
@@ -160,7 +188,7 @@ export const renderWizard = (state: WizardState, note?: string, counts?: PeriodC
 /** Заголовок карточки-результата. */
 export const collectionTitle = (state: WizardState, count: number, period: string, page = 0, match: 'and' | 'or' = 'and') => {
     const parts: string[] = []
-    if (state.section) parts.push(state.group === 'series' || SECTIONS[state.section].mediaType === 'tv'
+    if (state.section) parts.push(SECTIONS[state.section].mediaType === 'tv'
         ? `Сериалы · ${SECTIONS[state.section].label.toLowerCase()}`
         : SECTIONS[state.section].label)
     if (state.criterion === 'popular') parts.push('популярное')
@@ -173,7 +201,10 @@ export const collectionTitle = (state: WizardState, count: number, period: strin
         const year = yearRangeByKey(state.year)
         if (year) parts.push(year.label)
     }
-    parts.push((periodByKey(period)?.label ?? period).toLowerCase())
+    // С закрытым диапазоном «Год» период не выбирается — «за всё время» не пишем.
+    if (!(period === 'all' && yearRangeByKey(state.year)?.to)) {
+        parts.push((periodByKey(period)?.label ?? period).toLowerCase())
+    }
     const places = page > 0 ? `Места ${page * 10 + 1}–${page * 10 + count}` : `Топ-${count}`
     return `${places}: ${parts.filter(Boolean).join(' · ')}`
 }
@@ -181,6 +212,6 @@ export const collectionTitle = (state: WizardState, count: number, period: strin
 export const collectionNote = (count: number, match: 'and' | 'or' = 'and') => {
     const parts: string[] = []
     if (match === 'or') parts.push('Тайтлов со всеми отмеченными жанрами и тегами мало — добавлены подходящие хотя бы под один.')
-    if (count < 10) parts.push(`За этот период нашлось ${count} с трейлером.`)
+    if (count < 10) parts.push(`Нашлось ${count} с трейлером.`)
     return parts.join(' ')
 }

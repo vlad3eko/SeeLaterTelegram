@@ -160,6 +160,25 @@ export const EXCLUDED_GENRES: Record<MediaType, number[]> = {
     tv: [16, 10763, 10764, 10767]
 }
 
+/**
+ * Страны, чьи тайтлы в подборки не берём (решение владельца 18.11): Россия и Индия.
+ * TMDB не умеет исключать страну в discover (without_origin_country молча игнорируется),
+ * поэтому фильтруем сами: у сериалов — origin_country из выдачи, у фильмов (страны в выдаче нет) —
+ * по языку оригинала: русский и языки Индии.
+ */
+export const EXCLUDED_COUNTRIES = ['RU', 'IN']
+export const EXCLUDED_LANGUAGES = ['ru', 'hi', 'ta', 'te', 'ml', 'kn', 'bn', 'mr', 'pa', 'gu', 'or', 'as', 'ur']
+
+export const isExcludedOrigin = (item: {origin_country?: string[], original_language?: string}) =>
+    (item.origin_country ?? []).some(country => EXCLUDED_COUNTRIES.includes(country)) ||
+    EXCLUDED_LANGUAGES.includes(String(item.original_language ?? ''))
+
+/** Диапазон «Год» целиком в прошлом: у фильмов такой выбор означает «Уже вышли». */
+export const isPastYearRange = (key: string | undefined, today = new Date().toISOString().slice(0, 10)) => {
+    const range = yearRangeByKey(key)
+    return Boolean(range?.to && range.to < today)
+}
+
 
 export type PeriodKey =
     | 'all' | 'y5' | 'year' | 'm6' | 'm3' | 'd30'

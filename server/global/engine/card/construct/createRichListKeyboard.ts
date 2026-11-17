@@ -22,14 +22,20 @@ const truncate = (text: string, maxLength: number) =>
         ? text.slice(0, maxLength - 1) + '…'
         : text
 
-export const createRichListKeyboard = (items: any[], footerRows?: any[][]) => {
+export const createRichListKeyboard = (
+    items: any[],
+    footerRows?: any[][],
+    itemButton?: (text: string, index: number) => any
+) => {
 
     const rows = items
         .map((item: any, index: number) => {
                 const title = truncate(getTitle(item), 34)
 
                 return [
-                    contentListCardButton(`${index + 1}. ${title}`, item.query),
+                    itemButton
+                        ? itemButton(`${index + 1}. ${title}`, index)
+                        : contentListCardButton(`${index + 1}. ${title}`, item.query),
                 ]
             }
         )

@@ -1,6 +1,7 @@
 import {
     EXCLUDED_GENRES,
     genreByKey,
+    isExcludedOrigin,
     MIN_RELEASE_DATE,
     periodByKey,
     type PeriodKey,
@@ -282,6 +283,7 @@ export const collectCandidates = async (
     const minPopularity = MIN_UPCOMING_POPULARITY[section.mediaType]
     const titled = raw.filter(item =>
         hasRussianTitle(String(item.title || item.name || '')) &&
+        !isExcludedOrigin(item) &&
         (direction === 'released' || Number(item.popularity) >= minPopularity))
 
     if (section.mediaType === 'movie') return {candidates: titled.map(item => ({item})), capped}
@@ -397,17 +399,36 @@ export const buildCollectionFor = async (params: CollectionParams, size = COLLEC
     }
 }
 
+/** Сколько трейлеров проверяем для счётчика (дальше — «N+»). */
+const COUNT_TRAILER_LIMIT = 40
+
+/** Сколько кандидатов с трейлером (у сериалов видео уже в карточке, у фильмов — кэш media_trailers). */
+const countWithTrailers = async (mediaType: 'movie' | 'tv', candidates: Candidate[]) => {
+    const checked = candidates.slice(0, COUNT_TRAILER_LIMIT)
+    if (mediaType === 'tv') {
+        const withTrailer = checked.filter(c => pickTrailer(c.details?.videos?.results ?? [])).length
+        return {count: withTrailer, more: candidates.length > checked.length}
+    }
+    const trailers = await findTrailers('movie', checked.map(c => Number(c.item.id)))
+    const withTrailer = checked.filter(c => trailers.get(Number(c.item.id))).length
+    return {count: withTrailer, more: candidates.length > checked.length}
+}
+
 /**
- * Сколько тайтлов найдено за период (для кнопок «До конца года (5)»): без трейлеров и картинок.
- * С несколькими условиями — как в топе: «И», если его мало — объединение с «ИЛИ».
- * capped — больше, чем мы смотрим (кнопка покажет «100+»).
+ * Сколько тайтлов с трейлером найдено за период (кнопки «До конца года (5)») — столько же покажет топ.
+ * Без картинок и карточек. С несколькими условиями — как в топе: «И», если его мало — плюс «ИЛИ».
+ * capped — проверили не всё (кнопка покажет «40+»).
  */
 export const countCollection = async (params: CollectionParams): Promise<{count: number, capped: boolean}> => {
+    const section = SECTIONS[params.section]
+    if (!section) return {count: 0, capped: false}
     const and = await collectCandidates({...params, match: 'and'})
+    const andCount = await countWithTrailers(section.mediaType, and.candidates)
     const canUseOr = params.criterion === 'filter' && distinctConditionCount(resolveConditions(params)) > 1
-    if (and.capped || and.candidates.length >= COLLECTION_SIZE || !canUseOr) {
-        return {count: and.candidates.length, capped: and.capped}
+    if (and.capped || andCount.more || andCount.count >= COLLECTION_SIZE || !canUseOr) {
+        return {count: andCount.count, capped: and.capped || andCount.more}
     }
     const or = await collectCandidates({...params, match: 'or'}, and.candidates.map(c => Number(c.item.id)))
-    return {count: and.candidates.length + or.candidates.length, capped: or.capped}
+    const orCount = await countWithTrailers(section.mediaType, or.candidates)
+    return {count: andCount.count + orCount.count, capped: or.capped || orCount.more}
 }

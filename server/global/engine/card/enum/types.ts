@@ -47,4 +47,11 @@ export type CardData = {
             role: string;
         } | null)[];
     },
+    /** Актёры сериала с file_id фото (у фильмов они в images.postersList). */
+    cast?: ({
+        id: number;
+        fileId: string;
+        name?: string;
+        role?: string;
+    } | null)[],
 }
