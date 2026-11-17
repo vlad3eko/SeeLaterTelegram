@@ -20,12 +20,17 @@ import {findTrailers, type Trailer} from '#server/global/engine/collections/trai
 
 export type CollectionCriterion = 'filter' | 'popular'
 
+/** and — тайтл подходит под все отмеченные жанры и теги; or — хотя бы под один. */
+export type MatchMode = 'and' | 'or'
+
 export type CollectionParams = {
     section: SectionKey
     criterion: CollectionCriterion
     genres?: string[]
     tags?: string[]
     period: PeriodKey
+    /** По умолчанию and; buildCollectionWidening сам переходит на or, если and мало. */
+    match?: MatchMode
 }
 
 export type CollectionItem = {
@@ -122,14 +127,37 @@ export const periodRange = (period: PeriodKey): {from?: string, to?: string} => 
     }
 }
 
-const conditionParams = (conditions: TmdbCondition[]) => {
-    const genres = [...new Set(conditions.flatMap(c => 'genre' in c ? [c.genre] : []))]
-    const keywords = [...new Set(conditions.flatMap(c => 'keyword' in c ? [c.keyword] : []))]
-    return {
-        // Запятая в TMDB — «И»: тайтл содержит все перечисленные жанры и все теги.
-        ...(genres.length ? {with_genres: genres.join(',')} : {}),
-        ...(keywords.length ? {with_keywords: keywords.join(',')} : {})
+const splitConditions = (conditions: TmdbCondition[]) => ({
+    genres: [...new Set(conditions.flatMap(c => 'genre' in c ? [c.genre] : []))],
+    keywords: [...new Set(conditions.flatMap(c => 'keyword' in c ? [c.keyword] : []))]
+})
+
+/** Сколько разных условий TMDB (у сериалов «Боевик» и «Приключения» — один жанр). */
+export const distinctConditionCount = (conditions: TmdbCondition[]) => {
+    const {genres, keywords} = splitConditions(conditions)
+    return genres.length + keywords.length
+}
+
+/**
+ * Параметры discover для условий. Возвращает список наборов: каждый — отдельный запрос,
+ * результаты объединяются.
+ *   and — запятая: тайтл содержит все жанры и все теги (один запрос);
+ *   or  — вертикальная черта: любой жанр / любой тег. Жанры и теги в TMDB — разные
+ *         параметры, между собой они всегда «И», поэтому «любой жанр ИЛИ любой тег» —
+ *         два запроса.
+ */
+const conditionParamSets = (conditions: TmdbCondition[], match: MatchMode): Array<Record<string, string>> => {
+    const {genres, keywords} = splitConditions(conditions)
+    if (match === 'and') {
+        return [{
+            ...(genres.length ? {with_genres: genres.join(',')} : {}),
+            ...(keywords.length ? {with_keywords: keywords.join(',')} : {})
+        }]
     }
+    const sets: Array<Record<string, string>> = []
+    if (genres.length) sets.push({with_genres: genres.join('|')})
+    if (keywords.length) sets.push({with_keywords: keywords.join('|')})
+    return sets.length ? sets : [{}]
 }
 
 /** Как сортировать кандидатов в TMDB и как оценивать их у нас. */
@@ -154,6 +182,16 @@ const strategy = (params: CollectionParams) => {
 
 type Raw = Record<string, any>
 
+/** Жанры и теги фильтра → условия TMDB для типа раздела (фильм или сериал). */
+export const resolveConditions = (params: CollectionParams): TmdbCondition[] => {
+    const section = SECTIONS[params.section]
+    if (!section || params.criterion !== 'filter') return []
+    return [
+        ...(params.genres ?? []).map(key => genreByKey(key)?.[section.mediaType]).filter(Boolean) as TmdbCondition[],
+        ...(params.tags ?? []).map(key => tagByKey(key)).filter(Boolean).map(tag => ({keyword: tag!.keyword}))
+    ]
+}
+
 export const buildCollection = async (
     params: CollectionParams,
     {size = COLLECTION_SIZE, minSize = COLLECTION_SIZE}: {size?: number, minSize?: number} = {}
@@ -162,12 +200,7 @@ export const buildCollection = async (
     if (!section) throw new Error(`[COLLECTIONS] Unknown section: ${params.section}`)
     if (!periodByKey(params.period)) throw new Error(`[COLLECTIONS] Unknown period: ${params.period}`)
 
-    const conditions: TmdbCondition[] = params.criterion === 'filter'
-        ? [
-            ...(params.genres ?? []).map(key => genreByKey(key)?.[section.mediaType]).filter(Boolean) as TmdbCondition[],
-            ...(params.tags ?? []).map(key => tagByKey(key)).filter(Boolean).map(tag => ({keyword: tag!.keyword}))
-        ]
-        : []
+    const conditions = resolveConditions(params)
 
     const {sortBy, kind, profile} = strategy(params)
     const votesFactor = section.mediaType === 'tv' ? TV_VOTES_FACTOR : 1
@@ -175,7 +208,8 @@ export const buildCollection = async (
     const m = profile.m * votesFactor
     const {from, to} = periodRange(params.period)
 
-    const query = new URLSearchParams({
+    const match: MatchMode = params.match ?? 'and'
+    const baseQuery: Record<string, string> = {
         language: 'ru-RU',
         include_adult: 'false',
         sort_by: sortBy,
@@ -183,19 +217,26 @@ export const buildCollection = async (
         ...(minVotes > 0 ? {'vote_count.gte': String(minVotes)} : {}),
         ...(from ? {[`${section.dateField}.gte`]: from} : {}),
         ...(to ? {[`${section.dateField}.lte`]: to} : {}),
-        ...conditionParams(conditions)
-    })
-    // У сериалов «новые серии» (air_date) иначе вернут и сериалы без первого показа в истории.
-    if (section.mediaType === 'tv' && section.dateField === 'air_date') query.set('include_null_first_air_dates', 'false')
+        // У сериалов «новые серии» (air_date) иначе вернут и сериалы без первого показа в истории.
+        ...(section.mediaType === 'tv' && section.dateField === 'air_date' ? {include_null_first_air_dates: 'false'} : {})
+    }
 
     // У анонсов трейлер есть далеко не у всех: кандидатов берётся больше.
     const maxPages = periodByKey(params.period)!.direction === 'upcoming' ? MAX_CANDIDATE_PAGES_UPCOMING : MAX_CANDIDATE_PAGES
     const candidates: Raw[] = []
-    for (let page = 1; page <= maxPages; page++) {
-        query.set('page', String(page))
-        const body = await tmdbGet<{results?: Raw[], total_pages?: number}>(`discover/${section.mediaType}?${query}`)
-        candidates.push(...(body.results ?? []))
-        if (!body.total_pages || page >= body.total_pages) break
+    const seenIds = new Set<number>()
+    for (const conditionSet of conditionParamSets(conditions, match)) {
+        const query = new URLSearchParams({...baseQuery, ...conditionSet})
+        for (let page = 1; page <= maxPages; page++) {
+            query.set('page', String(page))
+            const body = await tmdbGet<{results?: Raw[], total_pages?: number}>(`discover/${section.mediaType}?${query}`)
+            for (const item of body.results ?? []) {
+                if (seenIds.has(Number(item.id))) continue
+                seenIds.add(Number(item.id))
+                candidates.push(item)
+            }
+            if (!body.total_pages || page >= body.total_pages) break
+        }
     }
 
     // Отсев: тайтлы без русского и английского названия (название только тайской вязью,
@@ -306,28 +347,46 @@ export type WidenedCollectionResult = CollectionResult & {
     requestedPeriod: PeriodKey
     usedPeriod: PeriodKey
     widened: boolean
+    /** Каким режимом собран топ: and — все условия, or — хотя бы одно. */
+    match: MatchMode
 }
 
 /**
- * Топ с автоматическим расширением интервала (решение владельца 17.11): если в заданном
- * интервале меньше minSize тайтлов с трейлером, топ собирается заново по следующему, более
- * широкому интервалу — и так до самого широкого. Если не хватает и там, возвращается лучшее,
- * что нашлось (карточка показывает «нашлось N»).
+ * Топ с запасными шагами (решения владельца 17.11):
+ *   1. на заданном интервале — тайтлы со всеми отмеченными жанрами и тегами («И»);
+ *   2. мало — на том же интервале с любым из них («ИЛИ»), если условий больше одного;
+ *   3. мало и так — следующий, более широкий интервал, снова «И», затем «ИЛИ»; и так до самого широкого.
+ * Период пользователя сохраняется, пока это возможно. Если не хватает нигде, возвращается
+ * лучшее, что нашлось (карточка показывает «нашлось N»).
  */
 export const buildCollectionWidening = async (
     params: CollectionParams,
     {size = COLLECTION_SIZE, minSize = COLLECTION_SIZE}: {size?: number, minSize?: number} = {}
 ): Promise<WidenedCollectionResult> => {
+    const section = SECTIONS[params.section]
+    const canUseOr = params.criterion === 'filter' && Boolean(section) &&
+        distinctConditionCount(resolveConditions(params)) > 1
+    const modes: MatchMode[] = canUseOr ? ['and', 'or'] : ['and']
+
     let best: CollectionResult | null = null
 
     for (const period of [params.period, ...widerPeriods(params.period)]) {
-        const result = await buildCollection({...params, period}, {size, minSize})
-        if (!best || result.items.length > best.items.length) best = result
-        if (result.items.length >= minSize) {
-            return {...result, params: {...params, period}, requestedPeriod: params.period, usedPeriod: period, widened: period !== params.period}
+        for (const match of modes) {
+            const result = await buildCollection({...params, period, match}, {size, minSize})
+            if (!best || result.items.length > best.items.length) best = result
+            if (result.items.length >= minSize) {
+                return {
+                    ...result,
+                    params: {...params, period, match},
+                    requestedPeriod: params.period,
+                    usedPeriod: period,
+                    widened: period !== params.period,
+                    match
+                }
+            }
         }
     }
 
     const usedPeriod = best!.params.period
-    return {...best!, requestedPeriod: params.period, usedPeriod, widened: usedPeriod !== params.period}
+    return {...best!, requestedPeriod: params.period, usedPeriod, widened: usedPeriod !== params.period, match: best!.params.match ?? 'and'}
 }

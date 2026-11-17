@@ -52,7 +52,7 @@ const PROMPT: Record<WizardState['screen'], string> = {
     root: 'Выберите раздел.',
     series: 'Какие сериалы?',
     criterion: 'Как собрать топ?',
-    filter: 'Отметьте жанры и теги. Несколько — по «И»: тайтл должен подходить под все.',
+    filter: 'Отметьте жанры и теги. Сначала ищу тайтлы, подходящие под все отмеченные, а если их мало — под любой из них.',
     direction: 'Уже вышли или скоро выйдут?',
     period: 'За какой период?'
 }
@@ -124,7 +124,7 @@ export const renderWizard = (state: WizardState, note?: string) => {
 }
 
 /** Заголовок карточки-результата. */
-export const collectionTitle = (state: WizardState, count: number, requested: string, used: string, page = 0) => {
+export const collectionTitle = (state: WizardState, count: number, requested: string, used: string, page = 0, match: 'and' | 'or' = 'and') => {
     const section = state.section ? SECTIONS[state.section].label : ''
     const parts = [section]
     if (state.criterion === 'popular') parts.push('популярное')
@@ -133,15 +133,18 @@ export const collectionTitle = (state: WizardState, count: number, requested: st
             ...state.genres.map(key => genreByKey(key)?.label?.toLowerCase()),
             ...state.tags.map(key => tagByKey(key)?.label?.toLowerCase())
         ].filter(Boolean)
-        if (picked.length) parts.push(picked.join(' + '))
+        if (picked.length) parts.push(picked.join(match === 'or' ? ' или ' : ' + '))
     }
     parts.push((periodByKey(used)?.label ?? used).toLowerCase())
     const places = page > 0 ? `Места ${page * 10 + 1}–${page * 10 + count}` : `Топ-${count}`
     return `${places}: ${parts.filter(Boolean).join(' · ')}`
 }
 
-export const widenedNote = (requested: string, used: string, count: number) => {
+export const widenedNote = (requested: string, used: string, count: number, match: 'and' | 'or' = 'and') => {
     const parts: string[] = []
+    if (match === 'or') {
+        parts.push('Тайтлов со всеми отмеченными жанрами и тегами мало — показаны подходящие хотя бы под один.')
+    }
     if (requested !== used) {
         parts.push(`За «${periodByKey(requested)?.label}» нашлось мало — показан период «${periodByKey(used)?.label}».`)
     }

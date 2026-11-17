@@ -180,7 +180,7 @@ const buildAndSend = async (ctx: any, row: WizardRow, period: PeriodKey) => {
         .from('collections')
         .insert({
             telegram_id: row.telegramId,
-            params: {...params, requested_period: result.requestedPeriod, used_period: result.usedPeriod},
+            params: {...params, requested_period: result.requestedPeriod, used_period: result.usedPeriod, match: result.match},
             items: result.items.map(itemRecord),
             candidates: result.rest,
             page: 0
@@ -189,9 +189,9 @@ const buildAndSend = async (ctx: any, row: WizardRow, period: PeriodKey) => {
         .single()
     if (error) throw new Error(`[COLLECTIONS] Save failed: ${error.message}`)
 
-    const note = widenedNote(result.requestedPeriod, result.usedPeriod, result.items.length)
+    const note = widenedNote(result.requestedPeriod, result.usedPeriod, result.items.length, result.match)
     await engineRichListCard(ctx, result.items.map(toQuery), {
-        title: collectionTitle(state, result.items.length, result.requestedPeriod, result.usedPeriod) + (note ? `\n${note}` : ''),
+        title: collectionTitle(state, result.items.length, result.requestedPeriod, result.usedPeriod, 0, result.match) + (note ? `\n${note}` : ''),
         footerRows: cardFooter(row.telegramId, saved.id, result.rest.length > 0)
     })
 
@@ -268,7 +268,7 @@ const sendMore = async (ctx: any, collectionId: string) => {
         contentType: section.contentType as ContentType,
         keyTrailer: entry.trailer.key
     })), {
-        title: collectionTitle(state, picked.length, collection.params.requested_period, collection.params.used_period, page),
+        title: collectionTitle(state, picked.length, collection.params.requested_period, collection.params.used_period, page, collection.params.match ?? 'and'),
         footerRows: cardFooter(Number(ctx.from.id), collectionId, remaining.length > 0)
     })
 }
