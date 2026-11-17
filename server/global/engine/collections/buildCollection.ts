@@ -194,7 +194,7 @@ export const resolveConditions = (params: CollectionParams): TmdbCondition[] => 
 
 export const buildCollection = async (
     params: CollectionParams,
-    {size = COLLECTION_SIZE, minSize = COLLECTION_SIZE}: {size?: number, minSize?: number} = {}
+    {size = COLLECTION_SIZE, minSize = COLLECTION_SIZE, excludeIds = []}: {size?: number, minSize?: number, excludeIds?: number[]} = {}
 ): Promise<CollectionResult> => {
     const section = SECTIONS[params.section]
     if (!section) throw new Error(`[COLLECTIONS] Unknown section: ${params.section}`)
@@ -224,7 +224,8 @@ export const buildCollection = async (
     // У анонсов трейлер есть далеко не у всех: кандидатов берётся больше.
     const maxPages = periodByKey(params.period)!.direction === 'upcoming' ? MAX_CANDIDATE_PAGES_UPCOMING : MAX_CANDIDATE_PAGES
     const candidates: Raw[] = []
-    const seenIds = new Set<number>()
+    // excludeIds — уже взятые в топ (по «И»), чтобы «ИЛИ» их не повторил.
+    const seenIds = new Set<number>(excludeIds)
     for (const conditionSet of conditionParamSets(conditions, match)) {
         const query = new URLSearchParams({...baseQuery, ...conditionSet})
         for (let page = 1; page <= maxPages; page++) {
@@ -371,18 +372,30 @@ export const buildCollectionWidening = async (
     let best: CollectionResult | null = null
 
     for (const period of [params.period, ...widerPeriods(params.period)]) {
-        for (const match of modes) {
-            const result = await buildCollection({...params, period, match}, {size, minSize})
-            if (!best || result.items.length > best.items.length) best = result
-            if (result.items.length >= minSize) {
-                return {
-                    ...result,
-                    params: {...params, period, match},
-                    requestedPeriod: params.period,
-                    usedPeriod: period,
-                    widened: period !== params.period,
-                    match
-                }
+        let result = await buildCollection({...params, period, match: 'and'}, {size, minSize})
+
+        if (result.items.length < minSize && modes.includes('or')) {
+            // «И» приоритетнее: найденные по «И» остаются наверху, свободные места добираются
+            // из «ИЛИ» (без повторов).
+            const andItems = result.items
+            const orResult = await buildCollection({...params, period, match: 'or'}, {size: size - andItems.length, minSize: 0, excludeIds: andItems.map(item => item.id)})
+            result = {
+                ...orResult,
+                params: {...params, period, match: 'or'},
+                items: [...andItems, ...orResult.items].map((item, index) => ({...item, rank: index + 1}))
+            }
+        }
+
+        if (!best || result.items.length > best.items.length) best = result
+        if (result.items.length >= minSize) {
+            const match = result.params.match ?? 'and'
+            return {
+                ...result,
+                params: {...params, period, match},
+                requestedPeriod: params.period,
+                usedPeriod: period,
+                widened: period !== params.period,
+                match
             }
         }
     }
