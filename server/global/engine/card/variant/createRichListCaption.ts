@@ -1,7 +1,16 @@
 import {dateConvert} from "~/utils/convert/dateConvert"
 
+export type RichListCaptionOptions = {
+    /**
+     * Какую дату показывать у сериала: first — первая серия (по умолчанию, как раньше);
+     * last — последняя вышедшая серия (подборки «Вышли полностью», «Новые серии/сезоны»).
+     */
+    tvDate?: 'first' | 'last'
+}
+
 export const createRichListCaption = (
-    items: any[]
+    items: any[],
+    options: RichListCaptionOptions = {}
 ) => {
 
     const messageBlocks = items.map((item: any, index: number) => {
@@ -20,9 +29,13 @@ export const createRichListCaption = (
                     media.original_name ||
                     'Без названия'
 
+                const useLastEpisode =
+                    options.tvDate === 'last' && item.query.type === 'tv' && media.last_air_date
+
                 const date =
-                    media.release_date ||
-                    media.first_air_date
+                    useLastEpisode
+                        ? media.last_air_date
+                        : media.release_date || media.first_air_date
 
                 const formattedDate =
                     date
@@ -51,10 +64,14 @@ export const createRichListCaption = (
                         {
                             type: 'heading',
                             size: 1,
-                            text: [{
-                                type: 'code',
-                                text: `${index + 1}: ` + title
-                            }]
+                            // Номер отдельно от названия: по нажатию копируется только название.
+                            text: [
+                                `${index + 1}. `,
+                                {
+                                    type: 'code',
+                                    text: title
+                                }
+                            ]
                         },
 
                         {
@@ -89,7 +106,7 @@ export const createRichListCaption = (
                                         `#${type}`,
 
                                         formattedDate
-                                            ? ` · ${formattedDate}`
+                                            ? ` · ${useLastEpisode ? 'последняя серия ' : ''}${formattedDate}`
                                             : '',
 
                                         ` · 💎 ${rating.toFixed(1)}`

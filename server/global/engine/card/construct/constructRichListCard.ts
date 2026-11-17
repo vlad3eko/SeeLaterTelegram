@@ -8,6 +8,8 @@ export type RichListOptions = {
     title?: string
     /** Нижние ряды кнопок вместо «Назад» старого /g. */
     footerRows?: any[][]
+    /** Дата у сериалов: первая серия или последняя вышедшая. */
+    tvDate?: 'first' | 'last'
 }
 
 export const constructRichListCard = async (
@@ -20,7 +22,7 @@ export const constructRichListCard = async (
         await Promise.all(queries
                 .map(query => resolveRichItem(ctx, query, 'list')))
 
-    const caption = createRichListCaption(items)
+    const caption = createRichListCaption(items, {tvDate: options.tvDate})
 
     if (options.title) {
         caption.blocks.unshift({

@@ -1,7 +1,7 @@
 import {getSupabase} from '#server/global/engine/instagram/reel/jobs/dispatchReelJob'
 import {isAdmin} from '#server/bot/consts/admins'
 import type {CollectionCriterion} from '#server/global/engine/collections/buildCollection'
-import type {Direction, SectionKey} from '#server/global/engine/collections/catalog'
+import type {Direction, SectionKey, YearRangeKey} from '#server/global/engine/collections/catalog'
 
 /**
  * Состояние мастера подборки /g (таблица collection_wizard, одна строка на пользователя).
@@ -22,6 +22,9 @@ export type WizardState = {
     tags: string[]
     openGenres: boolean
     openTags: boolean
+    /** Блок «Год» фильтра: один вариант или ничего. */
+    year?: YearRangeKey
+    openYear: boolean
     direction?: Direction
 }
 
@@ -37,7 +40,8 @@ export const emptyState = (): WizardState => ({
     genres: [],
     tags: [],
     openGenres: true,
-    openTags: false
+    openTags: false,
+    openYear: false
 })
 
 /**

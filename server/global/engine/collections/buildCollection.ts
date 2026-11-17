@@ -1,21 +1,28 @@
 import {
     EXCLUDED_GENRES,
     genreByKey,
+    MIN_RELEASE_DATE,
     periodByKey,
-    PERIODS,
     type PeriodKey,
     SECTIONS,
+    type Section,
     type SectionKey,
     tagByKey,
-    type TmdbCondition
+    type TmdbCondition,
+    yearRangeByKey,
+    type YearRangeKey
 } from '#server/global/engine/collections/catalog'
-import {tmdbGet} from '#server/global/engine/collections/tmdb'
-import {findTrailers, type Trailer} from '#server/global/engine/collections/trailers'
+import {mapLimit, tmdbGet} from '#server/global/engine/collections/tmdb'
+import {findTrailers, pickTrailer, rememberTrailers, type Trailer} from '#server/global/engine/collections/trailers'
 
 /**
- * Сборка топа: кандидаты из TMDB discover (раздел + фильтр + интервал) → ранжирование →
- * проверка трейлеров по порядку → первые N с трейлером. Без Telegram и без записи в БД
- * (сохранение подборки — в боте).
+ * Сборка топа (правки владельца 18.11, см. TASKS.md):
+ *   - строго за выбранный период: нашлось 3 — значит 3 (расширения интервала нет);
+ *   - жанры и теги: сначала «И», если мало — найденные по «И» наверху, места добираются по «ИЛИ»;
+ *   - только тайтлы с русским названием и не старше 1985 года; блок «Год» сужает выход;
+ *   - ранжирование как у IMDb/Кинопоиска — по числу голосов; у сериалов, которые ещё выходят,
+ *     популярность важнее голосов; у не вышедших — только популярность;
+ *   - в топ идут только тайтлы с трейлером (русский, иначе английский).
  */
 
 export type CollectionCriterion = 'filter' | 'popular'
@@ -28,8 +35,8 @@ export type CollectionParams = {
     criterion: CollectionCriterion
     genres?: string[]
     tags?: string[]
+    year?: YearRangeKey
     period: PeriodKey
-    /** По умолчанию and; buildCollectionWidening сам переходит на or, если and мало. */
     match?: MatchMode
 }
 
@@ -52,53 +59,21 @@ export type CollectionResult = {
     items: CollectionItem[]
     /** Остальные кандидаты после ранжирования — для «Ещё вариант». */
     rest: Array<{id: number, score: number}>
-    stats: {candidates: number, checkedTrailers: number, withoutTrailer: number}
+    match: MatchMode
+    stats: {candidates: number, withoutTrailer: number}
 }
 
-/** Сколько тайтлов в топе. Минимум для аниме (этап 2) — 7. */
 export const COLLECTION_SIZE = 10
 
-const MAX_CANDIDATE_PAGES = 3
-const MAX_CANDIDATE_PAGES_UPCOMING = 5
+const MAX_PAGES = 5
+/** Голосов у вышедшего тайтла не меньше этого (отсечь совсем неизвестное). */
+const MIN_VOTES = {movie: 10, tv: 5}
+/** «Скоро»: популярность анонса не ниже (у ожидаемых фильмов до промо она около 2–3). */
+const MIN_UPCOMING_POPULARITY = {movie: 1.5, tv: 1}
+/** Сериал, который ещё выходит: доля популярности в оценке (остальное — голоса). */
+const AIRING_POPULARITY_WEIGHT = 0.7
 
-/**
- * Профиль ранжирования интервала. Голоса — для фильмов; у сериалов в TMDB голосов
- * меньше, пороги умножаются на TV_VOTES_FACTOR.
- *   minVotes — отсечь неизвестные тайтлы;
- *   m        — порог взвешенного рейтинга (формула IMDb): меньше голосов — ближе к среднему;
- *   weight   — доля популярности в итоговой оценке (0 — только рейтинг, 1 — только популярность).
- */
-type Profile = {minVotes: number, m: number, weight: number}
-
-const PROFILES: Record<PeriodKey, Profile> = {
-    all: {minVotes: 1000, m: 3000, weight: 0},
-    y5: {minVotes: 300, m: 1000, weight: 0.1},
-    year: {minVotes: 100, m: 300, weight: 0.3},
-    m6: {minVotes: 40, m: 150, weight: 0.4},
-    m3: {minVotes: 15, m: 60, weight: 0.6},
-    d30: {minVotes: 3, m: 20, weight: 0.8},
-    announced: {minVotes: 0, m: 0, weight: 1},
-    year_end: {minVotes: 0, m: 0, weight: 1},
-    next_m6: {minVotes: 0, m: 0, weight: 1},
-    next_m3: {minVotes: 0, m: 0, weight: 1},
-    next_d30: {minVotes: 0, m: 0, weight: 1}
-}
-
-const TV_VOTES_FACTOR = 0.3
-
-/**
- * «Скоро»: анонсы с популярностью TMDB ниже этой — совсем незаметные, в топ не берутся.
- * Порог низкий: до начала промо популярность даже у ожидаемых фильмов около 2–3
- * («Тихое место 3» — 2.9, «Зловещие мертвецы: Гнев» — 1.9 на 17.11.2026). Основной
- * мусор отсекает проверка названия (hasReadableTitle).
- */
-const MIN_UPCOMING_POPULARITY_MOVIE = 1.5
-const MIN_UPCOMING_POPULARITY_TV = 1
-
-/** Название на кириллице или латинице (цифры и знаки допустимы), без букв других письменностей. */
-export const hasReadableTitle = (title: string) =>
-    /[\p{Script=Latin}\p{Script=Cyrillic}0-9]/u.test(title) &&
-    !/[\p{L}--[\p{Script=Latin}\p{Script=Cyrillic}]]/v.test(title)
+type Raw = Record<string, any>
 
 const pad = (value: number) => String(value).padStart(2, '0')
 const isoDate = (date: Date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
@@ -127,24 +102,46 @@ export const periodRange = (period: PeriodKey): {from?: string, to?: string} => 
     }
 }
 
+type Window = {from?: string, to?: string}
+
+const intersect = (...windows: Window[]): Window | null => {
+    const from = windows.map(w => w.from).filter(Boolean).sort().at(-1)
+    const to = windows.map(w => w.to).filter(Boolean).sort()[0]
+    if (from && to && from > to) return null
+    return {...(from ? {from} : {}), ...(to ? {to} : {})}
+}
+
+const inWindow = (date: string | undefined | null, window: Window) =>
+    Boolean(date) && (!window.from || date! >= window.from) && (!window.to || date! <= window.to)
+
+/** Русское название: есть кириллица (или вовсе нет букв — «1917»). «All Elite Wrestling: Dynamite» — нет. */
+export const hasRussianTitle = (title: string) =>
+    /\p{Script=Cyrillic}/u.test(title) || (!/\p{L}/u.test(title) && /\d/.test(title))
+
+/** Жанры и теги фильтра → условия TMDB для типа раздела. */
+export const resolveConditions = (params: CollectionParams): TmdbCondition[] => {
+    const section = SECTIONS[params.section]
+    if (!section || params.criterion !== 'filter') return []
+    return [
+        ...(params.genres ?? []).map(key => genreByKey(key)?.[section.mediaType]).filter(Boolean) as TmdbCondition[],
+        ...(params.tags ?? []).map(key => tagByKey(key)).filter(Boolean).map(tag => ({keyword: tag!.keyword}))
+    ]
+}
+
 const splitConditions = (conditions: TmdbCondition[]) => ({
     genres: [...new Set(conditions.flatMap(c => 'genre' in c ? [c.genre] : []))],
     keywords: [...new Set(conditions.flatMap(c => 'keyword' in c ? [c.keyword] : []))]
 })
 
-/** Сколько разных условий TMDB (у сериалов «Боевик» и «Приключения» — один жанр). */
 export const distinctConditionCount = (conditions: TmdbCondition[]) => {
     const {genres, keywords} = splitConditions(conditions)
     return genres.length + keywords.length
 }
 
 /**
- * Параметры discover для условий. Возвращает список наборов: каждый — отдельный запрос,
- * результаты объединяются.
- *   and — запятая: тайтл содержит все жанры и все теги (один запрос);
- *   or  — вертикальная черта: любой жанр / любой тег. Жанры и теги в TMDB — разные
- *         параметры, между собой они всегда «И», поэтому «любой жанр ИЛИ любой тег» —
- *         два запроса.
+ * Наборы параметров discover для условий (каждый — отдельный запрос, результаты объединяются).
+ * and — запятая: все жанры и все теги; or — «|»: любой жанр, отдельным запросом любой тег
+ * (жанры и теги в TMDB — разные параметры, между собой всегда «И»).
  */
 const conditionParamSets = (conditions: TmdbCondition[], match: MatchMode): Array<Record<string, string>> => {
     const {genres, keywords} = splitConditions(conditions)
@@ -160,144 +157,200 @@ const conditionParamSets = (conditions: TmdbCondition[], match: MatchMode): Arra
     return sets.length ? sets : [{}]
 }
 
-/** Как сортировать кандидатов в TMDB и как оценивать их у нас. */
-const strategy = (params: CollectionParams) => {
-    const period = periodByKey(params.period)!
-    const profile = PROFILES[params.period]
-
-    if (period.direction === 'upcoming') return {sortBy: 'popularity.desc', kind: 'popularity' as const, profile}
-
-    if (params.criterion === 'popular') {
-        // «Популярное за всё время / 5 лет» — самое смотрибельное (число оценок); за короткие
-        // интервалы — текущая популярность TMDB.
-        return params.period === 'all' || params.period === 'y5'
-            ? {sortBy: 'vote_count.desc', kind: 'votes' as const, profile}
-            : {sortBy: 'popularity.desc', kind: 'popularity' as const, profile}
-    }
-
-    return profile.weight >= 0.5
-        ? {sortBy: 'popularity.desc', kind: 'weighted' as const, profile}
-        : {sortBy: 'vote_average.desc', kind: 'weighted' as const, profile}
+/** Окно дат периода с блоком «Год» и порогом 1985 (для вышедшего). null — пересечения нет. */
+export const collectionWindow = (params: CollectionParams): {window: Window, direction: 'released' | 'upcoming'} | null => {
+    const period = periodByKey(params.period)
+    if (!period) return null
+    const year = yearRangeByKey(params.year)
+    const window = intersect(
+        periodRange(params.period),
+        period.direction === 'released' ? {from: MIN_RELEASE_DATE} : {},
+        year ? {from: year.from, ...(year.to ? {to: year.to} : {})} : {}
+    )
+    return window ? {window, direction: period.direction} : null
 }
 
-type Raw = Record<string, any>
-
-/** Жанры и теги фильтра → условия TMDB для типа раздела (фильм или сериал). */
-export const resolveConditions = (params: CollectionParams): TmdbCondition[] => {
-    const section = SECTIONS[params.section]
-    if (!section || params.criterion !== 'filter') return []
-    return [
-        ...(params.genres ?? []).map(key => genreByKey(key)?.[section.mediaType]).filter(Boolean) as TmdbCondition[],
-        ...(params.tags ?? []).map(key => tagByKey(key)).filter(Boolean).map(tag => ({keyword: tag!.keyword}))
-    ]
-}
-
-export const buildCollection = async (
-    params: CollectionParams,
-    {size = COLLECTION_SIZE, minSize = COLLECTION_SIZE, excludeIds = []}: {size?: number, minSize?: number, excludeIds?: number[]} = {}
-): Promise<CollectionResult> => {
-    const section = SECTIONS[params.section]
-    if (!section) throw new Error(`[COLLECTIONS] Unknown section: ${params.section}`)
-    if (!periodByKey(params.period)) throw new Error(`[COLLECTIONS] Unknown period: ${params.period}`)
-
-    const conditions = resolveConditions(params)
-
-    const {sortBy, kind, profile} = strategy(params)
-    const votesFactor = section.mediaType === 'tv' ? TV_VOTES_FACTOR : 1
-    const minVotes = Math.round(profile.minVotes * votesFactor * (params.criterion === 'popular' ? 0.5 : 1))
-    const m = profile.m * votesFactor
-    const {from, to} = periodRange(params.period)
-
-    const match: MatchMode = params.match ?? 'and'
-    const baseQuery: Record<string, string> = {
+/** Параметры discover раздела: фильтр по датам и сортировка. */
+const sectionQuery = (section: Section, window: Window, params: CollectionParams): Record<string, string> => {
+    const year = yearRangeByKey(params.year)
+    const base: Record<string, string> = {
         language: 'ru-RU',
         include_adult: 'false',
-        sort_by: sortBy,
-        without_genres: EXCLUDED_GENRES[section.mediaType].join(','),
-        ...(minVotes > 0 ? {'vote_count.gte': String(minVotes)} : {}),
-        ...(from ? {[`${section.dateField}.gte`]: from} : {}),
-        ...(to ? {[`${section.dateField}.lte`]: to} : {}),
-        // У сериалов «новые серии» (air_date) иначе вернут и сериалы без первого показа в истории.
-        ...(section.mediaType === 'tv' && section.dateField === 'air_date' ? {include_null_first_air_dates: 'false'} : {})
+        without_genres: EXCLUDED_GENRES[section.mediaType].join(',')
     }
+    const range = (field: string, w: Window) => ({
+        ...(w.from ? {[`${field}.gte`]: w.from} : {}),
+        ...(w.to ? {[`${field}.lte`]: w.to} : {})
+    })
 
-    // У анонсов трейлер есть далеко не у всех: кандидатов берётся больше.
-    const maxPages = periodByKey(params.period)!.direction === 'upcoming' ? MAX_CANDIDATE_PAGES_UPCOMING : MAX_CANDIDATE_PAGES
-    const candidates: Raw[] = []
-    // excludeIds — уже взятые в топ (по «И»), чтобы «ИЛИ» их не повторил.
-    const seenIds = new Set<number>(excludeIds)
-    for (const conditionSet of conditionParamSets(conditions, match)) {
-        const query = new URLSearchParams({...baseQuery, ...conditionSet})
-        for (let page = 1; page <= maxPages; page++) {
+    switch (section.key) {
+        case 'movies': {
+            const upcoming = periodByKey(params.period)!.direction === 'upcoming'
+            return {
+                ...base,
+                ...range('primary_release_date', window),
+                sort_by: upcoming ? 'popularity.desc' : 'vote_count.desc',
+                ...(upcoming ? {} : {'vote_count.gte': String(MIN_VOTES.movie)})
+            }
+        }
+        case 'series_completed':
+            // Закончен (Ended) или закрыт (Canceled); последняя серия в периоде проверяется по карточке.
+            return {
+                ...base,
+                with_status: '3|4',
+                ...range('air_date', periodRange(params.period)),
+                ...range('first_air_date', {from: year?.from ?? MIN_RELEASE_DATE, ...(year?.to ? {to: year.to} : {})}),
+                sort_by: 'vote_count.desc',
+                'vote_count.gte': String(MIN_VOTES.tv)
+            }
+        case 'series_new':
+            // Серии в периоде выходили; что это первая серия сериала или сезона — по карточке.
+            return {
+                ...base,
+                ...range('air_date', periodRange(params.period)),
+                ...range('first_air_date', {from: year?.from ?? MIN_RELEASE_DATE, ...(year?.to ? {to: year.to} : {})}),
+                include_null_first_air_dates: 'false',
+                sort_by: 'popularity.desc'
+            }
+        case 'series_upcoming':
+            return {
+                ...base,
+                ...range('first_air_date', window),
+                sort_by: 'popularity.desc'
+            }
+    }
+}
+
+const tvDetails = (id: number) =>
+    tmdbGet<Raw>(`tv/${id}?language=ru-RU&append_to_response=videos&include_video_language=ru,en`)
+
+/** Сериал проходит условие раздела (по карточке). */
+const tvFitsSection = (section: Section, details: Raw, window: Window): boolean => {
+    switch (section.key) {
+        case 'series_completed':
+            return ['Ended', 'Canceled'].includes(details.status) && inWindow(details.last_air_date, window)
+        case 'series_new':
+            return inWindow(details.first_air_date, window) ||
+                (details.seasons ?? []).some((season: Raw) => Number(season.season_number) > 0 && inWindow(season.air_date, window))
+        default:
+            return true
+    }
+}
+
+type Candidate = {item: Raw, details?: Raw}
+
+/**
+ * Кандидаты раздела за период с фильтрами (без проверки трейлеров): discover до 100 штук на
+ * набор условий → русское название → у сериалов карточка и условие раздела.
+ * capped — в TMDB больше, чем мы смотрим (для счётчика «100+»).
+ */
+export const collectCandidates = async (
+    params: CollectionParams,
+    excludeIds: number[] = []
+): Promise<{candidates: Candidate[], capped: boolean}> => {
+    const section = SECTIONS[params.section]
+    const scope = collectionWindow(params)
+    if (!section || !scope) return {candidates: [], capped: false}
+    const {window, direction} = scope
+
+    const base = sectionQuery(section, window, params)
+    const seen = new Set<number>(excludeIds)
+    const raw: Raw[] = []
+    let capped = false
+
+    for (const conditionSet of conditionParamSets(resolveConditions(params), params.match ?? 'and')) {
+        const query = new URLSearchParams({...base, ...conditionSet})
+        for (let page = 1; page <= MAX_PAGES; page++) {
             query.set('page', String(page))
             const body = await tmdbGet<{results?: Raw[], total_pages?: number}>(`discover/${section.mediaType}?${query}`)
             for (const item of body.results ?? []) {
-                if (seenIds.has(Number(item.id))) continue
-                seenIds.add(Number(item.id))
-                candidates.push(item)
+                if (seen.has(Number(item.id))) continue
+                seen.add(Number(item.id))
+                raw.push(item)
             }
             if (!body.total_pages || page >= body.total_pages) break
+            if (page === MAX_PAGES) capped = true
         }
     }
 
-    // Отсев: тайтлы без русского и английского названия (название только тайской вязью,
-    // деванагари, хангылем и т. п.) не для нашей аудитории; у «Скоро» оценок ещё нет, поэтому
-    // совсем незаметные анонсы отсекаются по популярности.
-    const minUpcomingPopularity = section.mediaType === 'tv' ? MIN_UPCOMING_POPULARITY_TV : MIN_UPCOMING_POPULARITY_MOVIE
-    const isUpcoming = periodByKey(params.period)!.direction === 'upcoming'
-    const filtered = candidates.filter(item =>
-        hasReadableTitle(String(item.title || item.name || '')) &&
-        (!isUpcoming || Number(item.popularity) >= minUpcomingPopularity))
-    candidates.length = 0
-    candidates.push(...filtered)
+    const minPopularity = MIN_UPCOMING_POPULARITY[section.mediaType]
+    const titled = raw.filter(item =>
+        hasRussianTitle(String(item.title || item.name || '')) &&
+        (direction === 'released' || Number(item.popularity) >= minPopularity))
 
-    // Ранжирование.
-    const voted = candidates.filter(item => Number(item.vote_count) > 0)
-    const meanRating = voted.length
-        ? voted.reduce((sum, item) => sum + Number(item.vote_average), 0) / voted.length
-        : 6.5
-    const maxLogPopularity = Math.max(1e-9, ...candidates.map(item => Math.log1p(Number(item.popularity) || 0)))
+    if (section.mediaType === 'movie') return {candidates: titled.map(item => ({item})), capped}
 
-    const scored = candidates.map(item => {
-        const v = Number(item.vote_count) || 0
-        const r = Number(item.vote_average) || 0
-        const popularity = Math.log1p(Number(item.popularity) || 0) / maxLogPopularity
-        const weighted = m > 0 ? (v / (v + m)) * r + (m / (v + m)) * meanRating : r
-        const score = kind === 'popularity'
-            ? popularity
-            : kind === 'votes'
-                ? v
-                : (1 - profile.weight) * (weighted / 10) + profile.weight * popularity
-        return {item, score}
-    }).sort((a, b) => b.score - a.score)
+    const withDetails = await mapLimit(titled, 8, async item => ({item, details: await tvDetails(Number(item.id))}))
+    return {
+        candidates: withDetails.filter(({details}) => tvFitsSection(section, details, window)),
+        capped
+    }
+}
 
-    // Трейлеры: по порядку, пачками, пока не наберётся size.
+/** Оценка для ранжирования (правило владельца 18.11). */
+const rankScore = (candidate: Candidate, direction: 'released' | 'upcoming', maxLogVotes: number, maxLogPopularity: number) => {
+    const votes = Number(candidate.item.vote_count) || 0
+    const popularity = Number(candidate.item.popularity) || 0
+    if (direction === 'upcoming') return popularity
+
+    const status = candidate.details?.status
+    const stillAiring = candidate.details && !['Ended', 'Canceled'].includes(status)
+    if (!stillAiring) return votes
+
+    const votesNorm = Math.log1p(votes) / maxLogVotes
+    const popularityNorm = Math.log1p(popularity) / maxLogPopularity
+    return AIRING_POPULARITY_WEIGHT * popularityNorm + (1 - AIRING_POPULARITY_WEIGHT) * votesNorm
+}
+
+/** Один проход сборки с заданным режимом условий. */
+export const buildCollection = async (
+    params: CollectionParams,
+    {size = COLLECTION_SIZE, excludeIds = []}: {size?: number, excludeIds?: number[]} = {}
+): Promise<CollectionResult> => {
+    const section = SECTIONS[params.section]
+    if (!section) throw new Error(`[COLLECTIONS] Unknown section: ${params.section}`)
+    const match = params.match ?? 'and'
+    const scope = collectionWindow(params)
+    if (!scope) return {params, items: [], rest: [], match, stats: {candidates: 0, withoutTrailer: 0}}
+
+    const {candidates} = await collectCandidates(params, excludeIds)
+    const maxLogVotes = Math.max(1e-9, ...candidates.map(c => Math.log1p(Number(c.item.vote_count) || 0)))
+    const maxLogPopularity = Math.max(1e-9, ...candidates.map(c => Math.log1p(Number(c.item.popularity) || 0)))
+    const scored = candidates
+        .map(candidate => ({candidate, score: rankScore(candidate, scope.direction, maxLogVotes, maxLogPopularity)}))
+        .sort((a, b) => b.score - a.score)
+
     const items: CollectionItem[] = []
-    let checked = 0
     let withoutTrailer = 0
     let cursor = 0
-    const BATCH = 6
 
     while (items.length < size && cursor < scored.length) {
-        const batch = scored.slice(cursor, cursor + BATCH)
+        const batch = scored.slice(cursor, cursor + 6)
         cursor += batch.length
-        const trailers = await findTrailers(section.mediaType, batch.map(entry => Number(entry.item.id)))
-        checked += batch.length
 
-        for (const {item, score} of batch) {
-            const trailer = trailers.get(Number(item.id))
+        let trailers: Map<number, Trailer | null>
+        if (section.mediaType === 'tv') {
+            trailers = new Map(batch.map(({candidate}) => [Number(candidate.item.id), pickTrailer(candidate.details?.videos?.results ?? [])]))
+            await rememberTrailers('tv', [...trailers.entries()])
+        } else {
+            trailers = await findTrailers('movie', batch.map(({candidate}) => Number(candidate.item.id)))
+        }
+
+        for (const {candidate, score} of batch) {
+            const trailer = trailers.get(Number(candidate.item.id))
             if (!trailer) {
                 withoutTrailer++
                 continue
             }
             if (items.length >= size) break
+            const item = candidate.item
             const date = String(item.release_date || item.first_air_date || '')
             items.push({
                 rank: items.length + 1,
                 mediaType: section.mediaType,
                 contentType: section.contentType,
                 id: Number(item.id),
-                title: String(item.title || item.name || item.original_title || item.original_name),
+                title: String(item.title || item.name),
                 ...(date ? {year: Number(date.slice(0, 4))} : {}),
                 voteAverage: Number(item.vote_average) || 0,
                 voteCount: Number(item.vote_count) || 0,
@@ -308,98 +361,46 @@ export const buildCollection = async (
         }
     }
 
-    const usedIds = new Set(items.map(item => item.id))
-    const lastUsed = scored.findIndex(entry => entry.item.id === items.at(-1)?.id)
+    const used = new Set(items.map(item => item.id))
+    const lastUsed = scored.findIndex(entry => Number(entry.candidate.item.id) === items.at(-1)?.id)
     const rest = scored
         .slice(lastUsed + 1)
-        .filter(entry => !usedIds.has(Number(entry.item.id)))
-        .map(entry => ({id: Number(entry.item.id), score: entry.score}))
+        .filter(entry => !used.has(Number(entry.candidate.item.id)))
+        .map(entry => ({id: Number(entry.candidate.item.id), score: entry.score}))
 
-    if (items.length < minSize) {
-        console.warn('[COLLECTIONS] Not enough titles with trailers', {params, found: items.length, candidates: candidates.length})
-    }
-
-    return {params, items, rest, stats: {candidates: candidates.length, checkedTrailers: checked, withoutTrailer}}
+    return {params: {...params, match}, items, rest, match, stats: {candidates: candidates.length, withoutTrailer}}
 }
 
 /**
- * Интервалы того же направления, которые шире заданного, от ближайшего к самому широкому.
- * Порядок считается по датам, а не по списку: «Этот год» в январе короче «Последних полугода»,
- * а «До конца года» в ноябре короче «Ближайших 3 месяцев».
+ * Топ за выбранный период: «И»; если мало и условий больше одного — найденные по «И» наверху,
+ * свободные места из «ИЛИ». Период не расширяется: нашлось меньше 10 — столько и будет.
  */
-export const widerPeriods = (period: PeriodKey): PeriodKey[] => {
-    const direction = periodByKey(period)!.direction
-    const span = (key: PeriodKey) => {
-        const {from, to} = periodRange(key)
-        return direction === 'released'
-            ? (from ? Date.parse(from) : Number.NEGATIVE_INFINITY)
-            : (to ? Date.parse(to) : Number.POSITIVE_INFINITY)
+export const buildCollectionFor = async (params: CollectionParams, size = COLLECTION_SIZE): Promise<CollectionResult> => {
+    const andResult = await buildCollection({...params, match: 'and'}, {size})
+    const canUseOr = params.criterion === 'filter' && distinctConditionCount(resolveConditions(params)) > 1
+    if (andResult.items.length >= size || !canUseOr) return andResult
+
+    const orResult = await buildCollection({...params, match: 'or'}, {size: size - andResult.items.length, excludeIds: andResult.items.map(item => item.id)})
+    if (!orResult.items.length) return andResult
+    return {
+        ...orResult,
+        params: {...params, match: 'or'},
+        match: 'or',
+        items: [...andResult.items, ...orResult.items].map((item, index) => ({...item, rank: index + 1}))
     }
-    const baseSpan = span(period)
-
-    return PERIODS
-        .filter(other => other.direction === direction && other.key !== period)
-        .map(other => other.key)
-        .filter(key => direction === 'released' ? span(key) < baseSpan : span(key) > baseSpan)
-        .sort((a, b) => direction === 'released' ? span(b) - span(a) : span(a) - span(b))
-}
-
-export type WidenedCollectionResult = CollectionResult & {
-    requestedPeriod: PeriodKey
-    usedPeriod: PeriodKey
-    widened: boolean
-    /** Каким режимом собран топ: and — все условия, or — хотя бы одно. */
-    match: MatchMode
 }
 
 /**
- * Топ с запасными шагами (решения владельца 17.11):
- *   1. на заданном интервале — тайтлы со всеми отмеченными жанрами и тегами («И»);
- *   2. мало — на том же интервале с любым из них («ИЛИ»), если условий больше одного;
- *   3. мало и так — следующий, более широкий интервал, снова «И», затем «ИЛИ»; и так до самого широкого.
- * Период пользователя сохраняется, пока это возможно. Если не хватает нигде, возвращается
- * лучшее, что нашлось (карточка показывает «нашлось N»).
+ * Сколько тайтлов найдено за период (для кнопок «До конца года (5)»): без трейлеров и картинок.
+ * С несколькими условиями — как в топе: «И», если его мало — объединение с «ИЛИ».
+ * capped — больше, чем мы смотрим (кнопка покажет «100+»).
  */
-export const buildCollectionWidening = async (
-    params: CollectionParams,
-    {size = COLLECTION_SIZE, minSize = COLLECTION_SIZE}: {size?: number, minSize?: number} = {}
-): Promise<WidenedCollectionResult> => {
-    const section = SECTIONS[params.section]
-    const canUseOr = params.criterion === 'filter' && Boolean(section) &&
-        distinctConditionCount(resolveConditions(params)) > 1
-    const modes: MatchMode[] = canUseOr ? ['and', 'or'] : ['and']
-
-    let best: CollectionResult | null = null
-
-    for (const period of [params.period, ...widerPeriods(params.period)]) {
-        let result = await buildCollection({...params, period, match: 'and'}, {size, minSize})
-
-        if (result.items.length < minSize && modes.includes('or')) {
-            // «И» приоритетнее: найденные по «И» остаются наверху, свободные места добираются
-            // из «ИЛИ» (без повторов).
-            const andItems = result.items
-            const orResult = await buildCollection({...params, period, match: 'or'}, {size: size - andItems.length, minSize: 0, excludeIds: andItems.map(item => item.id)})
-            result = {
-                ...orResult,
-                params: {...params, period, match: 'or'},
-                items: [...andItems, ...orResult.items].map((item, index) => ({...item, rank: index + 1}))
-            }
-        }
-
-        if (!best || result.items.length > best.items.length) best = result
-        if (result.items.length >= minSize) {
-            const match = result.params.match ?? 'and'
-            return {
-                ...result,
-                params: {...params, period, match},
-                requestedPeriod: params.period,
-                usedPeriod: period,
-                widened: period !== params.period,
-                match
-            }
-        }
+export const countCollection = async (params: CollectionParams): Promise<{count: number, capped: boolean}> => {
+    const and = await collectCandidates({...params, match: 'and'})
+    const canUseOr = params.criterion === 'filter' && distinctConditionCount(resolveConditions(params)) > 1
+    if (and.capped || and.candidates.length >= COLLECTION_SIZE || !canUseOr) {
+        return {count: and.candidates.length, capped: and.capped}
     }
-
-    const usedPeriod = best!.params.period
-    return {...best!, requestedPeriod: params.period, usedPeriod, widened: usedPeriod !== params.period, match: best!.params.match ?? 'and'}
+    const or = await collectCandidates({...params, match: 'or'}, and.candidates.map(c => Number(c.item.id)))
+    return {count: and.candidates.length + or.candidates.length, capped: or.capped}
 }

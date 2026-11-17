@@ -2,20 +2,31 @@ import {Markup} from 'telegraf'
 import {COLLECTION_ACTION} from '#server/bot/callbacks/routes'
 import {
     GENRES,
+    genreByKey,
     PERIODS,
     periodByKey,
     SECTIONS,
     TAG_GROUPS,
     tagByKey,
     tagsForSection,
-    genreByKey
+    YEAR_RANGES,
+    yearRangeByKey
 } from '#server/global/engine/collections/catalog'
 import type {SectionGroup, WizardState} from '#server/bot/actions/collections/wizardState'
 
 /** Текст и кнопки мастера подборки для текущего состояния. */
 
-const btn = (text: string, action: string, arg?: string) =>
-    Markup.button.callback(text, COLLECTION_ACTION.encode({action, ...(arg ? {arg} : {})}))
+type ButtonStyle = 'success' | 'danger' | 'primary'
+
+/**
+ * Кнопка мастера. style — цвет кнопки (Bot API: success — зелёная, danger — красная,
+ * primary — синяя; старые клиенты Telegram показывают обычную). Решение владельца 18.11:
+ * шаги вперёд — зелёные, «Сбросить» и «Назад» — красные.
+ */
+const btn = (text: string, action: string, arg?: string, style?: ButtonStyle) => ({
+    ...Markup.button.callback(text, COLLECTION_ACTION.encode({action, ...(arg ? {arg} : {})})),
+    ...(style ? {style} : {})
+})
 
 const escapeHtml = (value: string) =>
     value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -32,19 +43,25 @@ export const GROUPS: Array<{key: SectionGroup, label: string, ready: boolean}> =
 export const CRITERION_LABEL = {filter: 'Фильтр', popular: 'Популярное'} as const
 export const DIRECTION_LABEL = {released: 'Уже вышли', upcoming: 'Скоро'} as const
 
-/** Краткое описание выбора: «Фильмы · Фильтр · Жанры: Ужасы · Теги: Призраки». */
+/** Краткое описание выбора для текста сообщения. */
 export const describeSelection = (state: WizardState): string[] => {
     const lines: string[] = []
-    if (state.section) lines.push(`Раздел: ${SECTIONS[state.section].label}`)
-    else if (state.group) lines.push(`Раздел: ${GROUPS.find(g => g.key === state.group)?.label.replace(/^\S+\s/, '')}`)
+    if (state.section) {
+        lines.push(state.group === 'series'
+            ? `Раздел: Сериалы · ${SECTIONS[state.section].label}`
+            : `Раздел: ${SECTIONS[state.section].label}`)
+    } else if (state.group) {
+        lines.push(`Раздел: ${GROUPS.find(g => g.key === state.group)?.label.replace(/^\S+\s/, '')}`)
+    }
     if (state.criterion) lines.push(`Подборка: ${CRITERION_LABEL[state.criterion]}`)
     if (state.criterion === 'filter') {
         const genres = state.genres.map(key => genreByKey(key)?.label).filter(Boolean)
         const tags = state.tags.map(key => tagByKey(key)?.label).filter(Boolean)
         lines.push(`Жанры: ${genres.length ? genres.join(', ') : '—'}`)
         lines.push(`Теги: ${tags.length ? tags.join(', ') : '—'}`)
+        lines.push(`Год: ${yearRangeByKey(state.year)?.label ?? '—'}`)
     }
-    if (state.direction) lines.push(`Выход: ${DIRECTION_LABEL[state.direction]}`)
+    if (state.direction && state.group === 'movies') lines.push(`Выход: ${DIRECTION_LABEL[state.direction]}`)
     return lines
 }
 
@@ -52,45 +69,54 @@ const PROMPT: Record<WizardState['screen'], string> = {
     root: 'Выберите раздел.',
     series: 'Какие сериалы?',
     criterion: 'Как собрать топ?',
-    filter: 'Отметьте жанры и теги. Сначала ищу тайтлы, подходящие под все отмеченные, а если их мало — под любой из них.',
+    filter: 'Отметьте жанры, теги и год. Сначала ищу тайтлы, подходящие под все отмеченные жанры и теги, а если их мало — под любой из них.',
     direction: 'Уже вышли или скоро выйдут?',
-    period: 'За какой период?'
+    period: 'За какой период? В скобках — сколько нашлось.'
 }
 
-export const renderWizard = (state: WizardState, note?: string) => {
+/** Число на кнопке периода: «(5)», «(100+)»; undefined — ещё считается. */
+export type PeriodCounts = Partial<Record<string, {count: number, capped: boolean}>>
+
+const countLabel = (count?: {count: number, capped: boolean}) =>
+    !count ? '' : count.capped ? ' (100+)' : ` (${count.count})`
+
+export const renderWizard = (state: WizardState, note?: string, counts?: PeriodCounts) => {
     const header = '🎞 <b>Подборка</b>'
     const selection = describeSelection(state).map(line => escapeHtml(line))
     const text = [header, ...(selection.length ? ['', ...selection] : []), '', escapeHtml(PROMPT[state.screen]), ...(note ? ['', note] : [])].join('\n')
 
     const rows: any[][] = []
-    const back = [btn('◀️ Назад', 'b')]
+    const back = [btn('◀️ Назад', 'b', undefined, 'danger')]
 
     switch (state.screen) {
         case 'root': {
             for (let i = 0; i < GROUPS.length; i += 2) {
-                rows.push(GROUPS.slice(i, i + 2).map(group => btn(group.ready ? group.label : `${group.label} · скоро`, 's', group.key)))
+                rows.push(GROUPS.slice(i, i + 2).map(group => group.ready
+                    ? btn(group.label, 's', group.key, 'success')
+                    : btn(`${group.label} · скоро`, 's', group.key)))
             }
-            rows.push([btn('✖️ Закрыть', 'x')])
+            rows.push([btn('✖️ Закрыть', 'x', undefined, 'danger')])
             break
         }
         case 'series':
-            rows.push([btn(SECTIONS.series_new.label, 'ss', 'series_new')])
-            rows.push([btn(SECTIONS.series_airing.label, 'ss', 'series_airing')])
+            rows.push([btn('✅ Вышли полностью', 'ss', 'series_completed', 'success')])
+            rows.push([btn('🆕 Новые серии/сезоны', 'ss', 'series_new', 'success')])
+            rows.push([btn('🔜 Скоро', 'ss', 'series_upcoming', 'success')])
             rows.push(back)
             break
         case 'criterion':
-            rows.push([btn('🔎 Фильтр', 'c', 'filter'), btn('🔥 Популярное', 'c', 'popular')])
+            rows.push([btn('🔎 Фильтр', 'c', 'filter', 'success'), btn('🔥 Популярное', 'c', 'popular', 'success')])
             rows.push(back)
             break
         case 'filter': {
             const section = state.section ? SECTIONS[state.section] : SECTIONS.movies
-            rows.push([btn(`${state.openGenres ? '▼' : '▶'} Жанры${state.genres.length ? ` (выбрано ${state.genres.length})` : ''}`, 'f', 'g')])
+            rows.push([btn(`${state.openGenres ? '▼' : '▶'} Жанры${state.genres.length ? ` (выбрано ${state.genres.length})` : ''}`, 'f', 'g', 'primary')])
             if (state.openGenres) {
                 const genreButtons = GENRES.map(genre =>
                     btn(`${state.genres.includes(genre.key) ? '✅ ' : ''}${genre.label}`, 'tg', genre.key))
                 for (let i = 0; i < genreButtons.length; i += 3) rows.push(genreButtons.slice(i, i + 3))
             }
-            rows.push([btn(`${state.openTags ? '▼' : '▶'} Теги${state.tags.length ? ` (выбрано ${state.tags.length})` : ''}`, 'f', 't')])
+            rows.push([btn(`${state.openTags ? '▼' : '▶'} Теги${state.tags.length ? ` (выбрано ${state.tags.length})` : ''}`, 'f', 't', 'primary')])
             if (state.openTags) {
                 const tags = tagsForSection(section)
                 for (const [group, groupLabel] of Object.entries(TAG_GROUPS)) {
@@ -102,18 +128,26 @@ export const renderWizard = (state: WizardState, note?: string) => {
                     for (let i = 0; i < tagButtons.length; i += 2) rows.push(tagButtons.slice(i, i + 2))
                 }
             }
-            rows.push([btn('♻️ Сбросить', 'rs'), btn('Готово ▶️', 'ok')])
+            rows.push([btn(`${state.openYear ? '▼' : '▶'} Год${state.year ? ` (${yearRangeByKey(state.year)?.label})` : ''}`, 'f', 'y', 'primary')])
+            if (state.openYear) {
+                rows.push(YEAR_RANGES.map(range => btn(`${state.year === range.key ? '🔘 ' : ''}${range.label}`, 'ty', range.key)))
+            }
+            rows.push([btn('♻️ Сбросить', 'rs', undefined, 'danger'), btn('Готово ▶️', 'ok', undefined, 'success')])
             rows.push(back)
             break
         }
         case 'direction':
-            rows.push([btn('✅ Уже вышли', 'd', 'released'), btn('🔜 Скоро', 'd', 'upcoming')])
+            rows.push([btn('✅ Уже вышли', 'd', 'released', 'success'), btn('🔜 Скоро', 'd', 'upcoming', 'success')])
             rows.push(back)
             break
         case 'period': {
             const periods = PERIODS.filter(period => period.direction === state.direction)
             for (let i = 0; i < periods.length; i += 2) {
-                rows.push(periods.slice(i, i + 2).map(period => btn(period.label, 'p', period.key)))
+                rows.push(periods.slice(i, i + 2).map(period => {
+                    const count = counts?.[period.key]
+                    const empty = count && count.count === 0 && !count.capped
+                    return btn(`${period.label}${countLabel(count)}`, 'p', period.key, empty ? undefined : 'success')
+                }))
             }
             rows.push(back)
             break
@@ -124,9 +158,11 @@ export const renderWizard = (state: WizardState, note?: string) => {
 }
 
 /** Заголовок карточки-результата. */
-export const collectionTitle = (state: WizardState, count: number, requested: string, used: string, page = 0, match: 'and' | 'or' = 'and') => {
-    const section = state.section ? SECTIONS[state.section].label : ''
-    const parts = [section]
+export const collectionTitle = (state: WizardState, count: number, period: string, page = 0, match: 'and' | 'or' = 'and') => {
+    const parts: string[] = []
+    if (state.section) parts.push(state.group === 'series' || SECTIONS[state.section].mediaType === 'tv'
+        ? `Сериалы · ${SECTIONS[state.section].label.toLowerCase()}`
+        : SECTIONS[state.section].label)
     if (state.criterion === 'popular') parts.push('популярное')
     else {
         const picked = [
@@ -134,20 +170,17 @@ export const collectionTitle = (state: WizardState, count: number, requested: st
             ...state.tags.map(key => tagByKey(key)?.label?.toLowerCase())
         ].filter(Boolean)
         if (picked.length) parts.push(picked.join(match === 'or' ? ' или ' : ' + '))
+        const year = yearRangeByKey(state.year)
+        if (year) parts.push(year.label)
     }
-    parts.push((periodByKey(used)?.label ?? used).toLowerCase())
+    parts.push((periodByKey(period)?.label ?? period).toLowerCase())
     const places = page > 0 ? `Места ${page * 10 + 1}–${page * 10 + count}` : `Топ-${count}`
     return `${places}: ${parts.filter(Boolean).join(' · ')}`
 }
 
-export const widenedNote = (requested: string, used: string, count: number, match: 'and' | 'or' = 'and') => {
+export const collectionNote = (count: number, match: 'and' | 'or' = 'and') => {
     const parts: string[] = []
-    if (match === 'or') {
-        parts.push('Тайтлов со всеми отмеченными жанрами и тегами мало — показаны подходящие хотя бы под один.')
-    }
-    if (requested !== used) {
-        parts.push(`За «${periodByKey(requested)?.label}» нашлось мало — показан период «${periodByKey(used)?.label}».`)
-    }
-    if (count < 10) parts.push(`Нашлось ${count} с трейлером.`)
+    if (match === 'or') parts.push('Тайтлов со всеми отмеченными жанрами и тегами мало — добавлены подходящие хотя бы под один.')
+    if (count < 10) parts.push(`За этот период нашлось ${count} с трейлером.`)
     return parts.join(' ')
 }

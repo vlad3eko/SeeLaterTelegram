@@ -68,6 +68,10 @@ const readCache = async (mediaType: MediaType, ids: number[]) => {
     }
 }
 
+/** Запомнить трейлеры, найденные другим запросом (у сериалов — из карточки с append_to_response=videos). */
+export const rememberTrailers = (mediaType: MediaType, results: Array<[number, Trailer | null]>) =>
+    writeCache(mediaType, results)
+
 const writeCache = async (mediaType: MediaType, results: Array<[number, Trailer | null]>) => {
     if (cacheBroken || !results.length) return
     const {error} = await getSupabase()

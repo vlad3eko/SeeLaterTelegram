@@ -5,6 +5,8 @@
 
 export type MediaType = 'movie' | 'tv'
 
+export type Direction = 'released' | 'upcoming'
+
 /** Условие TMDB для фильмов или для сериалов: жанр или keyword (там, где жанра нет). */
 export type TmdbCondition = {genre: number} | {keyword: number}
 
@@ -113,23 +115,44 @@ export const TAGS: Tag[] = [
 /** В разделах сериалов не показываются теги, у которых меньше стольких известных сериалов. */
 export const MIN_SERIES_PER_TAG = 10
 
-/** Разделы этапа 1. Мультфильмы, мультсериалы и аниме — этап 2. */
-export type SectionKey = 'movies' | 'series_new' | 'series_airing'
+/**
+ * Разделы этапа 1 (правка владельца 18.11). Мультфильмы, мультсериалы и аниме — этап 2.
+ *   movies            — фильмы; «Уже вышли / Скоро» выбирается отдельным шагом;
+ *   series_completed  — «Вышли полностью»: сериал закончен, последняя серия в выбранном периоде;
+ *   series_new        — «Новые серии/сезоны»: в периоде вышла первая серия сериала или нового сезона;
+ *   series_upcoming   — «Скоро»: сериал ещё не вышел, первая серия в выбранном периоде.
+ */
+export type SectionKey = 'movies' | 'series_completed' | 'series_new' | 'series_upcoming'
 
 export type Section = {
     key: SectionKey
     label: string
     mediaType: MediaType
     contentType: 'movie' | 'series'
-    /** Поле даты для интервалов: мировая премьера фильма, первый показ или выход серий. */
-    dateField: 'primary_release_date' | 'first_air_date' | 'air_date'
+    /** Направление периода, если раздел задаёт его сам (у сериалов); у фильмов выбирается. */
+    direction?: Direction
 }
 
 export const SECTIONS: Record<SectionKey, Section> = {
-    movies: {key: 'movies', label: 'Фильмы', mediaType: 'movie', contentType: 'movie', dateField: 'primary_release_date'},
-    series_new: {key: 'series_new', label: 'Новые сериалы', mediaType: 'tv', contentType: 'series', dateField: 'first_air_date'},
-    series_airing: {key: 'series_airing', label: 'Новые серии и сезоны', mediaType: 'tv', contentType: 'series', dateField: 'air_date'}
+    movies: {key: 'movies', label: 'Фильмы', mediaType: 'movie', contentType: 'movie'},
+    series_completed: {key: 'series_completed', label: 'Вышли полностью', mediaType: 'tv', contentType: 'series', direction: 'released'},
+    series_new: {key: 'series_new', label: 'Новые серии/сезоны', mediaType: 'tv', contentType: 'series', direction: 'released'},
+    series_upcoming: {key: 'series_upcoming', label: 'Скоро', mediaType: 'tv', contentType: 'series', direction: 'upcoming'}
 }
+
+/** Тайтлы старше этой даты в топы не попадают (решение владельца 18.11). */
+export const MIN_RELEASE_DATE = '1985-01-01'
+
+export type YearRangeKey = 'y1985' | 'y2000' | 'y2015'
+
+/** Блок «Год» фильтра: выбирается не больше одного диапазона (год выхода фильма / начала сериала). */
+export const YEAR_RANGES: Array<{key: YearRangeKey, label: string, from: string, to?: string}> = [
+    {key: 'y1985', label: '1985–2000', from: '1985-01-01', to: '1999-12-31'},
+    {key: 'y2000', label: '2000–2015', from: '2000-01-01', to: '2014-12-31'},
+    {key: 'y2015', label: '2015–…', from: '2015-01-01'}
+]
+
+export const yearRangeByKey = (key: string | undefined) => YEAR_RANGES.find(range => range.key === key)
 
 /** Жанры TMDB, которые не попадают в выдачу разделов: анимация (свои разделы), новости, реалити, ток-шоу. */
 export const EXCLUDED_GENRES: Record<MediaType, number[]> = {
@@ -137,7 +160,6 @@ export const EXCLUDED_GENRES: Record<MediaType, number[]> = {
     tv: [16, 10763, 10764, 10767]
 }
 
-export type Direction = 'released' | 'upcoming'
 
 export type PeriodKey =
     | 'all' | 'y5' | 'year' | 'm6' | 'm3' | 'd30'
