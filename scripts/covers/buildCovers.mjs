@@ -1,0 +1,232 @@
+// Обложки экранов мастера подборок /g.
+//
+//   node --env-file=.env scripts/covers/buildCovers.mjs [--out dir] [--variants 3] [--screens home,root] [--publish]
+//
+// 1. Берёт из TMDB актуальные постеры под каждый экран (тренды, популярные сериалы, премьеры…).
+// 2. Рисует шаблон scripts/covers/template.html в Chrome без окна: --variants вариантов на экран,
+//    у каждого свой случайный наклон карточек.
+// 3. Без --publish только сохраняет JPG и covers.json в --out (по умолчанию .covers-out).
+//    С --publish отправляет каждую обложку в служебный Telegram-канал (TELEGRAM_MEDIA_STORAGE_CHAT_ID),
+//    записывает file_id в таблицу collection_covers (database/migrations/collection_covers.sql)
+//    и удаляет из неё прошлые партии.
+//
+// Новых зависимостей нет: Chrome (CHROME_PATH или стандартный путь), ffmpeg (FFMPEG_PATH,
+// ffmpeg-static из node_modules или ffmpeg в PATH), fetch из Node 22.
+// Запуск раз в квартал — .github/workflows/collection-covers.yml.
+
+import {execFile} from 'node:child_process'
+import {existsSync} from 'node:fs'
+import {mkdir, readFile, stat, writeFile} from 'node:fs/promises'
+import {createRequire} from 'node:module'
+import path from 'node:path'
+import {fileURLToPath, pathToFileURL} from 'node:url'
+import {promisify} from 'node:util'
+
+const run = promisify(execFile)
+const here = path.dirname(fileURLToPath(import.meta.url))
+const TEMPLATE = path.join(here, 'template.html')
+
+// ---------- аргументы ----------
+const args = process.argv.slice(2)
+const flag = name => args.includes(`--${name}`)
+const option = (name, fallback) => {
+    const index = args.indexOf(`--${name}`)
+    return index >= 0 && args[index + 1] ? args[index + 1] : fallback
+}
+const OUT = path.resolve(option('out', '.covers-out'))
+const VARIANTS = Math.max(1, Number(option('variants', 3)))
+const PUBLISH = flag('publish')
+
+// ---------- источники постеров ----------
+// fresh — брать из первых строк (актуальное), иначе перемешивать первые 30 (чтобы раз в квартал
+// «вечные» списки вроде топа по рейтингу тоже давали новые обложки). minVotes отсекает мыльные оперы
+// и малоизвестные тайтлы; у премьер голосов ещё нет.
+const year = new Date().getFullYear()
+const SCREENS = {
+    home: {fresh: true, minVotes: 100, sources: ['trending/all/week', 'trending/all/week?page=2']},
+    root: {fresh: true, minVotes: 200, sources: ['movie/popular', 'movie/popular?page=2']},
+    series: {fresh: true, minVotes: 300, sources: ['tv/popular', 'tv/popular?page=2', 'tv/on_the_air']},
+    criterion: {fresh: false, minVotes: 1000, sources: ['movie/top_rated', 'movie/top_rated?page=2', 'tv/top_rated']},
+    filter: {fresh: false, minVotes: 3000, sources: [
+        `discover/movie?sort_by=vote_count.desc&primary_release_date.gte=${year - 12}-01-01`,
+        `discover/movie?sort_by=vote_count.desc&primary_release_date.gte=${year - 12}-01-01&page=2`]},
+    direction: {fresh: true, minVotes: 0, sources: ['movie/upcoming?region=US', 'movie/now_playing?region=US']},
+    period: {fresh: true, minVotes: 50, sources: ['trending/movie/week', 'trending/tv/week']},
+    loading: {fresh: false, minVotes: 5000, sources: [
+        'discover/movie?sort_by=vote_count.desc&primary_release_date.gte=1985-01-01&primary_release_date.lte=2008-12-31',
+        'discover/movie?sort_by=vote_count.desc&primary_release_date.gte=1985-01-01&primary_release_date.lte=2008-12-31&page=2']}
+}
+const POSTERS_PER_SCREEN = 6
+const onlyScreens = option('screens', '').split(',').filter(Boolean)
+const screenKeys = Object.keys(SCREENS).filter(key => !onlyScreens.length || onlyScreens.includes(key))
+
+const tmdb = async pathAndQuery => {
+    const key = process.env.TMDB_API_KEY?.trim()
+    if (!key) throw new Error('TMDB_API_KEY is missing')
+    const url = `https://api.themoviedb.org/3/${pathAndQuery}${pathAndQuery.includes('?') ? '&' : '?'}language=ru-RU`
+    for (let attempt = 0; attempt < 4; attempt++) {
+        const response = await fetch(url, {headers: {accept: 'application/json', Authorization: `Bearer ${key}`}, signal: AbortSignal.timeout(20_000)})
+        if (response.status === 429) { await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1))); continue }
+        if (!response.ok) throw new Error(`TMDB ${response.status}: ${pathAndQuery.split('?')[0]}`)
+        return response.json()
+    }
+    throw new Error(`TMDB 429: ${pathAndQuery.split('?')[0]}`)
+}
+
+// Подходит: есть постер, русское название (значит, есть и русский постер или хотя бы перевод),
+// не взрослое, не русское и не индийское кино (как в подборках), достаточно голосов.
+const suitable = (item, minVotes) =>
+    item.poster_path && /^\/[A-Za-z0-9]+\.jpg$/.test(item.poster_path) && !item.adult &&
+    /[а-яё]/i.test(item.title || item.name || '') &&
+    !['ru', 'hi', 'ta', 'te', 'ml', 'kn'].includes(item.original_language) &&
+    (item.vote_count ?? 0) >= minVotes &&
+    (item.media_type ?? 'movie') !== 'person'
+
+const shuffle = list => {
+    const copy = [...list]
+    for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]]
+    }
+    return copy
+}
+
+const pickPosters = async () => {
+    const used = new Set()
+    const picked = {}
+    for (const key of screenKeys) {
+        const {fresh, minVotes, sources} = SCREENS[key]
+        const items = []
+        for (const source of sources) items.push(...((await tmdb(source)).results ?? []))
+        const seen = new Set()
+        const candidates = items.filter(item => {
+            const id = `${item.media_type ?? (item.title ? 'movie' : 'tv')}:${item.id}`
+            if (seen.has(id) || !suitable(item, minVotes)) return false
+            seen.add(id)
+            item._key = id
+            return true
+        })
+        // Актуальные — из первых 12 в случайном порядке, «вечные» — из первых 30.
+        const pool = shuffle(candidates.slice(0, fresh ? 12 : 30)).concat(candidates.slice(fresh ? 12 : 30))
+        // Сначала тайтлы, которых ещё нет на других экранах; если не хватило — повторы.
+        const chosen = pool.filter(item => !used.has(item._key)).slice(0, POSTERS_PER_SCREEN)
+        for (const item of pool) if (chosen.length < POSTERS_PER_SCREEN && !chosen.includes(item)) chosen.push(item)
+        if (chosen.length < POSTERS_PER_SCREEN) throw new Error(`Not enough posters for "${key}": ${chosen.length}`)
+        chosen.forEach(item => used.add(item._key))
+        picked[key] = chosen.map(item => ({path: item.poster_path.slice(1, -4), title: item.title || item.name}))
+        console.log(`[COVERS] ${key}: ${picked[key].map(p => p.title).join(' · ')}`)
+    }
+    return picked
+}
+
+// ---------- отрисовка ----------
+const findChrome = async () => {
+    if (process.env.CHROME_PATH) return process.env.CHROME_PATH
+    const known = [
+        'C:/Program Files/Google/Chrome/Application/chrome.exe',
+        'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
+        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+    ].find(candidate => existsSync(candidate))
+    if (known) return known
+    for (const name of ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser']) {
+        try { await run('which', [name]); return name } catch {}
+    }
+    throw new Error('Chrome not found: set CHROME_PATH')
+}
+
+const findFfmpeg = () => {
+    if (process.env.FFMPEG_PATH) return process.env.FFMPEG_PATH
+    try {
+        const bundled = createRequire(import.meta.url)('ffmpeg-static')
+        if (bundled && existsSync(bundled)) return bundled
+    } catch {}
+    return 'ffmpeg'
+}
+
+const render = async (chrome, ffmpeg, screen, posters, variant) => {
+    const seed = Math.floor(Math.random() * 1e9)
+    const png = path.join(OUT, 'png', `${screen}-${variant}.png`)
+    const jpg = path.join(OUT, `${screen}-${variant}.jpg`)
+    const url = `${pathToFileURL(TEMPLATE).href}#screen=${screen}&posters=${posters.map(p => p.path).join(',')}&seed=${seed}`
+    await run(chrome, [
+        '--headless=new', '--hide-scrollbars', '--force-device-scale-factor=2',
+        // Ждём шрифт, постеры и цвета боков карточек (canvas) — сеть, поэтому с запасом.
+        '--virtual-time-budget=20000', '--window-size=1280,853',
+        ...(process.platform === 'linux' ? ['--no-sandbox'] : []),
+        `--screenshot=${png}`, url
+    ], {timeout: 120_000})
+    if (!existsSync(png) || (await stat(png)).size < 200_000) throw new Error(`Screenshot failed: ${screen} #${variant}`)
+    // Telegram всё равно ужимает фото до 1280 по длинной стороне; 1920 — с запасом на чёткость.
+    await run(ffmpeg, ['-y', '-loglevel', 'error', '-i', png, '-vf', 'scale=1920:-1:flags=lanczos', '-q:v', '3', jpg], {timeout: 60_000})
+    return {screen, variant, seed, file: path.basename(jpg), posters: posters.map(p => p.path)}
+}
+
+// ---------- публикация ----------
+const requireEnv = name => {
+    const value = process.env[name]?.trim()
+    if (!value) throw new Error(`${name} is missing`)
+    return value
+}
+
+const sendToStorage = async (cover, batch) => {
+    const form = new FormData()
+    form.append('chat_id', requireEnv('TELEGRAM_MEDIA_STORAGE_CHAT_ID'))
+    form.append('caption', `Обложка /g · ${cover.screen} #${cover.variant} · ${batch}`)
+    form.append('disable_notification', 'true')
+    form.append('photo', new Blob([await readFile(path.join(OUT, cover.file))], {type: 'image/jpeg'}), cover.file)
+    const response = await fetch(`https://api.telegram.org/bot${requireEnv('TELEGRAM_TOKEN')}/sendPhoto`, {method: 'POST', body: form})
+    const body = await response.json()
+    if (!body.ok) throw new Error(`Telegram sendPhoto failed (${cover.screen} #${cover.variant}): ${body.description}`)
+    return body.result.photo.at(-1).file_id
+}
+
+const supabase = async (method, query, body) => {
+    const key = requireEnv('SUPABASE_SERVICE_ROLE_KEY')
+    const response = await fetch(`${requireEnv('SUPABASE_URL').replace(/\/$/, '')}/rest/v1/collection_covers${query}`, {
+        method,
+        // Новые секретные ключи (sb_secret_…) идут только в apikey, старые JWT — ещё и в Authorization.
+        headers: {apikey: key, ...(key.startsWith('sb_') ? {} : {Authorization: `Bearer ${key}`}),
+            'content-type': 'application/json', Prefer: 'return=minimal'},
+        ...(body ? {body: JSON.stringify(body)} : {})
+    })
+    if (!response.ok) throw new Error(`Supabase ${method} collection_covers ${response.status}: ${await response.text()}`)
+}
+
+// ---------- запуск ----------
+const main = async () => {
+    await mkdir(path.join(OUT, 'png'), {recursive: true})
+    const chrome = await findChrome()
+    const ffmpeg = findFfmpeg()
+    const posters = await pickPosters()
+
+    const covers = []
+    for (const screen of screenKeys) {
+        for (let variant = 1; variant <= VARIANTS; variant++) {
+            covers.push(await render(chrome, ffmpeg, screen, posters[screen], variant))
+            console.log(`[COVERS] rendered ${screen} #${variant}`)
+        }
+    }
+
+    const batch = new Date().toISOString().replace(/[-:]/g, '').slice(0, 13)
+    if (PUBLISH) {
+        for (const cover of covers) {
+            cover.fileId = await sendToStorage(cover, batch)
+            console.log(`[COVERS] sent ${cover.screen} #${cover.variant}`)
+        }
+        await supabase('POST', '', covers.map(cover => ({
+            batch, screen: cover.screen, variant: cover.variant, file_id: cover.fileId, posters: cover.posters, seed: cover.seed
+        })))
+        // Новая партия записана — прошлые больше не нужны (при частичном запуске --screens — только по этим экранам).
+        const screensFilter = onlyScreens.length ? `&screen=in.(${screenKeys.join(',')})` : ''
+        await supabase('DELETE', `?batch=neq.${batch}${screensFilter}`)
+        console.log(`[COVERS] published batch ${batch}: ${covers.length} covers`)
+    }
+
+    await writeFile(path.join(OUT, 'covers.json'), JSON.stringify({batch, published: PUBLISH, posters, covers}, null, 2))
+    console.log(`[COVERS] done: ${covers.length} covers in ${OUT}`)
+}
+
+main().catch(error => {
+    console.error('[COVERS] failed:', error instanceof Error ? error.message : error)
+    process.exit(1)
+})

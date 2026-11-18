@@ -48,3 +48,6 @@ cookies.txt
 # Local scratch, test renders, models
 /tmp/
 server/models/*.bin
+
+# Обложки подборок (scripts/covers/buildCovers.mjs)
+.covers-out

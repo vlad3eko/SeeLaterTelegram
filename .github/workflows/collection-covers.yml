@@ -1,0 +1,69 @@
+# Обложки мастера подборок /g: раз в квартал свежие постеры из TMDB → новые обложки →
+# служебный Telegram-канал → file_id в таблицу collection_covers (scripts/covers/buildCovers.mjs).
+#
+# Секреты репозитория (Settings → Secrets and variables → Actions):
+#   TMDB_API_KEY, TELEGRAM_TOKEN, TELEGRAM_MEDIA_STORAGE_CHAT_ID, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY.
+# Перед первым запуском выполнить database/migrations/collection_covers.sql.
+# Вручную: Actions → Collection covers → Run workflow (можно без публикации — только картинки в артефакте).
+
+name: Collection covers
+
+on:
+  schedule:
+    # 1 января, апреля, июля и октября в 06:00 UTC.
+    - cron: '0 6 1 1,4,7,10 *'
+  workflow_dispatch:
+    inputs:
+      variants:
+        description: 'Вариантов обложки на экран'
+        default: '3'
+      publish:
+        description: 'Отправить в Telegram и записать в Supabase'
+        type: boolean
+        default: true
+
+concurrency:
+  group: collection-covers
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  covers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Chrome уже есть в образе ubuntu-latest; ffmpeg ставим (npm ci не нужен — зависимостей у скрипта нет).
+      - name: Install ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+
+      - name: Build covers
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_MEDIA_STORAGE_CHAT_ID: ${{ secrets.TELEGRAM_MEDIA_STORAGE_CHAT_ID }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          VARIANTS: ${{ inputs.variants || '3' }}
+          # По расписанию inputs пустые — публикуем; при ручном запуске — как отмечено.
+          PUBLISH: ${{ github.event_name == 'schedule' || inputs.publish }}
+        run: |
+          node scripts/covers/buildCovers.mjs --variants "$VARIANTS" $([ "$PUBLISH" = "true" ] && echo --publish)
+
+      - name: Upload covers
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: collection-covers
+          path: |
+            .covers-out/*.jpg
+            .covers-out/covers.json
+          if-no-files-found: ignore
+          retention-days: 30
