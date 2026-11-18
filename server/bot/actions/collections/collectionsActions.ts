@@ -14,7 +14,7 @@ import {
 import {mapLimit} from '#server/global/engine/collections/tmdb'
 import {findTrailers} from '#server/global/engine/collections/trailers'
 import {
-    genreByKey,
+    genresForSection,
     isPastYearRange,
     PERIODS,
     periodByKey,
@@ -680,7 +680,9 @@ export const collectionAction = async (ctx: any) => {
                 break
 
             case 'tg':
-                if (arg && genreByKey(arg)) state = {...state, genres: toggle(state.genres, arg)}
+                if (arg && genresForSection(SECTIONS[state.section ?? 'movies']).some(genre => genre.key === arg)) {
+                    state = {...state, genres: toggle(state.genres, arg)}
+                }
                 break
 
             case 'tt':

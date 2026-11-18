@@ -215,7 +215,7 @@ const sectionQuery = (section: Section, window: Window, params: CollectionParams
                 'vote_count.gte': String(MIN_VOTES.tv)
             }
         case 'series_new':
-            // Серии в периоде выходили; что это первая серия сериала или сезона — по карточке.
+            // Серии в периоде выходили; последняя вышедшая серия в периоде — по карточке.
             return {
                 ...base,
                 ...range('air_date', periodRange(params.period)),
@@ -241,7 +241,11 @@ const tvFitsSection = (section: Section, details: Raw, window: Window): boolean 
         case 'series_completed':
             return ['Ended', 'Canceled'].includes(details.status) && inWindow(details.last_air_date, window)
         case 'series_new':
-            return inWindow(details.first_air_date, window) ||
+            // В периоде выходили серии: последняя вышедшая серия в периоде (сериал мог стартовать
+            // раньше и даже уже закончиться — «Квест Вижна»: премьера 13.10, финал 11.11), либо
+            // в периоде премьера сериала или сезона.
+            return inWindow(details.last_air_date, window) ||
+                inWindow(details.first_air_date, window) ||
                 (details.seasons ?? []).some((season: Raw) => Number(season.season_number) > 0 && inWindow(season.air_date, window))
         default:
             return true

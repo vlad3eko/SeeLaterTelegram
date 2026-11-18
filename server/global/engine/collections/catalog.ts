@@ -13,7 +13,8 @@ export type TmdbCondition = {genre: number} | {keyword: number}
 export type Genre = {
     key: string
     label: string
-    movie: TmdbCondition
+    /** Нет у жанров, которые показываются только у сериалов (TV_GENRES). */
+    movie?: TmdbCondition
     tv: TmdbCondition
 }
 
@@ -43,6 +44,27 @@ export const GENRES: Genre[] = [
     {key: 'music', label: 'Музыка', movie: {genre: 10402}, tv: {keyword: 4344}},
     {key: 'western', label: 'Вестерн', movie: {genre: 37}, tv: {genre: 37}},
     {key: 'documentary', label: 'Документальный', movie: {genre: 99}, tv: {genre: 99}}
+]
+
+/**
+ * Жанры разделов сериалов — список жанров сериалов TMDB как есть (решение владельца 19.11:
+ * склеенные «Фантастика» и «Фэнтези» давали одно и то же). Без новостей, реалити и ток-шоу
+ * (EXCLUDED_GENRES не пускает их в выдачу) и без мультфильмов (свои разделы на этапе 2).
+ * Общие с фильмами жанры — с теми же ключами, что в GENRES.
+ */
+export const TV_GENRES: Genre[] = [
+    {key: 'tv_action', label: 'Боевик и приключения', tv: {genre: 10759}},
+    {key: 'western', label: 'Вестерн', movie: {genre: 37}, tv: {genre: 37}},
+    {key: 'tv_war', label: 'Война и политика', tv: {genre: 10768}},
+    {key: 'mystery', label: 'Детектив', movie: {genre: 9648}, tv: {genre: 9648}},
+    {key: 'tv_kids', label: 'Детский', tv: {genre: 10762}},
+    {key: 'documentary', label: 'Документальный', movie: {genre: 99}, tv: {genre: 99}},
+    {key: 'drama', label: 'Драма', movie: {genre: 18}, tv: {genre: 18}},
+    {key: 'comedy', label: 'Комедия', movie: {genre: 35}, tv: {genre: 35}},
+    {key: 'crime', label: 'Криминал', movie: {genre: 80}, tv: {genre: 80}},
+    {key: 'tv_soap', label: 'Мыльная опера', tv: {genre: 10766}},
+    {key: 'tv_scifi', label: 'НФ и фэнтези', tv: {genre: 10765}},
+    {key: 'family', label: 'Семейный', movie: {genre: 10751}, tv: {genre: 10751}}
 ]
 
 export type Tag = {
@@ -119,7 +141,7 @@ export const MIN_SERIES_PER_TAG = 10
  * Разделы этапа 1 (правка владельца 18.11). Мультфильмы, мультсериалы и аниме — этап 2.
  *   movies            — фильмы; «Уже вышли / Скоро» выбирается отдельным шагом;
  *   series_completed  — «Вышли полностью»: сериал закончен, последняя серия в выбранном периоде;
- *   series_new        — «Новые серии/сезоны»: в периоде вышла первая серия сериала или нового сезона;
+ *   series_new        — «Новые серии/сезоны»: в периоде выходили серии (премьера, новый сезон или очередные серии);
  *   series_upcoming   — «Скоро»: сериал ещё не вышел, первая серия в выбранном периоде.
  */
 export type SectionKey = 'movies' | 'series_completed' | 'series_new' | 'series_upcoming'
@@ -205,7 +227,11 @@ export const PERIODS: Period[] = [
 ]
 
 export const periodByKey = (key: string): Period | undefined => PERIODS.find(period => period.key === key)
-export const genreByKey = (key: string): Genre | undefined => GENRES.find(genre => genre.key === key)
+export const genreByKey = (key: string): Genre | undefined =>
+    GENRES.find(genre => genre.key === key) ?? TV_GENRES.find(genre => genre.key === key)
+
+/** Жанры, которые показываются в разделе: у сериалов — жанры сериалов TMDB. */
+export const genresForSection = (section: Section): Genre[] => section.mediaType === 'tv' ? TV_GENRES : GENRES
 export const tagByKey = (key: string): Tag | undefined => TAGS.find(tag => tag.key === key)
 
 /** Теги, доступные в разделе (у сериалов скрыты редкие). */

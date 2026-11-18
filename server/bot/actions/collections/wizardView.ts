@@ -1,8 +1,8 @@
 import {Markup} from 'telegraf'
 import {COLLECTION_ACTION} from '#server/bot/callbacks/routes'
 import {
-    GENRES,
     genreByKey,
+    genresForSection,
     type Period,
     periodByKey,
     SECTIONS,
@@ -96,6 +96,9 @@ const crumbLine = (state: WizardState, bot?: string, period?: string): TextLine 
     return {parts}
 }
 
+/** «Драма» → «драма», но «НФ и фэнтези» остаётся с заглавными. */
+const lowerFirst = (label: string) => /^\p{Lu}\p{Ll}/u.test(label) ? label[0]!.toLowerCase() + label.slice(1) : label
+
 /** «драма, комедия» — каждое значение жирным. */
 const boldList = (labels: string[]): TextPart[] =>
     labels.flatMap((label, index) => index ? [plain(', '), bold(label)] : [bold(label)])
@@ -103,8 +106,8 @@ const boldList = (labels: string[]): TextPart[] =>
 /** Жанры, теги и год фильтра: на экране фильтра — все поля, дальше — только заполненные. */
 const filterLines = (state: WizardState, full: boolean): TextLine[] => {
     if (state.criterion !== 'filter') return []
-    const genres = state.genres.map(key => genreByKey(key)?.label.toLowerCase()).filter((label): label is string => Boolean(label))
-    const tags = state.tags.map(key => tagByKey(key)?.label.toLowerCase()).filter((label): label is string => Boolean(label))
+    const genres = state.genres.map(key => genreByKey(key)?.label).filter((label): label is string => Boolean(label)).map(lowerFirst)
+    const tags = state.tags.map(key => tagByKey(key)?.label).filter((label): label is string => Boolean(label)).map(lowerFirst)
     const year = yearRangeByKey(state.year)?.label
     const withYear = !yearLocked(state)
 
@@ -234,9 +237,12 @@ export const renderWizard = (state: WizardState, options: RenderOptions = {}) =>
             const section = state.section ? SECTIONS[state.section] : SECTIONS.movies
             rows.push([btn(`${state.openGenres ? '▼' : '▶'} Жанры${state.genres.length ? ` (выбрано ${state.genres.length})` : ''}`, 'f', 'g', 'primary')])
             if (state.openGenres) {
-                const genreButtons = GENRES.map(genre =>
+                const genres = genresForSection(section)
+                const genreButtons = genres.map(genre =>
                     btn(`${state.genres.includes(genre.key) ? '✅ ' : ''}${genre.label}`, 'tg', genre.key))
-                for (let i = 0; i < genreButtons.length; i += 3) rows.push(genreButtons.slice(i, i + 3))
+                // У сериалов названия длинные («Боевик и приключения») — по два в ряд.
+                const perRow = section.mediaType === 'tv' ? 2 : 3
+                for (let i = 0; i < genreButtons.length; i += perRow) rows.push(genreButtons.slice(i, i + perRow))
             }
             rows.push([btn(`${state.openTags ? '▼' : '▶'} Теги${state.tags.length ? ` (выбрано ${state.tags.length})` : ''}`, 'f', 't', 'primary')])
             if (state.openTags) {
