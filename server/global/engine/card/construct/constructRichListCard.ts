@@ -14,6 +14,8 @@ export type RichListOptions = {
     tvDate?: 'first' | 'last'
     /** Своя кнопка строки (подборки /g: открыть тайтл с возвратом к подборке). */
     itemButton?: (text: string, index: number) => any
+    /** Номер первого элемента в тексте и на кнопках (страницы подборки: 11, 21…). */
+    startNumber?: number
 }
 
 export const constructRichListCard = async (
@@ -26,7 +28,7 @@ export const constructRichListCard = async (
         await Promise.all(queries
                 .map(query => resolveRichItem(ctx, query, 'list')))
 
-    const caption = createRichListCaption(items, {tvDate: options.tvDate})
+    const caption = createRichListCaption(items, {tvDate: options.tvDate, startNumber: options.startNumber})
 
     if (options.title) {
         caption.blocks.unshift({
@@ -40,6 +42,6 @@ export const constructRichListCard = async (
     return {
         items,
         caption,
-        keyboard: createRichListKeyboard(items, options.footerRows, options.itemButton)
+        keyboard: createRichListKeyboard(items, options.footerRows, options.itemButton, options.startNumber)
     }
 }

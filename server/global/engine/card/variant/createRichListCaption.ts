@@ -6,12 +6,16 @@ export type RichListCaptionOptions = {
      * last — последняя вышедшая серия (подборки «Вышли полностью», «Новые серии/сезоны»).
      */
     tvDate?: 'first' | 'last'
+    /** Номер первого элемента (подборки /g: на второй странице — 11). */
+    startNumber?: number
 }
 
 export const createRichListCaption = (
     items: any[],
     options: RichListCaptionOptions = {}
 ) => {
+
+    const start = options.startNumber ?? 1
 
     const messageBlocks = items.map((item: any, index: number) => {
 
@@ -57,7 +61,7 @@ export const createRichListCaption = (
                 return {
 
                     value:
-                        index + 1,
+                        start + index,
 
                     blocks: [
 
@@ -66,7 +70,7 @@ export const createRichListCaption = (
                             size: 1,
                             // Номер отдельно от названия: по нажатию копируется только название.
                             text: [
-                                `${index + 1}. `,
+                                `${start + index}. `,
                                 {
                                     type: 'code',
                                     text: title

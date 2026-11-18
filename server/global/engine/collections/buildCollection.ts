@@ -158,17 +158,27 @@ const conditionParamSets = (conditions: TmdbCondition[], match: MatchMode): Arra
     return sets.length ? sets : [{}]
 }
 
-/** Окно дат периода с блоком «Год» и порогом 1985 (для вышедшего). null — пересечения нет. */
+/**
+ * Окно дат периода с порогом 1985 (для вышедшего). null — пересечения нет.
+ * «Год» — год выхода фильма или начала сериала. У фильмов он сужает окно выхода. У вышедших
+ * сериалов окно — это даты последней серии или нового сезона, а «Год» проверяется по первой
+ * серии (discover first_air_date): сериал 2000–2015, закончившийся в 2019, подходит.
+ */
 export const collectionWindow = (params: CollectionParams): {window: Window, direction: 'released' | 'upcoming'} | null => {
     const period = periodByKey(params.period)
-    if (!period) return null
+    const section = SECTIONS[params.section]
+    if (!period || !section) return null
     const year = yearRangeByKey(params.year)
+    const yearIsStart = section.mediaType === 'tv' && period.direction === 'released'
     const window = intersect(
         periodRange(params.period),
         period.direction === 'released' ? {from: MIN_RELEASE_DATE} : {},
-        year ? {from: year.from, ...(year.to ? {to: year.to} : {})} : {}
+        year && !yearIsStart ? {from: year.from, ...(year.to ? {to: year.to} : {})} : {}
     )
-    return window ? {window, direction: period.direction} : null
+    if (!window) return null
+    // Сериал не может закончиться или выйти новым сезоном раньше, чем начался.
+    if (year && yearIsStart && window.to && year.from > window.to) return null
+    return {window, direction: period.direction}
 }
 
 /** Параметры discover раздела: фильтр по датам и сортировка. */
@@ -288,9 +298,18 @@ export const collectCandidates = async (
 
     if (section.mediaType === 'movie') return {candidates: titled.map(item => ({item})), capped}
 
-    const withDetails = await mapLimit(titled, 8, async item => ({item, details: await tvDetails(Number(item.id))}))
+    // Одна неудачная карточка не должна ронять всю подборку: такой сериал просто пропускаем.
+    const withDetails = await mapLimit(titled, 8, async item => {
+        try {
+            return {item, details: await tvDetails(Number(item.id))}
+        } catch (error) {
+            console.warn('[COLLECTIONS] TV details failed', item.id, error instanceof Error ? error.message : error)
+            return null
+        }
+    })
     return {
-        candidates: withDetails.filter(({details}) => tvFitsSection(section, details, window)),
+        candidates: withDetails.filter((entry): entry is {item: Raw, details: Raw} =>
+            Boolean(entry) && tvFitsSection(section, entry!.details, window)),
         capped
     }
 }

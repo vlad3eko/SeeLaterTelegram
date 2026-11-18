@@ -25,17 +25,19 @@ const truncate = (text: string, maxLength: number) =>
 export const createRichListKeyboard = (
     items: any[],
     footerRows?: any[][],
-    itemButton?: (text: string, index: number) => any
+    itemButton?: (text: string, index: number) => any,
+    startNumber = 1
 ) => {
 
     const rows = items
         .map((item: any, index: number) => {
                 const title = truncate(getTitle(item), 34)
+                const number = startNumber + index
 
                 return [
                     itemButton
-                        ? itemButton(`${index + 1}. ${title}`, index)
-                        : contentListCardButton(`${index + 1}. ${title}`, item.query),
+                        ? itemButton(`${number}. ${title}`, index)
+                        : contentListCardButton(`${number}. ${title}`, item.query),
                 ]
             }
         )

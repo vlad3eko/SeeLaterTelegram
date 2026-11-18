@@ -1,5 +1,5 @@
 import {getSupabase} from '#server/global/engine/instagram/reel/jobs/dispatchReelJob'
-import {tmdbGet} from '#server/global/engine/collections/tmdb'
+import {mapLimit, tmdbGet} from '#server/global/engine/collections/tmdb'
 import type {MediaType} from '#server/global/engine/collections/catalog'
 
 export type Trailer = {
@@ -93,12 +93,20 @@ export const findTrailers = async (mediaType: MediaType, ids: number[]): Promise
     const result = await readCache(mediaType, ids)
     const missing = ids.filter(id => !result.has(id))
 
-    const fetched = await Promise.all(missing.map(async id => {
-        const body = await tmdbGet<{results?: Video[]}>(`${mediaType}/${id}/videos?include_video_language=ru,en`)
-        return [id, pickTrailer(body.results ?? [])] as [number, Trailer | null]
-    }))
+    // Не больше 8 запросов сразу (счётчик проверяет до 40 тайтлов на каждый период).
+    // Ошибка по одному тайтлу не роняет всю пачку: он считается «без трейлера» и в кэш не пишется.
+    const fetched = await mapLimit(missing, 8, async id => {
+        try {
+            const body = await tmdbGet<{results?: Video[]}>(`${mediaType}/${id}/videos?include_video_language=ru,en`)
+            return [id, pickTrailer(body.results ?? [])] as [number, Trailer | null]
+        } catch (error) {
+            console.warn('[COLLECTIONS] Trailer lookup failed', mediaType, id, error instanceof Error ? error.message : error)
+            return null
+        }
+    })
 
-    for (const [id, trailer] of fetched) result.set(id, trailer)
-    await writeCache(mediaType, fetched)
+    const found = fetched.filter((entry): entry is [number, Trailer | null] => Boolean(entry))
+    for (const [id, trailer] of found) result.set(id, trailer)
+    await writeCache(mediaType, found)
     return result
 }

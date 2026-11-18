@@ -237,6 +237,8 @@ const enterPeriod = async (ctx: any, row: WizardRow) => {
     const state = row.state
     const periods = availablePeriods(state)
     if (periods.length === 1) {
+        // Сохранить до сборки: buildAndSend сверяет выбор с базой, чтобы не показать устаревшее.
+        await saveWizard(row)
         await buildAndSend(ctx, row, periods[0]!.key)
         await saveWizard(row)
         return
@@ -322,7 +324,8 @@ const showCollection = async (ctx: any, row: WizardRow, collection: CollectionRo
         footer: collectionPageLabel(page, (collection.candidates ?? []).length),
         footerRows,
         tvDate: tvDateFor(collection.params.section),
-        itemButton: (text, index) => btn(text, 't', String(index))
+        itemButton: (text, index) => btn(text, 't', String(index)),
+        startNumber: page * COLLECTION_SIZE + 1
     })
     await tryGenerateCard(target, caption, keyboard)
 }
@@ -340,6 +343,12 @@ const buildAndSend = async (ctx: any, row: WizardRow, period: PeriodKey) => {
     await showWizard(ctx, row, {note: '⏳ Собираю топ: ищу тайтлы и проверяю трейлеры…'})
 
     const result = await buildCollectionFor(params)
+
+    // Пока собирали (это до 10–20 секунд), меню могли увести назад или открыть /g заново —
+    // тогда результат не показываем, чтобы не затереть текущий экран.
+    const current = await loadWizard(row.telegramId)
+    if (!sameSelection(current.state, state) || current.messageId !== row.messageId) return
+
     if (!result.items.length) {
         await showWizard(ctx, row, {note: '😕 За этот период ничего не нашлось с трейлером. Выберите другой период или вернитесь и измените фильтр.'})
         return
@@ -376,14 +385,17 @@ const showMore = async (ctx: any, row: WizardRow) => {
     await safeAnswer(ctx, 'Ищу следующие…')
 
     const picked: Array<{id: number, score: number, trailer: any}> = []
-    let cursor = 0
-    while (picked.length < COLLECTION_SIZE && cursor < rest.length) {
-        const batch = rest.slice(cursor, cursor + 6)
-        cursor += batch.length
+    // consumed — сколько кандидатов просмотрено; остальные (включая хвост последней пачки,
+    // если десятка набралась посередине) остаются на следующую страницу.
+    let consumed = 0
+    while (picked.length < COLLECTION_SIZE && consumed < rest.length) {
+        const batch = rest.slice(consumed, consumed + 6)
         const trailers = await findTrailers(section.mediaType, batch.map(entry => entry.id))
         for (const entry of batch) {
+            if (picked.length >= COLLECTION_SIZE) break
+            consumed++
             const trailer = trailers.get(entry.id)
-            if (trailer && picked.length < COLLECTION_SIZE) picked.push({...entry, trailer})
+            if (trailer) picked.push({...entry, trailer})
         }
     }
     if (!picked.length) {
@@ -396,7 +408,7 @@ const showMore = async (ctx: any, row: WizardRow) => {
     const updated: CollectionRow = {
         ...collection,
         page,
-        candidates: rest.slice(cursor),
+        candidates: rest.slice(consumed),
         items: picked.map((entry, index) => ({
             rank: page * COLLECTION_SIZE + index + 1,
             media_type: section.mediaType,
@@ -408,10 +420,15 @@ const showMore = async (ctx: any, row: WizardRow) => {
         }))
     }
 
-    await getSupabase()
+    // Защита от двойного нажатия: страницу сохраняет только тот, кто начинал с прежней.
+    const {data: saved, error} = await getSupabase()
         .from('collections')
         .update({items: updated.items, candidates: updated.candidates, page, updated_at: new Date().toISOString()})
         .eq('id', collection.id)
+        .eq('page', Number(collection.page ?? 0))
+        .select('id')
+    if (error) throw new Error(`[COLLECTIONS] Page save failed: ${error.message}`)
+    if (!saved?.length) return
 
     await showCollection(ctx, row, updated)
 }

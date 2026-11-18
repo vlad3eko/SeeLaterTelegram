@@ -201,8 +201,9 @@ export const collectionTitle = (state: WizardState, count: number, period: strin
         const year = yearRangeByKey(state.year)
         if (year) parts.push(year.label)
     }
-    // С закрытым диапазоном «Год» период не выбирается — «за всё время» не пишем.
-    if (!(period === 'all' && yearRangeByKey(state.year)?.to)) {
+    // У фильма с закрытым диапазоном «Год» период не выбирается — «за всё время» не пишем.
+    // У сериалов «Год» — начало сериала, период выбирается всегда.
+    if (!(period === 'all' && state.section === 'movies' && yearRangeByKey(state.year)?.to)) {
         parts.push((periodByKey(period)?.label ?? period).toLowerCase())
     }
     const places = page > 0 ? `Места ${page * 10 + 1}–${page * 10 + count}` : `Топ-${count}`
