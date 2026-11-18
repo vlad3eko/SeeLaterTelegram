@@ -6,8 +6,6 @@ import {createRichListKeyboard} from "#server/global/engine/card/construct/creat
 export type RichListOptions = {
     /** Заголовок над списком (подборки /g). */
     title?: string
-    /** Мелкий текст под заголовком (настройки подборки). */
-    subtitle?: string
     /** Мелкий текст в самом низу (номер страницы). */
     footer?: string
     /** Нижние ряды кнопок вместо «Назад» старого /g. */
@@ -30,7 +28,6 @@ export const constructRichListCard = async (
 
     const caption = createRichListCaption(items, {tvDate: options.tvDate})
 
-    if (options.subtitle) caption.blocks.unshift({type: 'footer', text: options.subtitle})
     if (options.title) {
         caption.blocks.unshift({
             type: 'heading',

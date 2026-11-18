@@ -40,7 +40,6 @@ import {
     btn,
     collectionNote,
     collectionPageLabel,
-    collectionSettings,
     collectionTitle,
     GROUPS,
     renderWizard,
@@ -319,8 +318,7 @@ const showCollection = async (ctx: any, row: WizardRow, collection: CollectionRo
 
     const target = richTarget(ctx, row)
     const {caption, keyboard} = await constructRichListCard(target, collection.items.map(queryOf), {
-        title: collectionTitle(state, count, collection.params.period, page, collection.params.match ?? 'and'),
-        subtitle: [note, collectionSettings(state, collection.params.period, page, count, collection.params.match ?? 'and')].filter(Boolean).join('\n'),
+        title: collectionTitle(state, count, collection.params.period, page, collection.params.match ?? 'and') + (note ? `\n${note}` : ''),
         footer: collectionPageLabel(page, (collection.candidates ?? []).length),
         footerRows,
         tvDate: tvDateFor(collection.params.section),
