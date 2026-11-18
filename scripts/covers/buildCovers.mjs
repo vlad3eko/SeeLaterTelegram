@@ -51,7 +51,7 @@ const SCREENS = {
         `discover/movie?sort_by=vote_count.desc&primary_release_date.gte=${year - 12}-01-01`,
         `discover/movie?sort_by=vote_count.desc&primary_release_date.gte=${year - 12}-01-01&page=2`]},
     direction: {fresh: true, minVotes: 0, sources: ['movie/upcoming?region=US', 'movie/now_playing?region=US']},
-    period: {fresh: true, minVotes: 50, sources: ['trending/movie/week', 'trending/tv/week']},
+    period: {fresh: true, minVotes: 300, sources: ['trending/movie/week', 'trending/movie/week?page=2', 'trending/tv/week']},
     loading: {fresh: false, minVotes: 5000, sources: [
         'discover/movie?sort_by=vote_count.desc&primary_release_date.gte=1985-01-01&primary_release_date.lte=2008-12-31',
         'discover/movie?sort_by=vote_count.desc&primary_release_date.gte=1985-01-01&primary_release_date.lte=2008-12-31&page=2']}
@@ -80,7 +80,9 @@ const suitable = (item, minVotes) =>
     /[а-яё]/i.test(item.title || item.name || '') &&
     !['ru', 'hi', 'ta', 'te', 'ml', 'kn'].includes(item.original_language) &&
     (item.vote_count ?? 0) >= minVotes &&
-    (item.media_type ?? 'movie') !== 'person'
+    (item.media_type ?? 'movie') !== 'person' &&
+    // Не кино и не сериалы в обычном смысле: новости, реалити, мыльные оперы, ток-шоу (жанры TMDB).
+    !(item.genre_ids ?? []).some(genre => [10763, 10764, 10766, 10767].includes(genre))
 
 const shuffle = list => {
     const copy = [...list]
@@ -111,6 +113,16 @@ const pickPosters = async () => {
         // Сначала тайтлы, которых ещё нет на других экранах; если не хватило — повторы.
         const chosen = pool.filter(item => !used.has(item._key)).slice(0, POSTERS_PER_SCREEN)
         for (const item of pool) if (chosen.length < POSTERS_PER_SCREEN && !chosen.includes(item)) chosen.push(item)
+        // Совсем мало (например, премьер с русским названием) — берём и тайтлы с меньшим числом голосов,
+        // чтобы квартальный запуск не падал из-за одного экрана.
+        if (chosen.length < POSTERS_PER_SCREEN) {
+            for (const item of items) {
+                if (chosen.length >= POSTERS_PER_SCREEN) break
+                if (!suitable(item, 0) || chosen.some(other => other.poster_path === item.poster_path)) continue
+                item._key = `${item.media_type ?? (item.title ? 'movie' : 'tv')}:${item.id}`
+                chosen.push(item)
+            }
+        }
         if (chosen.length < POSTERS_PER_SCREEN) throw new Error(`Not enough posters for "${key}": ${chosen.length}`)
         chosen.forEach(item => used.add(item._key))
         picked[key] = chosen.map(item => ({path: item.poster_path.slice(1, -4), title: item.title || item.name}))
@@ -152,7 +164,7 @@ const render = async (chrome, ffmpeg, screen, posters, variant) => {
         '--headless=new', '--hide-scrollbars', '--force-device-scale-factor=2',
         // Ждём шрифт, постеры и цвета боков карточек (canvas) — сеть, поэтому с запасом.
         '--virtual-time-budget=20000', '--window-size=1280,853',
-        ...(process.platform === 'linux' ? ['--no-sandbox'] : []),
+        ...(process.platform === 'linux' ? ['--no-sandbox', '--disable-dev-shm-usage'] : []),
         `--screenshot=${png}`, url
     ], {timeout: 120_000})
     if (!existsSync(png) || (await stat(png)).size < 200_000) throw new Error(`Screenshot failed: ${screen} #${variant}`)
@@ -168,16 +180,38 @@ const requireEnv = name => {
     return value
 }
 
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
+// TELEGRAM_API_URL — только для проверки на локальной заглушке; по умолчанию настоящий Bot API.
+const TELEGRAM_API = (process.env.TELEGRAM_API_URL || 'https://api.telegram.org').replace(/\/$/, '')
+
+// В канал Telegram пускает ~20 сообщений в минуту: между отправками пауза, на 429 — ждём сколько
+// велено (retry_after), на сбой сети или 5xx — повтор. Всего до 6 попыток на обложку.
 const sendToStorage = async (cover, batch) => {
-    const form = new FormData()
-    form.append('chat_id', requireEnv('TELEGRAM_MEDIA_STORAGE_CHAT_ID'))
-    form.append('caption', `Обложка /g · ${cover.screen} #${cover.variant} · ${batch}`)
-    form.append('disable_notification', 'true')
-    form.append('photo', new Blob([await readFile(path.join(OUT, cover.file))], {type: 'image/jpeg'}), cover.file)
-    const response = await fetch(`https://api.telegram.org/bot${requireEnv('TELEGRAM_TOKEN')}/sendPhoto`, {method: 'POST', body: form})
-    const body = await response.json()
-    if (!body.ok) throw new Error(`Telegram sendPhoto failed (${cover.screen} #${cover.variant}): ${body.description}`)
-    return body.result.photo.at(-1).file_id
+    const photo = await readFile(path.join(OUT, cover.file))
+    for (let attempt = 1; ; attempt++) {
+        const form = new FormData()
+        form.append('chat_id', requireEnv('TELEGRAM_MEDIA_STORAGE_CHAT_ID'))
+        form.append('caption', `Обложка /g · ${cover.screen} #${cover.variant} · ${batch}`)
+        form.append('disable_notification', 'true')
+        form.append('photo', new Blob([photo], {type: 'image/jpeg'}), cover.file)
+        let body = null
+        let retryAfter = 5 * attempt
+        try {
+            const response = await fetch(`${TELEGRAM_API}/bot${requireEnv('TELEGRAM_TOKEN')}/sendPhoto`,
+                {method: 'POST', body: form, signal: AbortSignal.timeout(60_000)})
+            body = await response.json().catch(() => ({ok: false, error_code: response.status, description: `HTTP ${response.status}`}))
+        } catch (error) {
+            body = {ok: false, error_code: 0, description: error instanceof Error ? error.message : String(error)}
+        }
+        if (body.ok) return body.result.photo.at(-1).file_id
+        const retryable = body.error_code === 429 || body.error_code === 0 || body.error_code >= 500
+        if (!retryable || attempt >= 6) {
+            throw new Error(`Telegram sendPhoto failed (${cover.screen} #${cover.variant}): ${body.description}`)
+        }
+        if (body.error_code === 429) retryAfter = (body.parameters?.retry_after ?? 30) + 1
+        console.warn(`[COVERS] Telegram: ${body.description} — retry in ${retryAfter}s`)
+        await sleep(retryAfter * 1000)
+    }
 }
 
 const supabase = async (method, query, body) => {
@@ -209,7 +243,8 @@ const main = async () => {
 
     const batch = new Date().toISOString().replace(/[-:]/g, '').slice(0, 13)
     if (PUBLISH) {
-        for (const cover of covers) {
+        for (const [index, cover] of covers.entries()) {
+            if (index) await sleep(Number(process.env.COVERS_SEND_DELAY_MS ?? 3500))
             cover.fileId = await sendToStorage(cover, batch)
             console.log(`[COVERS] sent ${cover.screen} #${cover.variant}`)
         }
