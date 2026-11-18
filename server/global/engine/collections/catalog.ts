@@ -71,7 +71,12 @@ export type Tag = {
     key: string
     label: string
     group: 'horror' | 'scifi' | 'crime' | 'life'
-    keyword: number
+    /**
+     * Понятие, а не одно слово: ключевые слова TMDB через «или», первое — основное. Слова на TMDB
+     * ставят пользователи вразнобой («Квест Вижна» помечен «marvel cinematic universe», но не
+     * «superhero»), поэтому синонимы подобраны аудитом 19.11.2026 (замер и отсев шумных слов).
+     */
+    keywords: number[]
     /** Известных фильмов (≥300 голосов) и сериалов (≥100 голосов) с тегом на 17.11.2026. */
     movies: number
     series: number
@@ -86,52 +91,52 @@ export const TAG_GROUPS: Record<Tag['group'], string> = {
 
 /** Утверждённый владельцем список тегов (17.11.2026), TMDB keywords. */
 export const TAGS: Tag[] = [
-    {key: 'serial_killer', label: 'Маньяки', group: 'horror', keyword: 10714, movies: 304, series: 67},
-    {key: 'slasher', label: 'Слэшер', group: 'horror', keyword: 12339, movies: 183, series: 10},
-    {key: 'monster', label: 'Монстры', group: 'horror', keyword: 1299, movies: 136, series: 26},
-    {key: 'zombie', label: 'Зомби', group: 'horror', keyword: 12377, movies: 134, series: 21},
-    {key: 'ghost', label: 'Призраки', group: 'horror', keyword: 162846, movies: 126, series: 35},
-    {key: 'vampire', label: 'Вампиры', group: 'horror', keyword: 3133, movies: 105, series: 36},
-    {key: 'demon', label: 'Демоны', group: 'horror', keyword: 15001, movies: 104, series: 21},
-    {key: 'witch', label: 'Ведьмы', group: 'horror', keyword: 616, movies: 103, series: 31},
-    {key: 'haunted_house', label: 'Дом с привидениями', group: 'horror', keyword: 3358, movies: 81, series: 12},
-    {key: 'werewolf', label: 'Оборотни', group: 'horror', keyword: 12564, movies: 60, series: 18},
-    {key: 'cult', label: 'Культы', group: 'horror', keyword: 6158, movies: 49, series: 21},
-    {key: 'possession', label: 'Одержимость', group: 'horror', keyword: 161261, movies: 47, series: 6},
+    {key: 'serial_killer', label: 'Маньяки', group: 'horror', keywords: [10714, 14676, 161814, 220455, 305666], movies: 304, series: 67},
+    {key: 'slasher', label: 'Слэшер', group: 'horror', keywords: [12339, 233450], movies: 183, series: 10},
+    {key: 'monster', label: 'Монстры', group: 'horror', keywords: [1299, 11100, 161791, 158126, 289108, 33696, 210614], movies: 136, series: 26},
+    {key: 'zombie', label: 'Зомби', group: 'horror', keywords: [12377, 186565], movies: 134, series: 21},
+    {key: 'ghost', label: 'Призраки', group: 'horror', keywords: [162846, 10224, 41411, 3350, 256908], movies: 126, series: 35},
+    {key: 'vampire', label: 'Вампиры', group: 'horror', keywords: [3133, 261274, 9259, 9668, 272742], movies: 105, series: 36},
+    {key: 'demon', label: 'Демоны', group: 'horror', keywords: [15001, 14999, 186425, 5810, 305648], movies: 104, series: 21},
+    {key: 'witch', label: 'Ведьмы', group: 'horror', keywords: [616, 40931, 3884, 162806, 184114, 177901], movies: 103, series: 31},
+    {key: 'haunted_house', label: 'Дом с привидениями', group: 'horror', keywords: [3358, 179433], movies: 81, series: 12},
+    {key: 'werewolf', label: 'Оборотни', group: 'horror', keywords: [12564, 228001], movies: 60, series: 18},
+    {key: 'cult', label: 'Культы', group: 'horror', keywords: [6158, 163055, 162766, 159028, 173162], movies: 49, series: 21},
+    {key: 'possession', label: 'Одержимость', group: 'horror', keywords: [161261, 2626, 159940], movies: 47, series: 6},
 
-    {key: 'dystopia', label: 'Антиутопия', group: 'scifi', keyword: 4565, movies: 244, series: 34},
-    {key: 'superhero', label: 'Супергерои', group: 'scifi', keyword: 9715, movies: 198, series: 77},
-    {key: 'alien', label: 'Пришельцы', group: 'scifi', keyword: 9951, movies: 173, series: 58},
-    {key: 'time_travel', label: 'Путешествия во времени', group: 'scifi', keyword: 4379, movies: 142, series: 73},
-    {key: 'magic', label: 'Магия', group: 'scifi', keyword: 2343, movies: 123, series: 48},
-    {key: 'post_apocalypse', label: 'Постапокалипсис', group: 'scifi', keyword: 4458, movies: 94, series: 38},
-    {key: 'ai', label: 'Искусственный интеллект', group: 'scifi', keyword: 310, movies: 82, series: 29},
-    {key: 'alien_invasion', label: 'Вторжение пришельцев', group: 'scifi', keyword: 14909, movies: 78, series: 25},
-    {key: 'space', label: 'Космос', group: 'scifi', keyword: 9882, movies: 73, series: 43},
-    {key: 'robot', label: 'Роботы', group: 'scifi', keyword: 14544, movies: 71, series: 20},
-    {key: 'cyberpunk', label: 'Киберпанк', group: 'scifi', keyword: 12190, movies: 48, series: 8},
-    {key: 'mutant', label: 'Мутанты', group: 'scifi', keyword: 1852, movies: 45, series: 7},
+    {key: 'dystopia', label: 'Антиутопия', group: 'scifi', keywords: [4565], movies: 244, series: 34},
+    {key: 'superhero', label: 'Супергерои', group: 'scifi', keywords: [9715, 180547, 155030, 213104, 180734, 229266, 359527, 329136, 265979, 312528], movies: 198, series: 77},
+    {key: 'alien', label: 'Пришельцы', group: 'scifi', keywords: [9951, 9739, 160515, 12553, 163252, 161293, 229652], movies: 173, series: 58},
+    {key: 'time_travel', label: 'Путешествия во времени', group: 'scifi', keywords: [4379, 10854, 5455, 208757], movies: 142, series: 73},
+    {key: 'magic', label: 'Магия', group: 'scifi', keywords: [2343, 177912, 234213, 4252, 5147, 10821, 291549, 249692], movies: 123, series: 48},
+    {key: 'post_apocalypse', label: 'Постапокалипсис', group: 'scifi', keywords: [4458, 359337, 186565], movies: 94, series: 38},
+    {key: 'ai', label: 'Искусственный интеллект', group: 'scifi', keywords: [310], movies: 82, series: 29},
+    {key: 'alien_invasion', label: 'Вторжение пришельцев', group: 'scifi', keywords: [14909, 6968, 197327, 192962], movies: 78, series: 25},
+    {key: 'space', label: 'Космос', group: 'scifi', keywords: [9882, 3801, 161176, 14626, 252937, 195114, 252634, 3388, 4040, 2902, 3386], movies: 73, series: 43},
+    {key: 'robot', label: 'Роботы', group: 'scifi', keywords: [14544, 803, 10046, 679, 10891, 1373, 220903, 11272, 211713, 287333], movies: 71, series: 20},
+    {key: 'cyberpunk', label: 'Киберпанк', group: 'scifi', keywords: [12190], movies: 48, series: 8},
+    {key: 'mutant', label: 'Мутанты', group: 'scifi', keywords: [1852, 2766, 233300, 234268, 158253], movies: 45, series: 7},
 
-    {key: 'martial_arts', label: 'Боевые искусства', group: 'crime', keyword: 779, movies: 255, series: 25},
-    {key: 'kidnapping', label: 'Похищение', group: 'crime', keyword: 1930, movies: 216, series: 17},
-    {key: 'detective', label: 'Детективы', group: 'crime', keyword: 703, movies: 188, series: 109},
-    {key: 'prison', label: 'Тюрьма', group: 'crime', keyword: 378, movies: 181, series: 23},
-    {key: 'gangster', label: 'Гангстеры', group: 'crime', keyword: 3149, movies: 163, series: 17},
-    {key: 'spy', label: 'Шпионы', group: 'crime', keyword: 470, movies: 127, series: 37},
-    {key: 'assassin', label: 'Киллеры', group: 'crime', keyword: 782, movies: 115, series: 6},
-    {key: 'conspiracy', label: 'Заговор', group: 'crime', keyword: 10410, movies: 113, series: 54},
-    {key: 'heist', label: 'Ограбление', group: 'crime', keyword: 10051, movies: 108, series: 13},
-    {key: 'mafia', label: 'Мафия', group: 'crime', keyword: 10391, movies: 64, series: 15},
+    {key: 'martial_arts', label: 'Боевые искусства', group: 'crime', keywords: [779, 780, 9917, 3436, 156159, 14731, 14941, 185466, 156162], movies: 255, series: 25},
+    {key: 'kidnapping', label: 'Похищение', group: 'crime', keywords: [1930, 170865, 235261, 265839], movies: 216, series: 17},
+    {key: 'detective', label: 'Детективы', group: 'crime', keywords: [703, 155790, 15167, 11168, 180668, 160342, 1735, 161982, 157241], movies: 188, series: 109},
+    {key: 'prison', label: 'Тюрьма', group: 'crime', keywords: [378, 9777, 9774, 191047, 169271, 3859, 5643, 15278, 156257], movies: 181, series: 23},
+    {key: 'gangster', label: 'Гангстеры', group: 'crime', keywords: [3149, 10291, 2987, 170212], movies: 163, series: 17},
+    {key: 'spy', label: 'Шпионы', group: 'crime', keywords: [470, 591, 4289, 5265, 217282, 18117, 14618, 212801, 332774, 213102, 190654, 298577], movies: 127, series: 37},
+    {key: 'assassin', label: 'Киллеры', group: 'crime', keywords: [782, 2708, 177964, 12367, 206041], movies: 115, series: 6},
+    {key: 'conspiracy', label: 'Заговор', group: 'crime', keywords: [10410, 9665, 298530, 181635, 11208, 162300, 235579, 298532], movies: 113, series: 54},
+    {key: 'heist', label: 'Ограбление', group: 'crime', keywords: [10051, 15363, 2492, 196917, 159413, 191845, 3607, 40903, 177438, 156120, 188665, 315792], movies: 108, series: 13},
+    {key: 'mafia', label: 'Мафия', group: 'crime', keywords: [10391, 11578, 6220, 206594, 166462, 5964, 217064, 155538, 231149], movies: 64, series: 15},
 
-    {key: 'true_story', label: 'По реальным событиям', group: 'life', keyword: 9672, movies: 642, series: 79},
-    {key: 'revenge', label: 'Месть', group: 'life', keyword: 9748, movies: 397, series: 67},
-    {key: 'coming_of_age', label: 'Взросление', group: 'life', keyword: 10683, movies: 216, series: 56},
-    {key: 'ww2', label: 'Вторая мировая', group: 'life', keyword: 1956, movies: 195, series: 31},
-    {key: 'survival', label: 'Выживание', group: 'life', keyword: 10349, movies: 179, series: 53},
-    {key: 'christmas', label: 'Рождество', group: 'life', keyword: 207317, movies: 161, series: 9},
-    {key: 'psychological', label: 'Психологический триллер', group: 'life', keyword: 12565, movies: 113, series: 47},
-    {key: 'cold_war', label: 'Холодная война', group: 'life', keyword: 2106, movies: 50, series: 9},
-    {key: 'vietnam', label: 'Война во Вьетнаме', group: 'life', keyword: 2957, movies: 41, series: 5}
+    {key: 'true_story', label: 'По реальным событиям', group: 'life', keywords: [9672, 328926], movies: 642, series: 79},
+    {key: 'revenge', label: 'Месть', group: 'life', keywords: [9748, 232766, 252204, 191045, 15095, 320594], movies: 397, series: 67},
+    {key: 'coming_of_age', label: 'Взросление', group: 'life', keywords: [10683, 704, 234042], movies: 216, series: 56},
+    {key: 'ww2', label: 'Вторая мировая', group: 'life', keywords: [1956, 1739, 189422, 279911, 1799, 11489], movies: 195, series: 31},
+    {key: 'survival', label: 'Выживание', group: 'life', keywords: [10349, 9743, 336497, 50009, 161240, 353736], movies: 179, series: 53},
+    {key: 'christmas', label: 'Рождество', group: 'life', keywords: [207317, 1991, 260365, 1441, 186466, 12200, 272698, 193048], movies: 161, series: 9},
+    {key: 'psychological', label: 'Психологический триллер', group: 'life', keywords: [12565], movies: 113, series: 47},
+    {key: 'cold_war', label: 'Холодная война', group: 'life', keywords: [2106, 295538], movies: 50, series: 9},
+    {key: 'vietnam', label: 'Война во Вьетнаме', group: 'life', keywords: [2957], movies: 41, series: 5}
 ]
 
 /** В разделах сериалов не показываются теги, у которых меньше стольких известных сериалов. */

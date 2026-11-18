@@ -453,7 +453,7 @@ const showCollection = async (ctx: any, row: WizardRow, collection: CollectionRo
     const page = Number(collection.page ?? 0)
     const items = pageItems(collection, page)
     const count = items.length
-    const note = page === 0 ? collectionNote(count, collection.params.match ?? 'and') : ''
+    const note = page === 0 ? collectionNote(count, collection.params.match ?? 'and', state) : ''
     const loaded = loadedPages(collection)
     const rest = (collection.candidates ?? []).length
     const hasMore = page + 1 < loaded || rest > 0

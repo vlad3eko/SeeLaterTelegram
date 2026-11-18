@@ -142,8 +142,8 @@ const HINT: Record<WizardState['screen'], string> = {
 }
 
 const FILTER_HINT: TextLine = {quote: true, parts: [
-    italic('Сначала ищу тайтлы со '), {text: 'всеми', bold: true, italic: true},
-    italic(' отметками, если их мало — с '), {text: 'любой', bold: true, italic: true}, italic(' из них.')
+    italic('Тайтл подходит и под жанры, и под теги. Сначала ищу со '), {text: 'всеми', bold: true, italic: true},
+    italic(' отметками, если мало — с '), {text: 'любым', bold: true, italic: true}, italic(' из отмеченных жанров и тегов.')
 ]}
 
 /** Строки → блоки rich-сообщения. */
@@ -343,9 +343,16 @@ export const collectionPagesFooter = (page: number, loaded: number, restCount: n
     return {type: 'footer', text: richInline(parts)}
 }
 
-export const collectionNote = (count: number, match: 'and' | 'or' = 'and') => {
+export const collectionNote = (count: number, match: 'and' | 'or' = 'and', state?: WizardState) => {
     const parts: string[] = []
-    if (match === 'or') parts.push('Со всеми отметками нашлось мало — добавлены подходящие хотя бы под одну.')
+    if (match === 'or') {
+        const manyGenres = (state?.genres.length ?? 0) > 1
+        const manyTags = (state?.tags.length ?? 0) > 1
+        const relaxed = manyGenres && manyTags ? 'хотя бы под один из отмеченных жанров и один из тегов'
+            : manyTags ? 'хотя бы под один из отмеченных тегов'
+                : 'хотя бы под один из отмеченных жанров'
+        parts.push(`Со всеми отметками нашлось мало — добавлены подходящие ${relaxed}.`)
+    }
     if (count < 10) parts.push(`Нашлось ${count} с трейлером.`)
     return parts.join(' ')
 }

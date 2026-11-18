@@ -19,7 +19,8 @@ import {findTrailers, pickTrailer, rememberTrailers, type Trailer} from '#server
 /**
  * Сборка топа (правки владельца 18.11, см. TASKS.md):
  *   - строго за выбранный период: нашлось 3 — значит 3 (расширения интервала нет);
- *   - жанры и теги: сначала «И», если мало — найденные по «И» наверху, места добираются по «ИЛИ»;
+ *   - жанры и теги (правка 19.11): между группами всегда «И»; внутри группы сначала все отмеченные,
+ *     если мало — найденные так наверху, места добираются тайтлами с любым из отмеченных;
  *   - только тайтлы с русским названием и не старше 1985 года; блок «Год» сужает выход;
  *   - ранжирование как у IMDb/Кинопоиска — по числу голосов; у сериалов, которые ещё выходят,
  *     популярность важнее голосов; у не вышедших — только популярность;
@@ -28,7 +29,10 @@ import {findTrailers, pickTrailer, rememberTrailers, type Trailer} from '#server
 
 export type CollectionCriterion = 'filter' | 'popular'
 
-/** and — тайтл подходит под все отмеченные жанры и теги; or — хотя бы под один. */
+/**
+ * Внутри группы (жанры, теги): and — все отмеченные, or — любой из отмеченных.
+ * Между группами — всегда «И»: тайтл должен подойти и под жанры, и под теги.
+ */
 export type MatchMode = 'and' | 'or'
 
 export type CollectionParams = {
@@ -119,44 +123,105 @@ const inWindow = (date: string | undefined | null, window: Window) =>
 export const hasRussianTitle = (title: string) =>
     /\p{Script=Cyrillic}/u.test(title) || (!/\p{L}/u.test(title) && /\d/.test(title))
 
-/** Жанры и теги фильтра → условия TMDB для типа раздела. */
-export const resolveConditions = (params: CollectionParams): TmdbCondition[] => {
+/*
+ * Фильтр как у фасетного поиска (решение владельца 19.11):
+ *   - понятие — жанр или тег; тег — несколько ключевых слов TMDB через «или» (синонимы);
+ *   - между группами (жанры × теги) — всегда «И»;
+ *   - внутри группы: and — все отмеченные понятия, or — любое (запасной шаг, если по and мало).
+ * В одном параметре TMDB смешанное «(a|b),c» работает ненадёжно (проверено: теряет тайтлы),
+ * поэтому discover получает заведомо широкую выборку, а точное правило проверяется у нас
+ * по жанрам и ключевым словам тайтла (matchesFilter).
+ */
+
+/** Понятие: подходит, если у тайтла есть любой из жанров или любое из ключевых слов. */
+type Concept = {genres: number[], keywords: number[]}
+
+type FilterGroups = {genres: Concept[], tags: Concept[]}
+
+const conceptOf = (condition: TmdbCondition): Concept =>
+    'genre' in condition ? {genres: [condition.genre], keywords: []} : {genres: [], keywords: [condition.keyword]}
+
+/** Жанры и теги фильтра → понятия для типа раздела. */
+export const resolveFilter = (params: CollectionParams): FilterGroups => {
     const section = SECTIONS[params.section]
-    if (!section || params.criterion !== 'filter') return []
-    return [
-        ...(params.genres ?? []).map(key => genreByKey(key)?.[section.mediaType]).filter(Boolean) as TmdbCondition[],
-        ...(params.tags ?? []).map(key => tagByKey(key)).filter(Boolean).map(tag => ({keyword: tag!.keyword}))
-    ]
+    if (!section || params.criterion !== 'filter') return {genres: [], tags: []}
+    return {
+        genres: (params.genres ?? [])
+            .map(key => genreByKey(key)?.[section.mediaType])
+            .filter((condition): condition is TmdbCondition => Boolean(condition))
+            .map(conceptOf),
+        tags: (params.tags ?? [])
+            .map(key => tagByKey(key))
+            .filter(tag => Boolean(tag))
+            .map(tag => ({genres: [], keywords: tag!.keywords}))
+    }
 }
 
-const splitConditions = (conditions: TmdbCondition[]) => ({
-    genres: [...new Set(conditions.flatMap(c => 'genre' in c ? [c.genre] : []))],
-    keywords: [...new Set(conditions.flatMap(c => 'keyword' in c ? [c.keyword] : []))]
-})
+/** Есть ли смысл в запасном шаге or: в какой-то группе отмечено больше одного понятия. */
+export const canRelaxFilter = (params: CollectionParams) => {
+    const {genres, tags} = resolveFilter(params)
+    return params.criterion === 'filter' && (genres.length > 1 || tags.length > 1)
+}
 
-export const distinctConditionCount = (conditions: TmdbCondition[]) => {
-    const {genres, keywords} = splitConditions(conditions)
-    return genres.length + keywords.length
+const conceptMatches = (concept: Concept, genres: Set<number>, keywords: Set<number>) =>
+    concept.genres.some(id => genres.has(id)) || concept.keywords.some(id => keywords.has(id))
+
+const groupMatches = (group: Concept[], match: MatchMode, genres: Set<number>, keywords: Set<number>) =>
+    !group.length || (match === 'and'
+        ? group.every(concept => conceptMatches(concept, genres, keywords))
+        : group.some(concept => conceptMatches(concept, genres, keywords)))
+
+/** Точное правило фильтра для тайтла (жанры — из discover, ключевые слова — из карточки). */
+const matchesFilter = (filter: FilterGroups, match: MatchMode, genreIds: number[], keywordIds: number[]) => {
+    const genres = new Set(genreIds)
+    const keywords = new Set(keywordIds)
+    return groupMatches(filter.genres, match, genres, keywords) && groupMatches(filter.tags, match, genres, keywords)
 }
 
 /**
- * Наборы параметров discover для условий (каждый — отдельный запрос, результаты объединяются).
- * and — запятая: все жанры и все теги; or — «|»: любой жанр, отдельным запросом любой тег
- * (жанры и теги в TMDB — разные параметры, между собой всегда «И»).
+ * Параметры discover — широкая выборка, в которой точно есть все подходящие тайтлы, и флаг,
+ * нужна ли проверка по ключевым словам (exact — выборка совпадает с правилом).
  */
-const conditionParamSets = (conditions: TmdbCondition[], match: MatchMode): Array<Record<string, string>> => {
-    const {genres, keywords} = splitConditions(conditions)
-    if (match === 'and') {
-        return [{
-            ...(genres.length ? {with_genres: genres.join(',')} : {}),
-            ...(keywords.length ? {with_keywords: keywords.join(',')} : {})
-        }]
+const filterQuery = (filter: FilterGroups, match: MatchMode): {params: Record<string, string>, exact: boolean} => {
+    const params: Record<string, string> = {}
+    let exact = true
+
+    // Жанры-жанры TMDB: and — запятая, or — «|». Жанр-ключевое слово (у фильмов «Мистика» и т. п.)
+    // в эту строку не входит и проверяется по ключевым словам.
+    const pureGenres = filter.genres.filter(concept => concept.genres.length && !concept.keywords.length)
+    const keywordGenres = filter.genres.filter(concept => concept.keywords.length)
+    if (pureGenres.length && (match === 'and' || !keywordGenres.length)) {
+        params.with_genres = pureGenres.map(concept => concept.genres[0]).join(match === 'and' ? ',' : '|')
     }
-    const sets: Array<Record<string, string>> = []
-    if (genres.length) sets.push({with_genres: genres.join('|')})
-    if (keywords.length) sets.push({with_keywords: keywords.join('|')})
-    return sets.length ? sets : [{}]
+    if (match === 'or' && pureGenres.length && keywordGenres.length) exact = false
+
+    // Ключевые слова: в запрос — одно необходимое условие, остальное проверяем сами.
+    const keywordConcepts = match === 'and'
+        ? [...keywordGenres, ...filter.tags]
+        : filter.tags.length ? [{genres: [], keywords: filter.tags.flatMap(concept => concept.keywords)}] : []
+    if (match === 'or' && keywordGenres.length && !pureGenres.length && !filter.tags.length) {
+        keywordConcepts.push({genres: [], keywords: keywordGenres.flatMap(concept => concept.keywords)})
+    }
+    if (match === 'or' && keywordGenres.length && filter.tags.length) exact = false
+    if (keywordConcepts.length) {
+        if (keywordConcepts.every(concept => concept.keywords.length === 1)) {
+            params.with_keywords = keywordConcepts.map(concept => concept.keywords[0]).join(',')
+        } else {
+            // Самое узкое по числу слов понятие — в запрос, остальные — проверкой.
+            const anchor = [...keywordConcepts].sort((a, b) => a.keywords.length - b.keywords.length)[0]!
+            params.with_keywords = [...new Set(anchor.keywords)].join('|')
+            if (keywordConcepts.length > 1) exact = false
+        }
+    }
+    return {params, exact}
 }
+
+/** Ключевые слова тайтла (у сериалов — из карточки, у фильмов — отдельным запросом). */
+const keywordIdsOf = (details: Raw | undefined): number[] =>
+    (details?.keywords?.results ?? details?.keywords?.keywords ?? []).map((keyword: Raw) => Number(keyword.id))
+
+const movieKeywords = async (id: number): Promise<number[]> =>
+    keywordIdsOf({keywords: await tmdbGet<Raw>(`movie/${id}/keywords`)})
 
 /**
  * Окно дат периода с порогом 1985 (для вышедшего). null — пересечения нет.
@@ -233,7 +298,7 @@ const sectionQuery = (section: Section, window: Window, params: CollectionParams
 }
 
 const tvDetails = (id: number) =>
-    tmdbGet<Raw>(`tv/${id}?language=ru-RU&append_to_response=videos&include_video_language=ru,en`)
+    tmdbGet<Raw>(`tv/${id}?language=ru-RU&append_to_response=videos,keywords&include_video_language=ru,en`)
 
 /** Сериал проходит условие раздела (по карточке). */
 const tvFitsSection = (section: Section, details: Raw, window: Window): boolean => {
@@ -272,9 +337,12 @@ export const collectCandidates = async (
     const seen = new Set<number>(excludeIds)
     const raw: Raw[] = []
     let capped = false
+    const match = params.match ?? 'and'
+    const filter = resolveFilter(params)
+    const {params: filterParams, exact} = filterQuery(filter, match)
 
-    for (const conditionSet of conditionParamSets(resolveConditions(params), params.match ?? 'and')) {
-        const query = new URLSearchParams({...base, ...conditionSet})
+    {
+        const query = new URLSearchParams({...base, ...filterParams})
         for (let page = 1; page <= MAX_PAGES; page++) {
             query.set('page', String(page))
             const body = await tmdbGet<{results?: Raw[], total_pages?: number}>(`discover/${section.mediaType}?${query}`)
@@ -300,12 +368,28 @@ export const collectCandidates = async (
         !isExcludedOrigin(item) &&
         (direction === 'released' || Number(item.popularity) >= minPopularity))
 
-    if (section.mediaType === 'movie') return {candidates: titled.map(item => ({item})), capped}
+    const genreIdsOf = (item: Raw): number[] => (item.genre_ids ?? []).map(Number)
+
+    if (section.mediaType === 'movie') {
+        if (exact) return {candidates: titled.map(item => ({item})), capped}
+        // Выборка шире правила (несколько тегов-понятий и т. п.) — проверка по ключевым словам фильма.
+        const checked = await mapLimit(titled, 8, async item => {
+            try {
+                return matchesFilter(filter, match, genreIdsOf(item), await movieKeywords(Number(item.id))) ? item : null
+            } catch (error) {
+                console.warn('[COLLECTIONS] Movie keywords failed', item.id, error instanceof Error ? error.message : error)
+                return null
+            }
+        })
+        return {candidates: checked.filter((item): item is Raw => Boolean(item)).map(item => ({item})), capped}
+    }
 
     // Одна неудачная карточка не должна ронять всю подборку: такой сериал просто пропускаем.
     const withDetails = await mapLimit(titled, 8, async item => {
         try {
-            return {item, details: await tvDetails(Number(item.id))}
+            const details = await tvDetails(Number(item.id))
+            if (!exact && !matchesFilter(filter, match, genreIdsOf(item), keywordIdsOf(details))) return null
+            return {item, details}
         } catch (error) {
             console.warn('[COLLECTIONS] TV details failed', item.id, error instanceof Error ? error.message : error)
             return null
@@ -409,7 +493,7 @@ export const buildCollection = async (
  */
 export const buildCollectionFor = async (params: CollectionParams, size = COLLECTION_SIZE): Promise<CollectionResult> => {
     const andResult = await buildCollection({...params, match: 'and'}, {size})
-    const canUseOr = params.criterion === 'filter' && distinctConditionCount(resolveConditions(params)) > 1
+    const canUseOr = params.criterion === 'filter' && canRelaxFilter(params)
     if (andResult.items.length >= size || !canUseOr) return andResult
 
     const orResult = await buildCollection({...params, match: 'or'}, {size: size - andResult.items.length, excludeIds: andResult.items.map(item => item.id)})
@@ -447,7 +531,7 @@ export const countCollection = async (params: CollectionParams): Promise<{count:
     if (!section) return {count: 0, capped: false}
     const and = await collectCandidates({...params, match: 'and'})
     const andCount = await countWithTrailers(section.mediaType, and.candidates)
-    const canUseOr = params.criterion === 'filter' && distinctConditionCount(resolveConditions(params)) > 1
+    const canUseOr = params.criterion === 'filter' && canRelaxFilter(params)
     if (and.capped || andCount.more || andCount.count >= COLLECTION_SIZE || !canUseOr) {
         return {count: andCount.count, capped: and.capped || andCount.more}
     }
