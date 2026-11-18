@@ -144,13 +144,15 @@ const FILTER_HINT: TextLine = {quote: true, parts: [
 ]}
 
 /** Строки → блоки rich-сообщения. */
+export const richInline = (parts: TextPart[]): any[] => parts.map(part => {
+    let node: any = part.text
+    if (part.italic) node = {type: 'italic', text: node}
+    if (part.bold) node = {type: 'bold', text: part.italic ? [node] : node}
+    return part.url ? {type: 'url', text: [node], url: part.url} : node
+})
+
 export const richBlocks = (lines: TextLine[]): any[] => lines.map(line => {
-    const text = line.parts.map(part => {
-        let node: any = part.text
-        if (part.italic) node = {type: 'italic', text: node}
-        if (part.bold) node = {type: 'bold', text: part.italic ? [node] : node}
-        return part.url ? {type: 'url', text: [node], url: part.url} : node
-    })
+    const text = richInline(line.parts)
     return line.quote
         ? {type: 'blockquote', blocks: [{type: 'paragraph', text}]}
         : {type: 'paragraph', text}
@@ -314,12 +316,25 @@ export const collectionLines = (state: WizardState, period: string, note: string
 ]
 
 /**
- * Номер страницы внизу: «Страница 1 из 3». Остаток кандидатов ещё не проверен на трейлер,
- * поэтому пока он есть, общее число страниц примерное («из ≈3»).
+ * Страницы внизу подборки: «📄 Страница 1, 2, 3 из ≈10». Номера загруженных страниц — ссылки
+ * t.me/<бот>?start=g_p<номер> (текущая — жирным, без ссылки); при большом числе страниц —
+ * первая, соседние с текущей и последняя через «…». Остаток кандидатов ещё не проверен на
+ * трейлер, поэтому пока он есть, общее число страниц примерное («из ≈10»).
  */
-export const collectionPageLabel = (page: number, restCount: number) => {
-    const total = page + 1 + Math.ceil(restCount / 10)
-    return `📄 Страница ${page + 1} из ${restCount ? '≈' : ''}${total}`
+export const collectionPagesFooter = (page: number, loaded: number, restCount: number, bot?: string) => {
+    const shown = loaded <= 7
+        ? Array.from({length: loaded}, (_, index) => index)
+        : [...new Set([0, page - 1, page, page + 1, loaded - 1])].filter(index => index >= 0 && index < loaded).sort((a, b) => a - b)
+    const parts: TextPart[] = [plain('📄 Страница ')]
+    shown.forEach((index, position) => {
+        if (position) parts.push(plain(index - shown[position - 1]! > 1 ? ' … ' : ', '))
+        parts.push(index === page
+            ? bold(String(index + 1))
+            : {text: String(index + 1), ...(bot ? {url: `https://t.me/${bot}?start=g_p${index + 1}`} : {})})
+    })
+    const total = loaded + Math.ceil(restCount / 10)
+    parts.push(plain(` из ${restCount ? '≈' : ''}${total}`))
+    return {type: 'footer', text: richInline(parts)}
 }
 
 export const collectionNote = (count: number, match: 'and' | 'or' = 'and') => {

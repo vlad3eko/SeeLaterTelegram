@@ -43,7 +43,7 @@ import {
     collectionHeading,
     collectionLines,
     collectionNote,
-    collectionPageLabel,
+    collectionPagesFooter,
     CRUMB_STEPS,
     GROUPS,
     periodCrumb,
@@ -215,6 +215,24 @@ export const jumpCollections = async (ctx: any, step: string) => {
         return
     }
     try {
+        // Номер страницы подборки (g_p3): та же карточка, другая страница — правкой сообщения.
+        const pageMatch = /^p(d{1,3})$/.exec(step)
+        if (pageMatch) {
+            const row = await loadWizard(telegramId)
+            const collection = row.messageId && (row.state.screen === 'result' || row.state.screen === 'title')
+                ? await loadCollection(row.state.collectionId, telegramId)
+                : null
+            const page = Number(pageMatch[1]) - 1
+            // Старые записи хранили только текущую страницу — прошлых в них нет.
+            if (!collection || page < 0 || page >= loadedPages(collection) || !pageItems(collection, page).length) return
+            const shown = page === Number(collection.page ?? 0) ? collection : await switchPage(collection, page)
+            if (!shown) return
+            row.state = {...row.state, screen: 'result'}
+            await showCollection(ctx, row, shown)
+            await saveWizard(row)
+            return
+        }
+
         const previous = await loadWizard(telegramId)
         if (previous.chatId && previous.messageId) {
             await ctx.telegram.deleteMessage(previous.chatId, previous.messageId).catch(() => undefined)
@@ -398,6 +416,30 @@ const loadCollection = async (collectionId: string | undefined, telegramId: numb
     return data as CollectionRow
 }
 
+/**
+ * Тайтлы страницы. В items копятся все загруженные страницы (место rank: 1–10, 11–20, …),
+ * поэтому к прошлым можно вернуться; старые записи хранили только текущую — фильтр по rank
+ * подходит и для них.
+ */
+const pageItems = (collection: CollectionRow, page: number) =>
+    collection.items.filter(item => item.rank > page * COLLECTION_SIZE && item.rank <= (page + 1) * COLLECTION_SIZE)
+
+/** Сколько страниц уже загружено (с проверенными трейлерами). */
+const loadedPages = (collection: CollectionRow) =>
+    Math.max(Number(collection.page ?? 0) + 1, Math.ceil(Math.max(0, ...collection.items.map(item => item.rank)) / COLLECTION_SIZE))
+
+/** Перейти на загруженную страницу (защита от двойного нажатия — по прежнему номеру). */
+const switchPage = async (collection: CollectionRow, page: number): Promise<CollectionRow | null> => {
+    const {data, error} = await getSupabase()
+        .from('collections')
+        .update({page, updated_at: new Date().toISOString()})
+        .eq('id', collection.id)
+        .eq('page', Number(collection.page ?? 0))
+        .select('id')
+    if (error) throw new Error(`[COLLECTIONS] Page switch failed: ${error.message}`)
+    return data?.length ? {...collection, page} : null
+}
+
 const richTarget = (ctx: any, row: WizardRow) => ({
     ctx,
     chatId: row.chatId ?? ctx.chat?.id,
@@ -409,9 +451,12 @@ const richTarget = (ctx: any, row: WizardRow) => ({
 const showCollection = async (ctx: any, row: WizardRow, collection: CollectionRow) => {
     const state = row.state
     const page = Number(collection.page ?? 0)
-    const count = collection.items.length
+    const items = pageItems(collection, page)
+    const count = items.length
     const note = page === 0 ? collectionNote(count, collection.params.match ?? 'and') : ''
-    const hasMore = (collection.candidates ?? []).length > 0
+    const loaded = loadedPages(collection)
+    const rest = (collection.candidates ?? []).length
+    const hasMore = page + 1 < loaded || rest > 0
 
     const footerRows = [
         ...(canPublishCollections(row.telegramId) ? [[btn('🎠 Собрать карусель', 'car')]] : []),
@@ -422,9 +467,8 @@ const showCollection = async (ctx: any, row: WizardRow, collection: CollectionRo
     ]
 
     const target = richTarget(ctx, row)
-    const {caption, keyboard} = await constructRichListCard(target, collection.items.map(queryOf), {
+    const {caption, keyboard} = await constructRichListCard(target, items.map(queryOf), {
         title: collectionHeading(count, page),
-        footer: collectionPageLabel(page, (collection.candidates ?? []).length),
         footerRows,
         tvDate: tvDateFor(collection.params.section),
         itemButton: (text, index) => btn(text, 't', String(index)),
@@ -432,6 +476,7 @@ const showCollection = async (ctx: any, row: WizardRow, collection: CollectionRo
     })
     // Под заголовком «Топ-10»: путь со ссылками, отметки фильтра, пояснение.
     caption.blocks.splice(1, 0, ...richBlocks(collectionLines(state, collection.params.period, note, botName(ctx))))
+    caption.blocks.push(collectionPagesFooter(page, loaded, rest, botName(ctx)))
 
     // Обложка «Ваш топ готов!» — одна на все страницы и разделы; не принял Telegram — без неё.
     const cover = await coverFor('result', row.messageId)
@@ -494,6 +539,15 @@ const showMore = async (ctx: any, row: WizardRow) => {
     const collection = await loadCollection(row.state.collectionId, row.telegramId)
     const section = collection ? SECTIONS[collection.params.section] : undefined
     const rest = collection?.candidates ?? []
+
+    // Следующая страница уже загружена (вернулись назад по номеру) — просто показать её.
+    if (collection && Number(collection.page ?? 0) + 1 < loadedPages(collection)) {
+        await safeAnswer(ctx)
+        const switched = await switchPage(collection, Number(collection.page ?? 0) + 1)
+        if (switched) await showCollection(ctx, row, switched)
+        return
+    }
+
     if (!collection || !section || !rest.length) {
         await safeAnswer(ctx, 'Больше вариантов нет.', true)
         return
@@ -526,7 +580,7 @@ const showMore = async (ctx: any, row: WizardRow) => {
         ...collection,
         page,
         candidates: rest.slice(consumed),
-        items: picked.map((entry, index) => ({
+        items: [...collection.items, ...picked.map((entry, index) => ({
             rank: page * COLLECTION_SIZE + index + 1,
             media_type: section.mediaType,
             content_type: section.contentType,
@@ -534,7 +588,7 @@ const showMore = async (ctx: any, row: WizardRow) => {
             score: entry.score,
             trailer_key: entry.trailer.key,
             trailer_language: entry.trailer.language
-        }))
+        }))]
     }
 
     // Защита от двойного нажатия: страницу сохраняет только тот, кто начинал с прежней.
@@ -671,7 +725,7 @@ export const collectionAction = async (ctx: any) => {
 
             case 't': {
                 const collection = await loadCollection(state.collectionId, telegramId)
-                const record = collection?.items[Number(arg)]
+                const record = collection ? pageItems(collection, Number(collection.page ?? 0))[Number(arg)] : undefined
                 if (!record) return safeAnswer(ctx, 'Тайтл не найден.', true)
                 await safeAnswer(ctx)
                 await engineRichCard(richTarget(ctx, row), queryOf(record), {
