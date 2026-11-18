@@ -40,11 +40,16 @@ import {
 } from '#server/bot/actions/collections/wizardState'
 import {
     btn,
+    collectionHeading,
+    collectionLines,
     collectionNote,
     collectionPageLabel,
-    collectionTitle,
+    CRUMB_STEPS,
     GROUPS,
+    periodCrumb,
     renderWizard,
+    richBlocks,
+    type CrumbStep,
     type PeriodCounts,
     type RenderOptions
 } from '#server/bot/actions/collections/wizardView'
@@ -66,6 +71,9 @@ const safeAnswer = async (ctx: any, text?: string, alert = false) => {
         // Callback мог устареть.
     }
 }
+
+/** Username бота — для ссылок пути «Меню › Фильмы › …». */
+const botName = (ctx: any): string | undefined => ctx.botInfo?.username ?? ctx.me
 
 const isNotModified = (error: any) =>
     String(error?.response?.description ?? error?.message ?? '').includes('message is not modified')
@@ -124,6 +132,7 @@ const coverScreenFor = (row: WizardRow, options: RenderOptions): CoverScreen | u
  */
 const showWizard = async (ctx: any, row: WizardRow, options: RenderOptions = {}) => {
     const {text, keyboard, rich} = renderWizard(row.state, {
+        bot: botName(ctx),
         ...options,
         periods: options.periods ?? availablePeriods(row.state)
     })
@@ -192,6 +201,64 @@ export const startCollections = async (ctx: any) => {
     const row: WizardRow = {telegramId, state: emptyState()}
     await showWizard(ctx, row)
     await saveWizard(row)
+}
+
+/**
+ * Ссылка пути (t.me/<бот>?start=g_<шаг>): удалить /start и прежнее сообщение мастера,
+ * прислать меню заново — на экране сразу после выбранного шага, с сохранённым выбором до него.
+ */
+export const jumpCollections = async (ctx: any, step: string) => {
+    const telegramId = Number(ctx.from?.id)
+    await ctx.deleteMessage().catch(() => undefined)
+    if (!canUseCollections(telegramId)) {
+        await ctx.reply(DENIED)
+        return
+    }
+    try {
+        const previous = await loadWizard(telegramId)
+        if (previous.chatId && previous.messageId) {
+            await ctx.telegram.deleteMessage(previous.chatId, previous.messageId).catch(() => undefined)
+        }
+        const state = previous.state
+        const target = (CRUMB_STEPS as readonly string[]).includes(step) ? jumpState(state, step as CrumbStep) : null
+        const row: WizardRow = {
+            telegramId,
+            state: target ?? (state.screen === 'result' || state.screen === 'title' ? emptyState() : state)
+        }
+        await showWizard(ctx, row)
+        await saveWizard(row)
+        if (row.state.screen === 'period') await enterPeriod(ctx, row)
+    } catch (error) {
+        console.error('[COLLECTIONS JUMP ERROR]', {step, message: error instanceof Error ? error.message : error})
+    }
+}
+
+/** Состояние после шага пути; null — такого шага в текущем выборе нет. */
+const jumpState = (state: WizardState, step: CrumbStep): WizardState | null => {
+    const base = emptyState()
+    switch (step) {
+        case 'home':
+            return base
+        case 'group':
+            if (state.group === 'series') return {...base, screen: 'series', group: 'series'}
+            if (state.group === 'movies') return {...base, screen: 'criterion', group: 'movies', section: 'movies'}
+            return null
+        case 'section':
+            return state.group && state.section ? {...base, screen: 'criterion', group: state.group, section: state.section} : null
+        case 'criterion': {
+            if (!state.group || !state.section || !state.criterion) return null
+            const kept: WizardState = {
+                ...base, group: state.group, section: state.section, criterion: state.criterion,
+                genres: state.genres, tags: state.tags, year: state.year,
+                openGenres: state.openGenres, openTags: state.openTags, openYear: state.openYear
+            }
+            return state.criterion === 'filter'
+                ? {...kept, screen: 'filter'}
+                : afterCriterion({...kept, genres: [], tags: [], year: undefined})
+        }
+        case 'direction':
+            return state.direction && state.criterion ? {...state, screen: 'period', collectionId: undefined} : null
+    }
 }
 
 /** Следующий экран после фильтра или «Популярного». */
@@ -356,13 +423,15 @@ const showCollection = async (ctx: any, row: WizardRow, collection: CollectionRo
 
     const target = richTarget(ctx, row)
     const {caption, keyboard} = await constructRichListCard(target, collection.items.map(queryOf), {
-        title: collectionTitle(state, count, collection.params.period, page, collection.params.match ?? 'and') + (note ? `\n${note}` : ''),
+        title: collectionHeading(count, page),
         footer: collectionPageLabel(page, (collection.candidates ?? []).length),
         footerRows,
         tvDate: tvDateFor(collection.params.section),
         itemButton: (text, index) => btn(text, 't', String(index)),
         startNumber: page * COLLECTION_SIZE + 1
     })
+    // Под заголовком «Топ-10»: путь со ссылками, отметки фильтра, пояснение.
+    caption.blocks.splice(1, 0, ...richBlocks(collectionLines(state, collection.params.period, note, botName(ctx))))
 
     // Обложка «Ваш топ готов!» — одна на все страницы и разделы; не принял Telegram — без неё.
     const cover = await coverFor('result', row.messageId)
@@ -388,7 +457,7 @@ const buildAndSend = async (ctx: any, row: WizardRow, period: PeriodKey) => {
         return
     }
 
-    await showWizard(ctx, row, {note: '⏳ Собираю топ: ищу тайтлы и проверяю трейлеры…', building: true})
+    await showWizard(ctx, row, {note: '⏳ Ищу тайтлы и проверяю трейлеры…', building: true, period: periodCrumb(state, period)})
 
     const result = await buildCollectionFor(params)
 

@@ -13,7 +13,7 @@ import {genresConvert} from "~/utils/convert/genresConvert";
 import {commandStart} from "#server/bot/commands/commandStart";
 import {commandHelp} from "#server/bot/commands/commandHelp";
 import {commandClear} from "#server/bot/commands/commandClear";
-import {startCollections} from "#server/bot/actions/collections/collectionsActions";
+import {jumpCollections, startCollections} from "#server/bot/actions/collections/collectionsActions";
 import {menuBot} from "#server/bot/handlers/commands/start/menuBot";
 import {LEGACY_MENU_BOT} from "#server/bot/callbacks/routes";
 import {contentTypeToTag} from "~/utils/convert/contentTypeConvert";
@@ -25,6 +25,12 @@ export function registerCommands(bot: Telegraf) {
 
 
     bot.start(async (ctx: any) => {
+
+        // Ссылка пути мастера /g («Меню › Фильмы › …»): без главного меню.
+        if (typeof ctx.startPayload === 'string' && ctx.startPayload.startsWith('g_')) {
+            await jumpCollections(ctx, ctx.startPayload.slice(2))
+            return
+        }
 
         const text =
             ctx.message.text

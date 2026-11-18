@@ -49,39 +49,123 @@ export const DIRECTION_LABEL = {released: 'Уже вышли', upcoming: 'Ско
 /** У «Сериалы · Скоро» год не выбирается: первая серия ещё впереди. */
 export const yearLocked = (state: WizardState) => state.section === 'series_upcoming'
 
-/** Краткое описание выбора для текста сообщения. */
-export const describeSelection = (state: WizardState): string[] => {
-    const lines: string[] = []
-    if (state.section) {
-        lines.push(state.group === 'series'
-            ? `Раздел: Сериалы · ${SECTIONS[state.section].label}`
-            : `Раздел: ${SECTIONS[state.section].label}`)
-    } else if (state.group) {
-        lines.push(`Раздел: ${GROUPS.find(g => g.key === state.group)?.label.replace(/^\S+\s/, '')}`)
-    }
-    if (state.criterion) lines.push(`Подборка: ${CRITERION_LABEL[state.criterion]}`)
-    if (state.criterion === 'filter') {
-        const genres = state.genres.map(key => genreByKey(key)?.label).filter(Boolean)
-        const tags = state.tags.map(key => tagByKey(key)?.label).filter(Boolean)
-        lines.push(`Жанры: ${genres.length ? genres.join(', ') : '—'}`)
-        lines.push(`Теги: ${tags.length ? tags.join(', ') : '—'}`)
-        if (!yearLocked(state)) lines.push(`Год: ${yearRangeByKey(state.year)?.label ?? '—'}`)
-    }
-    if (state.direction && state.group === 'movies') lines.push(`Выход: ${DIRECTION_LABEL[state.direction]}`)
-    return lines
+/*
+ * Текст мастера и подборки — строки из кусков с inline-стилями (жирный, курсив, ссылка),
+ * из которых собираются и rich-сообщение, и запасной HTML. Вопрос экрана крупно написан на
+ * обложке, поэтому в тексте — только путь, выбранное и короткая подсказка.
+ */
+
+export type TextPart = {text: string, bold?: boolean, italic?: boolean, url?: string}
+export type TextLine = {quote?: boolean, parts: TextPart[]}
+
+const plain = (text: string): TextPart => ({text})
+const bold = (text: string): TextPart => ({text, bold: true})
+const italic = (text: string): TextPart => ({text, italic: true})
+const quote = (text: string): TextLine => ({quote: true, parts: [italic(text)]})
+
+/**
+ * Шаг пути «Меню › Фильмы › Фильтр › уже вышли». Каждый, кроме последнего, — ссылка
+ * t.me/<бот>?start=g_<шаг>: нажатие возвращает мастер на экран сразу после этого выбора
+ * (обработчик — jumpCollections).
+ */
+export type CrumbStep = 'home' | 'group' | 'section' | 'criterion' | 'direction'
+export const CRUMB_STEPS: readonly CrumbStep[] = ['home', 'group', 'section', 'criterion', 'direction']
+
+const crumbsOf = (state: WizardState, period?: string): Array<{label: string, step?: CrumbStep}> => {
+    const crumbs: Array<{label: string, step?: CrumbStep}> = [{label: 'Меню', step: 'home'}]
+    const group = GROUPS.find(item => item.key === state.group)
+    if (group) crumbs.push({label: group.label.replace(/^\S+\s/, ''), step: 'group'})
+    if (state.group === 'series' && state.section) crumbs.push({label: SECTIONS[state.section].label.toLowerCase(), step: 'section'})
+    if (state.criterion) crumbs.push({label: CRITERION_LABEL[state.criterion], step: 'criterion'})
+    if (state.direction && state.group === 'movies') crumbs.push({label: DIRECTION_LABEL[state.direction].toLowerCase(), step: 'direction'})
+    if (period) crumbs.push({label: period})
+    return crumbs
 }
 
-const PROMPT: Record<WizardState['screen'], string> = {
+const crumbLine = (state: WizardState, bot?: string, period?: string): TextLine => {
+    const crumbs = crumbsOf(state, period)
+    const parts: TextPart[] = []
+    crumbs.forEach((crumb, index) => {
+        if (index) parts.push(plain(' › '))
+        const last = index === crumbs.length - 1
+        parts.push({
+            ...bold(crumb.label),
+            ...(crumb.step && !last && bot ? {url: `https://t.me/${bot}?start=g_${crumb.step}`} : {})
+        })
+    })
+    return {parts}
+}
+
+/** «драма, комедия» — каждое значение жирным. */
+const boldList = (labels: string[]): TextPart[] =>
+    labels.flatMap((label, index) => index ? [plain(', '), bold(label)] : [bold(label)])
+
+/** Жанры, теги и год фильтра: на экране фильтра — все поля, дальше — только заполненные. */
+const filterLines = (state: WizardState, full: boolean): TextLine[] => {
+    if (state.criterion !== 'filter') return []
+    const genres = state.genres.map(key => genreByKey(key)?.label.toLowerCase()).filter((label): label is string => Boolean(label))
+    const tags = state.tags.map(key => tagByKey(key)?.label.toLowerCase()).filter((label): label is string => Boolean(label))
+    const year = yearRangeByKey(state.year)?.label
+    const withYear = !yearLocked(state)
+
+    if (full) {
+        return [
+            {parts: [italic('Жанры'), plain(' '), ...(genres.length ? boldList(genres) : [plain('—')])]},
+            {parts: [
+                italic('Теги'), plain(' '), ...(tags.length ? boldList(tags) : [plain('—')]),
+                ...(withYear ? [plain('  ·  '), italic('Год'), plain(' '), year ? bold(year) : plain('любой')] : [])
+            ]}
+        ]
+    }
+
+    const fields: TextPart[][] = []
+    if (genres.length) fields.push([italic('Жанры'), plain(' '), ...boldList(genres)])
+    if (tags.length) fields.push([italic('Теги'), plain(' '), ...boldList(tags)])
+    if (withYear && year) fields.push([italic('Год'), plain(' '), bold(year)])
+    if (!fields.length) return []
+    return [{parts: fields.flatMap((field, index) => index ? [plain('  ·  '), ...field] : field)}]
+}
+
+const HINT: Record<WizardState['screen'], string> = {
     home: 'Выберите режим.',
     root: 'Выберите раздел.',
-    series: 'Какие сериалы?',
-    criterion: 'Как собрать топ?',
-    filter: 'Отметьте жанры, теги и год. Сначала ищу тайтлы, подходящие под все отмеченные жанры и теги, а если их мало — под любой из них.',
-    direction: 'Уже вышли или скоро выйдут?',
-    period: 'За какой период? В скобках — сколько нашлось с трейлером.',
+    series: 'Уже вышли целиком, выходят новые серии или скоро стартуют.',
+    criterion: 'Фильтр — сами отметите жанры, теги и год. Популярное — самое смотримое.',
+    filter: '',
+    direction: 'Уже в кино и онлайн — или премьеры ещё впереди.',
+    period: 'В скобках — сколько нашлось с трейлером.',
     result: '',
     title: ''
 }
+
+const FILTER_HINT: TextLine = {quote: true, parts: [
+    italic('Сначала ищу тайтлы со '), {text: 'всеми', bold: true, italic: true},
+    italic(' отметками, если их мало — с '), {text: 'любой', bold: true, italic: true}, italic(' из них.')
+]}
+
+/** Строки → блоки rich-сообщения. */
+export const richBlocks = (lines: TextLine[]): any[] => lines.map(line => {
+    const text = line.parts.map(part => {
+        let node: any = part.text
+        if (part.italic) node = {type: 'italic', text: node}
+        if (part.bold) node = {type: 'bold', text: part.italic ? [node] : node}
+        return part.url ? {type: 'url', text: [node], url: part.url} : node
+    })
+    return line.quote
+        ? {type: 'blockquote', blocks: [{type: 'paragraph', text}]}
+        : {type: 'paragraph', text}
+})
+
+/** Строки → HTML (запасной вид, если rich-сообщение не принято). */
+const htmlText = (lines: TextLine[]): string => lines.map(line => {
+    const html = line.parts.map(part => {
+        let value = escapeHtml(part.text)
+        if (part.italic) value = `<i>${value}</i>`
+        if (part.bold) value = `<b>${value}</b>`
+        return part.url ? `<a href="${part.url}">${value}</a>` : value
+    }).join('')
+    return line.quote ? `<blockquote>${html}</blockquote>` : html
+}).join('\n\n')
 
 /** Число на кнопке периода: «(5)», «(40+)»; undefined — ещё считается. */
 export type PeriodCounts = Partial<Record<string, {count: number, capped: boolean}>>
@@ -98,15 +182,24 @@ export type RenderOptions = {
     periods?: Period[]
     /** Идёт сборка подборки: обложка «Собираю топ…». */
     building?: boolean
+    /** Выбранный период (при сборке) — последним шагом пути. */
+    period?: string
+    /** Username бота для ссылок пути; без него путь — просто текст. */
+    bot?: string
 }
 
 export const renderWizard = (state: WizardState, options: RenderOptions = {}) => {
     const {note, counts, counting, periods = []} = options
-    const header = '🎞 <b>Подборка</b>'
-    const plainSelection = describeSelection(state)
-    const selection = plainSelection.map(line => escapeHtml(line))
-    const prompt = counting ? '⏳ Подсчёт вариантов…' : PROMPT[state.screen]
-    const text = [header, ...(selection.length ? ['', ...selection] : []), '', escapeHtml(prompt), ...(note ? ['', note] : [])].join('\n')
+    const hint = HINT[state.screen]
+    const lines: TextLine[] = [
+        crumbLine(state, options.bot, options.period),
+        ...filterLines(state, state.screen === 'filter'),
+        ...(counting ? [quote('⏳ Подсчёт вариантов…')]
+            : note ? [quote(note)]
+                : state.screen === 'filter' ? [FILTER_HINT]
+                    : hint ? [{parts: [italic(hint)]}] : [])
+    ]
+    const text = htmlText(lines)
 
     const rows: any[][] = []
     const back = [btn('◀️ Назад', 'b', undefined, 'danger')]
@@ -189,49 +282,36 @@ export const renderWizard = (state: WizardState, options: RenderOptions = {}) =>
         text,
         keyboard: Markup.inlineKeyboard(rows).reply_markup,
         /** То же содержимое для rich-сообщения (с обложкой сверху) — без HTML. */
-        rich: (cover?: string) => wizardRichMessage(plainSelection, prompt, note, cover)
+        /**
+         * То же как rich-сообщение: обложка экрана сверху. Rich, а не фото с подписью: сообщение
+         * мастера потом превращается в карточку подборки (тоже rich) той же правкой текста.
+         */
+        rich: (cover?: string) => ({
+            blocks: [
+                ...(cover ? [{type: 'photo', photo: {type: 'photo', media: cover}}] : []),
+                ...richBlocks(lines)
+            ]
+        })
     }
 }
 
-/**
- * Мастер как rich-сообщение: обложка экрана (если есть), заголовок, выбранное, вопрос, пометка.
- * Rich, а не фото с подписью: сообщение мастера потом превращается в карточку подборки
- * (тоже rich) той же правкой текста — поток «одно сообщение» сохраняется.
- */
-const wizardRichMessage = (selection: string[], prompt: string, note: string | undefined, cover?: string) => ({
-    blocks: [
-        ...(cover ? [{type: 'photo', photo: {type: 'photo', media: cover}}] : []),
-        {type: 'paragraph', text: [{type: 'bold', text: '🎞 Подборка'}]},
-        ...selection.map(line => ({type: 'paragraph', text: [line]})),
-        ...(prompt ? [{type: 'paragraph', text: [prompt]}] : []),
-        ...(note ? [{type: 'paragraph', text: [note]}] : [])
-    ]
-})
-
-/** Заголовок карточки-результата. */
-export const collectionTitle = (state: WizardState, count: number, period: string, page = 0, match: 'and' | 'or' = 'and') => {
-    const parts: string[] = []
-    if (state.section) parts.push(SECTIONS[state.section].mediaType === 'tv'
-        ? `Сериалы · ${SECTIONS[state.section].label.toLowerCase()}`
-        : SECTIONS[state.section].label)
-    if (state.criterion === 'popular') parts.push('популярное')
-    else {
-        const picked = [
-            ...state.genres.map(key => genreByKey(key)?.label?.toLowerCase()),
-            ...state.tags.map(key => tagByKey(key)?.label?.toLowerCase())
-        ].filter(Boolean)
-        if (picked.length) parts.push(picked.join(match === 'or' ? ' или ' : ' + '))
-        const year = yearRangeByKey(state.year)
-        if (year) parts.push(year.label)
-    }
-    // У фильма с закрытым диапазоном «Год» период не выбирается — «за всё время» не пишем.
-    // У сериалов «Год» — начало сериала, период выбирается всегда.
-    if (!(period === 'all' && state.section === 'movies' && yearRangeByKey(state.year)?.to)) {
-        parts.push((periodByKey(period)?.label ?? period).toLowerCase())
-    }
-    const places = page > 0 ? `Места ${page * 10 + 1}–${page * 10 + count}` : `Топ-${count}`
-    return `${places}: ${parts.filter(Boolean).join(' · ')}`
+/** Период для пути: у фильма с закрытым «Годом» период не выбирается — «за всё время» не пишем. */
+export const periodCrumb = (state: WizardState, period?: string) => {
+    if (!period) return undefined
+    if (period === 'all' && state.section === 'movies' && yearRangeByKey(state.year)?.to) return undefined
+    return (periodByKey(period)?.label ?? period).toLowerCase()
 }
+
+/** Заголовок карточки-результата: «Топ-10» или «Места 11–20». */
+export const collectionHeading = (count: number, page = 0) =>
+    page > 0 ? `Места ${page * 10 + 1}–${page * 10 + count}` : `Топ-${count}`
+
+/** Строки под заголовком подборки: путь (со ссылками), отметки фильтра, пояснение. */
+export const collectionLines = (state: WizardState, period: string, note: string, bot?: string): TextLine[] => [
+    crumbLine(state, bot, periodCrumb(state, period)),
+    ...filterLines(state, false),
+    ...(note ? [quote(note)] : [])
+]
 
 /**
  * Номер страницы внизу: «Страница 1 из 3». Остаток кандидатов ещё не проверен на трейлер,
@@ -244,7 +324,7 @@ export const collectionPageLabel = (page: number, restCount: number) => {
 
 export const collectionNote = (count: number, match: 'and' | 'or' = 'and') => {
     const parts: string[] = []
-    if (match === 'or') parts.push('Тайтлов со всеми отмеченными жанрами и тегами мало — добавлены подходящие хотя бы под один.')
+    if (match === 'or') parts.push('Со всеми отметками нашлось мало — добавлены подходящие хотя бы под одну.')
     if (count < 10) parts.push(`Нашлось ${count} с трейлером.`)
     return parts.join(' ')
 }
