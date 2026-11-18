@@ -249,7 +249,7 @@ export const collectionSettings = (state: WizardState, period: string, page: num
         ...state.tags.map(key => tagByKey(key)?.label)
     ].filter(Boolean) as string[]
     const what = state.criterion === 'popular'
-        ? 'Популярное'
+        ? 'Популярные'
         : picked.map((label, index) => index ? label.toLowerCase() : label).join(match === 'or' ? ' или ' : ', ')
 
     const year = state.criterion === 'popular' ? undefined : yearRangeByKey(state.year)
