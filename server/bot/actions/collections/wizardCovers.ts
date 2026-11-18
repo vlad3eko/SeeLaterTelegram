@@ -8,8 +8,8 @@ import type {WizardScreen} from '#server/bot/actions/collections/wizardState'
  * картинка не прыгает от нажатия к нажатию, а при новом /g может быть другой.
  */
 
-/** Экраны, у которых есть обложка; loading — пока собирается подборка. */
-export type CoverScreen = Exclude<WizardScreen, 'result' | 'title'> | 'loading'
+/** Экраны, у которых есть обложка; loading — пока собирается подборка, result — все страницы готовой подборки. */
+export type CoverScreen = Exclude<WizardScreen, 'title'> | 'loading'
 
 const CACHE_TTL_MS = 60 * 60_000
 let cache: {at: number, covers: Map<string, string[]>} | null = null

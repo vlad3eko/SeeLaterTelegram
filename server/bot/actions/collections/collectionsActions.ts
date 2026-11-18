@@ -363,6 +363,18 @@ const showCollection = async (ctx: any, row: WizardRow, collection: CollectionRo
         itemButton: (text, index) => btn(text, 't', String(index)),
         startNumber: page * COLLECTION_SIZE + 1
     })
+
+    // Обложка «Ваш топ готов!» — одна на все страницы и разделы; не принял Telegram — без неё.
+    const cover = await coverFor('result', row.messageId)
+    if (cover) {
+        try {
+            await tryGenerateCard(target, {...caption, blocks: [{type: 'photo', photo: {type: 'photo', media: cover}}, ...caption.blocks]}, keyboard)
+            return
+        } catch (error) {
+            console.warn('[COLLECTIONS] Result cover rejected; without cover', (error as any)?.response?.description ?? error)
+            forgetCovers()
+        }
+    }
     await tryGenerateCard(target, caption, keyboard)
 }
 

@@ -54,7 +54,9 @@ const SCREENS = {
     period: {fresh: true, minVotes: 300, sources: ['trending/movie/week', 'trending/movie/week?page=2', 'trending/tv/week']},
     loading: {fresh: false, minVotes: 5000, sources: [
         'discover/movie?sort_by=vote_count.desc&primary_release_date.gte=1985-01-01&primary_release_date.lte=2008-12-31',
-        'discover/movie?sort_by=vote_count.desc&primary_release_date.gte=1985-01-01&primary_release_date.lte=2008-12-31&page=2']}
+        'discover/movie?sort_by=vote_count.desc&primary_release_date.gte=1985-01-01&primary_release_date.lte=2008-12-31&page=2']},
+    // Страницы готовой подборки — одна обложка на все разделы.
+    result: {fresh: false, minVotes: 2000, sources: ['movie/top_rated?page=3', 'tv/top_rated', 'movie/popular?page=3']}
 }
 const POSTERS_PER_SCREEN = 6
 const onlyScreens = option('screens', '').split(',').filter(Boolean)
