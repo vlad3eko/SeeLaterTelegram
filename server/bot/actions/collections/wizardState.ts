@@ -48,10 +48,17 @@ export const emptyState = (): WizardState => ({
 })
 
 /**
- * Кто может открывать подборки. Сейчас — только админ; позже здесь будет проверка подписки
- * (подписчики получают карточки для себя, без кнопок публикации).
+ * Доступ к /g без прав админа (решение владельца 18.11): видят подборки и карточки,
+ * но без админских кнопок и без публикации.
  */
-export const canUseCollections = (telegramId: number): boolean => isAdmin(telegramId)
+const COLLECTION_USERS: number[] = [890040557]
+
+/**
+ * Кто может открывать подборки. Сейчас — админ и COLLECTION_USERS; позже здесь будет проверка
+ * подписки (подписчики получают карточки для себя, без кнопок публикации).
+ */
+export const canUseCollections = (telegramId: number): boolean =>
+    isAdmin(telegramId) || COLLECTION_USERS.includes(telegramId)
 
 /** Кнопки публикации («Собрать карусель») — только админ, даже у подписчиков. */
 export const canPublishCollections = (telegramId: number): boolean => isAdmin(telegramId)
