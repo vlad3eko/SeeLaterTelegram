@@ -146,10 +146,12 @@ export const MIN_SERIES_PER_TAG = 10
  * Разделы этапа 1 (правка владельца 18.11). Мультфильмы, мультсериалы и аниме — этап 2.
  *   movies            — фильмы; «Уже вышли / Скоро» выбирается отдельным шагом;
  *   series_completed  — «Вышли полностью»: сериал закончен, последняя серия в выбранном периоде;
- *   series_new        — «Новые серии/сезоны»: в периоде выходили серии (премьера, новый сезон или очередные серии);
+ *   series_new        — «Новые серии»: в периоде выходили серии (очередные, премьера сериала или сезона);
+ *   series_seasons    — «Новые сезоны»: в периоде стартовал сезон 2 и дальше у сериала, начатого раньше;
  *   series_upcoming   — «Скоро»: сериал ещё не вышел, первая серия в выбранном периоде.
+ * «Продлён» (анонс сезона) не делаем: у TMDB нет даты анонса, нужен свой журнал (решение владельца 19.11).
  */
-export type SectionKey = 'movies' | 'series_completed' | 'series_new' | 'series_upcoming'
+export type SectionKey = 'movies' | 'series_completed' | 'series_new' | 'series_seasons' | 'series_upcoming'
 
 export type Section = {
     key: SectionKey
@@ -158,12 +160,19 @@ export type Section = {
     contentType: 'movie' | 'series'
     /** Направление периода, если раздел задаёт его сам (у сериалов); у фильмов выбирается. */
     direction?: Direction
+    /** Периоды раздела; без списка — все, кроме «7 дней». */
+    periods?: PeriodKey[]
 }
 
 export const SECTIONS: Record<SectionKey, Section> = {
     movies: {key: 'movies', label: 'Фильмы', mediaType: 'movie', contentType: 'movie'},
-    series_completed: {key: 'series_completed', label: 'Вышли полностью', mediaType: 'tv', contentType: 'series', direction: 'released'},
-    series_new: {key: 'series_new', label: 'Новые серии/сезоны', mediaType: 'tv', contentType: 'series', direction: 'released'},
+    series_completed: {key: 'series_completed', label: 'Вышли полностью', mediaType: 'tv', contentType: 'series', direction: 'released',
+        periods: ['all', 'y5', 'year', 'm6', 'm3', 'd30', 'd7']},
+    // Длинные периоды бессмысленны: за полгода серии выходили почти у всех идущих сериалов.
+    series_new: {key: 'series_new', label: 'Новые серии', mediaType: 'tv', contentType: 'series', direction: 'released',
+        periods: ['m3', 'd30', 'd7']},
+    series_seasons: {key: 'series_seasons', label: 'Новые сезоны', mediaType: 'tv', contentType: 'series', direction: 'released',
+        periods: ['year', 'm6', 'm3', 'd30', 'd7']},
     series_upcoming: {key: 'series_upcoming', label: 'Скоро', mediaType: 'tv', contentType: 'series', direction: 'upcoming'}
 }
 
@@ -208,7 +217,7 @@ export const isPastYearRange = (key: string | undefined, today = new Date().toIS
 
 
 export type PeriodKey =
-    | 'all' | 'y5' | 'year' | 'm6' | 'm3' | 'd30'
+    | 'all' | 'y5' | 'year' | 'm6' | 'm3' | 'd30' | 'd7'
     | 'announced' | 'year_end' | 'next_m6' | 'next_m3' | 'next_d30'
 
 export type Period = {
@@ -224,6 +233,7 @@ export const PERIODS: Period[] = [
     {key: 'm6', label: 'Последние полгода', direction: 'released'},
     {key: 'm3', label: 'Последние 3 месяца', direction: 'released'},
     {key: 'd30', label: 'Последние 30 дней', direction: 'released'},
+    {key: 'd7', label: 'Последние 7 дней', direction: 'released'},
     {key: 'announced', label: 'Всё анонсированное', direction: 'upcoming'},
     {key: 'year_end', label: 'До конца года', direction: 'upcoming'},
     {key: 'next_m6', label: 'Ближайшие полгода', direction: 'upcoming'},
@@ -232,6 +242,10 @@ export const PERIODS: Period[] = [
 ]
 
 export const periodByKey = (key: string): Period | undefined => PERIODS.find(period => period.key === key)
+
+/** Периоды, которые предлагаются в разделе. */
+export const periodAllowed = (section: Section, key: PeriodKey) =>
+    section.periods ? section.periods.includes(key) : key !== 'd7'
 export const genreByKey = (key: string): Genre | undefined =>
     GENRES.find(genre => genre.key === key) ?? TV_GENRES.find(genre => genre.key === key)
 

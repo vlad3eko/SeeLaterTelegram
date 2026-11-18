@@ -1,11 +1,34 @@
 import {dateConvert} from "~/utils/convert/dateConvert"
 
+/**
+ * Какую дату показывать у сериала: first — первая серия (по умолчанию, как раньше);
+ * last — последняя вышедшая серия («Вышли полностью»); episode — последняя серия с номером
+ * («Новые серии»); season — старт последнего вышедшего сезона («Новые сезоны»).
+ */
+export type TvDate = 'first' | 'last' | 'episode' | 'season'
+
+/** Подпись даты сериала для подборок: «последняя серия 2×05 · 14 ноября», «3 сезон с 12 ноября». */
+const tvDateText = (media: any, tvDate: TvDate | undefined): string | null => {
+    const today = new Date().toISOString().slice(0, 10)
+    if (tvDate === 'season') {
+        const season = (media.seasons ?? [])
+            .filter((item: any) => Number(item.season_number) > 0 && item.air_date && item.air_date <= today)
+            .at(-1)
+        if (season) return `${season.season_number} сезон с ${dateConvert(season.air_date)}`
+    }
+    if (tvDate === 'episode') {
+        const episode = media.last_episode_to_air
+        if (episode?.air_date) {
+            const number = `${episode.season_number}×${String(episode.episode_number).padStart(2, '0')}`
+            return `последняя серия ${number} · ${dateConvert(episode.air_date)}`
+        }
+    }
+    if (tvDate && tvDate !== 'first' && media.last_air_date) return `последняя серия ${dateConvert(media.last_air_date)}`
+    return null
+}
+
 export type RichListCaptionOptions = {
-    /**
-     * Какую дату показывать у сериала: first — первая серия (по умолчанию, как раньше);
-     * last — последняя вышедшая серия (подборки «Вышли полностью», «Новые серии/сезоны»).
-     */
-    tvDate?: 'first' | 'last'
+    tvDate?: TvDate
     /** Номер первого элемента (подборки /g: на второй странице — 11). */
     startNumber?: number
 }
@@ -33,18 +56,16 @@ export const createRichListCaption = (
                     media.original_name ||
                     'Без названия'
 
-                const useLastEpisode =
-                    options.tvDate === 'last' && item.query.type === 'tv' && media.last_air_date
+                const tvText =
+                    item.query.type === 'tv' ? tvDateText(media, options.tvDate) : null
 
                 const date =
-                    useLastEpisode
-                        ? media.last_air_date
-                        : media.release_date || media.first_air_date
+                    media.release_date || media.first_air_date
 
                 const formattedDate =
-                    date
+                    tvText ?? (date
                         ? dateConvert(date)
-                        : ''
+                        : '')
 
                 const rating =
                     Number(
@@ -110,7 +131,7 @@ export const createRichListCaption = (
                                         `#${type}`,
 
                                         formattedDate
-                                            ? ` · ${useLastEpisode ? 'последняя серия ' : ''}${formattedDate}`
+                                            ? ` · ${formattedDate}`
                                             : '',
 
                                         ` · 💎 ${rating.toFixed(1)}`

@@ -225,7 +225,7 @@ export const renderWizard = (state: WizardState, options: RenderOptions = {}) =>
         }
         case 'series':
             rows.push([btn('✅ Вышли полностью', 'ss', 'series_completed', 'success')])
-            rows.push([btn('🆕 Новые серии/сезоны', 'ss', 'series_new', 'success')])
+            rows.push([btn('🆕 Новые серии', 'ss', 'series_new', 'success'), btn('🎬 Новые сезоны', 'ss', 'series_seasons', 'success')])
             rows.push([btn('🔜 Скоро', 'ss', 'series_upcoming', 'success')])
             rows.push(back)
             break

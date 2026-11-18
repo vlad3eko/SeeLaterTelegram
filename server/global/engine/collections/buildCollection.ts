@@ -3,6 +3,7 @@ import {
     genreByKey,
     isExcludedOrigin,
     MIN_RELEASE_DATE,
+    periodAllowed,
     periodByKey,
     type PeriodKey,
     SECTIONS,
@@ -99,6 +100,7 @@ export const periodRange = (period: PeriodKey): {from?: string, to?: string} => 
         case 'm6': return {from: isoDate(shift(0, -6)), to: today}
         case 'm3': return {from: isoDate(shift(0, -3)), to: today}
         case 'd30': return {from: isoDate(shift(-30)), to: today}
+        case 'd7': return {from: isoDate(shift(-7)), to: today}
         case 'announced': return {from: tomorrow}
         case 'year_end': return {from: tomorrow, to: `${new Date().getFullYear()}-12-31`}
         case 'next_m6': return {from: tomorrow, to: isoDate(shift(0, 6))}
@@ -232,7 +234,7 @@ const movieKeywords = async (id: number): Promise<number[]> =>
 export const collectionWindow = (params: CollectionParams): {window: Window, direction: 'released' | 'upcoming'} | null => {
     const period = periodByKey(params.period)
     const section = SECTIONS[params.section]
-    if (!period || !section) return null
+    if (!period || !section || !periodAllowed(section, period.key)) return null
     const year = yearRangeByKey(params.year)
     const yearIsStart = section.mediaType === 'tv' && period.direction === 'released'
     const window = intersect(
@@ -288,6 +290,22 @@ const sectionQuery = (section: Section, window: Window, params: CollectionParams
                 include_null_first_air_dates: 'false',
                 sort_by: 'popularity.desc'
             }
+        case 'series_seasons': {
+            // Серии в периоде выходили, а сам сериал начался раньше периода (новые сериалы отсекаем
+            // ещё в запросе); что в периоде стартовал именно сезон — по карточке.
+            const period = periodRange(params.period)
+            const startedBefore = period.from
+                ? new Date(Date.parse(period.from) - 864e5).toISOString().slice(0, 10)
+                : undefined
+            const to = [year?.to, startedBefore].filter(Boolean).sort()[0]
+            return {
+                ...base,
+                ...range('air_date', period),
+                ...range('first_air_date', {from: year?.from ?? MIN_RELEASE_DATE, ...(to ? {to} : {})}),
+                include_null_first_air_dates: 'false',
+                sort_by: 'popularity.desc'
+            }
+        }
         case 'series_upcoming':
             return {
                 ...base,
@@ -312,6 +330,10 @@ const tvFitsSection = (section: Section, details: Raw, window: Window): boolean 
             return inWindow(details.last_air_date, window) ||
                 inWindow(details.first_air_date, window) ||
                 (details.seasons ?? []).some((season: Raw) => Number(season.season_number) > 0 && inWindow(season.air_date, window))
+        case 'series_seasons':
+            // В периоде вышла первая серия сезона 2 и дальше; сам сериал начался раньше периода.
+            return !inWindow(details.first_air_date, window) &&
+                (details.seasons ?? []).some((season: Raw) => Number(season.season_number) > 1 && inWindow(season.air_date, window))
         default:
             return true
     }

@@ -1,6 +1,7 @@
 import {COLLECTION_ACTION} from '#server/bot/callbacks/routes'
 import {getSupabase} from '#server/global/engine/instagram/reel/jobs/dispatchReelJob'
 import {constructRichListCard} from '#server/global/engine/card/construct/constructRichListCard'
+import type {TvDate} from '#server/global/engine/card/variant/createRichListCaption'
 import {tryGenerateCard} from '#server/global/engine/card/construct/tryGenerateCard'
 import {engineRichCard} from '#server/global/engine/card/engineRichCard'
 import {
@@ -340,9 +341,14 @@ const ALLOWED_ON_SCREEN: Record<string, WizardState['screen'][]> = {
 const toggle = (list: string[], key: string) =>
     list.includes(key) ? list.filter(item => item !== key) : [...list, key]
 
-/** Какую дату показывать у сериалов в карточке: у «Скоро» — первую серию, иначе последнюю. */
-const tvDateFor = (section?: string): 'first' | 'last' | undefined => {
+/**
+ * Какую дату показывать у сериалов в карточке: у «Скоро» — первую серию, у «Новых серий» —
+ * последнюю серию с номером, у «Новых сезонов» — старт сезона, иначе последнюю серию.
+ */
+const tvDateFor = (section?: string): TvDate | undefined => {
     if (section === 'series_upcoming') return 'first'
+    if (section === 'series_new') return 'episode'
+    if (section === 'series_seasons') return 'season'
     return section && SECTIONS[section as keyof typeof SECTIONS]?.mediaType === 'tv' ? 'last' : undefined
 }
 
@@ -663,7 +669,7 @@ export const collectionAction = async (ctx: any) => {
             }
 
             case 'ss':
-                if (arg === 'series_completed' || arg === 'series_new' || arg === 'series_upcoming') {
+                if (arg === 'series_completed' || arg === 'series_new' || arg === 'series_seasons' || arg === 'series_upcoming') {
                     state = {...state, screen: 'criterion', section: arg, ...(arg === 'series_upcoming' ? {year: undefined} : {})}
                 }
                 break
