@@ -209,14 +209,59 @@ export const collectionTitle = (state: WizardState, count: number, period: strin
     return `${places}: ${parts.filter(Boolean).join(' · ')}`
 }
 
-/** Мелкий текст под заголовком: настройки подборки и показанные места. */
-export const collectionSettings = (state: WizardState, period: string, page: number, count: number) => {
+/** Период как часть фразы: «за последние 5 лет», «в этом году». Пустая строка — не писать. */
+const PERIOD_PHRASE: Record<string, string> = {
+    all: 'за всё время',
+    y5: 'за последние 5 лет',
+    year: 'в этом году',
+    m6: 'за последние полгода',
+    m3: 'за последние 3 месяца',
+    d30: 'за последние 30 дней',
+    announced: '',
+    year_end: 'до конца года',
+    next_m6: 'в ближайшие полгода',
+    next_m3: 'в ближайшие 3 месяца',
+    next_d30: 'в ближайшие 30 дней'
+}
+
+/** Что с выходом: у фильмов — «Уже вышли / Скоро», у сериалов — раздел. */
+const releasePhrase = (state: WizardState) => {
+    switch (state.section) {
+        case 'series_completed': return 'которые вышли полностью'
+        case 'series_new': return 'с новыми сериями или сезонами'
+        case 'series_upcoming': return 'которые скоро выйдут'
+    }
+    if (state.direction === 'released') return 'которые уже вышли'
+    if (state.direction === 'upcoming') return 'которые скоро выйдут'
+    return ''
+}
+
+/**
+ * Мелкий текст под заголовком (формат владельца 18.11), пустые настройки пропускаются:
+ * «Показано: 11–20» и фраза «Драма, которые уже вышли за последние 5 лет».
+ */
+export const collectionSettings = (state: WizardState, period: string, page: number, count: number, match: 'and' | 'or' = 'and') => {
     const first = page * 10 + 1
-    return [
-        ...describeSelection(state).filter(line => !line.startsWith('Раздел:')),
-        `Период: ${periodByKey(period)?.label ?? period}`,
-        `Показаны: ${count > 1 ? `${first}–${first + count - 1}` : first}`
-    ].join(' · ')
+    const shown = `Показано: ${count > 1 ? `${first}–${first + count - 1}` : first}`
+
+    const picked = state.criterion === 'popular' ? [] : [
+        ...state.genres.map(key => genreByKey(key)?.label),
+        ...state.tags.map(key => tagByKey(key)?.label)
+    ].filter(Boolean) as string[]
+    const what = state.criterion === 'popular'
+        ? 'Популярное'
+        : picked.map((label, index) => index ? label.toLowerCase() : label).join(match === 'or' ? ' или ' : ', ')
+
+    const year = state.criterion === 'popular' ? undefined : yearRangeByKey(state.year)
+    const yearPhrase = !year ? '' : year.to ? `${year.label} годов` : `с ${year.from.slice(0, 4)} года`
+    // С закрытым диапазоном «Год» период не выбирался — «за всё время» не пишем.
+    const periodPhrase = period === 'all' && year?.to ? '' : PERIOD_PHRASE[period] ?? ''
+
+    const head = [what || 'Все', yearPhrase].filter(Boolean).join(' ')
+    const tail = [releasePhrase(state), periodPhrase].filter(Boolean).join(' ')
+    const phrase = tail ? `${head}, ${tail}` : (what || yearPhrase ? head : '')
+
+    return [shown, phrase].filter(Boolean).join('\n')
 }
 
 /**
