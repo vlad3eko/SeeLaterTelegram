@@ -209,6 +209,25 @@ export const collectionTitle = (state: WizardState, count: number, period: strin
     return `${places}: ${parts.filter(Boolean).join(' · ')}`
 }
 
+/** Мелкий текст под заголовком: настройки подборки и показанные места. */
+export const collectionSettings = (state: WizardState, period: string, page: number, count: number) => {
+    const first = page * 10 + 1
+    return [
+        ...describeSelection(state).filter(line => !line.startsWith('Раздел:')),
+        `Период: ${periodByKey(period)?.label ?? period}`,
+        `Показаны: ${count > 1 ? `${first}–${first + count - 1}` : first}`
+    ].join(' · ')
+}
+
+/**
+ * Номер страницы внизу: «Страница 1 из 3». Остаток кандидатов ещё не проверен на трейлер,
+ * поэтому пока он есть, общее число страниц примерное («из ≈3»).
+ */
+export const collectionPageLabel = (page: number, restCount: number) => {
+    const total = page + 1 + Math.ceil(restCount / 10)
+    return `📄 Страница ${page + 1} из ${restCount ? '≈' : ''}${total}`
+}
+
 export const collectionNote = (count: number, match: 'and' | 'or' = 'and') => {
     const parts: string[] = []
     if (match === 'or') parts.push('Тайтлов со всеми отмеченными жанрами и тегами мало — добавлены подходящие хотя бы под один.')
