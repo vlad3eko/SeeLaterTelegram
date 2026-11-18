@@ -96,12 +96,15 @@ export type RenderOptions = {
     counting?: boolean
     /** Периоды, которые есть смысл показывать (пересекаются с блоком «Год»). */
     periods?: Period[]
+    /** Идёт сборка подборки: обложка «Собираю топ…». */
+    building?: boolean
 }
 
 export const renderWizard = (state: WizardState, options: RenderOptions = {}) => {
     const {note, counts, counting, periods = []} = options
     const header = '🎞 <b>Подборка</b>'
-    const selection = describeSelection(state).map(line => escapeHtml(line))
+    const plainSelection = describeSelection(state)
+    const selection = plainSelection.map(line => escapeHtml(line))
     const prompt = counting ? '⏳ Подсчёт вариантов…' : PROMPT[state.screen]
     const text = [header, ...(selection.length ? ['', ...selection] : []), '', escapeHtml(prompt), ...(note ? ['', note] : [])].join('\n')
 
@@ -182,8 +185,28 @@ export const renderWizard = (state: WizardState, options: RenderOptions = {}) =>
         }
     }
 
-    return {text, keyboard: Markup.inlineKeyboard(rows).reply_markup}
+    return {
+        text,
+        keyboard: Markup.inlineKeyboard(rows).reply_markup,
+        /** То же содержимое для rich-сообщения (с обложкой сверху) — без HTML. */
+        rich: (cover?: string) => wizardRichMessage(plainSelection, prompt, note, cover)
+    }
 }
+
+/**
+ * Мастер как rich-сообщение: обложка экрана (если есть), заголовок, выбранное, вопрос, пометка.
+ * Rich, а не фото с подписью: сообщение мастера потом превращается в карточку подборки
+ * (тоже rich) той же правкой текста — поток «одно сообщение» сохраняется.
+ */
+const wizardRichMessage = (selection: string[], prompt: string, note: string | undefined, cover?: string) => ({
+    blocks: [
+        ...(cover ? [{type: 'photo', photo: {type: 'photo', media: cover}}] : []),
+        {type: 'paragraph', text: [{type: 'bold', text: '🎞 Подборка'}]},
+        ...selection.map(line => ({type: 'paragraph', text: [line]})),
+        ...(prompt ? [{type: 'paragraph', text: [prompt]}] : []),
+        ...(note ? [{type: 'paragraph', text: [note]}] : [])
+    ]
+})
 
 /** Заголовок карточки-результата. */
 export const collectionTitle = (state: WizardState, count: number, period: string, page = 0, match: 'and' | 'or' = 'and') => {

@@ -23,6 +23,8 @@ import {
     yearRangeByKey,
     type PeriodKey
 } from '#server/global/engine/collections/catalog'
+import {sendRichMessage} from '#server/global/engine/card/transport/sendRichMessage'
+import {coverFor, forgetCovers, type CoverScreen} from '#server/bot/actions/collections/wizardCovers'
 import {addMessageSession} from '#server/bot/services/session/addMessageSession'
 import {SessionMessageType} from '#server/bot/consts/types/SessionMessageTypes'
 import type {ContentType} from '#server/global/engine/search/strategy/enums'
@@ -109,14 +111,40 @@ const availablePeriods = (state: WizardState) =>
         return Boolean(params && collectionWindow(params))
     })
 
-/** Перерисовать сообщение мастера (по id из базы). */
+/** Обложка для экрана: пока собирается подборка — «Собираю топ…». */
+const coverScreenFor = (row: WizardRow, options: RenderOptions): CoverScreen | undefined => {
+    const screen = row.state.screen
+    if (screen === 'result' || screen === 'title') return undefined
+    return options.building ? 'loading' : screen
+}
+
+/**
+ * Перерисовать сообщение мастера (по id из базы). Сначала rich-сообщение с обложкой экрана;
+ * если Telegram его не принял — прежний текст с HTML, чтобы меню работало в любом случае.
+ */
 const showWizard = async (ctx: any, row: WizardRow, options: RenderOptions = {}) => {
-    const {text, keyboard} = renderWizard(row.state, {
+    const {text, keyboard, rich} = renderWizard(row.state, {
         ...options,
         periods: options.periods ?? availablePeriods(row.state)
     })
+    const coverScreen = coverScreenFor(row, options)
+    const cover = coverScreen ? await coverFor(coverScreen, row.messageId) : undefined
     const chatId = row.chatId ?? ctx.chat?.id
+
     if (chatId && row.messageId) {
+        try {
+            await ctx.telegram.callApi('editMessageText', {
+                chat_id: chatId,
+                message_id: row.messageId,
+                rich_message: rich(cover),
+                reply_markup: keyboard
+            })
+            return
+        } catch (error) {
+            if (isNotModified(error)) return
+            console.warn('[COLLECTIONS] Wizard rich edit failed; plain text', (error as any)?.response?.description ?? error)
+            if (cover) forgetCovers()
+        }
         try {
             await ctx.telegram.editMessageText(chatId, row.messageId, undefined, text, {
                 parse_mode: 'HTML',
@@ -129,7 +157,15 @@ const showWizard = async (ctx: any, row: WizardRow, options: RenderOptions = {})
             console.warn('[COLLECTIONS] Wizard message edit failed; sending a new one', (error as any)?.response?.description ?? error)
         }
     }
-    const message = await ctx.reply(text, {parse_mode: 'HTML', reply_markup: keyboard, link_preview_options: {is_disabled: true}})
+
+    let message: any
+    try {
+        message = await sendRichMessage(ctx, rich(cover), keyboard)
+    } catch (error) {
+        console.warn('[COLLECTIONS] Wizard rich send failed; plain text', (error as any)?.response?.description ?? error)
+        if (cover) forgetCovers()
+        message = await ctx.reply(text, {parse_mode: 'HTML', reply_markup: keyboard, link_preview_options: {is_disabled: true}})
+    }
     row.chatId = message.chat.id
     row.messageId = message.message_id
     await addMessageSession(ctx.from.id, SessionMessageType.Menu, {messageId: message.message_id})
@@ -340,7 +376,7 @@ const buildAndSend = async (ctx: any, row: WizardRow, period: PeriodKey) => {
         return
     }
 
-    await showWizard(ctx, row, {note: '⏳ Собираю топ: ищу тайтлы и проверяю трейлеры…'})
+    await showWizard(ctx, row, {note: '⏳ Собираю топ: ищу тайтлы и проверяю трейлеры…', building: true})
 
     const result = await buildCollectionFor(params)
 
