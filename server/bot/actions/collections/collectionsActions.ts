@@ -216,7 +216,7 @@ export const jumpCollections = async (ctx: any, step: string) => {
     }
     try {
         // Номер страницы подборки (g_p3): та же карточка, другая страница — правкой сообщения.
-        const pageMatch = /^p(d{1,3})$/.exec(step)
+        const pageMatch = /^p(\d{1,3})$/.exec(step)
         if (pageMatch) {
             const row = await loadWizard(telegramId)
             const collection = row.messageId && (row.state.screen === 'result' || row.state.screen === 'title')
