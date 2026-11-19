@@ -11,6 +11,11 @@ import {findTrailers, type Trailer} from '#server/global/engine/collections/trai
  * слова), объединённые по позициям (Reciprocal Rank Fusion: 1 / (60 + место) из каждого списка).
  * Та же полка (аниме к аниме), без своей франшизы (у фильмов — коллекция TMDB), не меньше
  * порога голосов. Порядок — RRF + общие ключевые слова (×2) + общие жанры.
+ *
+ * Свежесть (решение владельца 19.11.2026): похожие не старше тайтла больше чем на 10 лет —
+ * к «Обители зла» 2026 года не «Рассвет мертвецов» 1978-го. Новее — можно (к фильму 1985 года
+ * подойдёт и свежий). Если в окне меньше двух десятков кандидатов, сначала добор из discover
+ * (общие ключевые слова, основной жанр, не старше окна), затем окно расширяется до 15 и 20 лет.
  */
 
 type Raw = Record<string, any>
@@ -30,6 +35,29 @@ export type SimilarItem = {
 const RRF_K = 60
 /** Голосов не меньше доли порога «известного» на полке. */
 const VOTES_SHARE = 0.1
+/** Окна свежести в годах: основное и запасные, если в основном мало кандидатов. */
+export const YEAR_WINDOWS = [10, 15, 20]
+/** Сколько кандидатов нужно в окне, чтобы не расширять его (часть отсеется без трейлера). */
+const WINDOW_MIN_POOL = 20
+
+export const yearOf = (item: Raw): number | undefined => {
+    const year = Number(String(item.release_date || item.first_air_date || '').slice(0, 4))
+    return year > 1800 ? year : undefined
+}
+
+/**
+ * Кандидаты не старше тайтла больше чем на окно лет (новее — можно). Без года у тайтла — без
+ * фильтра; кандидат без даты отсеивается. Окно расширяется, пока кандидатов меньше minPool.
+ */
+export const freshPool = <T>(pool: T[], itemOf: (entry: T) => Raw, baseYear: number | undefined, minPool = WINDOW_MIN_POOL): T[] => {
+    if (!baseYear) return pool
+    let fresh: T[] = []
+    for (const window of YEAR_WINDOWS) {
+        fresh = pool.filter(entry => (yearOf(itemOf(entry)) ?? 0) >= baseYear - window)
+        if (fresh.length >= minPool) break
+    }
+    return fresh
+}
 
 const keywordIdsOf = (body: Raw | undefined): number[] =>
     ((body?.keywords ?? body?.results ?? []) as Raw[]).map(keyword => Number(keyword.id))
@@ -73,17 +101,39 @@ export const buildSimilar = async (
     const page = (path: string, n: number) =>
         tmdbGet<{results?: Raw[]}>(`${kind}/${base.id}/${path}?language=ru-RU&page=${n}`).then(body => body.results ?? []).catch(() => [])
     const [rec1, rec2, sim1] = await Promise.all([page('recommendations', 1), page('recommendations', 2), page('similar', 1)])
+    const lists: Raw[][] = [[...rec1, ...rec2], sim1]
     // similar шумнее (жанры и слова без поведения зрителей) — вес вдвое меньше.
-    const fused = fuseRanks([[...rec1, ...rec2], sim1], [1, 0.5])
-    fused.delete(base.id)
+    const weights = [1, 0.5]
 
     const minVotes = Math.round(shelf.knownVotes * VOTES_SHARE)
-    const pool = [...fused.values()].filter(({item}) =>
-        hasRussianTitle(String(item.title || item.name || '')) &&
-        !isExcludedOrigin(item) &&
-        // recommendations у фильмов без страны: язык решает (японская анимация — аниме).
-        fitsShelf(item, shelf) &&
-        (Number(item.vote_count) || 0) >= minVotes)
+    const shelfPoolOf = () => {
+        const fused = fuseRanks(lists, weights)
+        fused.delete(base.id)
+        return [...fused.values()].filter(({item}) =>
+            hasRussianTitle(String(item.title || item.name || '')) &&
+            !isExcludedOrigin(item) &&
+            // recommendations у фильмов без страны: язык решает (японская анимация — аниме).
+            fitsShelf(item, shelf) &&
+            (Number(item.vote_count) || 0) >= minVotes)
+    }
+    const baseYear = yearOf(details)
+    let shelfPool = shelfPoolOf()
+
+    // Свежих кандидатов мало (recommendations у новинок тянут классику) — добор из discover:
+    // те же ключевые слова (любое), основной жанр, не старше окна, самые обсуждаемые. Один запрос.
+    const freshCount = baseYear ? shelfPool.filter(({item}) => (yearOf(item) ?? 0) >= baseYear - YEAR_WINDOWS[0]!).length : Infinity
+    const mainGenre = ((details.genres ?? []) as Raw[])[0]?.id
+    if (baseYear && freshCount < WINDOW_MIN_POOL && baseKeywords.size && mainGenre) {
+        const dateField = kind === 'movie' ? 'primary_release_date' : 'first_air_date'
+        const discovered = await tmdbGet<{results?: Raw[]}>(
+            `discover/${kind}?language=ru-RU&with_keywords=${[...baseKeywords].join('|')}&with_genres=${mainGenre}` +
+            `&${dateField}.gte=${baseYear - YEAR_WINDOWS[0]!}-01-01&sort_by=vote_count.desc&vote_count.gte=${minVotes}`
+        ).then(body => body.results ?? []).catch(() => [])
+        lists.push(discovered)
+        weights.push(0.5)
+        shelfPool = shelfPoolOf()
+    }
+    const pool = freshPool(shelfPool, entry => entry.item, baseYear)
 
     // Ключевые слова и франшиза кандидатов: у фильмов — коллекция TMDB (свою франшизу не показываем).
     const enriched = await mapLimit(pool, 8, async ({item, rrf}) => {
