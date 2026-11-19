@@ -1,6 +1,6 @@
 // Прокси для локальной разработки: туннель (cloudflared) смотрит сюда, а не на dev-сервер Nuxt.
-// Наружу проходит только POST /api/bot/reelJobs/finalize — его вызывает воркер Cloud Run,
-// когда Reel готов или ждёт проверки. Всё остальное (исходники Vite, webhook без проверки
+// Наружу проходят только POST /api/bot/reelJobs/finalize (Reel готов или ждёт проверки) и
+// /api/bot/trailerDelivery (готов трейлер для «Загрузки трейлера») — их вызывает воркер Cloud Run. Всё остальное (исходники Vite, webhook без проверки
 // секрета в dev, служебные роуты) из интернета недоступно: ответ 404.
 //
 //   node scripts/devFinalizerProxy.mjs            порт 3001 -> http://127.0.0.1:3000
@@ -13,13 +13,13 @@ import http from 'node:http'
 
 const LISTEN_PORT = Number(process.env.DEV_PROXY_PORT || 3001)
 const TARGET = process.env.DEV_PROXY_TARGET || 'http://127.0.0.1:3000'
-const ALLOWED_PATH = '/api/bot/reeljobs/finalize'
+const ALLOWED_PATHS = new Set(['/api/bot/reeljobs/finalize', '/api/bot/trailerdelivery'])
 const MAX_BODY_BYTES = 64 * 1024
 
 const server = http.createServer((request, response) => {
     const path = (request.url ?? '').split('?')[0].replace(/\/+$/, '').toLowerCase()
 
-    if (request.method !== 'POST' || path !== ALLOWED_PATH) {
+    if (request.method !== 'POST' || !ALLOWED_PATHS.has(path)) {
         response.writeHead(404).end()
         return
     }
