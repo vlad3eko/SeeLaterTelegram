@@ -47,7 +47,7 @@ export const keyboardSendMediaCardInline = (
         return
 
     const keyboard = [
-        [SearchButtonBot('Искать другое', ButtonContext), recommendationButtonBot(contentType, genres, ButtonContext, mediaId, mediaType)],
+        [SearchButtonBot('Искать другое', ButtonContext), recommendationButtonBot(contentType, ButtonContext, mediaId, mediaType)],
         [checkBookmarksMedias(ButtonContext)],
         [mediaCast(mediaId, mediaType, contentType, ButtonContext)],
         [deleteMediaButtonBot(mediaId, mediaType), SaveMediaButtonBot(mediaId, mediaType, ButtonContext, saveCount)]

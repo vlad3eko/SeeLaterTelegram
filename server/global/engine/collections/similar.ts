@@ -1,6 +1,6 @@
 import {hasRussianTitle} from '#server/global/engine/collections/buildCollection'
 import {isExcludedOrigin} from '#server/global/engine/collections/catalog'
-import {fitsShelf, type MediaType, type Shelf} from '#server/global/engine/collections/shelves'
+import {fitsShelf, type MediaType, type Shelf, shelfOf, SHELVES} from '#server/global/engine/collections/shelves'
 import {mapLimit, tmdbGet} from '#server/global/engine/collections/tmdb'
 import {findTrailers, type Trailer} from '#server/global/engine/collections/trailers'
 
@@ -140,4 +140,15 @@ export const buildSimilar = async (
     const rest = scored.slice(cursor).filter(entry => !used.has(Number(entry.item.id)))
         .map(entry => ({id: Number(entry.item.id), score: entry.score}))
     return {items, rest, title}
+}
+
+/**
+ * «🔗 Похожее» на обычной карточке (вне /g): полку определяет сам тайтл — жанры и страна из TMDB
+ * (аниме к аниме, мультфильм к мультфильмам). Карточка тайтла берётся тем же запросом, что
+ * и в buildSimilar, поэтому второй раз из кэша, а не из TMDB.
+ */
+export const buildSimilarFor = async (base: {mediaType: MediaType, id: number}, options: {size?: number} = {}) => {
+    const details = await tmdbGet<Raw>(`${base.mediaType}/${base.id}?language=ru-RU&append_to_response=keywords`)
+    const shelf = SHELVES[shelfOf(details, base.mediaType)]
+    return {shelf, ...await buildSimilar(base, shelf, options)}
 }

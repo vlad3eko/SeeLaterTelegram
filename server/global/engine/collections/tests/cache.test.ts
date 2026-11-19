@@ -59,3 +59,17 @@ test('обложки /g: GIF — блоком анимации, картинка
     assert.deepEqual(coverBlock('CgACAgIAAx'), {type: 'animation', animation: {type: 'animation', media: 'CgACAgIAAx'}})
     assert.deepEqual(coverBlock('AgACAgIAAx'), {type: 'photo', photo: {type: 'photo', media: 'AgACAgIAAx'}})
 })
+
+test('«🔗 Похожее» на карточке: данные кнопок туда и обратно, в лимите Telegram', async () => {
+    const {SIMILAR_CARD, SIMILAR_LIST} = await import('#server/bot/callbacks/routes')
+    const base = {mediaType: 'movie' as const, mediaId: 274, contentType: 'movie' as any}
+    const list = SIMILAR_LIST.encode(base)
+    assert.equal(list, 'sim:l:m:274:movie')
+    assert.deepEqual(SIMILAR_LIST.decode(list.match(SIMILAR_LIST.pattern)!), base)
+
+    const longest = {mediaType: 'tv' as const, mediaId: 9_999_999, contentType: 'cartoonSeries' as any}
+    const card = SIMILAR_CARD.encode({...longest, from: longest})
+    assert.ok(Buffer.byteLength(card) <= 64, card)
+    assert.deepEqual(SIMILAR_CARD.decode(card.match(SIMILAR_CARD.pattern)!), {...longest, from: longest})
+    assert.deepEqual(SIMILAR_CARD.decode(SIMILAR_CARD.encode(base).match(SIMILAR_CARD.pattern)!), base)
+})

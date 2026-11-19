@@ -7,17 +7,15 @@ import {isSubscriber} from "#server/bot/handlers/channel/isSubscriber";
 import {getLastSearchQuery} from "#server/global/engine/search/repository/tmdbRepository";
 import {keyboardSearchBot} from "#server/bot/consts/buttons/keyboardBot";
 import {openInlineSearch} from "#server/bot/actions/admin/helpers/openInlineSearch";
-import {CONTENT_TYPE_LABELS} from "~/utils/convert/library/enumsLibrary";
 import {ContentType} from "#server/global/engine/search/strategy/enums";
-import {genresConvert} from "~/utils/convert/genresConvert";
 import {commandStart} from "#server/bot/commands/commandStart";
 import {commandHelp} from "#server/bot/commands/commandHelp";
 import {commandClear} from "#server/bot/commands/commandClear";
 import {jumpCollections, startCollections} from "#server/bot/actions/collections/collectionsActions";
 import {menuBot} from "#server/bot/handlers/commands/start/menuBot";
 import {LEGACY_MENU_BOT} from "#server/bot/callbacks/routes";
+import {showSimilarList} from "#server/bot/actions/similar/similarActions";
 import {contentTypeToTag} from "~/utils/convert/contentTypeConvert";
-import {internalTmdbFetch} from "#server/utils/api/internalFetch";
 
 const authRequests = new Map()
 
@@ -119,38 +117,13 @@ export function registerCommands(bot: Telegraf) {
             return
         }
 
+        // «🔗 Похожее» из канала: список похожих новым сообщением в боте.
         if (payload?.startsWith('similar_')) {
-
             const [, mediaType, mediaId, contentType] = payload.split('_')
-
-            const media =
-                await internalTmdbFetch(
-                    '/api/bot/getMediaBot',
-                    {
-                        query: {
-                            media: mediaType,
-                            id: mediaId
-                        }
-                    }
-                )
-
-
-            const tag =
-                CONTENT_TYPE_LABELS[contentType as ContentType]
-
-            const genres =
-                genresConvert(media.genres)
-
-            const query =
-                `#${tag} ${
-                    genres
-                        .replaceAll('•', ' ')
-                        .replace(/\s+/g, ' ')
-                        .trim()
-                        .toLowerCase()
-                }`
-
-            await openInlineSearch(ctx, query)
+            if ((mediaType === 'movie' || mediaType === 'tv') && Number(mediaId)) {
+                await showSimilarList(ctx, {mediaType, mediaId: Number(mediaId), contentType: contentType as ContentType})
+                    .catch(error => console.error('[SIMILAR] Start failed', error))
+            }
             return
         }
 

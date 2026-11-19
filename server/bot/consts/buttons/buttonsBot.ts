@@ -2,12 +2,9 @@
 import {Markup} from "telegraf";
 import type {TypeButtonContext} from "#server/bot/consts/buttons/admin/keyboardAdmin";
 import {ContentType} from "#server/global/engine/search/strategy/enums";
-import type {TmdbGenre} from "~/types/tmdb.types";
-import {getContentTypeLabel} from "~/utils/convert/library/getContentTypeLabel";
-import {genresConvert} from "~/utils/convert/genresConvert";
 import {telegramBotShortLink} from "#server/global/oneLinkApp";
 import {contentTypeConvert} from "~/utils/convert/contentTypeConvert";
-import {CHECK_SUBSCRIPTION, DELETE_MEDIA, SAVE_MEDIA} from "#server/bot/callbacks/routes";
+import {CHECK_SUBSCRIPTION, DELETE_MEDIA, SAVE_MEDIA, SIMILAR_LIST} from "#server/bot/callbacks/routes";
 
 export const startButtonBot = (
     text: string,
@@ -72,49 +69,18 @@ export const checkSubscriptionButtonBot = () => {
     )
 }
 
+/**
+ * «🔗 Похожее»: список похожих тайтлов с трейлерами в том же сообщении (server/bot/actions/similar).
+ * Из канала — ссылка в бота: там список приходит новым сообщением.
+ */
 export const recommendationButtonBot = (
-    contentType: ContentType | undefined,
-    genres: TmdbGenre[] | undefined,
+    contentType: ContentType,
     ButtonContext: TypeButtonContext,
-    mediaId?: number,
-    mediaType?: 'movie' | 'tv'
-) => {
-
-    if (ButtonContext === 'channel') {
-
-        return Markup.button.url(
-            '📋 Похожие',
-            `${telegramBotShortLink}?start=similar_${mediaType}_${mediaId}_${contentType}`
-        )
-    }
-
-    const tag =
-        getContentTypeLabel(contentType)
-
-    let query =
-        genresConvert(genres)
-
-    if (
-        contentType === ContentType.CARTOON ||
-        contentType === ContentType.CARTOON_SERIES ||
-        contentType === ContentType.ANIME
-    ) {
-        query = query
-            .replaceAll('#мультфильм', '')
-            .trim()
-    }
-
-    query = query
-        .replaceAll('•', ' ')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .toLowerCase()
-
-    return Markup.button.switchToCurrentChat(
-        '📋 Похожие',
-        `#${tag}${query ? ` ${query}` : ''}`
-    )
-}
+    mediaId: number,
+    mediaType: 'movie' | 'tv'
+) => ButtonContext === 'channel'
+    ? Markup.button.url('🔗 Похожее', `${telegramBotShortLink}?start=similar_${mediaType}_${mediaId}_${contentType}`)
+    : Markup.button.callback('🔗 Похожее', SIMILAR_LIST.encode({mediaType, mediaId, contentType}))
 
 export const checkBookmarksMedias = (
     ButtonContext: TypeButtonContext = 'inline'

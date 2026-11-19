@@ -1015,6 +1015,7 @@ export const collectionAction = async (ctx: any) => {
                 if (!record) return safeAnswer(ctx, 'Тайтл не найден.', true)
                 await safeAnswer(ctx)
                 await engineRichCard(richTarget(ctx, row), queryOf(record), {
+                    hideSimilar: true,
                     footerRows: [[btn('🔗 Похожее', 'sim', undefined, 'success')], [btn('◀️ К подборке', 'l', undefined, 'danger')]]
                 })
                 row.state = {...state, screen: 'title', titleIndex: Number(arg)}

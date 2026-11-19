@@ -247,6 +247,39 @@ export const CONTENT_LIST_CARD = defineCallback<{mediaType: string, contentType:
 })
 
 // ---------------------------------------------------------------------------
+// «🔗 Похожее» на карточке: список похожих ↔ карточка тайтла в том же сообщении.
+// Без состояния в базе — всё нужное в данных кнопки (тип m|t, id, тип контента).
+// ---------------------------------------------------------------------------
+
+export type SimilarRef = {mediaType: MediaType, mediaId: number, contentType: ContentType}
+
+const shortType = (mediaType: MediaType) => mediaType === 'movie' ? 'm' : 't'
+const longType = (value: string | undefined): MediaType => value === 't' ? 'tv' : 'movie'
+
+/** Список похожих на тайтл; «◀️ К карточке» возвращает его карточку. */
+export const SIMILAR_LIST = defineCallback<SimilarRef>({
+    id: 'similar_list',
+    pattern: /^sim:l:([mt]):(\d+):([A-Za-z]+)$/,
+    encode: ({mediaType, mediaId, contentType}) => `sim:l:${shortType(mediaType)}:${mediaId}:${contentType}`,
+    decode: match => ({mediaType: longType(match[1]), mediaId: Number(match[2]), contentType: match[3] as ContentType})
+})
+
+/** Карточка тайтла из списка; from — чей это список (для «◀️ К похожим»). */
+export const SIMILAR_CARD = defineCallback<SimilarRef & {from?: SimilarRef}>({
+    id: 'similar_card',
+    pattern: /^sim:c:([mt]):(\d+):([A-Za-z]+)(?::([mt]):(\d+):([A-Za-z]+))?$/,
+    encode: ({mediaType, mediaId, contentType, from}) =>
+        `sim:c:${shortType(mediaType)}:${mediaId}:${contentType}` +
+        (from ? `:${shortType(from.mediaType)}:${from.mediaId}:${from.contentType}` : ''),
+    decode: match => ({
+        mediaType: longType(match[1]),
+        mediaId: Number(match[2]),
+        contentType: match[3] as ContentType,
+        ...(match[4] ? {from: {mediaType: longType(match[4]), mediaId: Number(match[5]), contentType: match[6] as ContentType}} : {})
+    })
+})
+
+// ---------------------------------------------------------------------------
 // Только для старых сообщений: обработчики зарегистрированы, но кнопок с такими
 // данными в коде больше нет (проверено 11.11). Удалять, когда старые сообщения
 // с ними гарантированно исчезнут из чатов.
