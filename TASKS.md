@@ -8,7 +8,7 @@
 
 - Сайт и бот: Nuxt 4 / Nitro на Vercel. Бот «Киноманов BOT» работает через webhook с секретом.
 - Reels: Vercel ставит задачу в `reel_processing_jobs` (`dispatchReelJob`) и запускает Cloud Run Job `kinomanov-reel-worker` (проект `kinomanov-reels-worker`, регион `europe-west3`, task-timeout 1800 с).
-- Кнопка «Загрузка трейлера» (режим `download`) только скачивает трейлер и присылает его в чат (`sendTrailerToTelegram`), Reel не собирает.
+- Кнопка «Загрузка трейлера» (режим `download`) только скачивает трейлер и присылает его в чат, Reel не собирает. С 19.11 скачивает воркер Cloud Run (`jobs/trailerDelivery.ts`, `workers/reel-worker/src/trailerDelivery.ts`): Vercel запускает его, готовый файл приходит через временную папку R2 на `/api/bot/trailerDelivery` и пересылается в чат потоком. На Vercel нет ни yt-dlp, ни bgutil (сервис `bgutil-next` удалён) — экономия Active CPU.
 - Воркер (`workers/reel-worker/src/index.ts`): `prepareReel` → скачивание трейлера, clean-видео 40 с, хук от Gemini, субтитры (Gemini + Whisper), оформление → `ready` → финализатор на Vercel публикует в Telegram и Instagram.
 - Фрагмент 40 с выбирается эвристикой в `prepareInstagramVideo.ts` (середина трейлера минус 10 с) прямо из полного трейлера. `trimVideo.ts` нигде не импортируется (проверено по импортам 11.11), файл можно удалить.
 - Если Reel не удался, финализатор публикует только в Telegram (`published_telegram_only`).
