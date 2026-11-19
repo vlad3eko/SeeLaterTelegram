@@ -13,6 +13,7 @@ import {
 } from "../../../server/global/engine/instagram/reel/prepareReel";
 import {prepareClipFragments} from "../../../server/global/engine/instagram/reel/fragments/prepareClipFragments";
 import type {ClipFragment} from "../../../server/global/engine/instagram/reel/fragments/types";
+import type {HookFacts} from "../../../server/global/engine/instagram/reel/utils/hookFacts";
 import {isTrailerDeliveryRun, runTrailerDelivery} from "./trailerDelivery";
 
 type JsonRecord = Record<string, unknown>
@@ -57,6 +58,7 @@ type ReelInputPayload = {
         overview?: string
         genre?: string | Array<{id?: number; name?: string} | string>
         rating?: number | string
+        facts?: HookFacts
     }
 }
 
@@ -404,7 +406,8 @@ const main = async (): Promise<void> => {
             title: contentInput?.title,
             overview: contentInput?.overview,
             genre: contentInput?.genre,
-            rating: contentInput?.rating
+            rating: contentInput?.rating,
+            facts: contentInput?.facts
         }
 
         console.log('[REEL WORKER PROCESSING]', {

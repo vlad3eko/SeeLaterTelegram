@@ -3,6 +3,7 @@ import {createClient} from '@supabase/supabase-js'
 import {createInstagramHook} from "#server/global/engine/instagram/reel/caption/createInstagramHook";
 import {createInstagramCaption} from "#server/global/engine/instagram/reel/caption/createInstagramCaption";
 import type {ContentType} from "#server/global/engine/search/strategy/enums";
+import {collectHookFacts} from "#server/global/engine/instagram/reel/jobs/collectHookFacts";
 
 type ReelSessionSnapshot = {
     media: any
@@ -367,7 +368,9 @@ export const dispatchReelJob = async ({
             title: session.media?.title || session.media?.name,
             overview: session.overview || session.media?.overview,
             genre: session.media?.genres ?? [],
-            rating: session.media?.vote_average ?? session.media?.rating ?? '-'
+            rating: session.media?.vote_average ?? session.media?.rating ?? '-',
+            // Проверенные факты для хука (актёры, награды, сезон): модель берёт только их.
+            facts: await collectHookFacts(session.mediaType, session.mediaId)
         },
         session: {
             media: session.media,

@@ -20,7 +20,9 @@ import {loadSourceTranscript, wordsForSegment} from "#server/global/engine/insta
 const hookContext = (content: ReelContent) => ({
     title: content.title,
     overview: content.overview,
-    genre: content.genre
+    genre: content.genre,
+    type: content.type,
+    facts: content.facts
 })
 
 const describeGeminiError = (error: unknown) => {

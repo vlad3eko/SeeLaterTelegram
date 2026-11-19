@@ -1,6 +1,7 @@
 import {copyFile, mkdir, rm, stat, unlink, writeFile} from "node:fs/promises"
 import path from "node:path"
 import {fileURLToPath} from "node:url"
+import type {HookFacts} from "#server/global/engine/instagram/reel/utils/hookFacts"
 
 /**
  * Общие части шагов сборки Reel (clean, хуки, финал): данные фильма, пути в R2,
@@ -17,6 +18,8 @@ export type ReelContent = {
         name?: string
     } | string>
     rating?: number | string
+    /** Проверенные факты для хука (jobs/collectHookFacts.ts); у старых задач нет. */
+    facts?: HookFacts
 }
 
 /**
