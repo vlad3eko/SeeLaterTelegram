@@ -3,7 +3,8 @@ import {
     updateAdminEditSession
 } from "#server/bot/actions/admin/adminEditSession"
 
-import {sendTrailerToTelegram} from "#server/global/engine/instagram/reel/sendTrailerToTelegram"
+import {dispatchTrailerDelivery} from "#server/global/engine/instagram/reel/jobs/trailerDelivery"
+import {BOT_LINK, URL_ACTIVE} from "#server/bot/bot"
 import {sessionCurrentMedia} from "#server/bot/actions/admin/helpers/sessionCurrentMedia"
 import {engineAdminEditCard} from "#server/bot/actions/admin/helpers/engineAdminEditCard"
 import {extractYouTubeVideoId} from "#server/global/engine/instagram/reel/utils/extractYouTubeVideoId";
@@ -159,10 +160,17 @@ export const adminEditActionInlineMessage = async (ctx: any, session: AdminEditS
                     preparedInstagram: null
                 })
 
-            // Только скачать трейлер и прислать его в чат. Reel (чистое видео, субтитры, R2) не собирается:
-            // при публикации его делает воркер. Поэтому preparedInstagram остаётся пустым, а публикация
-            // сама отправит задачу воркеру.
-            await sendTrailerToTelegram(keyTrailer, ctx)
+            // Только скачать трейлер и прислать его в чат. Скачивает воркер Cloud Run (на Vercel — ни
+            // yt-dlp, ни ffmpeg), видео придёт на /api/bot/trailerDelivery. Reel не собирается:
+            // preparedInstagram остаётся пустым, публикация сама отправит задачу воркеру.
+            await dispatchTrailerDelivery({
+                keyTrailer,
+                chatId: ctx.chat.id,
+                baseUrl: process.env.REEL_FINALIZER_BASE_URL?.trim() || URL_ACTIVE,
+                secret: BOT_LINK!
+            })
+            message = await ctx.reply('⏳ Скачиваю трейлер — пришлю через пару минут')
+            await addMessageSession(ctx.from.id, SessionMessageType.Temp, {messageId: message.message_id})
 
             await updateAdminEditSession(ctx.from.id, {
                     mode: null

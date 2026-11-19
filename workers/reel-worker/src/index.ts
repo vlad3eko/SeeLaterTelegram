@@ -13,6 +13,7 @@ import {
 } from "../../../server/global/engine/instagram/reel/prepareReel";
 import {prepareClipFragments} from "../../../server/global/engine/instagram/reel/fragments/prepareClipFragments";
 import type {ClipFragment} from "../../../server/global/engine/instagram/reel/fragments/types";
+import {isTrailerDeliveryRun, runTrailerDelivery} from "./trailerDelivery";
 
 type JsonRecord = Record<string, unknown>
 
@@ -565,7 +566,8 @@ const main = async (): Promise<void> => {
     }
 }
 
-main().catch(error => {
+// Запуск с TRAILER_KEY — «Загрузка трейлера» для Telegram, без задачи Reel.
+;(isTrailerDeliveryRun() ? runTrailerDelivery() : main()).catch(error => {
     console.error('[REEL WORKER FATAL]', error)
     process.exitCode = 1
 })

@@ -158,7 +158,11 @@ const getGoogleAccessToken = async (): Promise<string> => {
     return result.access_token
 }
 
-const runCloudRunJob = async (jobId: string): Promise<string | null> => {
+/**
+ * Запуск воркера Cloud Run с переменными окружения этого запуска: REEL_JOB_ID для Reel,
+ * TRAILER_* для загрузки трейлера в Telegram (jobs/trailerDelivery.ts). Возвращает имя операции.
+ */
+export const runReelWorker = async (env: Record<string, string>): Promise<string | null> => {
     const accessToken = await getGoogleAccessToken()
     const projectId = 'kinomanov-reels-worker'
     const region = 'europe-west3'
@@ -174,7 +178,7 @@ const runCloudRunJob = async (jobId: string): Promise<string | null> => {
         body: JSON.stringify({
             overrides: {
                 containerOverrides: [{
-                    env: [{name: 'REEL_JOB_ID', value: jobId}]
+                    env: Object.entries(env).map(([name, value]) => ({name, value}))
                 }],
                 taskCount: 1
             }
@@ -216,7 +220,7 @@ export const startQueuedJob = async (
     supabase: ReturnType<typeof getSupabase>,
     job: Pick<JobRow, 'id'>
 ): Promise<void> => {
-    const operationName = await runCloudRunJob(job.id)
+    const operationName = await runReelWorker({REEL_JOB_ID: job.id})
 
     if (operationName) {
         const {error} = await supabase

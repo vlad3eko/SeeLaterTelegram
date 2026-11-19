@@ -22,16 +22,6 @@ const getBgutilUrl = () => {
     }
 
 
-    if (
-        process.env.VERCEL === '1'
-    ) {
-
-        throw new Error(
-            '[BGUTIL] BGUTIL_URL is missing in Vercel production'
-        )
-    }
-
-
     return LOCAL_BGUTIL_URL
 }
 

@@ -323,16 +323,6 @@ const getBgutilUrl = () => {
     }
 
 
-    if (
-        process.env.VERCEL === '1'
-    ) {
-
-        throw new Error(
-            '[BGUTIL] BGUTIL_URL is missing in production'
-        )
-    }
-
-
     return 'http://127.0.0.1:4416'
 }
 

@@ -1,39 +1,18 @@
 {
   "$schema": "https://vercel.sh",
-
   "services": {
     "bot": {
       "root": ".",
-
       "buildCommand": "npm run build",
-
       "installCommand": "npm ci",
-
-      "bindings": [
-        {
-          "type": "service",
-          "service": "bgutil-next",
-          "format": "url",
-          "env": "BGUTIL_URL"
-        }
-      ],
-
       "functions": {
         "**": {
           "maxDuration": 300,
-          "includeFiles": "{media-tools/yt-dlp,bgutil-ytdlp-pot-provider/plugin/**,public/instagram/**,public/assets/**,node_modules/ffmpeg-static/**}"
+          "includeFiles": "{public/assets/**,node_modules/ffmpeg-static/**}"
         }
       }
-    },
-
-    "bgutil-next": {
-      "root": "bgutil-ytdlp-pot-provider/server/",
-      "runtime": "container",
-
-      "entrypoint": "Dockerfile.vercel"
     }
   },
-
   "rewrites": [
     {
       "source": "/(.*)",
