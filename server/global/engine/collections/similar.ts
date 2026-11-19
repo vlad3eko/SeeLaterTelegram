@@ -35,22 +35,26 @@ const keywordIdsOf = (body: Raw | undefined): number[] =>
     ((body?.keywords ?? body?.results ?? []) as Raw[]).map(keyword => Number(keyword.id))
 
 /** RRF: тайтл выше в обоих списках — выше в общем. */
-export const fuseRanks = (lists: Raw[][]): Map<number, {item: Raw, rrf: number}> => {
+export const fuseRanks = (lists: Raw[][], weights: number[] = []): Map<number, {item: Raw, rrf: number}> => {
     const fused = new Map<number, {item: Raw, rrf: number}>()
-    for (const list of lists) {
+    lists.forEach((list, listIndex) => {
         list.forEach((item, index) => {
             const id = Number(item.id)
             const entry = fused.get(id) ?? {item, rrf: 0}
-            entry.rrf += 1 / (RRF_K + index + 1)
+            entry.rrf += (weights[listIndex] ?? 1) / (RRF_K + index + 1)
             fused.set(id, entry)
         })
-    }
+    })
     return fused
 }
 
-/** Итоговая оценка: RRF (нормированная) + доля общих слов ×2 + доля общих жанров. */
-export const similarScore = (rrf: number, maxRrf: number, sharedKeywords: number, baseKeywords: number, sharedGenres: number, baseGenres: number) =>
-    rrf / Math.max(maxRrf, 1e-9) +
+/**
+ * Итоговая оценка: RRF (нормированная) + доля общих слов ×2 + доля общих жанров + известность ×0.5.
+ * Известность — потому что recommendations TMDB местами случайны (живая проверка 19.11 на
+ * «Острове проклятых»: «Страна Небывалия» на 3-м месте), а известный тайтл чаще действительно похож.
+ */
+export const similarScore = (rrf: number, maxRrf: number, sharedKeywords: number, baseKeywords: number, sharedGenres: number, baseGenres: number, votesNorm = 0) =>
+    rrf / Math.max(maxRrf, 1e-9) + 0.5 * votesNorm +
     2 * (baseKeywords ? sharedKeywords / baseKeywords : 0) +
     (baseGenres ? sharedGenres / baseGenres : 0)
 
@@ -69,7 +73,8 @@ export const buildSimilar = async (
     const page = (path: string, n: number) =>
         tmdbGet<{results?: Raw[]}>(`${kind}/${base.id}/${path}?language=ru-RU&page=${n}`).then(body => body.results ?? []).catch(() => [])
     const [rec1, rec2, sim1] = await Promise.all([page('recommendations', 1), page('recommendations', 2), page('similar', 1)])
-    const fused = fuseRanks([[...rec1, ...rec2], sim1])
+    // similar шумнее (жанры и слова без поведения зрителей) — вес вдвое меньше.
+    const fused = fuseRanks([[...rec1, ...rec2], sim1], [1, 0.5])
     fused.delete(base.id)
 
     const minVotes = Math.round(shelf.knownVotes * VOTES_SHARE)
@@ -92,6 +97,7 @@ export const buildSimilar = async (
     })
 
     const maxRrf = Math.max(0, ...pool.map(entry => entry.rrf))
+    const maxLogVotes = Math.max(1e-9, ...pool.map(entry => Math.log1p(Number(entry.item.vote_count) || 0)))
     const scored = enriched
         .filter((entry): entry is {item: Raw, rrf: number, keywords: number[]} => Boolean(entry))
         .map(entry => {
@@ -99,7 +105,8 @@ export const buildSimilar = async (
             const sharedGenres = ((entry.item.genre_ids ?? []) as number[]).filter(id => baseGenres.has(Number(id))).length
             return {
                 item: entry.item,
-                score: similarScore(entry.rrf, maxRrf, sharedKeywords, baseKeywords.size, sharedGenres, baseGenres.size)
+                score: similarScore(entry.rrf, maxRrf, sharedKeywords, baseKeywords.size, sharedGenres, baseGenres.size,
+                    Math.log1p(Number(entry.item.vote_count) || 0) / maxLogVotes)
             }
         })
         .sort((a, b) => b.score - a.score)

@@ -5,6 +5,7 @@ import {BUNDLES, bundleByKey, bundleSections, bundlesFor, rubricOf} from '#serve
 import {bundleMatches, bundleQuery, bundleScore, votesRange, weightedRating} from '#server/global/engine/collections/bundleRules'
 import {mergeGenres, shelfForParams} from '#server/global/engine/collections/buildCollection'
 import {tagsForShelf} from '#server/global/engine/collections/catalog'
+import {fuseRanks, similarScore} from '#server/global/engine/collections/similar'
 
 /* ------------------------------------ Полки ------------------------------------ */
 
@@ -136,4 +137,16 @@ test('склейка with_genres: «и» склеивается, «или» ух
     assert.deepEqual(mergeGenres(['16', '9648|80']), {value: '16', exact: false})
     assert.deepEqual(mergeGenres([undefined, '9648|80']), {value: '9648|80', exact: true})
     assert.deepEqual(mergeGenres([undefined, undefined]), {value: undefined, exact: true})
+})
+
+/* ------------------------------------ «Похожее» ------------------------------------ */
+
+test('«Похожее»: RRF — выше в обоих списках, у similar вес меньше', () => {
+    const a = {id: 1}, b = {id: 2}, c = {id: 3}
+    const fused = fuseRanks([[a, b], [b, c]], [1, 0.5])
+    assert.ok(fused.get(2)!.rrf > fused.get(1)!.rrf, 'b есть в обоих списках')
+    assert.ok(fused.get(1)!.rrf > fused.get(3)!.rrf, 'similar весит меньше')
+    // Общие ключевые слова весят вдвое больше жанров.
+    assert.ok(similarScore(0.5, 1, 1, 4, 0, 2) > similarScore(0.5, 1, 0, 4, 1, 4))
+    assert.ok(similarScore(0.5, 1, 0, 4, 0, 2, 1) > similarScore(0.5, 1, 0, 4, 0, 2, 0))
 })
