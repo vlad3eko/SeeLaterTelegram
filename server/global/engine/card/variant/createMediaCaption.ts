@@ -174,6 +174,8 @@ export const createMediaCaption = (
                         ]
                     }]
                     : []),
+                // Трейлер — между линиями, как на старых постах.
+                divider,
                 dataCollection.hasTrailer
                     ? {
                         type: 'paragraph',
@@ -183,7 +185,8 @@ export const createMediaCaption = (
                             url: `https://www.youtube.com/watch?v=${data.keyTrailer}`
                         }]
                     }
-                    : {type: 'paragraph', text: '🎥 Трейлера пока нет'}
+                    : {type: 'paragraph', text: '🎥 Трейлера пока нет'},
+                divider
             ]
         }),
         divider
