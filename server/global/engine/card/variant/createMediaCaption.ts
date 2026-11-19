@@ -1,11 +1,28 @@
-import {telegramBotShortLink, telegramChannelShortLink} from "#server/global/oneLinkApp";
-import {runtimeConvert} from "~/utils/convert/runtimeConvert";
 import {dateConvert} from "~/utils/convert/dateConvert";
 import {
     dataCollectionMediaCard
 } from "#server/global/engine/card/collectionCard/dataCollectionMediaCard";
 import {CardData, statusRichCard} from "#server/global/engine/card/enum/types";
 
+/** «1 ч 38 мин», «45 мин», «2 ч»; у сериала — длительность серии. */
+const formatRuntime = (minutes: number | undefined): string => {
+    if (!minutes || minutes <= 0) return ''
+    const hours = Math.floor(minutes / 60)
+    const rest = minutes % 60
+    return [hours ? `${hours} ч` : '', rest ? `${rest} мин` : ''].filter(Boolean).join(' ')
+}
+
+const money = (value: unknown): string =>
+    Number(value) > 0 ? `${Number(value).toLocaleString('en-US')} $` : '—'
+
+const photo = (media: string) => ({type: 'photo', photo: {type: 'photo', media}})
+
+/**
+ * Карточка фильма или сериала (вариант «Компактная», решение владельца 20.11): сверху широкий
+ * кадр (backdrop TMDB, вертикального постера нет), «Название · год», одна строка «⭐ рейтинг ·
+ * жанры · длительность», комментарий администратора моноширинным шрифтом, остальное свёрнуто:
+ * «Сюжет», «Актёры», «Подробнее». Без широкого кадра карточка начинается с названия.
+ */
 export const createMediaCaption = (
     preview: statusRichCard,
     data: CardData
@@ -16,391 +33,129 @@ export const createMediaCaption = (
     const media = dataCollection.data.media
     const images = dataCollection.data.images
 
-    let blocks: any[] = []
+    // images.poster: [постер, широкий кадр] (resolveCardStrategies, режим item).
+    const wideImage = images?.poster?.[1] || undefined
+    const year = dataCollection.date !== '-' ? dataCollection.date : ''
+    const genres = (media.genres ?? [])
+        .map((genre: {name?: string}) => String(genre?.name ?? '').toLowerCase())
+        .filter(Boolean)
+        .slice(0, 3)
+        .join(', ')
+    const runtime = formatRuntime(media.runtime || media.episode_run_time?.[0])
+    const rating = dataCollection.rating !== '—' ? `⭐ ${dataCollection.rating}` : ''
 
-    switch (preview) {
-        case "pending":
-            blocks = [
-
-                ...(images?.poster?.[0]
-                        ? [
-                            {
-                                type: 'photo',
-                                photo: {
-                                    type: 'photo',
-                                    media: images.poster[0]
-                                }
-                            }
-                        ]
-                        : []
-                ),
-
-                {
-                    type: 'paragraph',
-                    text: [
-                        {
-                            type: 'bold',
-                            text: dataCollection.mediaType
-                        },
-                        {
-                            type: 'bold',
-                            text: `| 💎 ${dataCollection.rating || 0} | 🍿 ${media.vote_count || 0}`
-                        },
-                    ]
-                },
-
-                {
-                    type: 'paragraph',
-                    text: [
-                        {
-                            type: 'bold',
-                            text: dataCollection.date + ' | '
-                        },
-                        {
-                            type: 'bold',
-                            text: dataCollection.genres
-                        }
-                    ]
-                },
-
-                dataCollection.heading(
-                    `Загрузка карточки ${dataCollection.mediaType}а...`,
-                    1
-                )
-
-            ]
-            break
-        case "ready":
-            blocks = [
-
-                ...(data.addComment
-                        ? [
-                            {
-                                type: 'divider'
-                            },
-                            {
-                                type: 'pullquote',
-                                text: String(data.addComment)
-                            }
-                        ]
-                        : media.tagline
-                            ? [
-                                {
-                                    type: 'pullquote',
-                                    text: media.tagline
-                                }
-                            ]
-                            : []
-                ),
-
-                ...(data.mediaOverride
-                        ? [
-                            data.mediaOverride.type === 'video'
-                                ? {
-                                    type: 'video',
-                                    video: {
-                                        type: 'video',
-                                        media: data.mediaOverride.fileId,
-                                    }
-                                }
-                                : {
-                                    type: 'photo',
-                                    photo: {
-                                        type: 'photo',
-                                        media: data.mediaOverride.fileId
-                                    }
-                                }
-                        ]
-                        : images?.poster?.[0]
-                            ? [
-                                {
-                                    type: 'photo',
-                                    photo: {
-                                        type: 'photo',
-                                        media: images.poster[0]
-                                    }
-                                }
-                            ]
-                            : []
-                ),
-
-                {
-                    type: 'heading',
-                    size: 1,
-                    text: [{
-                        type: 'code',
-                        text: dataCollection.title
-                    }]
-                },
-
-                ...(dataCollection.originalTitle
-                        ? [
-                            {
-                                type: 'footer',
-                                text: ` • original:«${dataCollection.originalTitle}»`
-                            }
-                        ]
-                        : []
-                ),
-
-                {
-                    type: 'divider',
-                },
-
-                dataCollection.heading(
-                    'Описание',
-                    3
-                ),
-
-                ...(images?.poster?.[1]
-                        ? [
-                            {
-                                type: 'slideshow',
-                                blocks: [
-                                    {
-                                        type: 'photo',
-                                        photo: {
-                                            type: 'photo',
-                                            media: images.poster[1]
-                                        }
-                                    }
-                                ],
-                                caption: {
-                                    text: `Обложка ${dataCollection.mediaType}а`
-                                }
-                            }
-                        ]
-                        : []
-                ),
-
-                {
-                    type: 'blockquote',
-                    blocks: [
-                        {
-                            type: 'pullquote',
-                            text: dataCollection.overview
-                        }
-                    ]
-                },
-
-                {
-                    type: 'divider',
-                },
-
-                dataCollection.heading(
-                    'Актёры',
-                    3
-                ),
-
-                {
-                    type: 'details',
-                    summary: 'показать/скрыть',
-                    blocks: [
-                        ...(dataCollection.slideshowImages.length
-                                ? [
-                                    {
-                                        type: 'collage',
-                                        blocks: dataCollection.slideshowImages.map(fileId => ({
-                                            type: 'photo',
-                                            photo: {
-                                                type: 'photo',
-                                                media: fileId
-                                            }
-                                        })),
-                                        caption: {
-                                            text: 'Первые лица'
-                                        }
-                                    },
-
-                                    {
-                                        type: 'table',
-                                        is_bordered: true,
-                                        is_compact: true,
-                                        cells: [
-                                            [
-                                                {
-                                                    text: 'Имя',
-                                                    is_header: true
-                                                },
-                                                {
-                                                    text: 'Роль',
-                                                    is_header: true
-                                                },
-                                            ],
-
-                                            ...images!.postersList
-                                                .filter(item => item?.fileId)
-                                                .map(item => [
-                                                    {
-                                                        text: item!.name
-                                                    },
-                                                    {
-                                                        text: item!.role
-                                                    },
-                                                ])
-                                        ],
-                                    }
-                                ]
-                                : []
-                        ),
-
-                    ]
-                },
-
-                {
-                    type: 'blockquote',
-                    blocks: [
-                        {
-                            type: 'details',
-                            summary: 'Дополнительная информация',
-                            blocks: [
-
-                                {
-                                    type: 'paragraph',
-                                    text: `💂🏼‍♀️ Страны: ${(media.production_countries || [])
-                                        .map((country: any) => country.name)
-                                        .join(' · ')}`
-                                },
-
-                                {
-                                    type: 'paragraph',
-                                    text: `💰 Бюджет: ${
-                                        Number(media.budget).toLocaleString('en-US') + `$` || '-'
-                                    }`
-                                },
-
-                                {
-                                    type: 'paragraph',
-                                    text: `💰 Сборы: ${
-                                        Number(media.revenue).toLocaleString('en-US') + `$` || '-'
-                                    }`
-                                },
-
-                                {
-                                    type: 'paragraph',
-                                    text: `💎 imdb: ${Number(dataCollection.rating)
-                                    || '...'}`
-                                },
-
-                                {
-                                    type: 'paragraph',
-                                    text: `🍿 Голосов: ${Number(media.vote_count)
-                                    || '...'}`
-                                },
-
-                                {
-                                    type: 'paragraph',
-                                    text: `⏳ Продолжительность: ${
-                                        runtimeConvert(media.runtime)
-                                        || '...'
-                                    }`
-                                },
-
-                                {
-                                    type: 'paragraph',
-                                    text: `📅 Дата выхода: ${
-                                        dateConvert(media.release_date
-                                            || media.first_air_date)
-                                        || '...'
-                                    }`
-                                },
-
-                                {
-                                    type: 'paragraph',
-                                    text: `Жанр: ${dataCollection.genres}`
-                                },
-
-                                {
-                                    type: 'paragraph',
-                                    text: [
-                                        {
-                                            type: 'bold',
-                                            text: `Тип: #${dataCollection.mediaType}`
-                                        }
-                                    ]
-                                },
-
-                                ...(dataCollection.hasTrailer
-                                        ? [
-                                            {
-                                                type: 'divider'
-                                            },
-                                            {
-                                                type: 'paragraph',
-                                                text: [
-                                                    {
-                                                        type: 'url',
-                                                        text: '🔥 Смотреть трейлер',
-                                                        url: `https://www.youtube.com/watch?v=${dataCollection.data.keyTrailer}`
-                                                    }
-                                                ]
-                                            }
-                                        ]
-                                        : [
-                                            {
-                                                type: 'paragraph',
-                                                text: '🎥 Трейлера пока нет'
-                                            }
-                                        ]
-                                ),
-
-                            ]
-                        }
-                    ]
-                },
-
-                dataCollection.spaceRow,
-
-                {
-                    type: 'paragraph',
-                    text: [
-                        {
-                            type: 'url',
-                            text: [
-                                {
-                                    type: 'bold',
-                                    text: '🤖 Киноманов BOT'
-                                }
-                            ],
-                            url: String(telegramBotShortLink)
-                        },
-                        ' · ',
-                        {
-                            type: 'url',
-                            text: [
-                                {
-                                    type: 'bold',
-                                    text: '📢 Киноманов NET'
-                                }
-                            ],
-                            url: String(telegramChannelShortLink)
-                        },
-                    ]
-                },
-
-                {
-                    type: 'paragraph',
-                    text: [
-                        {
-                            type: 'url',
-                            text: [
-                                {
-                                    type: 'italic',
-                                    text: '❔ Вопросы и предложения'
-                                }
-                            ],
-                            url: 'https://t.me/kinomanovGroup/2/4'
-                        }
-                    ]
-                },
-
-                {
-                    type: 'divider'
-                },
-
-            ]
-            break
+    const titleLine = {
+        type: 'heading',
+        size: 1,
+        text: year ? `${dataCollection.title} · ${year}` : dataCollection.title
     }
+    const metaLine = {
+        type: 'paragraph',
+        text: [rating, genres, runtime].filter(Boolean).join(' · ') || dataCollection.mediaType
+    }
+
+    if (preview === 'pending') {
+        return {
+            blocks: [
+                ...(wideImage ? [photo(wideImage)] : []),
+                titleLine,
+                metaLine,
+                {
+                    type: 'footer',
+                    text: `Загружаю карточку ${dataCollection.mediaType}а…`
+                }
+            ]
+        }
+    }
+
+    const hero = data.mediaOverride
+        ? data.mediaOverride.type === 'video'
+            ? {type: 'video', video: {type: 'video', media: data.mediaOverride.fileId}}
+            : photo(data.mediaOverride.fileId)
+        : wideImage
+            ? photo(wideImage)
+            : undefined
+
+    const cast = (images?.postersList ?? []).filter(item => item?.fileId)
+
+    const blocks: any[] = [
+        ...(hero ? [hero] : []),
+        titleLine,
+        metaLine,
+
+        // Комментарий администратора — моноширинным, сразу под строкой с рейтингом.
+        ...(data.addComment
+            ? [{type: 'paragraph', text: [{type: 'code', text: String(data.addComment)}]}]
+            : []),
+
+        {
+            type: 'details',
+            summary: 'Сюжет',
+            blocks: [
+                ...(media.tagline ? [{type: 'pullquote', text: media.tagline}] : []),
+                {type: 'paragraph', text: dataCollection.overview}
+            ]
+        },
+
+        ...(cast.length
+            ? [{
+                type: 'details',
+                summary: 'Актёры',
+                blocks: [
+                    {
+                        type: 'collage',
+                        blocks: dataCollection.slideshowImages.map(fileId => photo(String(fileId)))
+                    },
+                    {
+                        type: 'table',
+                        is_bordered: true,
+                        is_compact: true,
+                        cells: [
+                            [{text: 'Имя', is_header: true}, {text: 'Роль', is_header: true}],
+                            ...cast.map(item => [{text: item!.name}, {text: item!.role}])
+                        ]
+                    }
+                ]
+            }]
+            : []),
+
+        {
+            type: 'details',
+            summary: 'Подробнее',
+            blocks: [
+                ...(dataCollection.originalTitle && dataCollection.originalTitle !== dataCollection.title
+                    ? [{type: 'paragraph', text: `🎬 Оригинальное название: ${dataCollection.originalTitle}`}]
+                    : []),
+                {
+                    type: 'paragraph',
+                    text: `📅 Дата выхода: ${dateConvert(media.release_date || media.first_air_date) || '—'}`
+                },
+                ...((media.production_countries ?? []).length
+                    ? [{
+                        type: 'paragraph',
+                        text: `🌍 Страны: ${media.production_countries.map((country: any) => country.name).join(' · ')}`
+                    }]
+                    : []),
+                ...(Number(media.budget) > 0 || Number(media.revenue) > 0
+                    ? [
+                        {type: 'paragraph', text: `💰 Бюджет: ${money(media.budget)}`},
+                        {type: 'paragraph', text: `💵 Сборы: ${money(media.revenue)}`}
+                    ]
+                    : []),
+                {type: 'paragraph', text: `🍿 Оценок: ${Number(media.vote_count) || '—'}`},
+                dataCollection.hasTrailer
+                    ? {
+                        type: 'paragraph',
+                        text: [{
+                            type: 'url',
+                            text: '▶️ Смотреть трейлер',
+                            url: `https://www.youtube.com/watch?v=${dataCollection.data.keyTrailer}`
+                        }]
+                    }
+                    : {type: 'paragraph', text: '🎥 Трейлера пока нет'}
+            ]
+        }
+    ]
 
     return {
         blocks

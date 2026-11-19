@@ -2,7 +2,7 @@
 import {Markup} from "telegraf";
 import {
     checkBookmarksMedias,
-    deleteMediaButtonBot, mediaCast, mediaPersonFirstJob, mediaPersonSecondJob, recommendationButtonBot,
+    mediaCast, mediaPersonFirstJob, mediaPersonSecondJob, recommendationButtonBot,
     SaveMediaButtonBot,
     SearchButtonBot, startButtonBot
 } from "#server/bot/consts/buttons/buttonsBot";
@@ -46,11 +46,10 @@ export const keyboardSendMediaCardInline = (
     if (mediaType === 'person')
         return
 
+    // Четыре кнопки в два ряда (решение владельца 20.11): «Коллекция» и «Удалить» убраны.
     const keyboard = [
-        [SearchButtonBot('Искать другое', ButtonContext), recommendationButtonBot(contentType, ButtonContext, mediaId, mediaType)],
-        [checkBookmarksMedias(ButtonContext)],
-        [mediaCast(mediaId, mediaType, contentType, ButtonContext)],
-        [deleteMediaButtonBot(mediaId, mediaType), SaveMediaButtonBot(mediaId, mediaType, ButtonContext, saveCount)]
+        [SaveMediaButtonBot(mediaId, mediaType, ButtonContext, saveCount), recommendationButtonBot(contentType, ButtonContext, mediaId, mediaType)],
+        [mediaCast(mediaId, mediaType, contentType, ButtonContext), SearchButtonBot('Поиск', ButtonContext)]
     ]
 
     if (admin) {

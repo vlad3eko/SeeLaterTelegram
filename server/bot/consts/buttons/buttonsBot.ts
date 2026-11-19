@@ -109,13 +109,13 @@ export const mediaCast = (mediaId: number, mediaType: string, contentType: Conte
     if (ButtonContext === 'channel') {
 
         return Markup.button.url(
-            '🎭 Список актёров',
+            '🎭 Актёры',
             `${telegramBotShortLink}?start=media_cast_${contentType}_${mediaId}`
         )
     }
 
     return Markup.button.switchToCurrentChat(
-        '🎭 Список актёров',
+        '🎭 Актёры',
         `#${type} ${mediaId} #cast`
     )
 }
