@@ -19,6 +19,10 @@ export type BirthdayPerson = {
     /** Год рождения и, у ушедших, год смерти. */
     born: number
     died?: number
+    /** Портрет с Викисклада (P18 Wikidata), если есть. */
+    image?: string
+    /** file_id фото в Telegram (бот загружает портрет при поиске; без него — фото из TMDB). */
+    photo?: string
 }
 
 const ENDPOINT = 'https://query.wikidata.org/sparql'
@@ -53,7 +57,7 @@ export const birthdayQuery = (role: PersonRole, life: PersonLife, day: string, l
     const dates: string[] = []
     for (let year = FIRST_YEAR; year <= lastYear; year++) dates.push(`"${year}-${day}T00:00:00Z"^^xsd:dateTime`)
     const filmProp = role === 'director' ? 'wdt:P57' : 'wdt:P161'
-    return `SELECT ?tmdb ?ru ?en ?birth ?death ?links (COUNT(DISTINCT ?film) AS ?films) WHERE {
+    return `SELECT ?tmdb ?ru ?en ?birth ?death ?links (COUNT(DISTINCT ?film) AS ?films) (SAMPLE(?image) AS ?img) WHERE {
   VALUES ?birth { ${dates.join(' ')} }
   ?p wdt:P569 ?birth; wdt:P4985 ?tmdb; wikibase:sitelinks ?links.
   FILTER(?links >= 15)
@@ -64,6 +68,7 @@ export const birthdayQuery = (role: PersonRole, life: PersonLife, day: string, l
   ?film ${filmProp} ?p; wdt:P31 wd:Q11424.
   OPTIONAL { ?p rdfs:label ?ru FILTER(LANG(?ru) = "ru") }
   OPTIONAL { ?p rdfs:label ?en FILTER(LANG(?en) = "en") }
+  OPTIONAL { ?p wdt:P18 ?image }
 } GROUP BY ?tmdb ?ru ?en ?birth ?death ?links
 HAVING(COUNT(DISTINCT ?film) >= ${MIN_FILMS[role]})
 ORDER BY DESC(?links) LIMIT ${LIMIT * 3}`
@@ -92,7 +97,9 @@ export const parseBirthdays = (body: {results?: {bindings?: Binding[]}}, limit =
         seen.add(String(id))
         seen.add(name)
         const died = row.death?.value ? Number(row.death.value.slice(0, 4)) : undefined
-        people.push({id, name, born, ...(died ? {died} : {})})
+        // Special:FilePath отдаёт уменьшенную копию: Telegram скачивает её быстро.
+        const image = row.img?.value ? `${row.img.value.replace(/^http:/, 'https:')}?width=640` : undefined
+        people.push({id, name, born, ...(died ? {died} : {}), ...(image ? {image} : {})})
         if (people.length >= limit) break
     }
     return people

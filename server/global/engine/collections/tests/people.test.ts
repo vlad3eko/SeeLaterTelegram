@@ -100,11 +100,23 @@ test('экраны «Актёры и режиссёры»: роль → живы
     assert.deepEqual(ids('peopleLife', {personRole: 'actor'}), ['col:pl:alive', 'col:pl:dead', 'col:b'])
     assert.deepEqual(ids('peopleSearch', {personRole: 'actor', personLife: 'alive'}), ['col:ps', 'col:b'])
     const view = renderWizard({...emptyState(), group: 'people', screen: 'birthdays', personRole: 'actor', personLife: 'dead',
-        birthdays: [{id: 20124, name: 'Джин Тирни', born: 1920, died: 1991}]})
-    const first = view.keyboard.inline_keyboard[0]![0] as any
-    assert.equal(first.text, '🎂 Джин Тирни · 1920–1991')
-    assert.equal(first.callback_data, 'col:pp:0')
+        birthdays: [
+            {id: 20124, name: 'Джин Тирни', born: 1920, died: 1991, photo: 'file-tierney'},
+            {id: 20125, name: 'Клифтон Уэбб', born: 1889, died: 1966}
+        ]})
+    // Кнопки-номера, как в подборках.
+    assert.deepEqual((view.keyboard.inline_keyboard[0] as any[]).map(button => [button.text, button.callback_data]), [['1', 'col:pp:0'], ['2', 'col:pp:1']])
     assert.match(view.text, /актёры.*ушедшие/)
+    assert.match(view.text, /1\. Джин Тирни<\/b> · 1920–1991/, 'запасной текст — имена строками')
+    // Rich: список с «подробнее» — фото (если есть), роль и годы жизни.
+    const list = view.rich().blocks.find((block: any) => block.type === 'list') as any
+    assert.equal(list.items.length, 2)
+    assert.deepEqual(list.items[0].blocks[0].text, ['1. ', {type: 'code', text: 'Джин Тирни'}])
+    const details = list.items[0].blocks[1]
+    assert.equal(details.type, 'details')
+    assert.equal(details.blocks[0].photo.media, 'file-tierney')
+    assert.deepEqual(details.blocks[1].text, ['#актёр · 🎂 1920–1991'])
+    assert.equal(list.items[1].blocks[1].blocks[0].type, 'paragraph', 'без фото — только подпись')
     // Раздел в меню больше не «скоро».
     const root = renderWizard({...emptyState(), screen: 'root'}).keyboard.inline_keyboard.flat() as any[]
     assert.ok(root.some(button => button.callback_data === 'col:s:people' && !button.text.includes('скоро')))
@@ -113,4 +125,12 @@ test('экраны «Актёры и режиссёры»: роль → живы
 test('именинники: имя «Фамилия, Имя Отчество» переставляется', () => {
     assert.equal(displayName('Озолиня, Лилита Арвидовна'), 'Лилита Арвидовна Озолиня')
     assert.equal(displayName('Джоди Фостер'), 'Джоди Фостер')
+})
+
+test('именинники: портрет из Wikidata — https и уменьшенная копия', () => {
+    const [person] = parseBirthdays({results: {bindings: [{
+        ...binding(1038, 'Джоди Фостер', '1962-11-19'),
+        img: {value: 'http://commons.wikimedia.org/wiki/Special:FilePath/Jodie%20Foster.jpg'}
+    }]}})
+    assert.equal(person?.image, 'https://commons.wikimedia.org/wiki/Special:FilePath/Jodie%20Foster.jpg?width=640')
 })

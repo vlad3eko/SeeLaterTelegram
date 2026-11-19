@@ -178,7 +178,7 @@ const HINT: Record<WizardState['screen'], string> = {
     people: 'Подборка ко дню рождения: 10 лучших фильмов актёра или режиссёра.',
     peopleLife: 'Живые или уже ушедшие.',
     peopleSearch: '',
-    birthdays: 'Самые известные — сверху. Нажмите имя: соберу 10 лучших фильмов.'
+    birthdays: 'Самые известные — сверху, фото — в «подробнее». Нажмите номер: соберу 10 лучших фильмов.'
 }
 
 const FILTER_HINT: TextLine = {quote: true, parts: [
@@ -248,6 +248,11 @@ export const renderWizard = (state: WizardState, options: RenderOptions = {}) =>
                 : state.screen === 'filter' ? [FILTER_HINT]
                     : hint ? [{parts: [italic(hint)]}] : [])
     ]
+    // Запасной текст (если rich-сообщение не принято): именинники строками.
+    if (state.screen === 'birthdays' && !note) {
+        ;(state.birthdays ?? []).forEach((person, index) =>
+            lines.push({parts: [bold(`${index + 1}. ${person.name}`), plain(` · ${lifeLabel(person)}`)]}))
+    }
     if (state.screen === 'peopleSearch' && !note && !counting) {
         lines.push({parts: [italic('Найду самых известных, у кого день рождения сегодня — '), bold(todayLabel()), italic('.')]})
     }
@@ -282,12 +287,14 @@ export const renderWizard = (state: WizardState, options: RenderOptions = {}) =>
             rows.push([btn('🔎 Искать именинников', 'ps', undefined, 'success')])
             rows.push(back)
             break
-        case 'birthdays':
-            ;(state.birthdays ?? []).forEach((person, index) =>
-                rows.push([btn(`🎂 ${person.name} · ${lifeLabel(person)}`, 'pp', String(index), 'success')]))
+        case 'birthdays': {
+            // Как в подборках: список с номерами (фото — в «подробнее»), снизу кнопки-номера.
+            const numbers = (state.birthdays ?? []).map((_, index) => btn(String(index + 1), 'pp', String(index), 'success'))
+            for (let i = 0; i < numbers.length; i += 5) rows.push(numbers.slice(i, i + 5))
             if (!state.birthdays?.length) rows.push([disabledBtn('Сегодня никого не нашлось')])
             rows.push(back)
             break
+        }
         case 'format':
             rows.push([btn('🎬 Фильмы', 'fm', 'movie', 'success'), btn('📺 Сериалы', 'fm', 'tv', 'success')])
             rows.push(back)
@@ -373,12 +380,41 @@ export const renderWizard = (state: WizardState, options: RenderOptions = {}) =>
          * мастера потом превращается в карточку подборки (тоже rich) той же правкой текста.
          */
         rich: (cover?: string) => ({
-            blocks: [
-                ...(cover ? [{type: 'photo', photo: {type: 'photo', media: cover}}] : []),
-                ...richBlocks(lines)
-            ]
+            blocks: state.screen === 'birthdays' && !note
+                ? [...(cover ? [{type: 'photo', photo: {type: 'photo', media: cover}}] : []), ...richBlocks(lines.slice(0, 2)), ...birthdayBlocks(state)]
+                : [
+                    ...(cover ? [{type: 'photo', photo: {type: 'photo', media: cover}}] : []),
+                    ...richBlocks(lines)
+                ]
         })
     }
+}
+
+/**
+ * Именинники как список подборки: «1. Джоди Фостер» (имя копируется по нажатию), в «подробнее» —
+ * фото, роль и возраст или годы жизни.
+ */
+const birthdayBlocks = (state: WizardState): any[] => {
+    const people = state.birthdays ?? []
+    if (!people.length) return []
+    const role = state.personRole === 'director' ? 'режиссёр' : 'актёр'
+    return [{
+        type: 'list',
+        items: people.map((person, index) => ({
+            value: index + 1,
+            blocks: [
+                {type: 'heading', size: 1, text: [`${index + 1}. `, {type: 'code', text: person.name}]},
+                {
+                    type: 'details',
+                    summary: 'подробнее/скрыть',
+                    blocks: [
+                        ...(person.photo ? [{type: 'photo', photo: {type: 'photo', media: person.photo}, caption: {text: person.name}}] : []),
+                        {type: 'paragraph', text: [`#${role} · 🎂 ${person.died ? lifeLabel(person) : `${lifeLabel(person)} (${person.born})`}`]}
+                    ]
+                }
+            ]
+        }))
+    }]
 }
 
 /** Период для пути: у фильма с закрытым «Годом» период не выбирается — «за всё время» не пишем. */

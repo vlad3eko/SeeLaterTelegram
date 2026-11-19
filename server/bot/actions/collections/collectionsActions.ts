@@ -34,6 +34,7 @@ import {coverFor, forgetCovers, type CoverScreen} from '#server/bot/actions/coll
 import {dispatchBundles, dispatchMessage} from '#server/global/engine/collections/judge/dispatch'
 import {findBirthdays, lifeLabel, type PersonRole} from '#server/global/engine/collections/people/birthdays'
 import {buildPersonTop} from '#server/global/engine/collections/people/personTop'
+import {withPhotos} from '#server/bot/actions/collections/personPhotos'
 import {addMessageSession} from '#server/bot/services/session/addMessageSession'
 import {SessionMessageType} from '#server/bot/consts/types/SessionMessageTypes'
 import type {ContentType} from '#server/global/engine/search/strategy/enums'
@@ -759,6 +760,8 @@ const searchBirthdays = async (ctx: any, row: WizardRow) => {
     let people
     try {
         people = await findBirthdays(state.personRole, state.personLife)
+        // Фото для «подробнее»: портреты из Wikidata, без портрета — из TMDB (кеш file_id).
+        people = await withPhotos(ctx, people)
     } catch (error) {
         console.warn('[COLLECTIONS] Birthdays failed', error instanceof Error ? error.message : error)
         await showWizard(ctx, row, {note: '😕 Wikidata не ответила. Попробуйте ещё раз через минуту.'})
