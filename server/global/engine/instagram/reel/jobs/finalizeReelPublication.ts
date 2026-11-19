@@ -8,6 +8,7 @@ import {ContentType} from "#server/global/engine/search/strategy/enums";
 import {CURRENT_KEYBOARD_VERSION} from "#server/bot/consts/keyboardVersion/keyboardVersion";
 import {createInstagramCaption} from "#server/global/engine/instagram/reel/caption/createInstagramCaption";
 import {publishInstagramReel} from "#server/global/publishers/instagram/publishInstagramReel";
+import {reelTarget, sendReelPreview} from "#server/global/publishers/reelTarget";
 import {deleteCloudflareR2ObjectByUrl} from "#server/global/engine/instagram/reel/utils/storageCloudflareR2";
 import {deleteReelTempFiles} from "#server/global/engine/instagram/reel/jobs/reelStorageCleanup";
 import {deleteOldMessagesSession} from "#server/bot/services/session/deleteOldMessagesSession";
@@ -241,6 +242,8 @@ export const finalizeReelPublication = async (
 
         let instagramMediaId = job.instagram_media_id
         let instagramPermalink = job.instagram_permalink
+        // Dev-бот: готовый Reel приходит администратору в чат вместо Instagram (server/global/publishers/reelTarget).
+        let previewSent = false
 
         if (job.instagram_publish_r2_url && !instagramMediaId) {
             const instagramCaption = job.instagram_caption || createInstagramCaption({
@@ -254,40 +257,50 @@ export const finalizeReelPublication = async (
                 await updateOwnedJob({instagram_caption: instagramCaption})
             }
 
-            const existingContainerId = typeof resultPayload.instagramContainerId === 'string'
-                ? resultPayload.instagramContainerId
-                : undefined
+            if (reelTarget() === 'telegram_preview') {
+                await sendReelPreview(bot.telegram, {
+                    chatId: Number(job.admin_telegram_id),
+                    videoUrl: job.instagram_publish_r2_url,
+                    caption: instagramCaption,
+                    title: media.title || media.name
+                })
+                previewSent = true
+            } else {
+                const existingContainerId = typeof resultPayload.instagramContainerId === 'string'
+                    ? resultPayload.instagramContainerId
+                    : undefined
 
-            const instagram = await publishInstagramReel({
-                videoUrl: job.instagram_publish_r2_url,
-                caption: instagramCaption,
-                existingContainerId,
-                onContainerCreated: async (containerId) => {
-                    resultPayload = {
-                        ...resultPayload,
-                        instagramContainerId: containerId
+                const instagram = await publishInstagramReel({
+                    videoUrl: job.instagram_publish_r2_url,
+                    caption: instagramCaption,
+                    existingContainerId,
+                    onContainerCreated: async (containerId) => {
+                        resultPayload = {
+                            ...resultPayload,
+                            instagramContainerId: containerId
+                        }
+                        await updateOwnedJob({
+                            result_payload: resultPayload,
+                            step: 'instagram_container_created'
+                        })
+                    },
+                    onPublished: async ({mediaId: publishedInstagramMediaId}) => {
+                        await updateOwnedJob({
+                            instagram_media_id: publishedInstagramMediaId,
+                            step: 'instagram_published'
+                        })
                     }
-                    await updateOwnedJob({
-                        result_payload: resultPayload,
-                        step: 'instagram_container_created'
-                    })
-                },
-                onPublished: async ({mediaId: publishedInstagramMediaId}) => {
-                    await updateOwnedJob({
-                        instagram_media_id: publishedInstagramMediaId,
-                        step: 'instagram_published'
-                    })
-                }
-            })
+                })
 
-            instagramMediaId = instagram.mediaId
-            instagramPermalink = instagram.permalink ?? null
+                instagramMediaId = instagram.mediaId
+                instagramPermalink = instagram.permalink ?? null
 
-            await updateOwnedJob({
-                instagram_media_id: instagramMediaId,
-                instagram_permalink: instagramPermalink,
-                step: 'instagram_published'
-            })
+                await updateOwnedJob({
+                    instagram_media_id: instagramMediaId,
+                    instagram_permalink: instagramPermalink,
+                    step: 'instagram_published'
+                })
+            }
         }
 
         // Не даём ошибке обновления старой inline-кнопки отменить уже выполненную публикацию.
@@ -319,7 +332,7 @@ export const finalizeReelPublication = async (
 
         await updateOwnedJob({
             status: 'published',
-            step: instagramMediaId ? 'published' : 'published_telegram_only',
+            step: instagramMediaId ? 'published' : previewSent ? 'published_dev_preview' : 'published_telegram_only',
 
             // Ссылка на оформленный Reel больше не нужна после публикации.
             instagram_publish_r2_url: null,
@@ -336,7 +349,7 @@ export const finalizeReelPublication = async (
         // повторной публикации.
         await deleteReelTempFiles(
             {mediaId, mediaType, keyTrailer: job.key_trailer},
-            {keepSource: input.videoType === 'clip' && !instagramMediaId}
+            {keepSource: input.videoType === 'clip' && !instagramMediaId && !previewSent}
         )
 
         // Удаляем только ту сессию, которая породила этот job. Новую сессию админа
@@ -379,14 +392,17 @@ export const finalizeReelPublication = async (
             Number(job.admin_telegram_id),
             instagramMediaId
                 ? 'Опубликовано в Telegram и Instagram'
-                : 'Опубликовано в Telegram. Не удалось подготовить Reel для Instagram.'
+                : previewSent
+                    ? 'Dev: опубликовано в тестовом канале, Reel — выше в этом чате. В Instagram ничего не отправлено.'
+                    : 'Опубликовано в Telegram. Не удалось подготовить Reel для Instagram.'
         )
 
         console.log('[REEL FINALIZER PUBLISHED]', {
             jobId,
             channelMessageId,
             instagramMediaId,
-            instagramPermalink
+            instagramPermalink,
+            previewSent
         })
 
         return {status: 'published'}
