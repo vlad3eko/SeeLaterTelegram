@@ -9,6 +9,9 @@
 --      в reel_processing_jobs. Повторно в очередь он не попадёт: проверка канала пропускает
 --      ролики, чей ключ уже есть в reel_processing_jobs или published_media_messages.
 --
+-- Приоритет: ролики каналов с priority в config.ts (KinomanTrailers, русский дубляж) выдаются
+-- раньше остальных (p_priority_channels).
+--
 -- Статусы:
 --   skipped      — ролик был на канале до начала слежения или в названии нет ключевого слова;
 --   queued       — ждёт своей очереди;
@@ -90,8 +93,15 @@ alter table public.youtube_publish_queue enable row level security;
 -- Следующий ролик очереди или ничего. Атомарно (advisory lock): два таймера одновременно
 -- (например, dev и production) не выдадут два ролика и не нарушат интервал.
 --   p_interval_minutes — сколько минут должно пройти с прошлой поставленной задачи.
+--   p_priority_channels — каналы, чьи ролики выдаются первыми (русские трейлеры, 20.11);
+--                         внутри приоритета и вне его — от старых к новым.
+-- Прежняя версия с одним параметром удаляется: иначе вызов с одним p_interval_minutes
+-- подходил бы к обеим и Postgres не смог бы выбрать.
+drop function if exists public.claim_youtube_queue_item(integer);
+
 create or replace function public.claim_youtube_queue_item(
-    p_interval_minutes integer default 120
+    p_interval_minutes integer default 120,
+    p_priority_channels text[] default '{}'
 )
 returns setof public.youtube_publish_queue
 language plpgsql
@@ -131,7 +141,9 @@ begin
     where (status = 'queued'
            or (status = 'dispatching' and updated_at <= now() - interval '15 minutes'))
       and (not_before is null or not_before <= now())
-    order by video_published_at nulls last, id
+    order by (channel_id = any(coalesce(p_priority_channels, '{}'))) desc,
+             video_published_at nulls last,
+             id
     limit 1
     for update skip locked;
 
@@ -149,12 +161,12 @@ begin
 end;
 $$;
 
-revoke all on function public.claim_youtube_queue_item(integer) from public;
-revoke all on function public.claim_youtube_queue_item(integer) from anon, authenticated;
-grant execute on function public.claim_youtube_queue_item(integer) to service_role;
+revoke all on function public.claim_youtube_queue_item(integer, text[]) from public;
+revoke all on function public.claim_youtube_queue_item(integer, text[]) from anon, authenticated;
+grant execute on function public.claim_youtube_queue_item(integer, text[]) to service_role;
 
 commit;
 
 -- Откат:
---   drop function if exists public.claim_youtube_queue_item(integer);
+--   drop function if exists public.claim_youtube_queue_item(integer, text[]);
 --   drop table if exists public.youtube_publish_queue;

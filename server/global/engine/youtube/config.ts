@@ -2,8 +2,8 @@
  * Настройки автопубликации трейлеров с YouTube (все необязательные, значения по умолчанию в коде).
  *
  *   YOUTUBE_WATCH_CHANNELS          заменить список каналов: «UC…:слово|слово,UC…:слово», например
- *                                   «UC6A-Z0jDKemh9-CwGbj5yog:дубляж,UCWOA1ZGywLbqmigxE4Qlvuw:trailer|teaser»;
- *                                   канал без слов получает trailer|teaser
+ *                                   «*UC6A-Z0jDKemh9-CwGbj5yog:дубляж,UCWOA1ZGywLbqmigxE4Qlvuw:trailer|teaser»;
+ *                                   канал без слов получает trailer|teaser; «*» — приоритетный канал
  *   YOUTUBE_QUEUE_INTERVAL_MINUTES  минут между публикациями, по умолчанию 120
  *   YOUTUBE_QUEUE_MAX_AGE_HOURS     ролики старше не ставятся в очередь, по умолчанию 72
  *   YOUTUBE_QUEUE_FILM_COOLDOWN_DAYS фильм, опубликованный за столько дней, не публикуется снова, по умолчанию 7
@@ -18,6 +18,11 @@ export type WatchedChannel = {
     name: string
     /** Слова в названии ролика (любое из них, без учёта регистра). */
     keywords: string[]
+    /**
+     * Ролики канала публикуются раньше остальных (решение владельца 20.11: сначала русские
+     * трейлеры). Внутри приоритета и вне его порядок прежний — от старых к новым.
+     */
+    priority?: boolean
 }
 
 const TRAILER = ['trailer', 'teaser']
@@ -52,8 +57,8 @@ export const findExcludedTitleReason = (title: string): string | undefined => {
 }
 
 const DEFAULT_CHANNELS: WatchedChannel[] = [
-    // Русские трейлеры: только дубляж.
-    {id: 'UC6A-Z0jDKemh9-CwGbj5yog', name: 'KinomanTrailers', keywords: ['дубляж']},
+    // Русские трейлеры: только дубляж. В очереди — первыми.
+    {id: 'UC6A-Z0jDKemh9-CwGbj5yog', name: 'KinomanTrailers', keywords: ['дубляж'], priority: true},
 
     // Киностудии и стриминги (оригинальные трейлеры; субтитры переводит цепочка Reel).
     {id: 'UCjmJDM5pRKbUlVIzDYYWb6g', name: 'Warner Bros.', keywords: TRAILER},
@@ -83,14 +88,15 @@ const readNumber = (name: string, fallback: number, min: number, max: number) =>
 const isOff = (value: string | undefined) =>
     ['off', '0', 'false', 'no'].includes((value ?? '').trim().toLowerCase())
 
-const parseChannelsEnv = (raw: string | undefined): WatchedChannel[] =>
+export const parseChannelsEnv = (raw: string | undefined): WatchedChannel[] =>
     (raw ?? '')
         .split(',')
         .map(entry => entry.trim())
         .map(entry => {
-            const [id, words] = entry.split(':')
+            const priority = entry.startsWith('*')
+            const [id, words] = entry.replace(/^\*/, '').split(':')
             const keywords = (words ?? '').split('|').map(word => word.trim().toLowerCase()).filter(Boolean)
-            return {id: id?.trim() ?? '', name: id?.trim() ?? '', keywords: keywords.length ? keywords : TRAILER}
+            return {id: id?.trim() ?? '', name: id?.trim() ?? '', keywords: keywords.length ? keywords : TRAILER, ...(priority ? {priority} : {})}
         })
         .filter(channel => /^UC[0-9A-Za-z_-]{22}$/.test(channel.id))
 

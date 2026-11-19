@@ -156,7 +156,11 @@ const dispatchNext = async (supabase: Supabase, config: ReturnType<typeof youtub
     if (lastError) throw new Error(`[YOUTUBE QUEUE] ${lastError.message}`)
     if (lastJob && Date.now() - Date.parse(lastJob.created_at) < config.intervalMinutes * 60_000) return null
 
-    const {data, error} = await supabase.rpc('claim_youtube_queue_item', {p_interval_minutes: config.intervalMinutes})
+    const {data, error} = await supabase.rpc('claim_youtube_queue_item', {
+        p_interval_minutes: config.intervalMinutes,
+        // Ролики этих каналов (русские трейлеры) выдаются первыми.
+        p_priority_channels: config.channels.filter(channel => channel.priority).map(channel => channel.id)
+    })
     if (error) throw new Error(`[YOUTUBE QUEUE CLAIM] ${error.message}`)
 
     const row = (Array.isArray(data) ? data[0] : data) as QueueRow | undefined
