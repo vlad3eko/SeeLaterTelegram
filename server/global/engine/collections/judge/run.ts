@@ -156,9 +156,12 @@ export const pickBundles = async (store: BundleStore, count: number, only?: stri
         if (!lastRun.has(run.bundle_key) || at > lastRun.get(run.bundle_key)!) lastRun.set(run.bundle_key, at)
     }
     const pool = only?.length ? BUNDLES.filter(bundle => only.includes(bundle.key)) : BUNDLES
+    // Сначала ни разу не прогонявшиеся: судимые (без судьи их нет в меню), затем автоматические;
+    // дальше — по давности последнего расчёта, при равенстве — в порядке справочника.
+    const neverRunRank = (bundle: Bundle) => lastRun.has(bundle.key) ? 2 : bundle.kind === 'judged' ? 0 : 1
     return [...pool]
-        .map((bundle, index) => ({bundle, index, at: lastRun.get(bundle.key) ?? ''}))
-        .sort((a, b) => a.at.localeCompare(b.at) || a.index - b.index)
+        .map((bundle, index) => ({bundle, index, rank: neverRunRank(bundle), at: lastRun.get(bundle.key) ?? ''}))
+        .sort((a, b) => a.rank - b.rank || a.at.localeCompare(b.at) || a.index - b.index)
         .slice(0, count)
         .map(entry => entry.bundle)
 }

@@ -18,7 +18,7 @@ import {findTrailers, pickTrailer, rememberTrailers, type Trailer} from '#server
 import {fitsShelf, type Shelf, shelfByKey, type ShelfKey, shelfQuery, SHELVES} from '#server/global/engine/collections/shelves'
 import {type Bundle, bundleByKey, bundleFits, bundlesFor, rubricOf} from '#server/global/engine/collections/bundles'
 import {bundleMatches, bundleQuery, bundleScore, meanRating} from '#server/global/engine/collections/bundleRules'
-import {getBundleStore, type VerdictRow} from '#server/global/engine/collections/judge/store'
+import {getBundleStore, type RunRow, type VerdictRow} from '#server/global/engine/collections/judge/store'
 
 /**
  * Сборка топа (правки владельца 18.11, см. TASKS.md):
@@ -690,28 +690,40 @@ export const countCollection = async (params: CollectionParams): Promise<{count:
     return {count: andCount.count + orCount.count, capped: or.capped || orCount.more}
 }
 
+/** Связка для экрана «🧩 Связки»; reviewed — судья её уже прогонял (контроль не провален). */
+export type AvailableBundle = Bundle & {reviewed: boolean}
+
 /**
  * Связки для экрана «🧩 Связки»: автоматические — все применимые на полке в разделе; судимые —
  * только если у судьи уже набралось «да» на подборку (minResults), иначе связка скрыта.
+ * Сверху — проработанные судьёй (reviewed), ниже — ещё «сырые», в порядке справочника.
  */
-export const availableBundles = async (shelfKey: ShelfKey, section: SectionKey): Promise<Bundle[]> => {
-    // Последний расчёт провалил контрольные тайтлы — судимую связку не показываем.
-    const blocked = async (bundle: Bundle) => {
-        try {
-            const last = (await (await getBundleStore()).runs(bundle.key)).find(run => run.status === 'done')
-            return last?.stats?.publishable === false
-        } catch {
-            return false
+export const availableBundles = async (shelfKey: ShelfKey, section: SectionKey): Promise<AvailableBundle[]> => {
+    // Последний завершённый расчёт по каждой связке.
+    const lastDone = new Map<string, RunRow>()
+    try {
+        for (const run of await (await getBundleStore()).runs()) {
+            if (run.status !== 'done') continue
+            const at = run.finished_at ?? run.created_at
+            const prev = lastDone.get(run.bundle_key)
+            if (!prev || at > (prev.finished_at ?? prev.created_at)) lastDone.set(run.bundle_key, run)
         }
+    } catch (error) {
+        console.warn('[COLLECTIONS] Bundle runs unavailable', error instanceof Error ? error.message : error)
     }
+    // Последний расчёт провалил контрольные тайтлы — судимую связку не показываем.
+    const blocked = (bundle: Bundle) => lastDone.get(bundle.key)?.stats?.publishable === false
     const shelf = SHELVES[shelfKey]
     const fitting = bundlesFor(shelfKey, section)
     const judged = await mapLimit(fitting.filter(bundle => bundle.kind === 'judged'), 3, async bundle => {
         const verdicts = await bundleVerdicts(bundle)
         const yes = [...verdicts.values()].filter(row =>
             row.verdict === 'yes' && row.media_type === shelf.mediaType && (!row.snapshot?.shelf || row.snapshot.shelf === shelfKey))
-        return yes.length >= bundle.minResults && !(await blocked(bundle)) ? bundle.key : null
+        return yes.length >= bundle.minResults && !blocked(bundle) ? bundle.key : null
     })
     const ready = new Set(judged.filter(Boolean))
-    return fitting.filter(bundle => bundle.kind === 'auto' || ready.has(bundle.key))
+    const shown = fitting
+        .filter(bundle => bundle.kind === 'auto' || ready.has(bundle.key))
+        .map(bundle => ({...bundle, reviewed: lastDone.has(bundle.key) && !blocked(bundle)}))
+    return [...shown.filter(bundle => bundle.reviewed), ...shown.filter(bundle => !bundle.reviewed)]
 }

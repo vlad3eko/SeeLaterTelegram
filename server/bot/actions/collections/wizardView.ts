@@ -15,6 +15,7 @@ import {
 import type {SectionGroup, WizardState} from '#server/bot/actions/collections/wizardState'
 import {type ShelfKey, SHELVES} from '#server/global/engine/collections/shelves'
 import {type Bundle, bundleByKey} from '#server/global/engine/collections/bundles'
+import type {AvailableBundle} from '#server/global/engine/collections/buildCollection'
 
 /** Текст и кнопки мастера подборки для текущего состояния. */
 
@@ -218,7 +219,7 @@ export type RenderOptions = {
     /** Username бота для ссылок пути; без него путь — просто текст. */
     bot?: string
     /** Экран связок: доступные на полке и в разделе (судимые — только с готовыми вердиктами). */
-    bundles?: Bundle[]
+    bundles?: AvailableBundle[]
 }
 
 export const renderWizard = (state: WizardState, options: RenderOptions = {}) => {
@@ -267,7 +268,10 @@ export const renderWizard = (state: WizardState, options: RenderOptions = {}) =>
             rows.push(back)
             break
         case 'bundles':
-            for (const bundle of options.bundles ?? []) rows.push([btn(`${bundle.emoji} ${bundle.title}`, 'bn', bundle.key, 'success')])
+            // Проработанные судьёй — зелёные, «сырые» (судья ещё не прогонял) — обычного цвета.
+            for (const bundle of options.bundles ?? []) {
+                rows.push([btn(`${bundle.emoji} ${bundle.title}`, 'bn', bundle.key, bundle.reviewed ? 'success' : undefined)])
+            }
             if (!options.bundles?.length) rows.push([disabledBtn('Связок здесь пока нет')])
             rows.push(back)
             break

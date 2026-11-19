@@ -235,18 +235,42 @@ test('судимая связка видна в мастере, когда «д�
     }
 })
 
-test('выбор связок: никогда не считавшиеся первыми, затем самые давние', async () => {
+test('экран связок: проработанные судьёй сверху (reviewed), «сырые» ниже', async () => {
+    const store = new MemoryBundleStore()
+    await store.saveRun({bundle_key: 'con', status: 'done', finished_at: '2026-11-18T00:00:00Z', stats: {publishable: true}, items: []})
+    await store.saveRun({bundle_key: 'whodunit', status: 'done', finished_at: '2026-11-19T00:00:00Z', stats: {publishable: true}, items: []})
+    // Упавший расчёт не делает связку проработанной.
+    await store.saveRun({bundle_key: 'epidemic', status: 'failed', finished_at: '2026-11-19T00:00:00Z', stats: {}, items: []})
+    setBundleStore(store)
+    try {
+        const shown = await availableBundles('movie', 'movies')
+        assert.deepEqual(shown.slice(0, 2).map(bundle => [bundle.key, bundle.reviewed]), [['whodunit', true], ['con', true]])
+        assert.ok(shown.slice(2).every(bundle => !bundle.reviewed))
+        assert.equal(shown[2]?.key, 'survival', 'сырые — в порядке справочника')
+    } finally {
+        setBundleStore(undefined)
+    }
+})
+
+test('выбор связок: сначала не считавшиеся судимые, затем автоматические, затем самые давние', async () => {
     const store = new MemoryBundleStore()
     const first = await pickBundles(store, 2)
-    assert.deepEqual(first.map(bundle => bundle.key), ['survival', 'whodunit'])
-    await store.saveRun({bundle_key: 'survival', status: 'done', finished_at: '2026-11-01T00:00:00Z', stats: {}, items: []})
-    await store.saveRun({bundle_key: 'whodunit', status: 'done', finished_at: '2026-11-10T00:00:00Z', stats: {}, items: []})
-    const next = await pickBundles(store, 2)
-    assert.deepEqual(next.map(bundle => bundle.key), ['time_loop', 'trapped'])
+    assert.deepEqual(first.map(bundle => bundle.key), ['twist', 'sad_end'])
+    const judgedKeys = ['twist', 'sad_end', 'tearjerker', 'feelgood', 'adult_animation']
+    for (const [index, key] of judgedKeys.entries()) {
+        await store.saveRun({bundle_key: key, status: 'done', finished_at: `2026-11-0${index + 1}T00:00:00Z`, stats: {}, items: []})
+    }
+    await store.saveRun({bundle_key: 'survival', status: 'done', finished_at: '2026-11-10T00:00:00Z', stats: {}, items: []})
+    assert.deepEqual((await pickBundles(store, 2)).map(bundle => bundle.key), ['whodunit', 'time_loop'])
+    // Все считались — самые давние.
+    const allStore = new MemoryBundleStore()
+    await allStore.saveRun({bundle_key: 'twist', status: 'done', finished_at: '2026-11-01T00:00:00Z', stats: {}, items: []})
+    await allStore.saveRun({bundle_key: 'survival', status: 'done', finished_at: '2026-10-01T00:00:00Z', stats: {}, items: []})
+    assert.deepEqual((await pickBundles(allStore, 2, ['twist', 'survival'])).map(bundle => bundle.key), ['survival', 'twist'])
     // Упавший расчёт не считается: связка остаётся в очереди.
     const failedStore = new MemoryBundleStore()
-    await failedStore.saveRun({bundle_key: 'survival', status: 'failed', finished_at: '2026-11-18T00:00:00Z', stats: {}, items: []})
-    assert.equal((await pickBundles(failedStore, 1))[0]?.key, 'survival')
+    await failedStore.saveRun({bundle_key: 'twist', status: 'failed', finished_at: '2026-11-18T00:00:00Z', stats: {}, items: []})
+    assert.equal((await pickBundles(failedStore, 1))[0]?.key, 'twist')
 })
 
 test('плановый запуск: ровно 2 связки за раз', async () => {
@@ -254,7 +278,7 @@ test('плановый запуск: ровно 2 связки за раз', asy
     const {deps} = twistDeps(store, [], [])
     const runs = await runScheduled({...deps, store}, {count: 2})
     assert.equal(runs.length, 2)
-    assert.deepEqual(runs.map(run => run.bundle_key), ['survival', 'whodunit'])
+    assert.deepEqual(runs.map(run => run.bundle_key), ['twist', 'sad_end'])
     assert.equal((await store.runs()).filter(run => run.status === 'done').length, 2)
 })
 
