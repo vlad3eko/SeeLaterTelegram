@@ -52,6 +52,10 @@ const SCREENS = {
         `discover/movie?sort_by=vote_count.desc&primary_release_date.gte=${year - 12}-01-01&page=2`]},
     direction: {fresh: true, minVotes: 0, sources: ['movie/upcoming?region=US', 'movie/now_playing?region=US']},
     period: {fresh: true, minVotes: 300, sources: ['trending/movie/week', 'trending/movie/week?page=2', 'trending/tv/week']},
+    // Связки — сюжетное кино: детективы, триллеры, фантастика с сильной историей.
+    bundles: {fresh: false, minVotes: 3000, sources: [
+        'discover/movie?sort_by=vote_count.desc&with_genres=9648|53&primary_release_date.gte=1995-01-01',
+        'discover/movie?sort_by=vote_count.desc&with_genres=9648|53&primary_release_date.gte=1995-01-01&page=2']},
     loading: {fresh: false, minVotes: 5000, sources: [
         'discover/movie?sort_by=vote_count.desc&primary_release_date.gte=1985-01-01&primary_release_date.lte=2008-12-31',
         'discover/movie?sort_by=vote_count.desc&primary_release_date.gte=1985-01-01&primary_release_date.lte=2008-12-31&page=2']},
