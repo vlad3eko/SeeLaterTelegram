@@ -46,6 +46,7 @@ export const createRichListCaption = (
                     item.data.media
 
                 const image =
+                    item.query.stillFileId ??
                     item.data.images
                         ?.poster?.[0]
 

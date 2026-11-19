@@ -21,6 +21,8 @@ export type BirthdayPerson = {
     /** ID человека в TMDB. */
     id: number
     name: string
+    /** Имя по-английски (для поиска кадров), если отличается от name. */
+    en?: string
     /** Год рождения и, у ушедших, год смерти. */
     born: number
     died?: number
@@ -113,7 +115,8 @@ export const parseBirthdays = (body: {results?: {bindings?: Binding[]}}, limit =
         const died = row.death?.value ? Number(row.death.value.slice(0, 4)) : undefined
         // Special:FilePath отдаёт уменьшенную копию: Telegram скачивает её быстро.
         const image = row.img?.value ? `${row.img.value.replace(/^http:/, 'https:')}?width=640` : undefined
-        people.push({id, name, born, ...(died ? {died} : {}), ...(image ? {image} : {})})
+        const en = row.en?.value && row.en.value !== name ? row.en.value : undefined
+        people.push({id, name, ...(en ? {en} : {}), born, ...(died ? {died} : {}), ...(image ? {image} : {})})
         if (people.length >= limit) break
     }
     return people

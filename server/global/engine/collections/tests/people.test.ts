@@ -53,8 +53,8 @@ test('именинники: разбор ответа — русское имя,
         binding(99, undefined, '1970-11-19', undefined, 'No Russian Label')
     ]}})
     assert.deepEqual(people, [
-        {id: 1038, name: 'Джоди Фостер', born: 1962},
-        {id: 20124, name: 'Джин Тирни', born: 1920, died: 1991},
+        {id: 1038, name: 'Джоди Фостер', en: 'Name', born: 1962},
+        {id: 20124, name: 'Джин Тирни', en: 'Name', born: 1920, died: 1991},
         {id: 99, name: 'No Russian Label', born: 1970}
     ])
     const many = parseBirthdays({results: {bindings: Array.from({length: 30}, (_, i) => binding(i + 1, `Актёр ${i}`, '1980-11-19'))}})
@@ -156,4 +156,27 @@ test('именинники: портрет из Wikidata — https и умень
         img: {value: 'http://commons.wikimedia.org/wiki/Special:FilePath/Jodie%20Foster.jpg'}
     }]}})
     assert.equal(person?.image, 'https://commons.wikimedia.org/wiki/Special:FilePath/Jodie%20Foster.jpg?width=640')
+})
+
+test('кадры с актёром (Brave): постеры и вертикальные отсеиваются, оригинал — затем копия с прокси', async () => {
+    const {pickStills, searchStills, stillQuery} = await import('#server/global/engine/collections/people/filmStills')
+    assert.equal(stillQuery('Meg Ryan', 'When Harry Met Sally...', 1989), 'Meg Ryan When Harry Met Sally... 1989 movie still')
+    const urls = pickStills({results: [
+        {title: 'When Harry Met Sally poster', properties: {url: 'https://a/poster.jpg', width: 1600, height: 900}, thumbnail: {src: 'https://proxy/1'}},
+        {title: 'Meg Ryan portrait', properties: {url: 'https://a/tall.jpg', width: 800, height: 1200}, thumbnail: {src: 'https://proxy/2'}},
+        {title: 'Unknown size', properties: {url: 'https://a/unknown.jpg'}, thumbnail: {src: 'https://proxy/3'}},
+        {title: 'Meg Ryan in When Harry Met Sally', properties: {url: 'https://a/still.jpg', width: 1920, height: 1080}, thumbnail: {src: 'https://proxy/4'}},
+        {title: 'Small still', properties: {url: 'https://a/small.jpg', width: 400, height: 225}, thumbnail: {src: 'https://proxy/5'}}
+    ]})
+    // Горизонтальные известного размера — первыми; мелкий оригинал заменяется копией; неизвестный размер — в конце.
+    assert.deepEqual(urls, ['https://a/still.jpg', 'https://proxy/4', 'https://proxy/5', 'https://a/unknown.jpg', 'https://proxy/3'])
+
+    let called = ''
+    const fetchImpl = (async (url: string, init: RequestInit) => {
+        called = `${url} ${(init.headers as Record<string, string>)['X-Subscription-Token']}`
+        return Response.json({results: [{title: 'still', properties: {url: 'https://a/s.jpg', width: 1280, height: 720}, thumbnail: {src: 'https://proxy/s'}}]})
+    }) as unknown as typeof fetch
+    assert.deepEqual(await searchStills('Meg Ryan', 'Sleepless in Seattle', 1993, {key: 'k', fetchImpl}), ['https://a/s.jpg', 'https://proxy/s'])
+    assert.match(called, /images\/search\?q=Meg\+Ryan\+Sleepless\+in\+Seattle\+1993\+movie\+still.* k$/)
+    assert.deepEqual(await searchStills('Meg Ryan', 'X', 1993, {key: '', fetchImpl}), [], 'без ключа — не ищем')
 })

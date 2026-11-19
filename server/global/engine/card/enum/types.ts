@@ -14,6 +14,8 @@ export interface queryRichCard {
     addComment?: string
     addOverview?: string
     keyTrailer?: string
+    /** file_id картинки строки списка вместо кадра TMDB (подборка именинника: актёр в этом фильме). */
+    stillFileId?: string
     mediaOverride?: {
         type: typeOverride
         fileId: string

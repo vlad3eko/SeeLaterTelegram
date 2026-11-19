@@ -35,6 +35,7 @@ import {dispatchBundles, dispatchMessage} from '#server/global/engine/collection
 import {findBirthdays, lifeLabel, type PersonRole} from '#server/global/engine/collections/people/birthdays'
 import {buildPersonTop} from '#server/global/engine/collections/people/personTop'
 import {withPhotos} from '#server/bot/actions/collections/personPhotos'
+import {stillsFor} from '#server/bot/actions/collections/filmStills'
 import {addMessageSession} from '#server/bot/services/session/addMessageSession'
 import {SessionMessageType} from '#server/bot/consts/types/SessionMessageTypes'
 import type {ContentType} from '#server/global/engine/search/strategy/enums'
@@ -101,12 +102,14 @@ type CollectionRecord = {
     score: number
     trailer_key: string
     trailer_language: string
+    /** Подборка именинника: оригинальное название (поиск кадров с актёром). */
+    original_title?: string
 }
 
 /** «Похожее»: подборка от тайтла; parent_id — подборка, из которой его открыли (кнопка «К подборке»). */
 type SimilarParams = {similar?: {media_type: 'movie' | 'tv', id: number, title: string}, parent_id?: string}
 /** «Именинники дня»: подборка лучших фильмов человека. */
-type PersonParams = {person?: {id: number, name: string, role: PersonRole, born: number, died?: number}}
+type PersonParams = {person?: {id: number, name: string, en?: string, role: PersonRole, born: number, died?: number}}
 
 type CollectionRow = {
     id: string
@@ -472,7 +475,8 @@ const recordOf = (item: CollectionItem): CollectionRecord => ({
     trailer_language: item.trailer.language
 })
 
-const queryOf = (record: CollectionRecord) => ({
+const queryOf = (record: CollectionRecord, stillFileId?: string) => ({
+    ...(stillFileId ? {stillFileId} : {}),
     id: record.id,
     type: record.media_type,
     status: 'ready' as const,
@@ -548,7 +552,9 @@ const showCollection = async (ctx: any, row: WizardRow, collection: CollectionRo
     ]
 
     const target = richTarget(ctx, row)
-    const {caption, keyboard} = await constructRichListCard(target, items.map(queryOf), {
+    // Подборка именинника-актёра: вместо кадра TMDB — кадр с ним в этом фильме (Brave, если есть ключ).
+    const stills = person ? await stillsFor(ctx, person, person.role, items) : new Map<number, string>()
+    const {caption, keyboard} = await constructRichListCard(target, items.map(record => queryOf(record, stills.get(record.id))), {
         title: collectionHeading(count, page,
             similar ? `🔗 Похоже на «${similar.title}»`
                 : person ? `🎂 ${person.name}: ${count} ${person.role === 'director' ? 'лучших фильмов' : 'лучших ролей'}`
@@ -805,6 +811,7 @@ const showPersonTop = async (ctx: any, row: WizardRow, index: number) => {
                 content_type: shelf.contentType,
                 id: item.id,
                 title: item.title,
+                ...(item.original_title ? {original_title: item.original_title} : {}),
                 year: item.year ?? null,
                 score: item.score,
                 trailer_key: item.trailer.key,
