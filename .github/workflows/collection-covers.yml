@@ -48,6 +48,8 @@ jobs:
         env:
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          # Необязательный: с ним обложки загружаются и для тестового бота (file_id у каждого бота свои).
+          TELEGRAM_DEV_TOKEN: ${{ secrets.TELEGRAM_DEV_TOKEN }}
           TELEGRAM_MEDIA_STORAGE_CHAT_ID: ${{ secrets.TELEGRAM_MEDIA_STORAGE_CHAT_ID }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

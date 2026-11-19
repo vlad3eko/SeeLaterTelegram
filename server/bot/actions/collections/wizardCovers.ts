@@ -15,11 +15,18 @@ const CACHE_TTL_MS = 60 * 60_000
 let cache: {at: number, covers: Map<string, string[]>} | null = null
 let loading: Promise<Map<string, string[]>> | null = null
 
+/**
+ * file_id принадлежит боту, который загрузил файл, поэтому у каждого бота свои строки (колонка bot):
+ * в разработке — тестовый бот (TELEGRAM_DEV_TOKEN), иначе боевой. Тот же выбор, что в server/bot/bot.ts.
+ */
+export const coversBot = (env: NodeJS.ProcessEnv = process.env) => env.NODE_ENV === 'development' ? 'dev' : 'prod'
+
 const loadCovers = async (): Promise<Map<string, string[]>> => {
-    const {data, error} = await getSupabase()
-        .from('collection_covers')
-        .select('screen,variant,file_id')
-        .order('variant', {ascending: true})
+    const bot = coversBot()
+    const query = () => getSupabase().from('collection_covers').select('screen,variant,file_id').order('variant', {ascending: true})
+    let {data, error} = await query().eq('bot', bot)
+    // Миграция collection_covers_bot.sql ещё не выполнена: все строки — боевого бота.
+    if (error?.code === '42703') ({data, error} = bot === 'prod' ? await query() : {data: [], error: null})
     if (error) throw new Error(error.message)
 
     const covers = new Map<string, string[]>()

@@ -186,20 +186,27 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 // TELEGRAM_API_URL — только для проверки на локальной заглушке; по умолчанию настоящий Bot API.
 const TELEGRAM_API = (process.env.TELEGRAM_API_URL || 'https://api.telegram.org').replace(/\/$/, '')
 
+// file_id в Telegram принадлежит боту, который загрузил файл: чужие file_id бот показывать не обязан
+// (19.11.2026 тестовый бот перестал принимать обложки боевого). Поэтому каждая обложка загружается
+// от имени каждого бота: prod — TELEGRAM_TOKEN, dev — TELEGRAM_DEV_TOKEN, если он задан.
+const botsToPublish = () => [
+    {bot: 'prod', token: requireEnv('TELEGRAM_TOKEN')},
+    ...(process.env.TELEGRAM_DEV_TOKEN?.trim() ? [{bot: 'dev', token: process.env.TELEGRAM_DEV_TOKEN.trim()}] : [])
+]
+
 // В канал Telegram пускает ~20 сообщений в минуту: между отправками пауза, на 429 — ждём сколько
 // велено (retry_after), на сбой сети или 5xx — повтор. Всего до 6 попыток на обложку.
-const sendToStorage = async (cover, batch) => {
-    const photo = await readFile(path.join(OUT, cover.file))
+const sendToStorage = async (photo, cover, batch, token) => {
     for (let attempt = 1; ; attempt++) {
         const form = new FormData()
         form.append('chat_id', requireEnv('TELEGRAM_MEDIA_STORAGE_CHAT_ID'))
         form.append('caption', `Обложка /g · ${cover.screen} #${cover.variant} · ${batch}`)
         form.append('disable_notification', 'true')
-        form.append('photo', new Blob([photo], {type: 'image/jpeg'}), cover.file)
+        form.append('photo', new Blob([photo], {type: 'image/jpeg'}), `${cover.screen}-${cover.variant}.jpg`)
         let body = null
         let retryAfter = 5 * attempt
         try {
-            const response = await fetch(`${TELEGRAM_API}/bot${requireEnv('TELEGRAM_TOKEN')}/sendPhoto`,
+            const response = await fetch(`${TELEGRAM_API}/bot${token}/sendPhoto`,
                 {method: 'POST', body: form, signal: AbortSignal.timeout(60_000)})
             body = await response.json().catch(() => ({ok: false, error_code: response.status, description: `HTTP ${response.status}`}))
         } catch (error) {
@@ -216,6 +223,15 @@ const sendToStorage = async (cover, batch) => {
     }
 }
 
+/** Скачать файл по file_id от имени бота-владельца. */
+const downloadFile = async (fileId, token) => {
+    const info = await (await fetch(`${TELEGRAM_API}/bot${token}/getFile?file_id=${encodeURIComponent(fileId)}`)).json()
+    if (!info.ok) throw new Error(`Telegram getFile failed: ${info.description}`)
+    const response = await fetch(`${TELEGRAM_API}/file/bot${token}/${info.result.file_path}`, {signal: AbortSignal.timeout(60_000)})
+    if (!response.ok) throw new Error(`Telegram file download ${response.status}`)
+    return Buffer.from(await response.arrayBuffer())
+}
+
 const supabase = async (method, query, body) => {
     const key = requireEnv('SUPABASE_SERVICE_ROLE_KEY')
     const response = await fetch(`${requireEnv('SUPABASE_URL').replace(/\/$/, '')}/rest/v1/collection_covers${query}`, {
@@ -226,10 +242,36 @@ const supabase = async (method, query, body) => {
         ...(body ? {body: JSON.stringify(body)} : {})
     })
     if (!response.ok) throw new Error(`Supabase ${method} collection_covers ${response.status}: ${await response.text()}`)
+    return method === 'GET' ? response.json() : undefined
+}
+
+const sendDelay = () => sleep(Number(process.env.COVERS_SEND_DELAY_MS ?? 3500))
+
+/**
+ * --mirror-dev: без отрисовки — текущие обложки боевого бота загрузить ещё и от имени тестового
+ * (TELEGRAM_DEV_TOKEN) и заменить ими строки bot = dev.
+ */
+const mirrorDev = async () => {
+    const prodToken = requireEnv('TELEGRAM_TOKEN')
+    const devToken = requireEnv('TELEGRAM_DEV_TOKEN')
+    const rows = await supabase('GET', '?select=batch,screen,variant,file_id,posters,seed&bot=eq.prod&order=screen,variant')
+    if (!rows.length) throw new Error('No prod covers to mirror')
+    const mirrored = []
+    for (const [index, row] of rows.entries()) {
+        if (index) await sendDelay()
+        const photo = await downloadFile(row.file_id, prodToken)
+        mirrored.push({...row, bot: 'dev', file_id: await sendToStorage(photo, row, row.batch, devToken)})
+        console.log(`[COVERS] mirrored ${row.screen} #${row.variant}`)
+    }
+    await supabase('DELETE', '?bot=eq.dev')
+    await supabase('POST', '', mirrored)
+    console.log(`[COVERS] dev covers: ${mirrored.length}`)
 }
 
 // ---------- запуск ----------
 const main = async () => {
+    if (flag('mirror-dev')) return mirrorDev()
+
     await mkdir(path.join(OUT, 'png'), {recursive: true})
     const chrome = await findChrome()
     const ffmpeg = findFfmpeg()
@@ -245,18 +287,25 @@ const main = async () => {
 
     const batch = new Date().toISOString().replace(/[-:]/g, '').slice(0, 13)
     if (PUBLISH) {
-        for (const [index, cover] of covers.entries()) {
-            if (index) await sleep(Number(process.env.COVERS_SEND_DELAY_MS ?? 3500))
-            cover.fileId = await sendToStorage(cover, batch)
-            console.log(`[COVERS] sent ${cover.screen} #${cover.variant}`)
+        const bots = botsToPublish()
+        const rows = []
+        let sent = 0
+        for (const cover of covers) {
+            const photo = await readFile(path.join(OUT, cover.file))
+            for (const {bot, token} of bots) {
+                if (sent++) await sendDelay()
+                rows.push({batch, bot, screen: cover.screen, variant: cover.variant,
+                    file_id: await sendToStorage(photo, cover, batch, token), posters: cover.posters, seed: cover.seed})
+                console.log(`[COVERS] sent ${cover.screen} #${cover.variant} (${bot})`)
+            }
         }
-        await supabase('POST', '', covers.map(cover => ({
-            batch, screen: cover.screen, variant: cover.variant, file_id: cover.fileId, posters: cover.posters, seed: cover.seed
-        })))
-        // Новая партия записана — прошлые больше не нужны (при частичном запуске --screens — только по этим экранам).
+        await supabase('POST', '', rows)
+        // Новая партия записана — прошлые больше не нужны: только у ботов этой партии
+        // (без TELEGRAM_DEV_TOKEN обложки тестового бота остаются) и при --screens — только по этим экранам.
+        const botNames = bots.map(({bot}) => bot).join(',')
         const screensFilter = onlyScreens.length ? `&screen=in.(${screenKeys.join(',')})` : ''
-        await supabase('DELETE', `?batch=neq.${batch}${screensFilter}`)
-        console.log(`[COVERS] published batch ${batch}: ${covers.length} covers`)
+        await supabase('DELETE', `?batch=neq.${batch}&bot=in.(${botNames})${screensFilter}`)
+        console.log(`[COVERS] published batch ${batch}: ${covers.length} covers × ${botNames}`)
     }
 
     await writeFile(path.join(OUT, 'covers.json'), JSON.stringify({batch, published: PUBLISH, posters, covers}, null, 2))
