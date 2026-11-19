@@ -16,6 +16,8 @@ export type RichListOptions = {
     itemButton?: (text: string, index: number) => any
     /** Номер первого элемента в тексте и на кнопках (страницы подборки: 11, 21…). */
     startNumber?: number
+    /** Кнопки только с номерами, столько в ряд (подборки /g: 5). Без него — «1. Название» по одной. */
+    numbersPerRow?: number
 }
 
 export const constructRichListCard = async (
@@ -42,6 +44,6 @@ export const constructRichListCard = async (
     return {
         items,
         caption,
-        keyboard: createRichListKeyboard(items, options.footerRows, options.itemButton, options.startNumber)
+        keyboard: createRichListKeyboard(items, options.footerRows, options.itemButton, options.startNumber, options.numbersPerRow)
     }
 }

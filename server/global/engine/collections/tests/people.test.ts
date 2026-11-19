@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import {test} from 'node:test'
-import {birthdayQuery, displayName, findBirthdays, lifeLabel, monthDay, parseBirthdays} from '#server/global/engine/collections/people/birthdays'
+import {createRichListKeyboard} from '#server/global/engine/card/construct/createRichListKeyboard'
+import {AWARD_LINKS, birthdayQuery, displayName, MIN_LINKS, findBirthdays, lifeLabel, monthDay, parseBirthdays} from '#server/global/engine/collections/people/birthdays'
 import {MAIN_ROLES, personFilms} from '#server/global/engine/collections/people/personTop'
 import {renderWizard} from '#server/bot/actions/collections/wizardView'
 import {emptyState} from '#server/bot/actions/collections/wizardState'
@@ -20,6 +21,28 @@ test('именинники: день по Москве, запрос — точ�
     assert.ok(query.includes('wd:Q668') && query.includes('wd:Q159'))
     const directors = birthdayQuery('director', 'dead', '11-19', 2016)
     assert.ok(directors.includes('wdt:P57') && directors.includes('BOUND(?death)'))
+})
+
+test('именинники: только звёзды — порог статей или номинация в главной категории', () => {
+    const actors = birthdayQuery('actor', 'alive', '11-19', 2016)
+    assert.ok(actors.includes(`FILTER(?links >= ${AWARD_LINKS})`))
+    assert.ok(actors.includes(`?links >= ${MIN_LINKS.actor} || ?lead`))
+    assert.ok(actors.includes('wd:Q96474676') && actors.includes('wd:Q96474691'), 'лучшая главная женская / мужская роль')
+    assert.ok(!actors.includes('wd:Q96474589'), 'роли второго плана не считаются')
+    const directors = birthdayQuery('director', 'alive', '11-19', 2016)
+    assert.ok(directors.includes(`?links >= ${MIN_LINKS.director} || ?lead`) && directors.includes('wd:Q96474679'))
+})
+
+test('подборки /g: кнопки — только номера, по 5 в ряд', () => {
+    const items = Array.from({length: 7}, (_, i) => ({data: {media: {title: `Фильм ${i}`}}, query: {}}))
+    const keyboard = createRichListKeyboard(items, [[{text: 'Назад', callback_data: 'b'}]],
+        (text, index) => ({text, callback_data: `t:${index}`}), 11, 5)
+    assert.deepEqual(keyboard.inline_keyboard.map((row: any[]) => row.map(button => button.text)),
+        [['11', '12', '13', '14', '15'], ['16', '17'], ['Назад']])
+    assert.equal((keyboard.inline_keyboard[1] as any[])[1].callback_data, 't:6')
+    // Без numbersPerRow (старый /g) — «1. Название» по одной.
+    const old = createRichListKeyboard(items.slice(0, 1), [[]], (text, index) => ({text, callback_data: String(index)}))
+    assert.equal((old.inline_keyboard[0] as any[])[0].text, '1. Фильм 0')
 })
 
 test('именинники: разбор ответа — русское имя, дубли, не больше 10', () => {

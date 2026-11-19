@@ -4,8 +4,13 @@
  *
  * Wikidata знает дату рождения (P569), ID в TMDB (P4985) и русское имя. Поиск по дню и месяцу
  * у Wikidata упирается в таймаут, поэтому даты перечисляются явно по годам (поиск по индексу).
- * Известность — число статей в Википедиях (sitelinks). Шум (ведущие, певцы, снявшиеся
- * эпизодически) отсекается порогом фильмов: в ролях (P161) не меньше 10, режиссёр (P57) — 4.
+ * Известность — число статей в Википедиях (sitelinks): в список попадают только звёзды —
+ * от 50 статей у актёров (40 у режиссёров) или от 30, если есть номинация или награда в главной
+ * категории (лучшая главная роль / лучшая режиссура: «Оскар», BAFTA, «Сезар», Венеция…).
+ * Живая проверка 19.11: при пороге 15 в десятку попадали Джейсон Скотт Ли, Кэтлин Куинлан,
+ * Роберт Бельтран — актёры вторых ролей. Лучше меньше 10, чем добивать неизвестными.
+ * Шум (ведущие, певцы, снявшиеся эпизодически) отсекается порогом фильмов: в ролях (P161)
+ * не меньше 10, режиссёр (P57) — 4.
  * Индия и Россия исключены по гражданству — как фильмы этих стран в подборках.
  */
 
@@ -35,6 +40,14 @@ const OCCUPATIONS: Record<PersonRole, string[]> = {
     director: ['wd:Q2526255']
 }
 const MIN_FILMS: Record<PersonRole, number> = {actor: 10, director: 4}
+/** Порог известности (статей в Википедиях); с номинацией в главной категории — AWARD_LINKS. */
+export const MIN_LINKS: Record<PersonRole, number> = {actor: 50, director: 40}
+export const AWARD_LINKS = 30
+/** Классы наград Wikidata: «лучшая главная женская / мужская роль»; «лучшая режиссура». */
+const LEAD_AWARDS: Record<PersonRole, string[]> = {
+    actor: ['wd:Q96474676', 'wd:Q96474691'],
+    director: ['wd:Q96474679']
+}
 /** Гражданство: Индия, Россия. */
 const EXCLUDED_CITIZENSHIP = ['wd:Q668', 'wd:Q159']
 /**
@@ -60,7 +73,7 @@ export const birthdayQuery = (role: PersonRole, life: PersonLife, day: string, l
     return `SELECT ?tmdb ?ru ?en ?birth ?death ?links (COUNT(DISTINCT ?film) AS ?films) (SAMPLE(?image) AS ?img) WHERE {
   VALUES ?birth { ${dates.join(' ')} }
   ?p wdt:P569 ?birth; wdt:P4985 ?tmdb; wikibase:sitelinks ?links.
-  FILTER(?links >= 15)
+  FILTER(?links >= ${AWARD_LINKS})
   FILTER EXISTS { VALUES ?occ { ${OCCUPATIONS[role].join(' ')} } ?p wdt:P106 ?occ }
   FILTER NOT EXISTS { VALUES ?country { ${EXCLUDED_CITIZENSHIP.join(' ')} } ?p wdt:P27 ?country }
   FILTER NOT EXISTS { VALUES ?other { ${EXCLUDED_OCCUPATIONS.join(' ')} } ?p wdt:P106 ?other }
@@ -69,8 +82,9 @@ export const birthdayQuery = (role: PersonRole, life: PersonLife, day: string, l
   OPTIONAL { ?p rdfs:label ?ru FILTER(LANG(?ru) = "ru") }
   OPTIONAL { ?p rdfs:label ?en FILTER(LANG(?en) = "en") }
   OPTIONAL { ?p wdt:P18 ?image }
-} GROUP BY ?tmdb ?ru ?en ?birth ?death ?links
-HAVING(COUNT(DISTINCT ?film) >= ${MIN_FILMS[role]})
+  BIND(EXISTS { VALUES ?awardClass { ${LEAD_AWARDS[role].join(' ')} } { ?p wdt:P1411 ?award } UNION { ?p wdt:P166 ?award } ?award wdt:P31 ?awardClass } AS ?lead)
+} GROUP BY ?tmdb ?ru ?en ?birth ?death ?links ?lead
+HAVING(COUNT(DISTINCT ?film) >= ${MIN_FILMS[role]} && (?links >= ${MIN_LINKS[role]} || ?lead))
 ORDER BY DESC(?links) LIMIT ${LIMIT * 3}`
 }
 

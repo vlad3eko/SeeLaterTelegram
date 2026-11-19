@@ -26,10 +26,12 @@ export const createRichListKeyboard = (
     items: any[],
     footerRows?: any[][],
     itemButton?: (text: string, index: number) => any,
-    startNumber = 1
+    startNumber = 1,
+    numbersPerRow?: number
 ) => {
 
-    const rows = items
+    // Подборки /g: на кнопках только номера («1», «2»…), по numbersPerRow в ряд — названия есть в списке.
+    const rows: any[][] = numbersPerRow ? [] : items
         .map((item: any, index: number) => {
                 const title = truncate(getTitle(item), 34)
                 const number = startNumber + index
@@ -41,6 +43,13 @@ export const createRichListKeyboard = (
                 ]
             }
         )
+    if (numbersPerRow) {
+        const buttons = items.map((item: any, index: number) => {
+            const text = String(startNumber + index)
+            return itemButton ? itemButton(text, index) : contentListCardButton(text, item.query)
+        })
+        for (let i = 0; i < buttons.length; i += numbersPerRow) rows.push(buttons.slice(i, i + numbersPerRow))
+    }
 
     if (footerRows?.length) {
         rows.push(...footerRows)

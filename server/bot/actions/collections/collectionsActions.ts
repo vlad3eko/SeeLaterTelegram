@@ -555,8 +555,9 @@ const showCollection = async (ctx: any, row: WizardRow, collection: CollectionRo
                     : bundle ? `${bundle.emoji} ${bundle.title}` : undefined),
         footerRows,
         tvDate: tvDateFor(collection.params.section),
-        itemButton: (text, index) => btn(text, 't', String(index)),
-        startNumber: page * COLLECTION_SIZE + 1
+        itemButton: (text, index) => btn(text, 't', String(index), 'success'),
+        startNumber: page * COLLECTION_SIZE + 1,
+        numbersPerRow: 5
     })
     // Под заголовком «Топ-10»: путь со ссылками, отметки фильтра, пояснение.
     caption.blocks.splice(1, 0, ...richBlocks(similar
