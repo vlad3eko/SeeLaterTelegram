@@ -2,6 +2,7 @@
 import {Markup} from "telegraf";
 import {
     checkBookmarksMedias,
+    deleteMediaButtonBot,
     mediaCast, mediaPersonFirstJob, mediaPersonSecondJob, recommendationButtonBot,
     SaveMediaButtonBot,
     SearchButtonBot, startButtonBot
@@ -44,11 +45,16 @@ export const keyboardSendMediaCardInline = (
     if (mediaType === 'person')
         return
 
-    // Четыре кнопки в два ряда (решение владельца 20.11): «Коллекция» и «Удалить» убраны.
+    // Четыре кнопки в два ряда (решение владельца 20.11), «Коллекция» убрана. «Удалить» — только
+    // вне канала: это единственный способ убрать тайтл из сохранённого.
     const keyboard = [
         [SaveMediaButtonBot(mediaId, mediaType, ButtonContext, saveCount), recommendationButtonBot(contentType, ButtonContext, mediaId, mediaType)],
         [mediaCast(mediaId, mediaType, contentType, ButtonContext), SearchButtonBot('Поиск', ButtonContext)]
     ]
+
+    if (ButtonContext !== 'channel') {
+        keyboard.push([deleteMediaButtonBot(mediaId, mediaType)])
+    }
 
     if (admin) {
         keyboard.push(
