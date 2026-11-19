@@ -1,18 +1,23 @@
+import {createMemo} from '#server/global/engine/collections/memo'
+
 /**
- * Запрос к TMDB API v3 (Bearer TMDB_API_KEY) с повтором при 429 и кэшем в памяти на 30 минут:
- * счётчики на экране периода и сборка топа ходят за одними и теми же страницами discover и
- * карточками сериалов — второй раз это уже из памяти.
+ * Запрос к TMDB API v3 (Bearer TMDB_API_KEY) с повтором при 429 и кэшем в памяти.
+ * Выдачи (discover, trending, search) меняются в течение дня — 30 минут; карточки тайтлов
+ * и людей, ключевые слова, видео, рекомендации почти не меняются — 6 часов. Одинаковые запросы,
+ * пришедшие одновременно (счётчики периодов параллельно со сборкой), идут в TMDB один раз.
  */
 
-const CACHE_TTL_MS = 30 * 60_000
+const LIST_TTL_MS = 30 * 60_000
+const CARD_TTL_MS = 6 * 60 * 60_000
 const CACHE_MAX_ENTRIES = 3000
 
-const cache = new Map<string, {at: number, data: unknown}>()
+const memo = createMemo<unknown>({maxEntries: CACHE_MAX_ENTRIES})
 
-export const tmdbGet = async <T = Record<string, any>>(pathAndQuery: string): Promise<T> => {
-    const cached = cache.get(pathAndQuery)
-    if (cached && Date.now() - cached.at < CACHE_TTL_MS) return cached.data as T
+/** Срок кэша по адресу: выдачи — 30 минут, остальное — 6 часов. */
+export const tmdbTtl = (pathAndQuery: string) =>
+    /^(discover|trending|search)\//.test(pathAndQuery) ? LIST_TTL_MS : CARD_TTL_MS
 
+const fetchTmdb = async (pathAndQuery: string): Promise<unknown> => {
     const apiKey = process.env.TMDB_API_KEY?.trim()
     if (!apiKey) throw new Error('[COLLECTIONS] TMDB_API_KEY is missing')
 
@@ -26,14 +31,13 @@ export const tmdbGet = async <T = Record<string, any>>(pathAndQuery: string): Pr
             continue
         }
         if (!response.ok) throw new Error(`[COLLECTIONS] TMDB ${response.status}: ${pathAndQuery.split('?')[0]}`)
-        const data = await response.json() as T
-
-        if (cache.size >= CACHE_MAX_ENTRIES) cache.delete(cache.keys().next().value!)
-        cache.set(pathAndQuery, {at: Date.now(), data})
-        return data
+        return response.json()
     }
     throw new Error(`[COLLECTIONS] TMDB 429: ${pathAndQuery.split('?')[0]}`)
 }
+
+export const tmdbGet = async <T = Record<string, any>>(pathAndQuery: string): Promise<T> =>
+    await memo.get(pathAndQuery, tmdbTtl(pathAndQuery), () => fetchTmdb(pathAndQuery)) as T
 
 /** Параллельно, но не больше limit запросов одновременно. */
 export const mapLimit = async <T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> => {

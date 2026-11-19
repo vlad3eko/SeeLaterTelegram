@@ -18,7 +18,29 @@ import {findTrailers, pickTrailer, rememberTrailers, type Trailer} from '#server
 import {fitsShelf, type Shelf, shelfByKey, type ShelfKey, shelfQuery, SHELVES} from '#server/global/engine/collections/shelves'
 import {type Bundle, bundleByKey, bundleFits, bundlesFor, rubricOf} from '#server/global/engine/collections/bundles'
 import {bundleMatches, bundleQuery, bundleScore, meanRating} from '#server/global/engine/collections/bundleRules'
-import {getBundleStore, type RunRow, type VerdictRow} from '#server/global/engine/collections/judge/store'
+import {getBundleStore, SupabaseBundleStore, type RunRow, type VerdictRow} from '#server/global/engine/collections/judge/store'
+import {createMemo} from '#server/global/engine/collections/memo'
+
+/**
+ * Вердикты и расчёты судьи бот только читает (пишет их скрипт в GitHub Actions), а нужны они
+ * на каждом показе экрана «Подборка» / «🧩 Связки» и сборке связки — у Supabase читаем не чаще
+ * раза в 5 минут. Файловое и тестовое хранилища — без кэша (их меняют прямо в процессе).
+ */
+const STORE_READ_TTL_MS = 5 * 60_000
+const verdictsMemo = createMemo<VerdictRow[]>({maxEntries: 200})
+const runsMemo = createMemo<RunRow[]>({maxEntries: 4})
+
+const storeVerdicts = async (bundleKey: string, version: number): Promise<VerdictRow[]> => {
+    const store = await getBundleStore()
+    if (!(store instanceof SupabaseBundleStore)) return store.verdicts(bundleKey, version)
+    return verdictsMemo.get(`${bundleKey}:${version}`, STORE_READ_TTL_MS, () => store.verdicts(bundleKey, version))
+}
+
+const storeRuns = async (): Promise<RunRow[]> => {
+    const store = await getBundleStore()
+    if (!(store instanceof SupabaseBundleStore)) return store.runs()
+    return runsMemo.get('all', STORE_READ_TTL_MS, () => store.runs())
+}
 
 /**
  * Сборка топа (правки владельца 18.11, см. TASKS.md):
@@ -386,8 +408,7 @@ const verdictKey = (mediaType: string, id: number) => `${mediaType}:${id}`
 /** Вердикты судьи по связке (текущая версия рубрики). Хранилище недоступно — пусто. */
 export const bundleVerdicts = async (bundle: Bundle): Promise<Map<string, VerdictRow>> => {
     try {
-        const store = await getBundleStore()
-        const rows = await store.verdicts(bundle.key, rubricOf(bundle).version)
+        const rows = await storeVerdicts(bundle.key, rubricOf(bundle).version)
         return new Map(rows.map(row => [verdictKey(row.media_type, Number(row.media_id)), row]))
     } catch (error) {
         console.warn('[COLLECTIONS] Bundle verdicts unavailable', bundle.key, error instanceof Error ? error.message : error)
@@ -676,7 +697,15 @@ const countWithTrailers = async (mediaType: 'movie' | 'tv', candidates: Candidat
  * Без картинок и карточек. С несколькими условиями — как в топе: «И», если его мало — плюс «ИЛИ».
  * capped — проверили не всё (кнопка покажет «40+»).
  */
-export const countCollection = async (params: CollectionParams): Promise<{count: number, capped: boolean}> => {
+export const countCollection = (params: CollectionParams): Promise<{count: number, capped: boolean}> =>
+    // Один и тот же выбор (вернулись в меню, открыли /g заново) — без повторного подсчёта 10 минут;
+    // в ключе день: границы периодов считаются от сегодняшней даты.
+    countMemo.get(`${new Date().toISOString().slice(0, 10)}:${JSON.stringify(params)}`, COUNT_TTL_MS, () => countFresh(params))
+
+const COUNT_TTL_MS = 10 * 60_000
+const countMemo = createMemo<{count: number, capped: boolean}>({maxEntries: 500})
+
+const countFresh = async (params: CollectionParams): Promise<{count: number, capped: boolean}> => {
     const section = SECTIONS[params.section]
     if (!section) return {count: 0, capped: false}
     const and = await collectCandidates({...params, match: 'and'})
@@ -702,7 +731,7 @@ export const availableBundles = async (shelfKey: ShelfKey, section: SectionKey):
     // Последний завершённый расчёт по каждой связке.
     const lastDone = new Map<string, RunRow>()
     try {
-        for (const run of await (await getBundleStore()).runs()) {
+        for (const run of await storeRuns()) {
             if (run.status !== 'done') continue
             const at = run.finished_at ?? run.created_at
             const prev = lastDone.get(run.bundle_key)

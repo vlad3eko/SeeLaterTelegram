@@ -191,10 +191,3 @@ export const buildDossier = async (mediaType: MediaType, id: number, {wiki = tru
 
     return {mediaType, id, title, originalTitle, ...(date ? {year: Number(date.slice(0, 4))} : {}), sources}
 }
-
-/** Хватает ли досье для суда по финалу / сюжету (иначе судья скажет insufficient). */
-export const dossierStrength = (dossier: Dossier) => {
-    const plot = dossier.sources.filter(source => source.id.startsWith('wiki_')).reduce((sum, source) => sum + source.text.length, 0)
-    const overview = dossier.sources.filter(source => source.id.startsWith('tmdb_overview')).reduce((sum, source) => sum + source.text.length, 0)
-    return {plot, overview, hasPlot: plot >= 400}
-}

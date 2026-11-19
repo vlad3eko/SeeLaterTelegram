@@ -52,8 +52,6 @@ export const SHELVES: Record<ShelfKey, Shelf> = {
     donghua_series: {key: 'donghua_series', mediaType: 'tv', label: 'Дунхуа-сериалы', animation: true, origins: ['mainland_china'], originCountry: 'CN', contentType: 'cartoonSeries', knownVotes: 20}
 }
 
-export const SHELF_KEYS = Object.keys(SHELVES) as ShelfKey[]
-
 export const shelfByKey = (key: string | undefined): Shelf | undefined =>
     key && key in SHELVES ? SHELVES[key as ShelfKey] : undefined
 
@@ -144,15 +142,3 @@ export const shelfQuery = (shelf: Shelf): Record<string, string> => ({
     ...(shelf.animation ? {with_genres: String(ANIMATION_GENRE)} : {}),
     ...(shelf.originCountry ? {with_origin_country: shelf.originCountry} : {})
 })
-
-/** Полка по разделу меню (группе) и типу: группа «Аниме» → фильмы или сериалы. */
-export type ShelfGroup = 'movies' | 'series' | 'cartoons' | 'cseries' | 'anime' | 'donghua'
-
-export const GROUP_SHELVES: Record<ShelfGroup, ShelfKey[]> = {
-    movies: ['movie'],
-    series: ['series'],
-    cartoons: ['animated_movie'],
-    cseries: ['animated_series'],
-    anime: ['anime_movie', 'anime_series'],
-    donghua: ['donghua_movie', 'donghua_series']
-}

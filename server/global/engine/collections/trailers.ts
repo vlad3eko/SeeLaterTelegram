@@ -39,6 +39,16 @@ export const pickTrailer = (videos: Video[]): Trailer | null => {
 
 let cacheBroken = false
 
+/**
+ * Таблицы media_trailers нет (до миграции collections.sql) — кэш выключается до перезапуска.
+ * Разовый сбой сети или базы его не выключает: иначе до перезапуска все трейлеры шли бы в TMDB.
+ */
+export const isMissingTable = (error: unknown) => {
+    const code = String((error as any)?.code ?? '')
+    const message = String((error as any)?.message ?? error ?? '')
+    return code === '42P01' || code === 'PGRST205' || /does not exist|could not find the table/i.test(message)
+}
+
 const readCache = async (mediaType: MediaType, ids: number[]) => {
     if (cacheBroken || !ids.length) return new Map<number, Trailer | null>()
     try {
@@ -61,9 +71,8 @@ const readCache = async (mediaType: MediaType, ids: number[]) => {
         }
         return cache
     } catch (error) {
-        // До миграции collections.sql таблицы нет: работаем без кэша.
-        cacheBroken = true
-        console.warn('[COLLECTIONS] Trailer cache unavailable', error instanceof Error ? error.message : error)
+        if (isMissingTable(error)) cacheBroken = true
+        console.warn('[COLLECTIONS] Trailer cache unavailable', (error as any)?.message ?? error)
         return new Map<number, Trailer | null>()
     }
 }
@@ -74,18 +83,24 @@ export const rememberTrailers = (mediaType: MediaType, results: Array<[number, T
 
 const writeCache = async (mediaType: MediaType, results: Array<[number, Trailer | null]>) => {
     if (cacheBroken || !results.length) return
-    const {error} = await getSupabase()
-        .from('media_trailers')
-        .upsert(results.map(([id, trailer]) => ({
-            media_type: mediaType,
-            media_id: id,
-            video_key: trailer?.key ?? null,
-            language: trailer?.language ?? null,
-            video_type: trailer?.type ?? null,
-            name: trailer?.name ?? null,
-            checked_at: new Date().toISOString()
-        })), {onConflict: 'media_type,media_id'})
-    if (error) console.warn('[COLLECTIONS] Trailer cache write failed', error.message)
+    // Запись кэша — не главное: её сбой не должен ронять сборку подборки.
+    try {
+        const {error} = await getSupabase()
+            .from('media_trailers')
+            .upsert(results.map(([id, trailer]) => ({
+                media_type: mediaType,
+                media_id: id,
+                video_key: trailer?.key ?? null,
+                language: trailer?.language ?? null,
+                video_type: trailer?.type ?? null,
+                name: trailer?.name ?? null,
+                checked_at: new Date().toISOString()
+            })), {onConflict: 'media_type,media_id'})
+        if (error) throw error
+    } catch (error) {
+        if (isMissingTable(error)) cacheBroken = true
+        console.warn('[COLLECTIONS] Trailer cache write failed', (error as any)?.message ?? error)
+    }
 }
 
 /** Трейлеры для пачки тайтлов (из кэша или TMDB). */

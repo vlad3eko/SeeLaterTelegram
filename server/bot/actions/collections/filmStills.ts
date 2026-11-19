@@ -16,14 +16,38 @@ export type StillFilm = {id: number, title?: string, original_title?: string, ye
 
 // still2: кадры 1280×720 (до 19.11 — как нашлись, разного размера; старые записи не берём).
 const cacheKeyOf = (personId: number, filmId: number) => `person_${personId}_still2_${filmId}`
-/** Где уже искали и не нашли — до перезапуска сервера не ищем снова (бережём бесплатные запросы). */
-const notFound = new Set<string>()
+/**
+ * «Искали — подходящего кадра нет»: запоминается в той же таблице (переживает перезапуск сервера),
+ * чтобы не тратить на этот фильм бесплатные запросы Brave снова. Сбой поиска так не помечается.
+ */
+export const NO_STILL = 'none'
+/**
+ * Уже известные ответы (file_id или NO_STILL) — в памяти: каждый показ подборки (возврат из
+ * карточки, листание страниц) иначе читал бы 10 строк из базы.
+ */
+const known = new Map<string, string>()
+const KNOWN_MAX = 3000
+const remember = (key: string, value: string) => {
+    if (known.size >= KNOWN_MAX) known.delete(known.keys().next().value!)
+    known.set(key, value)
+}
+/** Ответ кэша: file_id, NO_STILL или undefined (ещё не искали). */
+const lookup = async (key: string): Promise<string | undefined> => {
+    const inMemory = known.get(key)
+    if (inMemory) return inMemory
+    const saved = await getTelegramMediaCache(key).catch(() => null)
+    if (saved) remember(key, saved)
+    return saved ?? undefined
+}
+const save = async (key: string, value: string) => {
+    remember(key, value)
+    await setTelegramMediaCache(key, value).catch(() => undefined)
+}
 
 const stillFor = async (ctx: any, person: BirthdayPerson, film: StillFilm): Promise<string | undefined> => {
     const key = cacheKeyOf(person.id, film.id)
-    const cached = await getTelegramMediaCache(key).catch(() => null)
-    if (cached) return cached
-    if (notFound.has(key)) return undefined
+    const cached = await lookup(key)
+    if (cached) return cached === NO_STILL ? undefined : cached
     const title = film.original_title || film.title
     if (!title) return undefined
 
@@ -32,16 +56,12 @@ const stillFor = async (ctx: any, person: BirthdayPerson, film: StillFilm): Prom
         const fileId = await findStill(film.original_title ? person.en ?? person.name : person.name, title, film.year,
             urls => uploadFirst(ctx, film, urls),
             {character: film.original_title ? film.character : undefined})
-        if (fileId) {
-            await setTelegramMediaCache(key, fileId).catch(() => undefined)
-            return fileId
-        }
+        await save(key, fileId ?? NO_STILL)
+        return fileId
     } catch (error) {
         console.warn('[COLLECTIONS] Still search failed', {person: person.id, film: film.id, error: error instanceof Error ? error.message : error})
         return undefined
     }
-    notFound.add(key)
-    return undefined
 }
 
 /** Первая подходящая картинка из ссылок → 1280×720 → служебный канал → file_id. */

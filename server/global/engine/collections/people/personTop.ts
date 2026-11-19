@@ -76,7 +76,7 @@ export const buildPersonTop = async (
     personId: number,
     role: PersonRole,
     {size = 10}: {size?: number} = {}
-): Promise<{items: PersonTopItem[], rest: Array<{id: number, score: number}>}> => {
+): Promise<{items: PersonTopItem[], rest: PersonFilm[]}> => {
     const credits = await tmdbGet<{cast?: Raw[], crew?: Raw[]}>(`person/${personId}/movie_credits?language=ru-RU`)
     const films = personFilms(credits, role)
 
@@ -93,6 +93,7 @@ export const buildPersonTop = async (
         }
     }
     const used = new Set(items.map(item => item.id))
-    const rest = films.slice(cursor).filter(film => !used.has(film.id)).map(film => ({id: film.id, score: film.score}))
+    // В остатке — и названия с персонажем: на следующих страницах по ним ищутся кадры с актёром.
+    const rest = films.slice(cursor).filter(film => !used.has(film.id))
     return {items, rest}
 }

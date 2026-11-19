@@ -113,14 +113,24 @@ type SimilarParams = {similar?: {media_type: 'movie' | 'tv', id: number, title: 
 /** «Именинники дня»: подборка лучших фильмов человека. */
 type PersonParams = {person?: {id: number, name: string, en?: string, role: PersonRole, born: number, died?: number}}
 
+/** Кандидат на «Ещё вариант»; у подборки именинника — с названиями и персонажем (кадры с актёром). */
+type CandidateRecord = {id: number, score: number} & Partial<Pick<CollectionRecord, 'title' | 'year' | 'original_title' | 'character'>>
+
 type CollectionRow = {
     id: string
     telegram_id: number
     params: CollectionParams & {match?: 'and' | 'or'} & SimilarParams & PersonParams
     items: CollectionRecord[]
-    candidates: Array<{id: number, score: number}>
+    candidates: CandidateRecord[]
     page: number
 }
+
+/**
+ * Долгие действия (сборка, «Ещё вариант», поиск именинников) — по одному на пользователя:
+ * повторное нажатие, пока идёт сборка, не запускает вторую (лишние запросы TMDB и Brave).
+ */
+const busy = new Set<number>()
+const LONG_ACTIONS = new Set(['p', 'pp', 'ps', 'more', 'sim'])
 
 const paramsFor = (state: WizardState, period: PeriodKey): CollectionParams | null => {
     if (!state.section || !state.criterion) return null
@@ -657,7 +667,7 @@ const showMore = async (ctx: any, row: WizardRow) => {
 
     await safeAnswer(ctx, 'Ищу следующие…')
 
-    const picked: Array<{id: number, score: number, trailer: any}> = []
+    const picked: Array<CandidateRecord & {trailer: any}> = []
     // consumed — сколько кандидатов просмотрено; остальные (включая хвост последней пачки,
     // если десятка набралась посередине) остаются на следующую страницу.
     let consumed = 0
@@ -682,14 +692,13 @@ const showMore = async (ctx: any, row: WizardRow) => {
         ...collection,
         page,
         candidates: rest.slice(consumed),
-        items: [...collection.items, ...picked.map((entry, index) => ({
+        items: [...collection.items, ...picked.map(({trailer, ...entry}, index) => ({
+            ...entry,
             rank: page * COLLECTION_SIZE + index + 1,
             media_type: mediaType!,
             content_type: contentType!,
-            id: entry.id,
-            score: entry.score,
-            trailer_key: entry.trailer.key,
-            trailer_language: entry.trailer.language
+            trailer_key: trailer.key,
+            trailer_language: trailer.language
         }))]
     }
 
@@ -820,7 +829,14 @@ const showPersonTop = async (ctx: any, row: WizardRow, index: number) => {
                 trailer_key: item.trailer.key,
                 trailer_language: item.trailer.language
             })),
-            candidates: result.rest,
+            candidates: result.rest.map(film => ({
+                id: film.id,
+                score: film.score,
+                title: film.title,
+                ...(film.year ? {year: film.year} : {}),
+                ...(film.original_title ? {original_title: film.original_title} : {}),
+                ...(film.character ? {character: film.character} : {})
+            })),
             page: 0
         })
         .select('id,telegram_id,params,items,candidates,page')
@@ -841,11 +857,15 @@ export const collectionAction = async (ctx: any) => {
     }
 
     const {action, arg} = COLLECTION_ACTION.parse(ctx)
+    let row: WizardRow | undefined
+    const long = LONG_ACTIONS.has(action)
+    if (long && busy.has(telegramId)) return safeAnswer(ctx, 'Уже собираю — подождите пару секунд.')
+    if (long) busy.add(telegramId)
 
     try {
         if (action === 'noop') return safeAnswer(ctx)
 
-        const row = await loadWizard(telegramId)
+        row = await loadWizard(telegramId)
         const pressed = ctx.callbackQuery?.message
         // Кнопка из старого сообщения (до последнего /g) — не трогаем текущее меню.
         if (pressed && row.messageId && pressed.message_id !== row.messageId) {
@@ -1055,5 +1075,11 @@ export const collectionAction = async (ctx: any) => {
     } catch (error) {
         console.error('[COLLECTIONS ACTION ERROR]', {action, arg, message: error instanceof Error ? error.message : error})
         await safeAnswer(ctx, 'Не получилось — попробуйте ещё раз.', true)
+        // Сборка упала посреди «⏳ Ищу…» — вернуть меню с пояснением, а не оставить вечную загрузку.
+        if (row && row.state.screen !== 'result' && row.state.screen !== 'title') {
+            await showWizard(ctx, row, {note: '😕 Не получилось собрать — попробуйте ещё раз.'}).catch(() => undefined)
+        }
+    } finally {
+        if (long) busy.delete(telegramId)
     }
 }
