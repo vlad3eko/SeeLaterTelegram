@@ -331,12 +331,23 @@ export const squareSubtitleOverrides: SubtitleConfigOverrides = {
  * the canvas squeezed to the same shape (720x576), so the letters keep their
  * pixel size on the 1080 px wide frame. Baselines stay relative (53% and 56% of
  * the height, generate-ass.ts scales them by height / 1920).
+ *
+ * Row baselines are set apart: generate-ass.ts scales them by height / 1920, so
+ * the square values (1020/1070) give only ~22 px between rows on 864 px, less
+ * than the cap height (~25 px), and the lower row ran into the upper one.
+ * 1005/1090 put the rows at y≈452 and y≈490 (~38 px apart, ~13 px clear gap),
+ * the pair stays centred where it was.
  */
 export const landscapeSubtitleOverrides: SubtitleConfigOverrides = {
     ...squareSubtitleOverrides,
     canvas: {
         baseWidth: 720,
         baseHeight: 576,
+    },
+    typography: {
+        ...squareSubtitleOverrides.typography,
+        topLineBaselineAt1080: 1005,
+        bottomLineBaselineAt1080: 1090,
     },
 };
 
