@@ -40,7 +40,7 @@ const server = http.createServer((request, response) => {
     request.on('end', async () => {
         if (response.writableEnded) return
         try {
-            const upstream = await fetch(`${TARGET}/api/bot/reelJobs/finalize`, {
+            const upstream = await fetch(`${TARGET}${path}`, {
                 method: 'POST',
                 headers: {'content-type': request.headers['content-type'] ?? 'application/json'},
                 body: Buffer.concat(chunks)
@@ -57,5 +57,5 @@ const server = http.createServer((request, response) => {
 })
 
 server.listen(LISTEN_PORT, '127.0.0.1', () => {
-    console.log(`[DEV FINALIZER PROXY] 127.0.0.1:${LISTEN_PORT} -> ${TARGET} (only POST ${ALLOWED_PATH})`)
+    console.log(`[DEV FINALIZER PROXY] 127.0.0.1:${LISTEN_PORT} -> ${TARGET} (only POST ${[...ALLOWED_PATHS].join(', ')})`)
 })
