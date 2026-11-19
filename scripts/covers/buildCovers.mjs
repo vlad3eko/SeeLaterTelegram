@@ -1,6 +1,6 @@
 // Обложки экранов мастера подборок /g.
 //
-//   node --env-file=.env scripts/covers/buildCovers.mjs [--out dir] [--variants 3] [--screens home,root] [--publish]
+//   node --env-file=.env scripts/covers/buildCovers.mjs [--out dir] [--variants 3] [--screens home,root] [--publish] [--bot dev|prod]
 //
 // 1. Берёт из TMDB актуальные постеры под каждый экран (тренды, популярные сериалы, премьеры…).
 // 2. Рисует шаблон scripts/covers/template.html в Chrome без окна: --variants вариантов на экран,
@@ -239,10 +239,17 @@ const TELEGRAM_API = (process.env.TELEGRAM_API_URL || 'https://api.telegram.org'
 // file_id в Telegram принадлежит боту, который загрузил файл: чужие file_id бот показывать не обязан
 // (19.11.2026 тестовый бот перестал принимать обложки боевого). Поэтому каждая обложка загружается
 // от имени каждого бота: prod — TELEGRAM_TOKEN, dev — TELEGRAM_DEV_TOKEN, если он задан.
-const botsToPublish = () => [
-    {bot: 'prod', token: requireEnv('TELEGRAM_TOKEN')},
-    ...(process.env.TELEGRAM_DEV_TOKEN?.trim() ? [{bot: 'dev', token: process.env.TELEGRAM_DEV_TOKEN.trim()}] : [])
-]
+// --bot dev — только тестовый бот (проверить новые обложки, не трогая боевые строки).
+const ONLY_BOT = option('bot', '')
+const botsToPublish = () => {
+    if (ONLY_BOT === 'dev') return [{bot: 'dev', token: requireEnv('TELEGRAM_DEV_TOKEN')}]
+    if (ONLY_BOT === 'prod') return [{bot: 'prod', token: requireEnv('TELEGRAM_TOKEN')}]
+    if (ONLY_BOT) throw new Error(`Unknown --bot: ${ONLY_BOT}`)
+    return [
+        {bot: 'prod', token: requireEnv('TELEGRAM_TOKEN')},
+        ...(process.env.TELEGRAM_DEV_TOKEN?.trim() ? [{bot: 'dev', token: process.env.TELEGRAM_DEV_TOKEN.trim()}] : [])
+    ]
+}
 
 // В канал Telegram пускает ~20 сообщений в минуту: между отправками пауза, на 429 — ждём сколько
 // велено (retry_after), на сбой сети или 5xx — повтор. Всего до 6 попыток на обложку.
