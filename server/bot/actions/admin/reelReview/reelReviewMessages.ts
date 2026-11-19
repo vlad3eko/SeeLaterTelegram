@@ -91,16 +91,55 @@ export const sendReelReviewStatus = async (
     }
 }
 
-const sendCleanReview = async (job: ReelReviewJob): Promise<number> => {
-    const bot = await getBot()
-    const chatId = adminChatId(job)
+/** Выбранный фрагмент нарезки (у трейлера — нет). */
+const chosenFragment = (job: ReelReviewJob) => {
     const clip = job.input_payload?.videoType === 'clip' && readFragments(job).length > 0
     const chosen = job.input_payload?.fragment as {start?: number, end?: number, title?: string} | null | undefined
-    const hasChosen = clip && chosen && Number.isFinite(chosen.start) && Number.isFinite(chosen.end)
+    return clip && chosen && Number.isFinite(chosen.start) && Number.isFinite(chosen.end)
+        ? chosen as {start: number, end: number, title?: string}
+        : undefined
+}
 
-    const lines = hasChosen
+/** «0:12–0:52, «название»» — какой отрывок выбран. */
+const fragmentLabel = (fragment: {start: number, end: number, title?: string}) =>
+    `${formatClock(fragment.start)}–${formatClock(fragment.end)}${fragment.title ? `, «${fragment.title}»` : ''}`
+
+/**
+ * Сообщение проверки: видео clean (выбранный фрагмент) с текстом в подписи. Без превью или если
+ * Telegram не забрал видео по ссылке — текстом со ссылкой.
+ */
+const sendWithPreview = async (job: ReelReviewJob, caption: string, replyMarkup: any): Promise<number> => {
+    const bot = await getBot()
+    const chatId = adminChatId(job)
+    const previewUrl = String(job.clean_preview_r2_url ?? '').trim()
+
+    if (previewUrl) {
+        try {
+            const message = await bot.telegram.sendVideo(chatId, previewUrl, {
+                caption,
+                supports_streaming: true,
+                reply_markup: replyMarkup
+            })
+            return message.message_id
+        } catch (error: any) {
+            console.error('[REEL REVIEW VIDEO SEND ERROR]', error?.response?.description || error?.message || error)
+        }
+    }
+
+    const message = await bot.telegram.sendMessage(
+        chatId,
+        previewUrl ? `${caption}\n\nВидео: ${previewUrl}` : caption,
+        {reply_markup: replyMarkup}
+    )
+    return message.message_id
+}
+
+const sendCleanReview = async (job: ReelReviewJob): Promise<number> => {
+    const chosen = chosenFragment(job)
+
+    const lines = chosen
         ? [
-            `🎬 Clean для ${titleOf(job)}: ${formatClock(chosen!.start!)}–${formatClock(chosen!.end!)}${chosen!.title ? `, «${chosen!.title}»` : ''}.`,
+            `🎬 Clean для ${titleOf(job)}: ${fragmentLabel(chosen)}.`,
             'Посмотри видео: «Другой фрагмент» вернёт к альбому вариантов, «Сгенерировать хук» перейдёт к выбору хука.',
             REVIEW_HOURS_HINT
         ]
@@ -117,76 +156,52 @@ const sendCleanReview = async (job: ReelReviewJob): Promise<number> => {
         lines.unshift(`⚠️ Прошлый шаг не удался: ${shortError(job.last_error)}`)
     }
 
-    const caption = lines.join('\n\n')
-    const replyMarkup = reelCleanReviewKeyboard(job.id, {clip: Boolean(hasChosen)})
-    const previewUrl = String(job.clean_preview_r2_url ?? '').trim()
-
-    if (previewUrl) {
-        try {
-            const message = await bot.telegram.sendVideo(chatId, previewUrl, {
-                caption,
-                supports_streaming: true,
-                reply_markup: replyMarkup
-            })
-            return message.message_id
-        } catch (error: any) {
-            // Telegram не смог забрать видео по ссылке: присылаем ссылку текстом.
-            console.error('[REEL REVIEW VIDEO SEND ERROR]', error?.response?.description || error?.message || error)
-        }
-    }
-
-    const message = await bot.telegram.sendMessage(
-        chatId,
-        previewUrl ? `${caption}\n\nВидео: ${previewUrl}` : caption,
-        {reply_markup: replyMarkup}
-    )
-    return message.message_id
+    return sendWithPreview(job, lines.join('\n\n'), reelCleanReviewKeyboard(job.id, {clip: Boolean(chosen)}))
 }
 
+/**
+ * Шаг хука — тем же видео выбранного фрагмента (решение владельца 20.11): хук пишется к конкретному
+ * отрывку, и без видео перед глазами не вспомнить, что выбрано.
+ */
 const sendHookChoice = async (job: ReelReviewJob): Promise<number> => {
-    const bot = await getBot()
     const options = readHookOptions(job)
+    const chosen = chosenFragment(job)
+    const fragment = chosen ? [`🎞 Фрагмент ${fragmentLabel(chosen)}.`] : []
 
     // Свой хук прислан: показать его и спросить подтверждение (опечатка не должна сразу
     // уйти в ролик). Новый текст в чате заменяет этот хук.
     const pending = readPendingCustomHook(job)
     if (job.input_payload?.awaitingCustomHook && pending) {
-        const message = await bot.telegram.sendMessage(adminChatId(job), [
+        return sendWithPreview(job, [
             `Твой хук для ${titleOf(job)}:`,
             `«${pending}»`,
             'Проверь, нет ли опечатки: этот текст встанет на подложку ролика.',
             '«Опубликовать» — собираю Reel с этим хуком. «Изменить» — пришлёшь другой текст (можно и просто написать новый).',
             REVIEW_HOURS_HINT
-        ].join('\n\n'), {reply_markup: reelCustomHookConfirmKeyboard(job.id)})
-        return message.message_id
+        ].join('\n\n'), reelCustomHookConfirmKeyboard(job.id))
     }
 
     // «✍️ Свой вариант»: бот ждёт текст хука следующим сообщением.
     if (job.input_payload?.awaitingCustomHook) {
-        const message = await bot.telegram.sendMessage(adminChatId(job), [
+        return sendWithPreview(job, [
             `✍️ Напиши свой хук для ${titleOf(job)} одним сообщением.`,
+            ...fragment,
             'До 12 слов, без кавычек. Этот текст встанет на подложку вместо вариантов Gemini.',
             REVIEW_HOURS_HINT
-        ].join('\n\n'), {reply_markup: reelCustomHookKeyboard(job.id)})
-        return message.message_id
+        ].join('\n\n'), reelCustomHookKeyboard(job.id))
     }
 
     if (!options.length) {
         throw new Error('[REEL REVIEW] hook_choice without hook options')
     }
 
-    const text = [
+    return sendWithPreview(job, [
         `✍️ Варианты хука для ${titleOf(job)}:`,
+        ...fragment,
         options.map((hook, index) => `${index + 1}. ${hook}`).join('\n'),
         'Нажми номер: этот хук встанет на видео. «Новые варианты» — Gemini напишет другие, «Свой вариант» — напишешь сам.',
         REVIEW_HOURS_HINT
-    ].join('\n\n')
-
-    const message = await bot.telegram.sendMessage(adminChatId(job), text, {
-        reply_markup: reelHookChoiceKeyboard(job.id, options.length)
-    })
-
-    return message.message_id
+    ].join('\n\n'), reelHookChoiceKeyboard(job.id, options.length))
 }
 
 /**
