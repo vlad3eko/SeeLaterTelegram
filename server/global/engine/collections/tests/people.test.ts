@@ -180,3 +180,13 @@ test('кадры с актёром (Brave): постеры и вертикаль
     assert.match(called, /images\/search\?q=Meg\+Ryan\+Sleepless\+in\+Seattle\+1993\+movie\+still.* k$/)
     assert.deepEqual(await searchStills('Meg Ryan', 'X', 1993, {key: '', fetchImpl}), [], 'без ключа — не ищем')
 })
+
+test('кадры с актёром: фото с водяными знаками (eBay, фотобанки) пропускаются', async () => {
+    const {pickStills} = await import('#server/global/engine/collections/people/filmStills')
+    const urls = pickStills({results: [
+        {title: 'Sleepless in Seattle press photo', properties: {url: 'https://i.ebayimg.com/images/g/x/s-l1600.jpg', width: 1600, height: 1200}, thumbnail: {src: 'https://proxy/e'}},
+        {title: 'Meg Ryan', url: 'https://www.alamy.com/stock-photo', properties: {url: 'https://c7.alamy.com/x.jpg', width: 1300, height: 900}, thumbnail: {src: 'https://proxy/a'}},
+        {title: 'Sleepless in Seattle', properties: {url: 'https://site/still.jpg', width: 1280, height: 720}, thumbnail: {src: 'https://proxy/s'}}
+    ]})
+    assert.deepEqual(urls, ['https://site/still.jpg', 'https://proxy/s'])
+})

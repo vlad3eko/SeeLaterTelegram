@@ -4,7 +4,7 @@
  * это 1000 запросов, один запрос на фильм). Без ключа ничего не ищется — в списке кадр TMDB.
  *
  * Постеры отсеиваются по форме (кадр горизонтальный, постер вертикальный) и по словам в
- * названии и адресе (poster, wallpaper, fan art…). Сначала берётся оригинал картинки, запасной —
+ * названии и адресе (poster, wallpaper, fan art…), фото с водяными знаками — по сайту (eBay, фотобанки). Сначала берётся оригинал картинки, запасной —
  * её копия 500 px через прокси Brave (Telegram скачивает её надёжнее, чем с чужого сайта).
  */
 
@@ -14,6 +14,8 @@ const MIN_RATIO = 1.3
 /** Оригинал меньше — мутный кадр, лучше копия с прокси или следующий результат. */
 const MIN_WIDTH = 600
 const NOT_A_STILL = /poster|постер|wallpaper|обои|fan[\s_-]?art|fanart|collage|коллаж|cover|обложк|dvd|blu[\s_-]?ray|vhs|logo|soundtrack|premiere|red[\s_-]?carpet|interview|press[\s_-]?conference|getty/i
+/** Сайты с водяными знаками и подписями на фото (живая проверка 19.11: пресс-фото с eBay с надписью Historic Images). */
+const WATERMARKED = /ebayimg|ebay\.|historicimages|alamy|shutterstock|dreamstime|istockphoto|depositphotos|123rf|bigstock|agefotostock|mediastorehouse|worthpoint/i
 
 type BraveImage = {
     title?: string
@@ -41,7 +43,7 @@ export const pickStills = (body: {results?: BraveImage[]}, limit = 3): string[] 
     const unknown: BraveImage[] = []
     for (const image of body.results ?? []) {
         const text = `${image.title ?? ''} ${image.url ?? ''} ${image.properties?.url ?? ''}`
-        if (NOT_A_STILL.test(text)) continue
+        if (NOT_A_STILL.test(text) || WATERMARKED.test(text)) continue
         const ratio = ratioOf(image)
         if (ratio === undefined) unknown.push(image)
         else if (ratio >= MIN_RATIO) known.push(image)
