@@ -244,7 +244,7 @@ export const finishReel = async ({
             () => prepareSaveCtaTrack({
                 videoPath: cleanPath,
                 durationSeconds: cleanDurationSeconds,
-                // Размер кадра: буквы и строки надписи считаются под формат Reel (4:5).
+                // Размер кадра: буквы и строки надписи считаются под формат Reel (5:4).
                 width: REEL_WIDTH,
                 height: REEL_HEIGHT,
                 workDirectory: path.join(os.tmpdir(), 'instagram', 'reels', 'cta'),
