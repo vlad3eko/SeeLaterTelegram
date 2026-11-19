@@ -1,12 +1,15 @@
-// Обложки экранов мастера подборок /g — по одной GIF на экран.
+// Обложки экранов мастера подборок /g — по одной анимации (GIF в Telegram) на экран.
 //
 //   node --env-file=.env scripts/covers/buildCovers.mjs [--out dir] [--screens home,root] [--publish]
 //
 // 1. Берёт из TMDB актуальные постеры (у экранов «Актёры и режиссёры» — портреты) под каждый экран.
 // 2. Рисует шаблон scripts/covers/template.html в Chrome без окна и снимает 48 кадров: карточки
-//    покачиваются, по заголовку бежит волна; ffmpeg собирает зацикленную GIF 800 px (~3,5 МБ).
-// 3. Без --publish только сохраняет GIF и covers.json в --out (по умолчанию .covers-out).
-//    С --publish отправляет каждую GIF в служебный Telegram-канал (TELEGRAM_MEDIA_STORAGE_CHAT_ID)
+//    покачиваются, по заголовку бежит волна; ffmpeg собирает беззвучное MP4 1920×1280 (~1–2 МБ).
+//    Telegram и сам превращает любую GIF в беззвучное MP4, но тогда в её размере (GIF 800 px — мелко
+//    и с полями по бокам). Беззвучное MP4 через sendAnimation — та же «GIF»: значок GIF, сама
+//    проигрывается по кругу у всех, — только во всю ширину сообщения и чётче.
+// 3. Без --publish только сохраняет MP4 и covers.json в --out (по умолчанию .covers-out).
+//    С --publish отправляет каждую анимацию в служебный Telegram-канал (TELEGRAM_MEDIA_STORAGE_CHAT_ID)
 //    от имени обоих ботов — боевого и тестового, записывает file_id в таблицу collection_covers
 //    и удаляет из неё прошлые партии этих экранов. Один запуск обновляет оба бота сразу.
 //
@@ -35,10 +38,10 @@ const option = (name, fallback) => {
 }
 const OUT = path.resolve(option('out', '.covers-out'))
 const PUBLISH = flag('publish')
-// GIF: 48 кадров по 12 в секунду — цикл 4 секунды; ширина 800 px — около 3,5 МБ на экран.
-const GIF_FRAMES = 48
-const GIF_FPS = 12
-const GIF_WIDTH = 800
+// Анимация: 48 кадров по 12 в секунду — цикл 4 секунды; кадр 1280×853 в 1,5× — 1920×1280.
+const FRAMES = 48
+const FPS = 12
+const SCALE = 1.5
 
 // ---------- источники постеров ----------
 // fresh — брать из первых строк (актуальное), иначе перемешивать первые 30 (чтобы раз в квартал
@@ -211,12 +214,12 @@ const findFfmpeg = () => {
 }
 
 // Chrome без окна по протоколу DevTools (WebSocket из Node 22, без новых зависимостей).
-// Шаблон рисуется один раз, затем для каждого кадра — setPhase(0…1) и снимок; ffmpeg собирает GIF.
+// Шаблон рисуется один раз, затем для каждого кадра — setPhase(0…1) и снимок; ffmpeg собирает MP4.
 // seed — случайный наклон карточек (повторить: #seed=… в адресе шаблона).
 const render = async (chrome, ffmpeg, screen, posters) => {
     const seed = Math.floor(Math.random() * 1e9)
     const framesDir = path.join(OUT, 'frames', screen)
-    const gif = path.join(OUT, `${screen}-1.gif`)
+    const video = path.join(OUT, `${screen}.mp4`)
     await mkdir(framesDir, {recursive: true})
     const port = 9300 + Math.floor(Math.random() * 600)
     const browser = spawn(chrome, [
@@ -248,7 +251,7 @@ const render = async (chrome, ffmpeg, screen, posters) => {
         const evaluate = async expression =>
             (await send('Runtime.evaluate', {expression, awaitPromise: true, returnByValue: true})).result?.result?.value
 
-        await send('Emulation.setDeviceMetricsOverride', {width: 1280, height: 853, deviceScaleFactor: 1.5, mobile: false})
+        await send('Emulation.setDeviceMetricsOverride', {width: 1280, height: 853, deviceScaleFactor: SCALE, mobile: false})
         await send('Page.navigate', {url: `${pathToFileURL(TEMPLATE).href}#screen=${screen}&posters=${posters.map(p => p.path).join(',')}&seed=${seed}`})
         let ready = false
         for (let i = 0; i < 100 && !ready; i++) {
@@ -257,8 +260,8 @@ const render = async (chrome, ffmpeg, screen, posters) => {
         }
         if (!ready) throw new Error(`Template not ready: ${screen}`)
         await sleep(1000)
-        for (let frame = 0; frame < GIF_FRAMES; frame++) {
-            await evaluate(`window.setPhase(${frame / GIF_FRAMES}); new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))`)
+        for (let frame = 0; frame < FRAMES; frame++) {
+            await evaluate(`window.setPhase(${frame / FRAMES}); new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))`)
             const shot = await send('Page.captureScreenshot', {format: 'png'})
             await writeFile(path.join(framesDir, `f${String(frame).padStart(3, '0')}.png`), Buffer.from(shot.result.data, 'base64'))
         }
@@ -266,12 +269,12 @@ const render = async (chrome, ffmpeg, screen, posters) => {
     } finally {
         browser.kill()
     }
-    // Палитра по разнице кадров и сетчатый дизеринг: градиенты фона без полос, файл ~3,5 МБ.
-    await run(ffmpeg, ['-y', '-loglevel', 'error', '-framerate', String(GIF_FPS), '-i', path.join(framesDir, 'f%03d.png'),
-        '-vf', `scale=${GIF_WIDTH}:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=192:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle`,
-        '-loop', '0', gif], {timeout: 180_000})
+    // H.264 без звука, yuv420p (играет везде), faststart — начинает играть до полной загрузки.
+    await run(ffmpeg, ['-y', '-loglevel', 'error', '-framerate', String(FPS), '-i', path.join(framesDir, 'f%03d.png'),
+        '-vf', 'format=yuv420p', '-c:v', 'libx264', '-preset', 'slow', '-crf', '20', '-movflags', '+faststart', '-an', video],
+        {timeout: 180_000})
     await rm(framesDir, {recursive: true, force: true})
-    return {screen, variant: 1, seed, file: path.basename(gif), posters: posters.map(p => p.path)}
+    return {screen, variant: 1, seed, file: path.basename(video), posters: posters.map(p => p.path)}
 }
 
 // ---------- публикация ----------
@@ -296,15 +299,15 @@ const botsToPublish = () => [
 
 // В канал Telegram пускает ~20 сообщений в минуту: между отправками пауза, на 429 — ждём сколько
 // велено (retry_after), на сбой сети или 5xx — повтор. Всего до 6 попыток на обложку.
-// GIF уходит через sendAnimation: Telegram показывает её как GIF — сама проигрывается по кругу
+// Беззвучное MP4 через sendAnimation Telegram показывает как GIF — сама проигрывается по кругу
 // у всех, независимо от настройки автовоспроизведения видео.
-const sendToStorage = async (gif, cover, batch, token) => {
+const sendToStorage = async (video, cover, batch, token) => {
     for (let attempt = 1; ; attempt++) {
         const form = new FormData()
         form.append('chat_id', requireEnv('TELEGRAM_MEDIA_STORAGE_CHAT_ID'))
         form.append('caption', `Обложка /g · ${cover.screen} · ${batch}`)
         form.append('disable_notification', 'true')
-        form.append('animation', new Blob([gif], {type: 'image/gif'}), `${cover.screen}.gif`)
+        form.append('animation', new Blob([video], {type: 'video/mp4'}), `${cover.screen}.mp4`)
         let body = null
         let retryAfter = 5 * attempt
         try {
@@ -360,11 +363,11 @@ const main = async () => {
         const rows = []
         let sent = 0
         for (const cover of covers) {
-            const gif = await readFile(path.join(OUT, cover.file))
+            const video = await readFile(path.join(OUT, cover.file))
             for (const {bot, token} of bots) {
                 if (sent++) await sendDelay()
                 rows.push({batch, bot, screen: cover.screen, variant: cover.variant,
-                    file_id: await sendToStorage(gif, cover, batch, token), posters: cover.posters, seed: cover.seed})
+                    file_id: await sendToStorage(video, cover, batch, token), posters: cover.posters, seed: cover.seed})
                 console.log(`[COVERS] sent ${cover.screen} (${bot})`)
             }
         }

@@ -1,10 +1,10 @@
-# Обложки мастера подборок /g: раз в квартал свежие постеры из TMDB → по одной GIF на экран →
+# Обложки мастера подборок /g: раз в квартал свежие постеры из TMDB → по одной анимации (GIF в Telegram) на экран →
 # служебный Telegram-канал от имени обоих ботов → file_id в таблицу collection_covers (scripts/covers/buildCovers.mjs).
 #
 # Секреты репозитория (Settings → Secrets and variables → Actions):
 #   TMDB_API_KEY, TELEGRAM_TOKEN, TELEGRAM_DEV_TOKEN, TELEGRAM_MEDIA_STORAGE_CHAT_ID, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY.
 # Перед первым запуском выполнить database/migrations/collection_covers.sql.
-# Вручную: Actions → Collection covers → Run workflow (можно без публикации — только GIF в артефакте).
+# Вручную: Actions → Collection covers → Run workflow (можно без публикации — только MP4 в артефакте).
 
 name: Collection covers
 
@@ -29,7 +29,7 @@ permissions:
 jobs:
   covers:
     runs-on: ubuntu-latest
-    # 15 экранов × ~1,5 минуты на кадры и сборку GIF + отправка от двух ботов.
+    # 15 экранов × ~1,5 минуты на кадры и сборку MP4 + отправка от двух ботов.
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
@@ -62,7 +62,7 @@ jobs:
         with:
           name: collection-covers
           path: |
-            .covers-out/*.gif
+            .covers-out/*.mp4
             .covers-out/covers.json
           if-no-files-found: ignore
           retention-days: 30

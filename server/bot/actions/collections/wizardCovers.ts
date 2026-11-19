@@ -2,7 +2,7 @@ import {getSupabase} from '#server/global/engine/instagram/reel/jobs/dispatchRee
 import type {WizardScreen} from '#server/bot/actions/collections/wizardState'
 
 /**
- * Обложки экранов мастера /g (таблица collection_covers) — по одной GIF на экран. Их раз в квартал рисует
+ * Обложки экранов мастера /g (таблица collection_covers) — по одной анимации (GIF в Telegram) на экран. Их раз в квартал рисует
  * и загружает в служебный Telegram-канал от имени обоих ботов scripts/covers/buildCovers.mjs (GitHub Actions),
  * здесь — только file_id.
  */
