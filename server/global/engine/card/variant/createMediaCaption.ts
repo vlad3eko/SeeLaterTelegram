@@ -15,6 +15,9 @@ const formatRuntime = (minutes: number | undefined): string => {
 const money = (value: unknown): string =>
     Number(value) > 0 ? `${Number(value).toLocaleString('en-US')} $` : '—'
 
+/** Блок в цитате: выделен цветом в карточке. */
+const quote = (block: any) => ({type: 'blockquote', blocks: [block]})
+
 const photo = (media: string) => ({type: 'photo', photo: {type: 'photo', media}})
 
 /**
@@ -88,14 +91,16 @@ export const createMediaCaption = (
             ? [{type: 'paragraph', text: [{type: 'code', text: String(data.addComment)}]}]
             : []),
 
-        {
+        // «Шахматка» (решение владельца 20.11): Сюжет — в цитате, Актёры — обычный блок
+        // (в цитате только таблица), Подробнее — в цитате.
+        quote({
             type: 'details',
             summary: 'Сюжет',
             blocks: [
                 ...(media.tagline ? [{type: 'pullquote', text: media.tagline}] : []),
                 {type: 'paragraph', text: dataCollection.overview}
             ]
-        },
+        }),
 
         ...(cast.length
             ? [{
@@ -106,7 +111,7 @@ export const createMediaCaption = (
                         type: 'collage',
                         blocks: dataCollection.slideshowImages.map(fileId => photo(String(fileId)))
                     },
-                    {
+                    quote({
                         type: 'table',
                         is_bordered: true,
                         is_compact: true,
@@ -114,12 +119,12 @@ export const createMediaCaption = (
                             [{text: 'Имя', is_header: true}, {text: 'Роль', is_header: true}],
                             ...cast.map(item => [{text: item!.name}, {text: item!.role}])
                         ]
-                    }
+                    })
                 ]
             }]
             : []),
 
-        {
+        quote({
             type: 'details',
             summary: 'Подробнее',
             blocks: [
@@ -154,7 +159,7 @@ export const createMediaCaption = (
                     }
                     : {type: 'paragraph', text: '🎥 Трейлера пока нет'}
             ]
-        }
+        })
     ]
 
     return {
