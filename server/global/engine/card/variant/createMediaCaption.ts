@@ -18,6 +18,9 @@ const money = (value: unknown): string =>
 /** Блок в цитате: выделен цветом в карточке. */
 const quote = (block: any) => ({type: 'blockquote', blocks: [block]})
 
+/** Линия между блоками: сверху и снизу каждого свёрнутого блока, как на старых постах. */
+const divider = {type: 'divider'}
+
 const photo = (media: string) => ({type: 'photo', photo: {type: 'photo', media}})
 
 /**
@@ -92,6 +95,7 @@ export const createMediaCaption = (
 
         // «Шахматка» (решение владельца 20.11): Сюжет — в цитате, Актёры — обычный блок
         // (в цитате только таблица), Подробнее — в цитате.
+        divider,
         quote({
             type: 'details',
             summary: 'Сюжет',
@@ -102,7 +106,7 @@ export const createMediaCaption = (
         }),
 
         ...(cast.length
-            ? [{
+            ? [divider, {
                 type: 'details',
                 summary: 'Актёры',
                 blocks: [
@@ -123,6 +127,7 @@ export const createMediaCaption = (
             }]
             : []),
 
+        divider,
         quote({
             type: 'details',
             summary: 'Подробнее',
@@ -180,7 +185,8 @@ export const createMediaCaption = (
                     }
                     : {type: 'paragraph', text: '🎥 Трейлера пока нет'}
             ]
-        })
+        }),
+        divider
     ]
 
     return {
