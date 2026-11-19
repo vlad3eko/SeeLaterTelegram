@@ -32,9 +32,7 @@ export const createMediaCaption = (
 ): { blocks: any[] } => {
 
     const dataCollection = dataCollectionMediaCard(data)
-
-    const media = dataCollection.data.media
-    const images = dataCollection.data.images
+    const {media, images} = data
 
     // images.poster: [постер, широкий кадр] (resolveCardStrategies, режим item).
     const wideImage = images?.poster?.[1] || undefined
@@ -109,7 +107,7 @@ export const createMediaCaption = (
                 blocks: [
                     {
                         type: 'collage',
-                        blocks: dataCollection.slideshowImages.map(fileId => photo(String(fileId)))
+                        blocks: cast.map(item => photo(item!.fileId))
                     },
                     quote({
                         type: 'table',
@@ -154,7 +152,7 @@ export const createMediaCaption = (
                         text: [{
                             type: 'url',
                             text: '▶️ Смотреть трейлер',
-                            url: `https://www.youtube.com/watch?v=${dataCollection.data.keyTrailer}`
+                            url: `https://www.youtube.com/watch?v=${data.keyTrailer}`
                         }]
                     }
                     : {type: 'paragraph', text: '🎥 Трейлера пока нет'}

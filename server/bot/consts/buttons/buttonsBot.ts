@@ -4,7 +4,7 @@ import type {TypeButtonContext} from "#server/bot/consts/buttons/admin/keyboardA
 import {ContentType} from "#server/global/engine/search/strategy/enums";
 import {telegramBotShortLink} from "#server/global/oneLinkApp";
 import {contentTypeConvert} from "~/utils/convert/contentTypeConvert";
-import {CHECK_SUBSCRIPTION, DELETE_MEDIA, SAVE_MEDIA, SIMILAR_LIST} from "#server/bot/callbacks/routes";
+import {CHECK_SUBSCRIPTION, SAVE_MEDIA, SIMILAR_LIST} from "#server/bot/callbacks/routes";
 
 export const startButtonBot = (
     text: string,
@@ -53,12 +53,6 @@ export const SaveMediaButtonBot = (mediaId: number, mediaType: string, ButtonCon
         text,
         SAVE_MEDIA.encode({mediaId, mediaType: mediaType as 'movie' | 'tv'})
     )
-}
-
-export const deleteMediaButtonBot = (mediaId: number, mediaType: string) => {
-    return Markup.button.callback(
-        '🗑 Удалить',
-        DELETE_MEDIA.encode({mediaId, mediaType: mediaType as 'movie' | 'tv'}))
 }
 
 // Под сообщением «Подпишитесь на канал» (failedChannelSubscriber).

@@ -14,9 +14,14 @@ import {
 import {
     CURRENT_KEYBOARD_VERSION
 } from "#server/bot/consts/keyboardVersion/keyboardVersion";
-import {internalTmdbFetch} from "#server/utils/api/internalFetch";
 import {getMediaSaveCount} from "#server/bot/consts/keyboardVersion/getMediaSaveCount";
 
+
+const SETTLED_ERRORS = [
+    'Bad Request: message is not modified',
+    'Bad Request: message to edit not found',
+    'Bad Request: MESSAGE_ID_INVALID'
+]
 
 export default defineEventHandler(async (event) => {
 
@@ -49,69 +54,36 @@ export default defineEventHandler(async (event) => {
     let updated = 0
     let failed = 0
 
+    const markSynced = (id: number) => supabase
+        .from('published_media_messages')
+        .update({keyboard_version: CURRENT_KEYBOARD_VERSION, updated_at: new Date().toISOString()})
+        .eq('id', id)
 
     for (const post of posts ?? []) {
-
         try {
-
-            const media =
-                await internalTmdbFetch(
-                    '/api/bot/getMediaBot',
-                    {
-                        query: {
-                            id:
-                            post.media_id,
-
-                            media:
-                            post.media_type
-                        }
-                    }
-                )
-
-            const saveCount =
-                getMediaSaveCount(post.media_id)
-
-            const replyMarkup =
-                keyboardSendMediaCardInline(
-                    post.media_id,
-                    post.media_type,
-                    post.content_type,
-                    media.genres,
-                    false,
-                    'channel',
-                    await saveCount,
-                    post.key_trailer,
-                    post.is_rich_type_card
-                )
-
             await bot.telegram.editMessageReplyMarkup(
                 post.telegram_chat_id,
                 post.telegram_message_id,
                 undefined,
-                replyMarkup
-            )
-
-            await supabase
-                .from('published_media_messages')
-                .update(
-                    {
-                        keyboard_version:
-                        CURRENT_KEYBOARD_VERSION,
-
-                        updated_at:
-                            new Date().toISOString()
-                    }
+                keyboardSendMediaCardInline(
+                    post.media_id,
+                    post.media_type,
+                    post.content_type,
+                    false,
+                    'channel',
+                    await getMediaSaveCount(post.media_id),
+                    post.key_trailer,
+                    post.is_rich_type_card
                 )
-                .eq('id', post.id)
-
+            )
+            await markSynced(post.id)
             updated++
-
         } catch (error: any) {
-
-            const errorDescription =
-                error?.response?.description
-
-            if (errorDescription !== "Bad Request: message is not modified" && errorDescription !== "Bad Request: message to edit not found" && errorDescription !== "Bad Request: MESSAGE_ID_INVALID") {
+            // Клавиатура уже такая или поста больше нет: повторять незачем, иначе пост
+            // перебирается при каждой публикации.
+            if (SETTLED_ERRORS.includes(error?.response?.description)) {
+                await markSynced(post.id)
+            } else {
                 failed++
                 console.error(error)
             }

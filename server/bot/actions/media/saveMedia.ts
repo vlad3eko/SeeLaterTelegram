@@ -105,7 +105,6 @@ export const saveMedia = async (ctx: any) => {
                     mediaId,
                     mediaType,
                     publishedMedia.content_type,
-                    media.genres,
                     false,
                     'channel',
                     saveCount,

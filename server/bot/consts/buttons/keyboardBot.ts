@@ -6,7 +6,6 @@ import {
     SaveMediaButtonBot,
     SearchButtonBot, startButtonBot
 } from "#server/bot/consts/buttons/buttonsBot";
-import type {TmdbGenre} from "~/types/tmdb.types";
 import {
     adminEditInlineCard, adminPublishInlineCard
 } from "#server/bot/consts/buttons/admin/buttonsAdmin";
@@ -35,7 +34,6 @@ export const keyboardSendMediaCardInline = (
     mediaId: number,
     mediaType: typeRichCard,
     contentType: ContentType,
-    genres?: TmdbGenre[] | undefined,
     admin: boolean = false,
     ButtonContext: TypeButtonContext = 'inline',
     saveCount = 0,
