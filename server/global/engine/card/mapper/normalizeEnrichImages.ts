@@ -41,14 +41,9 @@ const normalizePersonCredits = (data: any[]) =>
             mediaType: dataItem.media_type,
             releaseDate:
                 dateConvert(dataItem.release_date) ||
-                dateIsoConvert(dataItem.first_air_date)
+                dateIsoConvert(dataItem.first_air_date) ||
+                undefined
         }))
-
-const normalizeTvCredits = (data: any[]) =>
-    data.map((dataItem: any) => ({
-        id: dataItem.id,
-        path: dataItem.poster_path,
-    }))
 
 export const normalizeEnrichImages = (type: typeRichCard, data: any) => {
 
@@ -56,7 +51,7 @@ export const normalizeEnrichImages = (type: typeRichCard, data: any) => {
 
     const strategies = {
         movie: normalizeMediaCredits,
-        tv: normalizeTvCredits,
+        tv: normalizeMediaCredits,
         person: normalizePersonCredits
     }
 

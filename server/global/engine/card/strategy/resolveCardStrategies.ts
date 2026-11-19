@@ -10,7 +10,6 @@ import {
     keyboardPerson,
     keyboardSendMediaCardInline
 } from "#server/bot/consts/buttons/keyboardBot";
-import {createTvCaption} from "#server/global/engine/card/variant/createTvCaption";
 import type {queryCTX, queryRichCard, RichCardMode} from "#server/global/engine/card/enum/types";
 import {createPersonCaption} from "#server/global/engine/card/variant/createPersonCaption";
 
@@ -36,8 +35,9 @@ const mediaCardStrategy = {
                             data.poster_path,
                             data.backdrop_path
                         ]
+                        // Списки: у сериалов — постер, у фильмов — широкий кадр.
                         : [
-                            data.backdrop_path || data.poster_path
+                            query.type === 'tv' ? data.poster_path : data.backdrop_path || data.poster_path
                         ],
 
                 postersList:
@@ -53,65 +53,6 @@ const mediaCardStrategy = {
         genres: data.genres
     }),
     caption: (query: queryRichCard, data: any) => createMediaCaption(query.status, data),
-    keyboard: (ctx: queryCTX | undefined, query: queryRichCard, data: any) => keyboardSendMediaCardInline(
-            query.id,
-            query.type,
-            query.contentType,
-            ctx?.isAdmin,
-            'inline',
-            0,
-            data.keyTrailer
-        )
-}
-
-const tvCardStrategy = {
-
-    resolve: (query: queryRichCard) => getEnrichMediaApi(query.id, query.type),
-    enrich: async (ctx: queryCTX | undefined, query: queryRichCard, data: any, mode: RichCardMode = 'item') => ({
-        media: data,
-        contentType: query.contentType,
-        addComment: query.addComment,
-        addOverview: query.addOverview,
-        keyTrailer: query.keyTrailer || data.keyTrailer,
-        mediaOverride: query.mediaOverride,
-
-        images: await getTelegramMediaImages(
-            ctx?.ctx,
-            query.id,
-            query.type,
-            {
-                poster:
-                    mode === 'item'
-                        ? [
-                            data.poster_path,
-                            data.backdrop_path
-                        ]
-                        : [
-                            data.poster_path
-                        ],
-
-                postersList:
-                    mode === 'item'
-                        ? normalizeEnrichImages(
-                            query.type,
-                            data.seasons
-                        )
-                        : []
-            }
-        ),
-
-        // Актёры — как у фильмов (режиссёр + 5 из титров); отдельный вызов: у сериала postersList — обложки сезонов.
-        cast: mode === 'item'
-            ? (await getTelegramMediaImages(ctx?.ctx, query.id, query.type, {
-                poster: [],
-                postersList: normalizeEnrichImages('movie', data.credits)
-            })).postersList
-            : [],
-
-        genres: data.genres,
-        seasons: data.seasons
-    }),
-    caption: (query: queryRichCard, data: any) => createTvCaption(query.status, data),
     keyboard: (ctx: queryCTX | undefined, query: queryRichCard, data: any) => keyboardSendMediaCardInline(
             query.id,
             query.type,
@@ -171,6 +112,7 @@ const personCardStrategy = {
 
 export const resolveCardStrategies = {
     movie: mediaCardStrategy,
-    tv: tvCardStrategy,
+    // Сериал — та же карточка, что и фильм (решение владельца 20.11).
+    tv: mediaCardStrategy,
     person: personCardStrategy,
 }

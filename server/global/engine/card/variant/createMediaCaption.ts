@@ -25,6 +25,7 @@ const photo = (media: string) => ({type: 'photo', photo: {type: 'photo', media}}
  * кадр (backdrop TMDB, вертикального постера нет), «Название · год», одна строка «⭐ рейтинг ·
  * жанры · длительность», комментарий администратора моноширинным шрифтом, остальное свёрнуто:
  * «Сюжет», «Актёры», «Подробнее». Без широкого кадра карточка начинается с названия.
+ * Сериалы — та же карточка, в «Подробнее» добавлены число сезонов и серий и таблица сезонов.
  */
 export const createMediaCaption = (
     preview: statusRichCard,
@@ -144,6 +145,28 @@ export const createMediaCaption = (
                         {type: 'paragraph', text: `💰 Бюджет: ${money(media.budget)}`},
                         {type: 'paragraph', text: `💵 Сборы: ${money(media.revenue)}`}
                     ]
+                    : []),
+                ...(media.number_of_seasons
+                    ? [{
+                        type: 'paragraph',
+                        text: `📺 Сезонов: ${media.number_of_seasons} · серий: ${media.number_of_episodes || '—'}`
+                    }]
+                    : []),
+                ...(media.seasons?.length
+                    ? [{
+                        type: 'table',
+                        is_bordered: true,
+                        is_compact: true,
+                        cells: [
+                            ['Сезон', 'Серий', 'Рейтинг', 'Дата'].map(text => ({text, is_header: true})),
+                            ...media.seasons.map((season: any) => [
+                                {text: String(season.name)},
+                                {text: String(season.episode_count || 0)},
+                                {text: String(season.vote_average || '—')},
+                                {text: dateConvert(season.air_date) || '—'}
+                            ])
+                        ]
+                    }]
                     : []),
                 {type: 'paragraph', text: `🍿 Оценок: ${Number(media.vote_count) || '—'}`},
                 dataCollection.hasTrailer
