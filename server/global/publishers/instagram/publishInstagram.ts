@@ -1,3 +1,5 @@
+import {instagramGraphUrl} from '#server/global/publishers/instagram/instagramGraphUrl'
+
 export const publishInstagram = async (
     {
         imageUrl, caption
@@ -18,6 +20,8 @@ export const publishInstagram = async (
         )
     }
 
+    const graphUrl = instagramGraphUrl(token)
+
     const headers = {
         Authorization:
             `Bearer ${token}`
@@ -25,7 +29,7 @@ export const publishInstagram = async (
 
     const container =
         await $fetch<{ id: string }>(
-            `https://graph.instagram.com/v26.0/${accountId}/media`,
+            `${graphUrl}/${accountId}/media`,
             {
                 method: 'POST',
                 headers,
@@ -38,7 +42,7 @@ export const publishInstagram = async (
 
     const published =
         await $fetch<{ id: string }>(
-            `https://graph.instagram.com/v26.0/${accountId}/media_publish`,
+            `${graphUrl}/${accountId}/media_publish`,
             {
                 method: 'POST',
                 headers,

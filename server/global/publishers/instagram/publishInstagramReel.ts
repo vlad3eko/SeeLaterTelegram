@@ -1,6 +1,7 @@
 import {copyFile, mkdir, writeFile} from 'node:fs/promises'
 import path from 'node:path'
 import {fileURLToPath, pathToFileURL} from 'node:url'
+import {instagramGraphUrl} from '#server/global/publishers/instagram/instagramGraphUrl'
 
 type InstagramPublishResult = {
     containerId: string
@@ -15,8 +16,6 @@ type PublishInstagramReelInput = {
     onContainerCreated?: (containerId: string) => Promise<void> | void
     onPublished?: (result: {containerId: string; mediaId: string}) => Promise<void> | void
 }
-
-const GRAPH_API_URL = 'https://graph.instagram.com/v26.0'
 
 // Тело запроса на создание контейнера Reel. Его же отправляет сухой прогон в instagram-request.json,
 // поэтому файл всегда показывает ровно то, что уйдёт в Instagram.
@@ -89,7 +88,7 @@ const dryRunPublishInstagramReel = async ({
             {
                 step: 'create container',
                 method: 'POST',
-                url: `${GRAPH_API_URL}/${accountId}/media`,
+                url: `${instagramGraphUrl()}/${accountId}/media`,
                 headers: {Authorization: 'Bearer <INSTAGRAM_ACCESS_TOKEN>'},
                 body: buildContainerBody(videoUrl, caption),
                 skipped: Boolean(existingContainerId)
@@ -97,12 +96,12 @@ const dryRunPublishInstagramReel = async ({
             {
                 step: 'poll container status',
                 method: 'GET',
-                url: `${GRAPH_API_URL}/${containerId}?fields=status_code,status`
+                url: `${instagramGraphUrl()}/${containerId}?fields=status_code,status`
             },
             {
                 step: 'publish',
                 method: 'POST',
-                url: `${GRAPH_API_URL}/${accountId}/media_publish`,
+                url: `${instagramGraphUrl()}/${accountId}/media_publish`,
                 body: {creation_id: containerId}
             }
         ]
@@ -151,11 +150,12 @@ export const publishInstagramReel = async ({
         throw new Error('Instagram environment variables are missing')
     }
 
+    const graphUrl = instagramGraphUrl(token)
     let containerId = existingContainerId
 
     if (!containerId) {
         const container = await $fetch<{id: string}>(
-            `https://graph.instagram.com/v26.0/${accountId}/media`,
+            `${graphUrl}/${accountId}/media`,
             {
                 method: 'POST',
                 headers: {Authorization: `Bearer ${token}`},
@@ -178,7 +178,7 @@ export const publishInstagramReel = async ({
         await new Promise(resolve => setTimeout(resolve, 5000))
 
         const status = await $fetch<Record<string, any>>(
-            `https://graph.instagram.com/v26.0/${containerId}`,
+            `${graphUrl}/${containerId}`,
             {
                 query: {fields: 'status_code,status'},
                 headers: {Authorization: `Bearer ${token}`}
@@ -210,7 +210,7 @@ export const publishInstagramReel = async ({
     }
 
     const published = await $fetch<{id: string}>(
-        `https://graph.instagram.com/v26.0/${accountId}/media_publish`,
+        `${graphUrl}/${accountId}/media_publish`,
         {
             method: 'POST',
             headers: {Authorization: `Bearer ${token}`},
@@ -226,7 +226,7 @@ export const publishInstagramReel = async ({
     let permalink: string | undefined
     try {
         const media = await $fetch<{permalink?: string}>(
-            `https://graph.instagram.com/v26.0/${published.id}`,
+            `${graphUrl}/${published.id}`,
             {
                 query: {fields: 'permalink'},
                 headers: {Authorization: `Bearer ${token}`}
