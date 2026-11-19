@@ -220,6 +220,8 @@ export type RenderOptions = {
     bot?: string
     /** Экран связок: доступные на полке и в разделе (судимые — только с готовыми вердиктами). */
     bundles?: AvailableBundle[]
+    /** Админ: на экране связок кнопка «⚙️ Сгенерировать связки» (запуск судьи в GitHub Actions). */
+    admin?: boolean
 }
 
 export const renderWizard = (state: WizardState, options: RenderOptions = {}) => {
@@ -273,7 +275,7 @@ export const renderWizard = (state: WizardState, options: RenderOptions = {}) =>
                 rows.push([btn(`${bundle.emoji} ${bundle.title}`, 'bn', bundle.key, bundle.reviewed ? 'success' : undefined)])
             }
             if (!options.bundles?.length) rows.push([disabledBtn('Связок здесь пока нет')])
-            rows.push(back)
+            rows.push(options.admin ? [...back, btn('⚙️ Сгенерировать связки', 'gb', undefined, 'primary')] : back)
             break
         case 'filter': {
             const section = state.section ? SECTIONS[state.section] : SECTIONS.movies

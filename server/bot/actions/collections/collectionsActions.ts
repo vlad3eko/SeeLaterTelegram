@@ -31,6 +31,7 @@ import {
 } from '#server/global/engine/collections/catalog'
 import {sendRichMessage} from '#server/global/engine/card/transport/sendRichMessage'
 import {coverFor, forgetCovers, type CoverScreen} from '#server/bot/actions/collections/wizardCovers'
+import {dispatchBundles, dispatchMessage} from '#server/global/engine/collections/judge/dispatch'
 import {addMessageSession} from '#server/bot/services/session/addMessageSession'
 import {SessionMessageType} from '#server/bot/consts/types/SessionMessageTypes'
 import type {ContentType} from '#server/global/engine/search/strategy/enums'
@@ -151,7 +152,8 @@ const showWizard = async (ctx: any, row: WizardRow, options: RenderOptions = {})
         bot: botName(ctx),
         ...options,
         ...(needsBundles ? {bundles: await availableBundles(shelfKeyOf(row.state), row.state.section!)} : {}),
-        periods: options.periods ?? availablePeriods(row.state)
+        periods: options.periods ?? availablePeriods(row.state),
+        admin: isAdmin(row.telegramId)
     })
     const coverScreen = coverScreenFor(row, options)
     const cover = coverScreen ? await coverFor(coverScreen, row.messageId) : undefined
@@ -371,6 +373,7 @@ const ALLOWED_ON_SCREEN: Record<string, WizardState['screen'][]> = {
     ss: ['series'],
     c: ['criterion'],
     bn: ['bundles'],
+    gb: ['bundles'],
     sim: ['title'],
     up: ['result'],
     f: ['filter'],
@@ -805,6 +808,11 @@ export const collectionAction = async (ctx: any) => {
                 if (!bundle || !state.section || !bundleFits(bundle, shelfKeyOf(state), state.section)) return safeAnswer(ctx)
                 state = afterCriterion({...state, bundle: bundle.key})
                 break
+            }
+
+            case 'gb': {
+                if (!isAdmin(telegramId)) return safeAnswer(ctx)
+                return safeAnswer(ctx, dispatchMessage(await dispatchBundles()), true)
             }
 
             case 'f':

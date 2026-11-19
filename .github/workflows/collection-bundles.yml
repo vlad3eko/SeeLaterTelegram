@@ -5,7 +5,8 @@
 # Секреты репозитория (Settings → Secrets and variables → Actions):
 #   TMDB_API_KEY, GEMINI_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY.
 # Перед первым запуском выполнить database/migrations/collection_bundles.sql.
-# Вручную: Actions → Collection bundles → Run workflow (можно указать связки и лимит).
+# Вручную: Actions → Collection bundles → Run workflow (можно указать связки, число и лимит)
+# или кнопкой «⚙️ Сгенерировать связки» в боте (админ, экран «🧩 Связки»; GITHUB_ACTIONS_TOKEN).
 
 name: Collection bundles
 
@@ -16,7 +17,10 @@ on:
   workflow_dispatch:
     inputs:
       bundles:
-        description: 'Связки через запятую (пусто — 2 самые давние)'
+        description: 'Связки через запятую (пусто — следующие по очереди: сначала «сырые»)'
+        default: ''
+      count:
+        description: 'Сколько связок по очереди (пусто — 2; кнопка в боте — 1)'
         default: ''
       limit:
         description: 'Новых тайтлов на связку'
@@ -53,5 +57,6 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           BUNDLES: ${{ inputs.bundles || '' }}
           LIMIT: ${{ inputs.limit || '60' }}
+          COUNT: ${{ inputs.count || '' }}
         run: |
-          npx tsx --tsconfig tsconfig.reel-dryrun.json scripts/bundles/runBundles.ts --limit "$LIMIT" $([ -n "$BUNDLES" ] && echo --bundle "$BUNDLES")
+          npx tsx --tsconfig tsconfig.reel-dryrun.json scripts/bundles/runBundles.ts --limit "$LIMIT" $([ -n "$BUNDLES" ] && echo --bundle "$BUNDLES") $([ -n "$COUNT" ] && echo --count "$COUNT")
