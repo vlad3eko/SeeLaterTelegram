@@ -70,6 +70,28 @@ export const deleteReelReviewMessage = async (
     }
 }
 
+/** Ход работы воркера в текущем сообщении проверки (роут reelJobs/progress). */
+export const editReelReviewProgress = async (
+    job: Pick<ReelReviewJob, 'id' | 'admin_telegram_id' | 'review_message_id'>,
+    text: string
+) => {
+    try {
+        await (await getBot()).telegram.editMessageText(
+            Number(job.admin_telegram_id),
+            Number(job.review_message_id),
+            undefined,
+            text,
+            {reply_markup: reelReviewProgressKeyboard(job.id)}
+        )
+    } catch (error: any) {
+        const description = error?.response?.description || error?.message || String(error)
+        // Тот же текст или сообщение уже удалено (пришёл результат) — ничего страшного.
+        if (!/not modified|message to edit not found/i.test(description)) {
+            console.warn('[REEL PROGRESS EDIT FAILED]', description)
+        }
+    }
+}
+
 /**
  * Короткое сообщение о состоянии; становится «текущим» и удалится следующим.
  * `withCancel`: под ним кнопка «Отменить» (пока воркер работает над шагом).

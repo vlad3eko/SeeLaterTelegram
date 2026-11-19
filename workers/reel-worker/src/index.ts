@@ -15,6 +15,12 @@ import {prepareClipFragments} from "../../../server/global/engine/instagram/reel
 import type {ClipFragment} from "../../../server/global/engine/instagram/reel/fragments/types";
 import type {HookFacts} from "../../../server/global/engine/instagram/reel/utils/hookFacts";
 import {isTrailerDeliveryRun, runTrailerDelivery} from "./trailerDelivery";
+import {setReelStepListener} from "../../../server/global/engine/instagram/reel/pipeline/reelWorkspace";
+import {
+    createReelProgress,
+    reelFlowOf,
+    type ReelProgress
+} from "../../../server/global/engine/instagram/reel/jobs/reelProgress";
 
 type JsonRecord = Record<string, unknown>
 
@@ -174,6 +180,29 @@ const notifyFinalizer = async (
     console.error('[REEL FINALIZER CALLBACK EXHAUSTED]', {jobId, error: getErrorMessage(lastError)})
 }
 
+/**
+ * Ход работы в сообщение проверки (бот правит его, `/api/bot/reelJobs/progress`). Адрес — рядом
+ * с финализатором, токен тот же. Сбой отправки только пишется в лог: сборка важнее.
+ */
+const sendProgress = async (
+    jobId: string,
+    finalizerUrl: string | undefined,
+    callbackToken: string | undefined,
+    text: string
+): Promise<void> => {
+    if (!finalizerUrl || !callbackToken) return
+
+    const response = await fetch(finalizerUrl.replace(/\/finalize\/?$/i, '/progress'), {
+        method: 'POST',
+        headers: {'content-type': 'application/json'},
+        body: JSON.stringify({jobId, callbackToken, text}),
+        signal: AbortSignal.timeout(10_000)
+    })
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+    }
+}
+
 const main = async (): Promise<void> => {
     const jobId = requiredEnv('REEL_JOB_ID')
     const supabase = createClient(
@@ -259,6 +288,14 @@ const main = async (): Promise<void> => {
 
     let failureFinalizerUrl: string | undefined
     let failureFinalizerToken: string | undefined
+    let progress: ReelProgress | undefined
+
+    // Сбой: идущий этап получает ❌ с причиной, сообщение обновляется до вызова финализатора.
+    const showFailure = async (error: unknown): Promise<void> => {
+        setReelStepListener(undefined)
+        progress?.failCurrent(error)
+        await progress?.flush()
+    }
 
     const phase = readWorkerPhase(claimedJob.worker_phase)
     const previousPreview = String(claimedJob.clean_preview_r2_url ?? '').trim()
@@ -309,6 +346,7 @@ const main = async (): Promise<void> => {
         console.error('[REEL WORKER DEADLINE]', {jobId, deadlineMs, phase})
 
         try {
+            await showFailure(new Error(message))
             await markFailed(message)
             clearInterval(heartbeat)
             await notifyFinalizer(jobId, failureFinalizerUrl, failureFinalizerToken)
@@ -324,6 +362,10 @@ const main = async (): Promise<void> => {
     const handOver = async (input: ReelInputPayload): Promise<void> => {
         clearInterval(heartbeat)
         clearTimeout(deadline)
+
+        setReelStepListener(undefined)
+        progress?.skipPending()
+        await progress?.flush()
 
         await notifyFinalizer(
             jobId,
@@ -397,6 +439,19 @@ const main = async (): Promise<void> => {
         if (mediaType !== 'movie' && mediaType !== 'tv') {
             throw new Error(`[JOB INPUT] Invalid media_type: ${mediaType}`)
         }
+
+        const flow = reelFlowOf({
+            phase,
+            clip: input.videoType === 'clip',
+            fragmentChosen: Boolean(input.fragment || input.fragmentError),
+            hookChosen: phase === 'finish' && typeof input.chosenHook === 'string' && input.chosenHook.trim() !== ''
+        })
+        progress = createReelProgress({
+            title: contentInput?.title ? `«${contentInput.title}»` : 'Reel',
+            ...flow,
+            send: text => sendProgress(jobId, failureFinalizerUrl, failureFinalizerToken, text)
+        })
+        setReelStepListener(progress.onStep)
 
         await updateOwnedJob({step: 'rendering'})
 
@@ -546,6 +601,7 @@ const main = async (): Promise<void> => {
             String(prepared?.cleanR2 ?? '').trim(),
             String(prepared?.reelR2 ?? '').trim()
         )
+        progress.start('publish')
 
         // После снятия lease worker больше не должен обновлять его heartbeat,
         // а сторожевой таймер не должен помечать подготовленный job как failed.
@@ -555,6 +611,7 @@ const main = async (): Promise<void> => {
         console.error('[REEL WORKER FAILED]', {jobId, phase, error: message})
 
         try {
+            await showFailure(error)
             await markFailed(message)
             clearInterval(heartbeat)
             await notifyFinalizer(jobId, failureFinalizerUrl, failureFinalizerToken)

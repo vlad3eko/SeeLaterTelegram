@@ -45,6 +45,23 @@ export const reelR2Paths = (content: Pick<ReelContent, 'id' | 'type'>, keyTraile
     }
 }
 
+type ReelStepListener = (name: string, event: 'start' | 'done' | 'error', error?: unknown) => void
+
+let stepListener: ReelStepListener | undefined
+
+/** Воркер слушает шаги, чтобы показывать ход работы в Telegram (jobs/reelProgress.ts). */
+export const setReelStepListener = (listener: ReelStepListener | undefined) => {
+    stepListener = listener
+}
+
+const notifyStep: ReelStepListener = (name, event, error) => {
+    try {
+        stepListener?.(name, event, error)
+    } catch (listenerError) {
+        console.warn('[REEL STEP LISTENER ERROR]', listenerError)
+    }
+}
+
 export const runReelStep = async <T>(
     name: string,
     action: () => Promise<T>
@@ -52,6 +69,7 @@ export const runReelStep = async <T>(
     const startedAt = Date.now()
 
     console.log(`[REEL STEP START] ${name}`)
+    notifyStep(name, 'start')
 
     try {
         const result = await action()
@@ -59,6 +77,7 @@ export const runReelStep = async <T>(
         console.log(`[REEL STEP DONE] ${name}`, {
             durationMs: Date.now() - startedAt
         })
+        notifyStep(name, 'done')
 
         return result
     } catch (error) {
@@ -66,6 +85,7 @@ export const runReelStep = async <T>(
             durationMs: Date.now() - startedAt,
             error
         })
+        notifyStep(name, 'error', error)
 
         throw error
     }

@@ -1,5 +1,6 @@
 // Прокси для локальной разработки: туннель (cloudflared) смотрит сюда, а не на dev-сервер Nuxt.
-// Наружу проходят только POST /api/bot/reelJobs/finalize (Reel готов или ждёт проверки) и
+// Наружу проходят только POST /api/bot/reelJobs/finalize (Reel готов или ждёт проверки),
+// /api/bot/reelJobs/progress (ход работы воркера) и
 // /api/bot/trailerDelivery (готов трейлер для «Загрузки трейлера») — их вызывает воркер Cloud Run. Всё остальное (исходники Vite, webhook без проверки
 // секрета в dev, служебные роуты) из интернета недоступно: ответ 404.
 //
@@ -13,7 +14,7 @@ import http from 'node:http'
 
 const LISTEN_PORT = Number(process.env.DEV_PROXY_PORT || 3001)
 const TARGET = process.env.DEV_PROXY_TARGET || 'http://127.0.0.1:3000'
-const ALLOWED_PATHS = new Set(['/api/bot/reeljobs/finalize', '/api/bot/trailerdelivery'])
+const ALLOWED_PATHS = new Set(['/api/bot/reeljobs/finalize', '/api/bot/reeljobs/progress', '/api/bot/trailerdelivery'])
 const MAX_BODY_BYTES = 64 * 1024
 
 const server = http.createServer((request, response) => {

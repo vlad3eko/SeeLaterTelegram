@@ -1,18 +1,7 @@
-import {timingSafeEqual} from 'node:crypto'
 import {serverSupabaseServiceRole} from '#supabase/server'
+import {finalizerTokenEquals} from '#server/global/engine/instagram/reel/jobs/finalizerToken'
 import {finalizeReelPublication} from '#server/global/engine/instagram/reel/jobs/finalizeReelPublication'
 import {sendReelReviewMessage} from '#server/bot/actions/admin/reelReview/reelReviewMessages'
-
-const safeTokenEquals = (received: unknown, expected: unknown): boolean => {
-    if (typeof received !== 'string' || typeof expected !== 'string') return false
-    if (!received || !expected) return false
-
-    const receivedBuffer = Buffer.from(received)
-    const expectedBuffer = Buffer.from(expected)
-    if (receivedBuffer.length !== expectedBuffer.length) return false
-
-    return timingSafeEqual(receivedBuffer, expectedBuffer)
-}
 
 export default defineEventHandler(async (event) => {
     const body = await readBody(event)
@@ -41,7 +30,7 @@ export default defineEventHandler(async (event) => {
         ? job.input_payload as Record<string, unknown>
         : null
     const expectedToken = inputPayload?.finalizerToken
-    if (!safeTokenEquals(callbackToken, expectedToken)) {
+    if (!finalizerTokenEquals(callbackToken, expectedToken)) {
         throw createError({statusCode: 401, message: 'Invalid finalizer token'})
     }
 

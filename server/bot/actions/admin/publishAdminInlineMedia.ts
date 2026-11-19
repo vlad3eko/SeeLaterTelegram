@@ -13,6 +13,7 @@ import {dispatchReelJob} from "#server/global/engine/instagram/reel/jobs/dispatc
 import {internalFetch, internalTmdbFetch} from "#server/utils/api/internalFetch";
 import {ADMIN_PUBLISH_CARD} from "#server/bot/callbacks/routes";
 import {sendReelReviewStatus} from "#server/bot/actions/admin/reelReview/reelReviewMessages";
+import {initialReelProgress} from "#server/global/engine/instagram/reel/jobs/reelProgress";
 
 export const publishAdminInlineMedia = async (ctx: any) => {
     const {
@@ -184,22 +185,20 @@ export const publishAdminInlineMedia = async (ctx: any) => {
                 reused: result.reused
             })
 
-            if (!result.reused && session.trailerKeySource === 'manual') {
-                // Ручная проверка: сообщение с кнопкой «Отменить»; его заменит clean.
+            if (!result.reused) {
+                // Сообщение с ходом работы и кнопкой «Отменить»: воркер отмечает в нём этапы
+                // (jobs/reelProgress.ts), его заменит альбом фрагментов, clean или итог публикации.
+                const mediaTitle = session.media?.title || session.media?.name
                 await sendReelReviewStatus(
                     {id: result.jobId, admin_telegram_id: ctx.from.id},
-                    session.videoType === 'clip'
-                        ? 'Нарезка поставлена в обработку. Gemini ищет удачные фрагменты: пришлю альбом вариантов на выбор (несколько минут).'
-                        : 'Видео поставлено в обработку. Когда clean будет готов, пришлю его на проверку.',
+                    initialReelProgress(
+                        mediaTitle ? `«${mediaTitle}»` : 'Reel',
+                        session.trailerKeySource !== 'manual' ? 'full' : session.videoType === 'clip' ? 'fragments' : 'clean'
+                    ),
                     {withCancel: true}
                 )
             } else {
-                await notifyAdmin(
-                    ctx,
-                    result.reused
-                        ? 'Эта задача уже существует. Продолжаю её обработку/публикацию.'
-                        : 'Видео поставлено в обработку. После подготовки публикация в Telegram и Instagram выполнится автоматически.'
-                )
+                await notifyAdmin(ctx, 'Эта задача уже существует. Продолжаю её обработку/публикацию.')
             }
         } catch (error) {
             console.error('[REEL JOB DISPATCH ERROR]', error)

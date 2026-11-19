@@ -13,6 +13,7 @@ import {deleteCloudflareR2ObjectByUrl} from "#server/global/engine/instagram/ree
 import {deleteReelTempFiles} from "#server/global/engine/instagram/reel/jobs/reelStorageCleanup";
 import {deleteOldMessagesSession} from "#server/bot/services/session/deleteOldMessagesSession";
 import {resetAdminPublishLock} from "#server/global/engine/instagram/reel/jobs/adminPublishLock";
+import {humanReelError} from "#server/global/engine/instagram/reel/jobs/reelProgress";
 
 type TelegramRichMessageResponse = {
     message_id?: number
@@ -40,6 +41,8 @@ type ReelJob = {
     instagram_media_id: string | null
     instagram_permalink: string | null
     lease_token: string | null
+    /** Ошибка воркера, если Reel не собрался (причина в итоговом уведомлении). */
+    last_error?: string | null
 }
 
 type FinalizeResult = {
@@ -394,7 +397,7 @@ export const finalizeReelPublication = async (
                 ? 'Опубликовано в Telegram и Instagram'
                 : previewSent
                     ? 'Dev: опубликовано в тестовом канале, Reel — выше в этом чате. В Instagram ничего не отправлено.'
-                    : 'Опубликовано в Telegram. Не удалось подготовить Reel для Instagram.'
+                    : `Опубликовано в Telegram. Не удалось подготовить Reel для Instagram.${job.last_error ? `\nПричина: ${humanReelError(job.last_error)}` : ''}`
         )
 
         console.log('[REEL FINALIZER PUBLISHED]', {
