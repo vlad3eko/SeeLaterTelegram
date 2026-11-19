@@ -543,16 +543,16 @@ export type ZoomInterval = {start: number, end: number, cutTop: number}
 export const planLogoZoom = (
     analysis: SegmentAnalysis,
     picture: PictureRect,
-    side: number,
+    window: {w: number, h: number},
     lefts: number[]
 ): ZoomInterval[] => {
     const base = persistentLogo(analysis)
     if (!base) return []
 
     const step = 1 / ANALYSIS_FPS
-    const squareTop = (picture.h - side) / 2
-    const margin = side * LOGO_MARGIN_SHARE
-    const maxCut = Math.floor(side * ZOOM_MAX_CUT_SHARE)
+    const squareTop = (picture.h - window.h) / 2
+    const margin = window.w * LOGO_MARGIN_SHARE
+    const maxCut = Math.floor(window.h * ZOOM_MAX_CUT_SHARE)
     const intervals: Array<ZoomInterval & {samples: number}> = []
 
     analysis.logos.forEach((logo, i) => {
@@ -580,18 +580,19 @@ export const planLogoZoom = (
 }
 
 /**
- * Фильтр zoompan для квадрата side×side: на интервалах приближение под логотип
+ * Фильтр zoompan для окна высотой windowHeight: на интервалах приближение под логотип
  * (низ кадра на месте, сверху убирается cutTop), вход и выход плавные. На выходе
- * outSize×outSize с частотой fps.
+ * outWidth×outHeight с частотой fps.
  */
 export const buildZoomFilter = (
     intervals: ZoomInterval[],
-    side: number,
-    outSize: number,
+    windowHeight: number,
+    outWidth: number,
+    outHeight: number,
     fps: string
 ): string => {
     const terms = intervals.map(({start, end, cutTop}) => {
-        const zoom = side / Math.max(1, side - cutTop)
+        const zoom = windowHeight / Math.max(1, windowHeight - cutTop)
         const a = (start - LOGO_LEAD_SECONDS).toFixed(3)
         const b = (end + LOGO_LEAD_SECONDS).toFixed(3)
         const ramp = ZOOM_RAMP_SECONDS.toFixed(3)
@@ -603,7 +604,7 @@ export const buildZoomFilter = (
     // 1 + max(t1, max(t2, … max(tn, 0))): интервалы не складываются, берётся наибольший.
     const zoom = `1+${terms.reduceRight((rest, term) => `max(${term},${rest})`, '0')}`
     // Кадр по центру по X, низ на месте (убирается верх).
-    return `zoompan=z='${zoom}':x='(iw-iw/zoom)/2':y='ih-ih/zoom':d=1:s=${outSize}x${outSize}:fps=${fps}`
+    return `zoompan=z='${zoom}':x='(iw-iw/zoom)/2':y='ih-ih/zoom':d=1:s=${outWidth}x${outHeight}:fps=${fps}`
 }
 
 /**

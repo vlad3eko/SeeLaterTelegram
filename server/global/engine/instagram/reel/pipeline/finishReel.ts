@@ -1,7 +1,7 @@
 import os from "node:os"
 import path from "node:path"
 import {randomUUID} from "node:crypto"
-import {getInputVideoDuration} from "#server/global/engine/instagram/reel/utils/prepareInstagramVideo"
+import {getInputVideoDuration, REEL_HEIGHT, REEL_WIDTH} from "#server/global/engine/instagram/reel/utils/prepareInstagramVideo"
 import {decorateInstagramVideo} from "#server/global/engine/instagram/reel/utils/decorateInstagramVideo"
 import {storageCloudflareR2} from "#server/global/engine/instagram/reel/utils/storageCloudflareR2"
 import {
@@ -244,6 +244,9 @@ export const finishReel = async ({
             () => prepareSaveCtaTrack({
                 videoPath: cleanPath,
                 durationSeconds: cleanDurationSeconds,
+                // Размер кадра: буквы и строки надписи считаются под формат Reel (4:5).
+                width: REEL_WIDTH,
+                height: REEL_HEIGHT,
                 workDirectory: path.join(os.tmpdir(), 'instagram', 'reels', 'cta'),
                 runId: `${content.id}_${randomUUID()}`,
                 speechWindows

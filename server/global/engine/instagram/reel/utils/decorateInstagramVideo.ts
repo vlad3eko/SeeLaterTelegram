@@ -6,8 +6,9 @@ import {getX264Args} from '#server/global/engine/instagram/reel/utils/encodeSett
 import {randomUUID} from "node:crypto";
 import {mkdir, unlink, writeFile} from "node:fs/promises";
 import {
-    REEL_SIZE,
-    isSquareReelVideo,
+    REEL_HEIGHT,
+    REEL_WIDTH,
+    isReelLayoutVideo,
     probeVideoDimensions,
     probeVideoFrameRate,
     reelAssetDirectory
@@ -243,9 +244,9 @@ const createHookPlateAss = (
         const to = formatAssTime(Math.min(end, total + 0.05))
 
         events.push(
-            `Dialogue: 0,${from},${to},HookPlate,,0,0,0,,{\\an7\\pos(0,${y})\\p1}m 0 0 l ${REEL_SIZE} 0 ${REEL_SIZE} ${HOOK_PLATE.height} 0 ${HOOK_PLATE.height}{\\p0}`,
-            `Dialogue: 1,${from},${to},HookText,,0,0,0,,{\\an2\\pos(${REEL_SIZE / 2},${first})\\fs${fontSize.toFixed(2)}}${formatTitleLineAss(firstLine, colours.textColour + '&')}`,
-            `Dialogue: 1,${from},${to},HookText,,0,0,0,,{\\an2\\pos(${REEL_SIZE / 2},${second})\\fs${fontSize.toFixed(2)}}${formatTitleLineAss(secondLine, colours.textColour + '&')}`
+            `Dialogue: 0,${from},${to},HookPlate,,0,0,0,,{\\an7\\pos(0,${y})\\p1}m 0 0 l ${REEL_WIDTH} 0 ${REEL_WIDTH} ${HOOK_PLATE.height} 0 ${HOOK_PLATE.height}{\\p0}`,
+            `Dialogue: 1,${from},${to},HookText,,0,0,0,,{\\an2\\pos(${REEL_WIDTH / 2},${first})\\fs${fontSize.toFixed(2)}}${formatTitleLineAss(firstLine, colours.textColour + '&')}`,
+            `Dialogue: 1,${from},${to},HookText,,0,0,0,,{\\an2\\pos(${REEL_WIDTH / 2},${second})\\fs${fontSize.toFixed(2)}}${formatTitleLineAss(secondLine, colours.textColour + '&')}`
         )
     }
 
@@ -266,8 +267,8 @@ const createHookPlateAss = (
     return [
         '[Script Info]',
         'ScriptType: v4.00+',
-        `PlayResX: ${REEL_SIZE}`,
-        `PlayResY: ${REEL_SIZE}`,
+        `PlayResX: ${REEL_WIDTH}`,
+        `PlayResY: ${REEL_HEIGHT}`,
         'WrapStyle: 2',
         'ScaledBorderAndShadow: yes',
         'YCbCr Matrix: None',
@@ -422,12 +423,12 @@ export const decorateInstagramVideo = async (inputPath: string, keyTrailer: stri
     const fontsDirectory = path.join(process.cwd(), 'public', 'instagram', 'fonts')
     verifyFonts(fontsDirectory)
 
-    // Старый clean 1080x1920 (до перехода на квадрат) оформлять нельзя: подложка,
-    // субтитры и полоска рассчитаны на 1080x1080. Его надо пересобрать из исходника.
+    // Clean другого макета (1080x1920, квадрат 1080x1080) оформлять нельзя: подложка,
+    // субтитры и полоска рассчитаны на REEL_WIDTH×REEL_HEIGHT. Его надо пересобрать из исходника.
     const dimensions = await probeVideoDimensions(inputPath)
-    if (!isSquareReelVideo(dimensions)) {
+    if (!isReelLayoutVideo(dimensions)) {
         throw new Error(
-            `[DECORATE] Expected a ${REEL_SIZE}x${REEL_SIZE} clean video, got ` +
+            `[DECORATE] Expected a ${REEL_WIDTH}x${REEL_HEIGHT} clean video, got ` +
             `${dimensions.width}x${dimensions.height}. Rebuild it with prepareInstagramVideo().`
         )
     }
@@ -496,9 +497,9 @@ export const decorateInstagramVideo = async (inputPath: string, keyTrailer: stri
         }
 
         // Слой 3: полоска прогресса у нижнего края (дорожка и заливка).
-        const progressY = REEL_SIZE - PROGRESS_HEIGHT
+        const progressY = REEL_HEIGHT - PROGRESS_HEIGHT
         filterParts.push(
-            `[${currentVideoLabel}]drawbox=x=0:y=${progressY}:w=${REEL_SIZE}:h=${PROGRESS_HEIGHT}:color=white@0.22:t=fill[progressTrack]`,
+            `[${currentVideoLabel}]drawbox=x=0:y=${progressY}:w=${REEL_WIDTH}:h=${PROGRESS_HEIGHT}:color=white@0.22:t=fill[progressTrack]`,
             '[1:v]format=rgba[progressSource]',
             `[progressTrack][progressSource]overlay=x='-w+w*t/${duration.toFixed(3)}':y=${progressY}:shortest=1[withProgress]`
         )
@@ -520,7 +521,7 @@ export const decorateInstagramVideo = async (inputPath: string, keyTrailer: stri
                 '-filter_threads', '1',
                 '-i', inputPath,
                 '-f', 'lavfi',
-                '-i', `color=c=white:s=${REEL_SIZE}x${PROGRESS_HEIGHT}:r=${frameRate.rate}:d=${duration.toFixed(3)}`,
+                '-i', `color=c=white:s=${REEL_WIDTH}x${PROGRESS_HEIGHT}:r=${frameRate.rate}:d=${duration.toFixed(3)}`,
                 '-filter_complex', filterComplex,
                 '-map', '[vout]',
                 '-map', '0:a?',
@@ -551,7 +552,7 @@ export const decorateInstagramVideo = async (inputPath: string, keyTrailer: stri
 
         console.log('[DECORATE INSTAGRAM VIDEO DONE]', {
             outputPath,
-            layout: `${REEL_SIZE}x${REEL_SIZE}`,
+            layout: `${REEL_WIDTH}x${REEL_HEIGHT}`,
             durationSeconds: Number(duration.toFixed(3)),
             hookPlateSeconds: Number(getHookPlateSeconds(duration).toFixed(2)),
             hookPlate: options.hookPlate ?? 'dark',

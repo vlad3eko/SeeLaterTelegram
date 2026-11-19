@@ -4,7 +4,9 @@ import {randomUUID} from "node:crypto"
 import {unlink} from "node:fs/promises"
 import {downloadTrailer} from "#server/global/engine/instagram/reel/utils/downloadTrailer"
 import {
-    isSquareReelVideo,
+    isReelLayoutVideo,
+    REEL_HEIGHT,
+    REEL_WIDTH,
     prepareInstagramVideo,
     probeVideoDimensions
 } from "#server/global/engine/instagram/reel/utils/prepareInstagramVideo"
@@ -180,8 +182,8 @@ export const obtainCleanVideo = async ({
 }
 
 /**
- * Clean из R2, если он есть и в нынешнем квадратном макете 1080×1080. Старый clean
- * 1080×1920 не годится: возвращается undefined, и его пересобирают по тому же пути.
+ * Clean из R2, если он есть и в нынешнем макете REEL_WIDTH×REEL_HEIGHT. Clean другого макета
+ * (квадрат, 1080×1920) не годится: возвращается undefined, и его пересобирают по тому же пути.
  */
 export const downloadCachedClean = async ({
     keyTrailer,
@@ -233,8 +235,8 @@ export const downloadCachedClean = async ({
         }
     )
 
-    if (!layout || !isSquareReelVideo(layout)) {
-        console.log('[REEL CLEAN CACHE STALE LAYOUT] Rebuilding clean 1080x1080', {
+    if (!layout || !isReelLayoutVideo(layout)) {
+        console.log(`[REEL CLEAN CACHE STALE LAYOUT] Rebuilding clean ${REEL_WIDTH}x${REEL_HEIGHT}`, {
             cleanR2Path: paths.clean,
             cachedLayout: layout ? `${layout.width}x${layout.height}` : 'unknown'
         })
@@ -242,7 +244,7 @@ export const downloadCachedClean = async ({
         await unlink(localPath).catch(() => undefined)
 
         if (requireCache) {
-            throw new Error(`[REEL CLEAN] Clean video in R2 is not ${'1080x1080'}: ${paths.clean}`)
+            throw new Error(`[REEL CLEAN] Clean video in R2 is not ${REEL_WIDTH}x${REEL_HEIGHT}: ${paths.clean}`)
         }
         return undefined
     }

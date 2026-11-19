@@ -326,17 +326,31 @@ export const squareSubtitleOverrides: SubtitleConfigOverrides = {
     },
 };
 
+/**
+ * 4:5 Reel layout (1080x1350, owner's test on 19.11.2026): the square preset with
+ * the canvas stretched to the same shape (720x900), so the letters keep their
+ * pixel size on the 1080 px wide frame. Baselines stay relative (53% and 56% of
+ * the height, generate-ass.ts scales them by height / 1920).
+ */
+export const portraitSubtitleOverrides: SubtitleConfigOverrides = {
+    ...squareSubtitleOverrides,
+    canvas: {
+        baseWidth: 720,
+        baseHeight: 900,
+    },
+};
+
+const hasShape = (width: number, height: number, ratio: number) =>
+    width > 0 && height > 0 && Math.abs(width / height - ratio) / ratio <= 0.02;
+
 /** Overrides that match the shape of the video being subtitled. */
 export function getFormatSubtitleOverrides(
     width: number,
     height: number,
 ): SubtitleConfigOverrides {
-    const isSquare =
-        width > 0 &&
-        height > 0 &&
-        Math.abs(width - height) / Math.max(width, height) <= 0.02;
-
-    return isSquare ? squareSubtitleOverrides : {};
+    if (hasShape(width, height, 1)) return squareSubtitleOverrides;
+    if (hasShape(width, height, 4 / 5)) return portraitSubtitleOverrides;
+    return {};
 }
 
 /** Merges override layers section by section; later layers win. */

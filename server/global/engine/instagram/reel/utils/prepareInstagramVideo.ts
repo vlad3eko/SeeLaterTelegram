@@ -27,10 +27,23 @@ import {unlink} from 'node:fs/promises'
 const execFileAsync = promisify(execFile)
 
 /**
- * Clean и финальный ролик квадратные: 1080×1080 (решение владельца 11.11).
- * Прежний макет был 1080×1920: видео 1080×932 поверх размытого фона.
+ * Формат clean и финального ролика: 4:5, 1080×1350 (тест владельца 19.11.2026).
+ * До этого — квадрат 1080×1080 (решение 11.11; вернуть — REEL_HEIGHT = 1080),
+ * ещё раньше 1080×1920: видео 1080×932 поверх размытого фона.
  */
-export const REEL_SIZE = 1080
+export const REEL_WIDTH = 1080
+export const REEL_HEIGHT = 1350
+/** Ширина к высоте окна кадра (0,8 у 4:5). */
+export const REEL_ASPECT = REEL_WIDTH / REEL_HEIGHT
+
+/**
+ * Наибольшее окно формата Reel внутри картинки w×h, чётные стороны. У широкого трейлера
+ * окно во всю высоту, у почти квадратной картинки — во всю ширину.
+ */
+export const reelWindow = (w: number, h: number): {w: number, h: number} => {
+    const height = Math.floor(Math.min(h, w / REEL_ASPECT) / 2) * 2
+    return {w: Math.floor(height * REEL_ASPECT / 2) * 2, h: height}
+}
 
 /** Папка для служебных файлов оформления (fontconfig). */
 export const reelAssetDirectory = path.join(os.tmpdir(), 'kinomanov-reel-template')
@@ -414,9 +427,9 @@ export const probeVideoFrameRate = async (inputPath: string): Promise<FrameRate 
     return parseFrameRate(match?.[1])
 }
 
-/** true, если файл уже собран в нынешнем квадратном макете 1080×1080. */
-export const isSquareReelVideo = (dimensions: VideoDimensions) =>
-    dimensions.width === REEL_SIZE && dimensions.height === REEL_SIZE
+/** true, если файл уже собран в нынешнем макете REEL_WIDTH×REEL_HEIGHT. */
+export const isReelLayoutVideo = (dimensions: VideoDimensions) =>
+    dimensions.width === REEL_WIDTH && dimensions.height === REEL_HEIGHT
 
 /** Прямоугольник кадра в пикселях: размер и смещение от левого верхнего угла. */
 export type CropRect = {
@@ -1045,29 +1058,29 @@ export const checkWatermarkBannerInClip = async (
         : {cutTopPx, banner: logo}
 }
 
-/** Квадрат, который ffmpeg вырежет из rect по центру (второй crop в фильтре). */
-const squareOfRect = (rect: CropRect): CropRect => {
-    const side = toEven(Math.min(rect.w, rect.h))
+/** Окно формата Reel, которое ffmpeg вырежет из rect по центру (второй crop в фильтре). */
+const windowOfRect = (rect: CropRect): CropRect => {
+    const window = reelWindow(rect.w, rect.h)
     return {
-        x: rect.x + toEven((rect.w - side) / 2),
-        y: rect.y + toEven((rect.h - side) / 2),
-        w: side,
-        h: side
+        x: rect.x + toEven((rect.w - window.w) / 2),
+        y: rect.y + toEven((rect.h - window.h) / 2),
+        w: window.w,
+        h: window.h
     }
 }
 
 /**
  * Новый прямоугольник исходника, из которого вырезается клип без найденных
- * проверкой полос. bars измерены в пикселях клипа (1080×1080), поэтому
- * переводим их в пиксели исходника по масштабу квадрата.
+ * проверкой полос. bars измерены в пикселях клипа (REEL_WIDTH×REEL_HEIGHT), поэтому
+ * переводим их в пиксели исходника по масштабу окна.
  */
 const shrinkRectForBars = (
     rect: CropRect,
     bars: BorderBars,
     tolerancePx: number
 ): CropRect => {
-    const square = squareOfRect(rect)
-    const scale = square.w / REEL_SIZE
+    const square = windowOfRect(rect)
+    const scale = square.w / REEL_WIDTH
     // +2 пикселя клипа запаса: полоса и картинка на границе смешаны.
     const toSource = (value: number) =>
         value >= tolerancePx ? ceilEven((value + 2) * scale) : 0
@@ -1087,14 +1100,14 @@ const shrinkRectForBars = (
 
 /**
  * Как shrinkRectForBars, но для режима слежения: полосы, найденные в клипе, срезаются
- * с краёв всей картинки (масштаб по стороне квадрата), а не с центрального квадрата.
+ * с краёв всей картинки (масштаб по окну кадра), а не с центрального окна.
  */
 const shrinkPictureForBars = (
     rect: CropRect,
     bars: BorderBars,
     tolerancePx: number
 ): CropRect => {
-    const scale = Math.min(rect.w, rect.h) / REEL_SIZE
+    const scale = reelWindow(rect.w, rect.h).w / REEL_WIDTH
     const toSource = (value: number) =>
         value >= tolerancePx ? ceilEven((value + 2) * scale) : 0
 
@@ -1240,27 +1253,27 @@ export const prepareInstagramVideo = async (
 
             let picture = rect
             let frames = remapAnalysis(segmentAnalysis, analyzedPicture, picture)
-            let side = toEven(Math.min(picture.w, picture.h))
+            let window = reelWindow(picture.w, picture.h)
 
             // Постоянный «B» не обойти сдвигом (картинка почти квадратная): срезаем верх под
             // ним на весь ролик — постоянно, без движения зума.
-            if (logoMinLeft(frames, picture, side) > Math.max(0, picture.w - side)) {
+            if (logoMinLeft(frames, picture, window.w) > Math.max(0, picture.w - window.w)) {
                 const base = persistentLogo(frames)
                 const cut = base ? ceilEven((base.bottom + BANNER_MARGIN_SHARE) * picture.h) : 0
                 console.warn('[REEL FRAMING] Logo cannot be avoided by moving; cropping below it', {cutTopPx: cut})
                 if (cut > 0 && cut < picture.h * BANNER_MAX_CUT_SHARE) {
                     picture = {...picture, y: picture.y + cut, h: toEven(picture.h - cut)}
                     frames = remapAnalysis(segmentAnalysis, analyzedPicture, picture)
-                    side = toEven(Math.min(picture.w, picture.h))
+                    window = reelWindow(picture.w, picture.h)
                 }
             }
 
-            const maxLeft = Math.max(0, picture.w - side)
+            const maxLeft = Math.max(0, picture.w - window.w)
 
             if (wantTrack && maxLeft >= 4) {
-                const plan = planTrackedWindow(frames, picture, side)
+                const plan = planTrackedWindow(frames, picture, window.w)
                 if (plan.feasible) {
-                    const intervals = planLogoZoom(frames, picture, side, plan.lefts)
+                    const intervals = planLogoZoom(frames, picture, window, plan.lefts)
                     console.log('[REEL FRAMING] Tracking', {trackedShots: plan.trackedShots, shots: frames.stats.shots})
                     logZoom(intervals)
                     return {mode: 'track', picture, frames, lefts: plan.lefts, intervals}
@@ -1269,8 +1282,8 @@ export const prepareInstagramVideo = async (
             }
 
             // Квадрат по центру; если «B» в него заходит — сдвиг вправо ровно на нужное.
-            const left = toEven(Math.min(maxLeft, Math.max(maxLeft / 2, logoMinLeft(frames, picture, side))))
-            const intervals = planLogoZoom(frames, picture, side, frames.times.map(() => left))
+            const left = toEven(Math.min(maxLeft, Math.max(maxLeft / 2, logoMinLeft(frames, picture, window.w))))
+            const intervals = planLogoZoom(frames, picture, window, frames.times.map(() => left))
             logZoom(intervals)
             if (intervals.length || left !== toEven(maxLeft / 2)) {
                 return {mode: 'zoom', picture, left, intervals}
@@ -1286,7 +1299,8 @@ export const prepareInstagramVideo = async (
         const encodeClean = async (rect: CropRect | undefined) => {
             const framing = chooseFraming(rect ?? fullPicture)
             const picture = framing.picture
-            const side = toEven(Math.min(picture.w, picture.h))
+            const window = reelWindow(picture.w, picture.h)
+            const scaleToReel = `scale=${REEL_WIDTH}:${REEL_HEIGHT}:flags=lanczos+accurate_rnd+full_chroma_int`
             const pictureCrop = `crop=${picture.w}:${picture.h}:${picture.x}:${picture.y},`
             usedFraming = framing.mode
 
@@ -1296,26 +1310,28 @@ export const prepareInstagramVideo = async (
                 const {firstX, minX, maxX} = await writeTrackCommands(
                     trackCommandsPath, framing.frames, framing.lefts, outputFrameRate.fps, segment.durationSeconds
                 )
-                console.log('[REEL FRAMING] Moving square', {side, minX, maxX, picture: `${picture.w}:${picture.h}:${picture.x}:${picture.y}`})
+                console.log('[REEL FRAMING] Moving window', {window: `${window.w}x${window.h}`, minX, maxX, picture: `${picture.w}:${picture.h}:${picture.x}:${picture.y}`})
                 // Приближение (zoompan) — только на интервалах раскрытой плашки; без них
                 // обычное масштабирование.
                 squareAndScale =
                     `${pictureCrop}sendcmd=f=${path.basename(trackCommandsPath)},` +
-                    `crop@track=${side}:${side}:${firstX}:${toEven((picture.h - side) / 2)},` +
+                    `crop@track=${window.w}:${window.h}:${firstX}:${toEven((picture.h - window.h) / 2)},` +
                     (framing.intervals.length
-                        ? buildZoomFilter(framing.intervals, side, REEL_SIZE, outputFrameRate.rate)
-                        : `scale=${REEL_SIZE}:${REEL_SIZE}:flags=lanczos+accurate_rnd+full_chroma_int`)
+                        ? buildZoomFilter(framing.intervals, window.h, REEL_WIDTH, REEL_HEIGHT, outputFrameRate.rate)
+                        : scaleToReel)
             } else if (framing.mode === 'zoom') {
                 // Квадрат по центру (или правее «B»); на интервалах раскрытой плашки zoompan.
                 squareAndScale =
-                    `${pictureCrop}crop=${side}:${side}:${framing.left}:${toEven((picture.h - side) / 2)},` +
+                    `${pictureCrop}crop=${window.w}:${window.h}:${framing.left}:${toEven((picture.h - window.h) / 2)},` +
                     (framing.intervals.length
-                        ? buildZoomFilter(framing.intervals, side, REEL_SIZE, outputFrameRate.rate)
-                        : `scale=${REEL_SIZE}:${REEL_SIZE}:flags=lanczos+accurate_rnd+full_chroma_int`)
+                        ? buildZoomFilter(framing.intervals, window.h, REEL_WIDTH, REEL_HEIGHT, outputFrameRate.rate)
+                        : scaleToReel)
             } else {
+                // Окно формата по центру картинки (rect — картинка без полос; без него — весь кадр).
+                const center = rect ? window : reelWindow(fullPicture.w, fullPicture.h)
                 squareAndScale =
-                    `${rect ? pictureCrop : ''}crop='min(iw,ih)':'min(iw,ih)',` +
-                    `scale=${REEL_SIZE}:${REEL_SIZE}:flags=lanczos+accurate_rnd+full_chroma_int`
+                    `${rect ? pictureCrop : ''}crop=${center.w}:${center.h},` +
+                    scaleToReel
             }
 
             const filterComplex =
@@ -1461,7 +1477,7 @@ export const prepareInstagramVideo = async (
 
         console.log('[PREPARE INSTAGRAM VIDEO DONE]', {
             outputPath,
-            layout: `${REEL_SIZE}x${REEL_SIZE}`,
+            layout: `${REEL_WIDTH}x${REEL_HEIGHT}`,
             totalDurationSeconds: segment.totalDurationSeconds,
             segmentStartSeconds: segment.startSeconds,
             durationSeconds: segment.durationSeconds,

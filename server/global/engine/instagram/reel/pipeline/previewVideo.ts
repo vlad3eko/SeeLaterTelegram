@@ -52,7 +52,7 @@ export const createCleanPreview = async ({
             '-hide_banner',
             '-loglevel', 'error',
             '-i', cleanPath,
-            '-vf', `scale=${PREVIEW_SIZE}:${PREVIEW_SIZE}:flags=bicubic,format=yuv420p`,
+            '-vf', `scale=${PREVIEW_SIZE}:-2:flags=bicubic,format=yuv420p`,
             '-c:v', 'libx264',
             '-preset', 'veryfast',
             '-crf', String(crf),
