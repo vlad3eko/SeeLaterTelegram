@@ -27,12 +27,16 @@ import {unlink} from 'node:fs/promises'
 const execFileAsync = promisify(execFile)
 
 /**
- * Формат clean и финального ролика: 5:4, 1080×864 — чуть шире квадрата (тест владельца 19.11.2026).
+ * Видео внутри ролика (clean): 5:4, 1080×864 — чуть шире квадрата, в кадр попадает больше
+ * картинки. Финальный ролик квадратный (REEL_FRAME_HEIGHT): видео по центру, сверху и снизу
+ * чёрные поля по 108 px (тест владельца 19.11.2026).
  * До этого — квадрат 1080×1080 (решение 11.11; вернуть — REEL_HEIGHT = 1080),
  * ещё раньше 1080×1920: видео 1080×932 поверх размытого фона.
  */
 export const REEL_WIDTH = 1080
 export const REEL_HEIGHT = 864
+/** Высота финального ролика: видео REEL_WIDTH×REEL_HEIGHT по центру, остальное — чёрные поля. */
+export const REEL_FRAME_HEIGHT = 1080
 /** Ширина к высоте окна кадра (1,25 у 5:4). */
 export const REEL_ASPECT = REEL_WIDTH / REEL_HEIGHT
 

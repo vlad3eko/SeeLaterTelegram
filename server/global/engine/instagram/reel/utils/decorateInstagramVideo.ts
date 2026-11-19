@@ -6,6 +6,7 @@ import {getX264Args} from '#server/global/engine/instagram/reel/utils/encodeSett
 import {randomUUID} from "node:crypto";
 import {mkdir, unlink, writeFile} from "node:fs/promises";
 import {
+    REEL_FRAME_HEIGHT,
     REEL_HEIGHT,
     REEL_WIDTH,
     isReelLayoutVideo,
@@ -268,7 +269,7 @@ const createHookPlateAss = (
         '[Script Info]',
         'ScriptType: v4.00+',
         `PlayResX: ${REEL_WIDTH}`,
-        `PlayResY: ${REEL_HEIGHT}`,
+        `PlayResY: ${REEL_FRAME_HEIGHT}`,
         'WrapStyle: 2',
         'ScaledBorderAndShadow: yes',
         'YCbCr Matrix: None',
@@ -496,8 +497,17 @@ export const decorateInstagramVideo = async (inputPath: string, keyTrailer: stri
             addAss(ctaAssPath, 'withCta')
         }
 
-        // Слой 3: полоска прогресса у нижнего края (дорожка и заливка).
-        const progressY = REEL_HEIGHT - PROGRESS_HEIGHT
+        // Чёрные поля сверху и снизу: видео (clean) по центру квадратного кадра. Субтитры и
+        // «Сохрани» выше легли на само видео; полоска и хук ниже — уже на весь кадр.
+        if (REEL_FRAME_HEIGHT > REEL_HEIGHT) {
+            filterParts.push(
+                `[${currentVideoLabel}]pad=${REEL_WIDTH}:${REEL_FRAME_HEIGHT}:0:${(REEL_FRAME_HEIGHT - REEL_HEIGHT) / 2}:black[framed]`
+            )
+            currentVideoLabel = 'framed'
+        }
+
+        // Слой 3: полоска прогресса у нижнего края кадра (дорожка и заливка).
+        const progressY = REEL_FRAME_HEIGHT - PROGRESS_HEIGHT
         filterParts.push(
             `[${currentVideoLabel}]drawbox=x=0:y=${progressY}:w=${REEL_WIDTH}:h=${PROGRESS_HEIGHT}:color=white@0.22:t=fill[progressTrack]`,
             '[1:v]format=rgba[progressSource]',
@@ -552,7 +562,7 @@ export const decorateInstagramVideo = async (inputPath: string, keyTrailer: stri
 
         console.log('[DECORATE INSTAGRAM VIDEO DONE]', {
             outputPath,
-            layout: `${REEL_WIDTH}x${REEL_HEIGHT}`,
+            layout: `${REEL_WIDTH}x${REEL_FRAME_HEIGHT} (video ${REEL_WIDTH}x${REEL_HEIGHT})`,
             durationSeconds: Number(duration.toFixed(3)),
             hookPlateSeconds: Number(getHookPlateSeconds(duration).toFixed(2)),
             hookPlate: options.hookPlate ?? 'dark',
