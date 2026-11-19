@@ -152,6 +152,7 @@ export const createMediaCaption = (
                         text: `📺 Сезонов: ${media.number_of_seasons} · серий: ${media.number_of_episodes || '—'}`
                     }]
                     : []),
+                {type: 'paragraph', text: `🍿 Оценок: ${Number(media.vote_count) || '—'}`},
                 ...(media.seasons?.length
                     ? [{
                         type: 'table',
@@ -168,7 +169,6 @@ export const createMediaCaption = (
                         ]
                     }]
                     : []),
-                {type: 'paragraph', text: `🍿 Оценок: ${Number(media.vote_count) || '—'}`},
                 dataCollection.hasTrailer
                     ? {
                         type: 'paragraph',
