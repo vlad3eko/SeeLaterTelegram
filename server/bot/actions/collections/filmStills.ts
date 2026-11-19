@@ -10,7 +10,7 @@ import type {BirthdayPerson, PersonRole} from '#server/global/engine/collections
  * Не нашлось или Telegram не скачал — у фильма остаётся кадр TMDB.
  */
 
-export type StillFilm = {id: number, title?: string, original_title?: string, year?: number | null}
+export type StillFilm = {id: number, title?: string, original_title?: string, year?: number | null, character?: string}
 
 const cacheKeyOf = (personId: number, filmId: number) => `person_${personId}_still_${filmId}`
 /** Где уже искали и не нашли — до перезапуска сервера не ищем снова (бережём бесплатные запросы). */
@@ -27,7 +27,7 @@ const stillFor = async (ctx: any, person: BirthdayPerson, film: StillFilm): Prom
     let urls: string[] = []
     try {
         // Английское имя и оригинальное название находят настоящие кадры; без них — русские.
-        urls = await searchStills(film.original_title ? person.en ?? person.name : person.name, title, film.year)
+        urls = await searchStills(film.original_title ? person.en ?? person.name : person.name, title, film.year, {character: film.original_title ? film.character : undefined})
     } catch (error) {
         console.warn('[COLLECTIONS] Still search failed', {person: person.id, film: film.id, error: error instanceof Error ? error.message : error})
         return undefined

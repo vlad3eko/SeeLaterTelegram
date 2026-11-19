@@ -24,9 +24,20 @@ type BraveImage = {
     properties?: {url?: string, width?: number, height?: number}
 }
 
-/** Запрос: «Meg Ryan When Harry Met Sally 1989 movie still». */
-export const stillQuery = (actor: string, film: string, year?: number | null) =>
-    `${actor} ${film}${year ? ` ${year}` : ''} movie still`
+/** Имя персонажа для запроса: «Jane / Narrator (voice)» → «Jane»; пусто — без персонажа. */
+export const characterName = (character?: string | null) =>
+    String(character ?? '').split('/')[0]!.replace(/\(.*?\)/g, '').replace(/["«»]/g, '').trim()
+
+/**
+ * Точный запрос: «"Meg Ryan" as Lydia Maxwell "Innerspace" 1987 film still». Имя персонажа и кавычки
+ * (живая проверка 19.11 на четырёх фильмах): по «Meg Ryan Innerspace 1987 movie still» первым был
+ * Мартин Шорт, а Мег Райан — краем кадра; с персонажем — она крупно. Без персонажа — простой запрос.
+ */
+export const stillQuery = (actor: string, film: string, year?: number | null, character?: string | null) => {
+    const role = characterName(character)
+    const when = year ? ` ${year}` : ''
+    return role ? `"${actor}" as ${role} "${film}"${when} film still` : `${actor} ${film}${when} movie still`
+}
 
 const ratioOf = (image: BraveImage) => {
     const width = Number(image.properties?.width ?? image.thumbnail?.width) || 0
@@ -60,16 +71,24 @@ export const pickStills = (body: {results?: BraveImage[]}, limit = 3): string[] 
 
 export const hasStillSearch = (env: NodeJS.ProcessEnv = process.env) => Boolean(env.BRAVE_SEARCH_API_KEY?.trim())
 
-/** Кадры фильма с актёром: ссылки по порядку (пусто — не нашлось или нет ключа). */
+/**
+ * Кадры фильма с актёром: ссылки по порядку (пусто — не нашлось или нет ключа). С персонажем —
+ * сначала точный запрос; ничего не подошло — второй, простой (лишний запрос только в этом случае).
+ */
 export const searchStills = async (
     actor: string,
     film: string,
     year?: number | null,
-    {key = process.env.BRAVE_SEARCH_API_KEY?.trim(), fetchImpl = fetch}: {key?: string, fetchImpl?: typeof fetch} = {}
+    {key = process.env.BRAVE_SEARCH_API_KEY?.trim(), fetchImpl = fetch, character}: {key?: string, fetchImpl?: typeof fetch, character?: string | null} = {}
 ): Promise<string[]> => {
     if (!key) return []
+    const precise = characterName(character) ? await braveStills(stillQuery(actor, film, year, character), key, fetchImpl) : []
+    return precise.length ? precise : braveStills(stillQuery(actor, film, year), key, fetchImpl)
+}
+
+const braveStills = async (query: string, key: string, fetchImpl: typeof fetch): Promise<string[]> => {
     const params = new URLSearchParams({
-        q: stillQuery(actor, film, year),
+        q: query,
         count: '20',
         safesearch: 'strict',
         search_lang: 'en',

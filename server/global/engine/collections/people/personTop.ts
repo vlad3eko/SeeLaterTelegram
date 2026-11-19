@@ -16,7 +16,7 @@ import type {PersonRole} from '#server/global/engine/collections/people/birthday
 
 type Raw = Record<string, any>
 
-export type PersonFilm = {id: number, title: string, original_title?: string, year?: number, score: number}
+export type PersonFilm = {id: number, title: string, original_title?: string, character?: string, year?: number, score: number}
 export type PersonTopItem = PersonFilm & {trailer: Trailer}
 
 /** Главные роли: первые 4 в титрах. */
@@ -62,6 +62,8 @@ export const personFilms = (credits: {cast?: Raw[], crew?: Raw[]}, role: PersonR
                 title: String(item.title),
                 // Оригинальное название — для поиска кадров с актёром.
                 ...(item.original_title ? {original_title: String(item.original_title)} : {}),
+                // Персонаж (у актёра) — точнее запрос кадров: «"Meg Ryan" as Sally Albright».
+                ...(item.character ? {character: String(item.character)} : {}),
                 ...(date ? {year: Number(date.slice(0, 4))} : {}),
                 score: weightedRating(Number(item.vote_average) || 0, Number(item.vote_count) || 0, PRIOR_VOTES, mean)
             }

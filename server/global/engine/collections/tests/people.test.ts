@@ -161,6 +161,8 @@ test('именинники: портрет из Wikidata — https и умень
 test('кадры с актёром (Brave): постеры и вертикальные отсеиваются, оригинал — затем копия с прокси', async () => {
     const {pickStills, searchStills, stillQuery} = await import('#server/global/engine/collections/people/filmStills')
     assert.equal(stillQuery('Meg Ryan', 'When Harry Met Sally...', 1989), 'Meg Ryan When Harry Met Sally... 1989 movie still')
+    assert.equal(stillQuery('Meg Ryan', 'Innerspace', 1987, 'Lydia Maxwell'), '"Meg Ryan" as Lydia Maxwell "Innerspace" 1987 film still')
+    assert.equal(stillQuery('X', 'Film', 2000, 'Jane / Narrator (voice)'), '"X" as Jane "Film" 2000 film still')
     const urls = pickStills({results: [
         {title: 'When Harry Met Sally poster', properties: {url: 'https://a/poster.jpg', width: 1600, height: 900}, thumbnail: {src: 'https://proxy/1'}},
         {title: 'Meg Ryan portrait', properties: {url: 'https://a/tall.jpg', width: 800, height: 1200}, thumbnail: {src: 'https://proxy/2'}},
@@ -189,4 +191,19 @@ test('кадры с актёром: фото с водяными знаками 
         {title: 'Sleepless in Seattle', properties: {url: 'https://site/still.jpg', width: 1280, height: 720}, thumbnail: {src: 'https://proxy/s'}}
     ]})
     assert.deepEqual(urls, ['https://site/still.jpg', 'https://proxy/s'])
+})
+
+test('кадры с актёром: точный запрос с персонажем, пусто — второй, простой', async () => {
+    const {searchStills} = await import('#server/global/engine/collections/people/filmStills')
+    const queries: string[] = []
+    const fetchImpl = (async (url: string) => {
+        const q = new URL(url).searchParams.get('q')!
+        queries.push(q)
+        return Response.json({results: q.startsWith('"') ? [] : [{title: 'still', properties: {url: 'https://a/s.jpg', width: 1280, height: 720}}]})
+    }) as unknown as typeof fetch
+    assert.deepEqual(await searchStills('Meg Ryan', 'Innerspace', 1987, {key: 'k', fetchImpl, character: 'Lydia Maxwell'}), ['https://a/s.jpg'])
+    assert.deepEqual(queries, ['"Meg Ryan" as Lydia Maxwell "Innerspace" 1987 film still', 'Meg Ryan Innerspace 1987 movie still'])
+    queries.length = 0
+    await searchStills('Meg Ryan', 'Innerspace', 1987, {key: 'k', fetchImpl})
+    assert.equal(queries.length, 1, 'без персонажа — один запрос')
 })

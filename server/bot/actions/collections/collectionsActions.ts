@@ -104,6 +104,8 @@ type CollectionRecord = {
     trailer_language: string
     /** Подборка именинника: оригинальное название (поиск кадров с актёром). */
     original_title?: string
+    /** Подборка именинника-актёра: персонаж в фильме (точнее поиск кадра). */
+    character?: string
 }
 
 /** «Похожее»: подборка от тайтла; parent_id — подборка, из которой его открыли (кнопка «К подборке»). */
@@ -812,6 +814,7 @@ const showPersonTop = async (ctx: any, row: WizardRow, index: number) => {
                 id: item.id,
                 title: item.title,
                 ...(item.original_title ? {original_title: item.original_title} : {}),
+                ...(item.character ? {character: item.character} : {}),
                 year: item.year ?? null,
                 score: item.score,
                 trailer_key: item.trailer.key,
