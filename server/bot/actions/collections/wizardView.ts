@@ -13,6 +13,7 @@ import {
     yearRangeByKey
 } from '#server/global/engine/collections/catalog'
 import type {SectionGroup, WizardState} from '#server/bot/actions/collections/wizardState'
+import {coverBlock} from '#server/bot/actions/collections/wizardCovers'
 import {type ShelfKey, SHELVES} from '#server/global/engine/collections/shelves'
 import {type Bundle, bundleByKey} from '#server/global/engine/collections/bundles'
 import type {AvailableBundle} from '#server/global/engine/collections/buildCollection'
@@ -382,9 +383,9 @@ export const renderWizard = (state: WizardState, options: RenderOptions = {}) =>
          */
         rich: (cover?: string) => ({
             blocks: state.screen === 'birthdays' && !note
-                ? [...(cover ? [{type: 'photo', photo: {type: 'photo', media: cover}}] : []), ...richBlocks(lines.slice(0, 2)), ...birthdayBlocks(state)]
+                ? [...(cover ? [coverBlock(cover)] : []), ...richBlocks(lines.slice(0, 2)), ...birthdayBlocks(state)]
                 : [
-                    ...(cover ? [{type: 'photo', photo: {type: 'photo', media: cover}}] : []),
+                    ...(cover ? [coverBlock(cover)] : []),
                     ...richBlocks(lines)
                 ]
         })

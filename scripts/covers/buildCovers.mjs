@@ -1,6 +1,6 @@
 // Обложки экранов мастера подборок /g.
 //
-//   node --env-file=.env scripts/covers/buildCovers.mjs [--out dir] [--variants 3] [--screens home,root] [--publish] [--bot dev|prod]
+//   node --env-file=.env scripts/covers/buildCovers.mjs [--out dir] [--variants 3] [--screens home,root] [--publish] [--bot dev|prod] [--animate]
 //
 // 1. Берёт из TMDB актуальные постеры под каждый экран (тренды, популярные сериалы, премьеры…).
 // 2. Рисует шаблон scripts/covers/template.html в Chrome без окна: --variants вариантов на экран,
@@ -14,7 +14,7 @@
 // ffmpeg-static из node_modules или ffmpeg в PATH), fetch из Node 22.
 // Запуск раз в квартал — .github/workflows/collection-covers.yml.
 
-import {execFile} from 'node:child_process'
+import {execFile, spawn} from 'node:child_process'
 import {existsSync} from 'node:fs'
 import {mkdir, readFile, stat, writeFile} from 'node:fs/promises'
 import {createRequire} from 'node:module'
@@ -34,8 +34,14 @@ const option = (name, fallback) => {
     return index >= 0 && args[index + 1] ? args[index + 1] : fallback
 }
 const OUT = path.resolve(option('out', '.covers-out'))
-const VARIANTS = Math.max(1, Number(option('variants', 3)))
+// --animate — вместо трёх картинок одна GIF на экран: карточки покачиваются, по заголовку бежит волна.
+const ANIMATE = flag('animate')
+const VARIANTS = ANIMATE ? 1 : Math.max(1, Number(option('variants', 3)))
 const PUBLISH = flag('publish')
+// GIF: 48 кадров по 12 в секунду — цикл 4 секунды; ширина 800 px — около 3,5 МБ на экран.
+const GIF_FRAMES = 48
+const GIF_FPS = 12
+const GIF_WIDTH = 800
 
 // ---------- источники постеров ----------
 // fresh — брать из первых строк (актуальное), иначе перемешивать первые 30 (чтобы раз в квартал
@@ -225,6 +231,68 @@ const render = async (chrome, ffmpeg, screen, posters, variant) => {
     return {screen, variant, seed, file: path.basename(jpg), posters: posters.map(p => p.path)}
 }
 
+// Анимация: Chrome без окна по протоколу DevTools (WebSocket из Node 22, без новых зависимостей).
+// Шаблон рисуется один раз, затем для каждого кадра — setPhase(0…1) и снимок; ffmpeg собирает GIF.
+const renderAnimated = async (chrome, ffmpeg, screen, posters) => {
+    const seed = Math.floor(Math.random() * 1e9)
+    const framesDir = path.join(OUT, 'frames', screen)
+    const gif = path.join(OUT, `${screen}-1.gif`)
+    await mkdir(framesDir, {recursive: true})
+    const port = 9300 + Math.floor(Math.random() * 600)
+    const browser = spawn(chrome, [
+        '--headless=new', '--hide-scrollbars', `--remote-debugging-port=${port}`,
+        `--user-data-dir=${path.join(OUT, 'chrome-profile')}`,
+        ...(process.platform === 'linux' ? ['--no-sandbox', '--disable-dev-shm-usage'] : []),
+        'about:blank'
+    ], {stdio: 'ignore'})
+    try {
+        let target
+        for (let i = 0; i < 60 && !target; i++) {
+            await sleep(300)
+            try { target = (await (await fetch(`http://127.0.0.1:${port}/json/list`)).json()).find(t => t.type === 'page') } catch {}
+        }
+        if (!target) throw new Error(`Chrome DevTools not reachable: ${screen}`)
+        const socket = new WebSocket(target.webSocketDebuggerUrl)
+        await new Promise((resolve, reject) => { socket.addEventListener('open', resolve); socket.addEventListener('error', reject) })
+        let nextId = 0
+        const waiting = new Map()
+        socket.addEventListener('message', event => {
+            const message = JSON.parse(event.data)
+            if (message.id && waiting.has(message.id)) { waiting.get(message.id)(message); waiting.delete(message.id) }
+        })
+        const send = (method, params = {}) => new Promise(resolve => {
+            const id = ++nextId
+            waiting.set(id, resolve)
+            socket.send(JSON.stringify({id, method, params}))
+        })
+        const evaluate = async expression =>
+            (await send('Runtime.evaluate', {expression, awaitPromise: true, returnByValue: true})).result?.result?.value
+
+        await send('Emulation.setDeviceMetricsOverride', {width: 1280, height: 853, deviceScaleFactor: 1.5, mobile: false})
+        await send('Page.navigate', {url: `${pathToFileURL(TEMPLATE).href}#screen=${screen}&posters=${posters.map(p => p.path).join(',')}&seed=${seed}`})
+        let ready = false
+        for (let i = 0; i < 100 && !ready; i++) {
+            await sleep(300)
+            ready = await evaluate(`!!window.coverReady && document.fonts.status === 'loaded' && [...document.images].every(image => image.complete) && !!document.querySelector('#title svg')`)
+        }
+        if (!ready) throw new Error(`Template not ready: ${screen}`)
+        await sleep(1000)
+        for (let frame = 0; frame < GIF_FRAMES; frame++) {
+            await evaluate(`window.setPhase(${frame / GIF_FRAMES}); new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))`)
+            const shot = await send('Page.captureScreenshot', {format: 'png'})
+            await writeFile(path.join(framesDir, `f${String(frame).padStart(3, '0')}.png`), Buffer.from(shot.result.data, 'base64'))
+        }
+        socket.close()
+    } finally {
+        browser.kill()
+    }
+    // Палитра по разнице кадров и сетчатый дизеринг: градиенты фона без полос, файл ~3,5 МБ.
+    await run(ffmpeg, ['-y', '-loglevel', 'error', '-framerate', String(GIF_FPS), '-i', path.join(framesDir, 'f%03d.png'),
+        '-vf', `scale=${GIF_WIDTH}:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=192:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle`,
+        '-loop', '0', gif], {timeout: 180_000})
+    return {screen, variant: 1, seed, file: path.basename(gif), posters: posters.map(p => p.path)}
+}
+
 // ---------- публикация ----------
 const requireEnv = name => {
     const value = process.env[name]?.trim()
@@ -253,26 +321,31 @@ const botsToPublish = () => {
 
 // В канал Telegram пускает ~20 сообщений в минуту: между отправками пауза, на 429 — ждём сколько
 // велено (retry_after), на сбой сети или 5xx — повтор. Всего до 6 попыток на обложку.
-const sendToStorage = async (photo, cover, batch, token) => {
+// Обложка-анимация (GIF) уходит через sendAnimation: Telegram показывает её как GIF — сама проигрывается
+// по кругу у всех, независимо от настройки автовоспроизведения видео.
+const sendToStorage = async (photo, cover, batch, token, animated = false) => {
+    const [method, field, mime, extension] = animated
+        ? ['sendAnimation', 'animation', 'image/gif', 'gif']
+        : ['sendPhoto', 'photo', 'image/jpeg', 'jpg']
     for (let attempt = 1; ; attempt++) {
         const form = new FormData()
         form.append('chat_id', requireEnv('TELEGRAM_MEDIA_STORAGE_CHAT_ID'))
         form.append('caption', `Обложка /g · ${cover.screen} #${cover.variant} · ${batch}`)
         form.append('disable_notification', 'true')
-        form.append('photo', new Blob([photo], {type: 'image/jpeg'}), `${cover.screen}-${cover.variant}.jpg`)
+        form.append(field, new Blob([photo], {type: mime}), `${cover.screen}-${cover.variant}.${extension}`)
         let body = null
         let retryAfter = 5 * attempt
         try {
-            const response = await fetch(`${TELEGRAM_API}/bot${token}/sendPhoto`,
+            const response = await fetch(`${TELEGRAM_API}/bot${token}/${method}`,
                 {method: 'POST', body: form, signal: AbortSignal.timeout(60_000)})
             body = await response.json().catch(() => ({ok: false, error_code: response.status, description: `HTTP ${response.status}`}))
         } catch (error) {
             body = {ok: false, error_code: 0, description: error instanceof Error ? error.message : String(error)}
         }
-        if (body.ok) return body.result.photo.at(-1).file_id
+        if (body.ok) return animated ? (body.result.animation ?? body.result.document).file_id : body.result.photo.at(-1).file_id
         const retryable = body.error_code === 429 || body.error_code === 0 || body.error_code >= 500
         if (!retryable || attempt >= 6) {
-            throw new Error(`Telegram sendPhoto failed (${cover.screen} #${cover.variant}): ${body.description}`)
+            throw new Error(`Telegram ${method} failed (${cover.screen} #${cover.variant}): ${body.description}`)
         }
         if (body.error_code === 429) retryAfter = (body.parameters?.retry_after ?? 30) + 1
         console.warn(`[COVERS] Telegram: ${body.description} — retry in ${retryAfter}s`)
@@ -317,7 +390,7 @@ const mirrorDev = async () => {
     for (const [index, row] of rows.entries()) {
         if (index) await sendDelay()
         const photo = await downloadFile(row.file_id, prodToken)
-        mirrored.push({...row, bot: 'dev', file_id: await sendToStorage(photo, row, row.batch, devToken)})
+        mirrored.push({...row, bot: 'dev', file_id: await sendToStorage(photo, row, row.batch, devToken, row.file_id.startsWith('CgAC'))})
         console.log(`[COVERS] mirrored ${row.screen} #${row.variant}`)
     }
     await supabase('DELETE', '?bot=eq.dev')
@@ -337,7 +410,7 @@ const main = async () => {
     const covers = []
     for (const screen of screenKeys) {
         for (let variant = 1; variant <= VARIANTS; variant++) {
-            covers.push(await render(chrome, ffmpeg, screen, posters[screen], variant))
+            covers.push(ANIMATE ? await renderAnimated(chrome, ffmpeg, screen, posters[screen]) : await render(chrome, ffmpeg, screen, posters[screen], variant))
             console.log(`[COVERS] rendered ${screen} #${variant}`)
         }
     }
@@ -352,7 +425,7 @@ const main = async () => {
             for (const {bot, token} of bots) {
                 if (sent++) await sendDelay()
                 rows.push({batch, bot, screen: cover.screen, variant: cover.variant,
-                    file_id: await sendToStorage(photo, cover, batch, token), posters: cover.posters, seed: cover.seed})
+                    file_id: await sendToStorage(photo, cover, batch, token, cover.file.endsWith('.gif')), posters: cover.posters, seed: cover.seed})
                 console.log(`[COVERS] sent ${cover.screen} #${cover.variant} (${bot})`)
             }
         }

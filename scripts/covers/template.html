@@ -73,10 +73,10 @@
     backdrop-filter: blur(10px); }
   .pill b { background: linear-gradient(90deg, var(--primary), var(--violet) 60%, var(--pink));
     -webkit-background-clip: text; background-clip: text; color: transparent; }
-  .brand { position: absolute; left: 56px; top: 52px; font-weight: 900; font-size: 30px; color: var(--ink); letter-spacing: -.5px;
-    display: flex; gap: 12px; align-items: center; }
-  .brand i { width: 38px; height: 38px; border-radius: 12px; font-style: normal; color: #fff; font-size: 16px; display: grid; place-items: center;
-    background: linear-gradient(135deg, var(--primary), var(--violet)); box-shadow: 0 6px 14px rgba(70,60,200,.35), inset 0 2px 0 rgba(255,255,255,.5); }
+  .brand { position: absolute; left: 50px; top: 42px; font-weight: 900; font-size: 30px; color: var(--ink); letter-spacing: -.5px;
+    display: flex; gap: 14px; align-items: center; }
+  /* Логотип K7 — круглый PNG с прозрачным фоном (scripts/covers/logo.png), в 1,5 раза больше прежнего значка. */
+  .brand img { width: 57px; height: 57px; display: block; filter: drop-shadow(0 6px 12px rgba(70,60,200,.35)); }
 </style>
 </head>
 <body>
@@ -86,7 +86,7 @@
   <div class="title" id="title"></div>
   <div class="scene" id="scene"></div>
 
-  <div class="brand"><i>▶</i>ПОДБОРКИ</div>
+  <div class="brand"><img src="logo.png" alt="">ПОДБОРКИ</div>
   <div class="pill" id="pill"></div>
   <div class="lead" id="lead"></div>
   <div class="steps" id="steps"></div>
@@ -242,8 +242,26 @@
       face.innerHTML = `<img src="${src}">`
       slab.appendChild(face)
       scene.appendChild(slab)
+      floating.push({p, slab, shadow, phase: floating.length / posters.length})
     }
+    window.coverReady = true
   })()
+
+  // Анимация обложки: карточки плавно покачиваются волной (у каждой своя фаза), тень под ними
+  // дышит. phase 0…1 — один полный цикл; 0 и 1 совпадают, поэтому ролик зацикливается без стыка.
+  // Снимает кадры scripts/covers/buildCovers.mjs (--animate), вызывая setPhase для каждого кадра.
+  const floating = []
+  window.setPhase = phase => {
+    for (const {p, slab, shadow, phase: own} of floating) {
+      const angle = 2 * Math.PI * (phase + own)
+      const lift = Math.sin(angle) * 10
+      slab.style.transform = `translateY(${(-lift).toFixed(2)}px) rotateX(${(p.rx + Math.cos(angle) * 4).toFixed(2)}deg) ` +
+        `rotateY(${(p.ry + Math.sin(angle) * 7).toFixed(2)}deg) rotateZ(${(p.rz + Math.cos(angle) * 2.5).toFixed(2)}deg)`
+      shadow.style.transform = `scale(${(1 - lift / 60).toFixed(3)})`
+      shadow.style.opacity = (1 - lift / 40).toFixed(3)
+    }
+    window.setTitlePhase?.(phase)
+  }
 
   // Заголовок в стиле «волнистая вытяжка» (как в Blender: Extrude + Wave):
   // буквы вытянуты далеко назад, вверх-вправо, и вытяжка изгибается волной.
@@ -264,11 +282,12 @@
   const grad = (id, stops) => `<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="${W - 140}" y2="0">${
     stops.map(([o, c]) => `<stop offset="${o}" stop-color="${c}"/>`).join('')}</linearGradient>`
   // Сдвиг слоя s ∈ [0..1]: прямая назад-вверх-вправо + волна, растущая от лицевой стороны.
-  const pos = s => {
+  // phase 0…1 бежит волной вдоль вытяжки (анимация); 0 и 1 дают одну и ту же форму.
+  const pos = (s, phase = 0) => {
     const env = Math.min(1, s * 2.2)
-    return [s * LX, -s * LY + A * env * Math.sin(Math.PI * 2 * CYC * s - .6)]
+    return [s * LX, -s * LY + A * env * Math.sin(Math.PI * 2 * (CYC * s - phase) - .6)]
   }
-  let depth = '', defs = ''
+  let defs = ''
   const STEPS = 120   // тонов — чтобы не плодить сотни градиентов
   const tone = new Map()
   const toneId = (l, c) => {
@@ -284,20 +303,32 @@
   // на D px насыщенным тоном (боковые грани). От светлого остаётся полоска вдоль верхних краёв букв:
   // так верх ленты светлый, а бок — насыщенный, и буквы не сливаются.
   const D = 1.6
-  for (let i = N; i >= 1; i--) {
-    const s = i / N
-    const [x, y] = pos(s), [px, py] = pos((i - 1) / N)
-    const up = Math.max(-1, Math.min(1, (py - y) / Math.hypot(x - px, y - py) * 1.4))
-    const q = v => (Math.round(v * STEPS) / STEPS).toFixed(3)
-    const top = toneId(q(0.87 + up * 0.04 + s * 0.03), (0.12 - s * 0.02).toFixed(3))
-    const side = toneId(q(0.68 + up * 0.07 + s * 0.06), (0.21 - s * 0.04).toFixed(3))
-    depth += `<use href="#txt" x="${x.toFixed(2)}" y="${y.toFixed(2)}" fill="url(#${top})"/>`
-    depth += `<use href="#txt" x="${x.toFixed(2)}" y="${(y + D).toFixed(2)}" fill="url(#${side})"/>`
+  const buildDepth = phase => {
+    let depth = ''
+    for (let i = N; i >= 1; i--) {
+      const s = i / N
+      const [x, y] = pos(s, phase), [px, py] = pos((i - 1) / N, phase)
+      const up = Math.max(-1, Math.min(1, (py - y) / Math.hypot(x - px, y - py) * 1.4))
+      const q = v => (Math.round(v * STEPS) / STEPS).toFixed(3)
+      const top = toneId(q(0.87 + up * 0.04 + s * 0.03), (0.12 - s * 0.02).toFixed(3))
+      const side = toneId(q(0.68 + up * 0.07 + s * 0.06), (0.21 - s * 0.04).toFixed(3))
+      depth += `<use href="#txt" x="${x.toFixed(2)}" y="${y.toFixed(2)}" fill="url(#${top})"/>`
+      depth += `<use href="#txt" x="${x.toFixed(2)}" y="${(y + D).toFixed(2)}" fill="url(#${side})"/>`
+    }
+    return depth
+  }
+  const depth = buildDepth(0)
+  // Кадр анимации: перестроить вытяжку с новой фазой; новые тона дописать в defs.
+  window.setTitlePhase = phase => {
+    const html = buildDepth(phase)
+    const tones = document.getElementById('tones')
+    if (tones.childElementCount < tone.size) tones.innerHTML = defs
+    document.getElementById('depth').innerHTML = html
   }
   title.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="overflow:visible">
     <defs>
       <g id="txt" style="${font}">${texts}</g>
-      ${defs}
+      <g id="tones">${defs}</g>
       ${grad('faceColor', [[0, 'oklch(0.58 0.22 350)'], [.5, 'oklch(0.5 0.22 320)'], [1, 'oklch(0.48 0.21 290)']])}
       <linearGradient id="faceShade" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0" stop-color="#fff" stop-opacity=".16"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/>
@@ -320,7 +351,7 @@
       <filter id="soft" x="-20%" y="-40%" width="160%" height="200%"><feGaussianBlur stdDeviation="22"/></filter>
     </defs>
     <use href="#txt" x="${LX * .35}" y="${-LY * .2 + 40}" fill="oklch(0.45 0.15 310)" opacity=".22" filter="url(#soft)"/>
-    <g filter="url(#matteSoft)">${depth}</g>
+    <g id="depth" filter="url(#matteSoft)">${depth}</g>
     <g filter="url(#matte)">
       <use href="#txt" fill="url(#faceColor)"/>
       <use href="#txt" fill="url(#faceShade)"/>

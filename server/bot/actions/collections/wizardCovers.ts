@@ -64,6 +64,17 @@ export const coverFor = async (screen: CoverScreen, seed?: number): Promise<stri
     return variants[index]
 }
 
+/**
+ * Обложка — GIF (buildCovers.mjs --animate) или картинка. Тип записан в самом file_id Bot API:
+ * у анимаций он начинается с «CgAC», у фото — с «AgAC»; отдельной колонки в таблице не нужно.
+ */
+export const isAnimationCover = (fileId: string) => fileId.startsWith('CgAC')
+
+/** Блок rich-сообщения с обложкой: анимация проигрывается сама по кругу, как GIF. */
+export const coverBlock = (fileId: string) => isAnimationCover(fileId)
+    ? {type: 'animation', animation: {type: 'animation', media: fileId}}
+    : {type: 'photo', photo: {type: 'photo', media: fileId}}
+
 /** Забыть обложку, которую Telegram не принял (удалена из канала и т. п.), — перечитать таблицу. */
 export const forgetCovers = () => {
     cache = null

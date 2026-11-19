@@ -51,3 +51,11 @@ test('трейлеры: кэш выключается только если не
     assert.equal(isMissingTable(new Error('fetch failed')), false)
     assert.equal(isMissingTable({code: '57014', message: 'canceling statement due to statement timeout'}), false)
 })
+
+test('обложки /g: GIF — блоком анимации, картинка — фото (тип по file_id)', async () => {
+    const {coverBlock, isAnimationCover} = await import('#server/bot/actions/collections/wizardCovers')
+    assert.equal(isAnimationCover('CgACAgIAAyEGAAMBBpZY8Q'), true)
+    assert.equal(isAnimationCover('AgACAgQAAyEGAAMBBpZY8Q'), false)
+    assert.deepEqual(coverBlock('CgACAgIAAx'), {type: 'animation', animation: {type: 'animation', media: 'CgACAgIAAx'}})
+    assert.deepEqual(coverBlock('AgACAgIAAx'), {type: 'photo', photo: {type: 'photo', media: 'AgACAgIAAx'}})
+})

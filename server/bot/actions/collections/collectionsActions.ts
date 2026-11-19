@@ -30,7 +30,7 @@ import {
     type PeriodKey
 } from '#server/global/engine/collections/catalog'
 import {sendRichMessage} from '#server/global/engine/card/transport/sendRichMessage'
-import {coverFor, forgetCovers, type CoverScreen} from '#server/bot/actions/collections/wizardCovers'
+import {coverBlock, coverFor, forgetCovers, type CoverScreen} from '#server/bot/actions/collections/wizardCovers'
 import {dispatchBundles, dispatchMessage} from '#server/global/engine/collections/judge/dispatch'
 import {findBirthdays, lifeLabel, type PersonRole} from '#server/global/engine/collections/people/birthdays'
 import {buildPersonTop} from '#server/global/engine/collections/people/personTop'
@@ -592,7 +592,7 @@ const showCollection = async (ctx: any, row: WizardRow, collection: CollectionRo
     const cover = await coverFor('result', row.messageId)
     if (cover) {
         try {
-            await tryGenerateCard(target, {...caption, blocks: [{type: 'photo', photo: {type: 'photo', media: cover}}, ...caption.blocks]}, keyboard)
+            await tryGenerateCard(target, {...caption, blocks: [coverBlock(cover), ...caption.blocks]}, keyboard)
             return
         } catch (error) {
             console.warn('[COLLECTIONS] Result cover rejected; without cover', (error as any)?.response?.description ?? error)
