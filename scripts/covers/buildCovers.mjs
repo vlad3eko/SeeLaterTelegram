@@ -60,7 +60,19 @@ const SCREENS = {
         'discover/movie?sort_by=vote_count.desc&primary_release_date.gte=1985-01-01&primary_release_date.lte=2008-12-31',
         'discover/movie?sort_by=vote_count.desc&primary_release_date.gte=1985-01-01&primary_release_date.lte=2008-12-31&page=2']},
     // Страницы готовой подборки — одна обложка на все разделы.
-    result: {fresh: false, minVotes: 2000, sources: ['movie/top_rated?page=3', 'tv/top_rated', 'movie/popular?page=3']}
+    result: {fresh: false, minVotes: 2000, sources: ['movie/top_rated?page=3', 'tv/top_rated', 'movie/popular?page=3']},
+    // Аниме и дунхуа: фильмы или сериалы — японская анимация.
+    format: {fresh: false, minVotes: 1000, sources: [
+        'discover/tv?with_genres=16&with_original_language=ja&sort_by=vote_count.desc',
+        'discover/movie?with_genres=16&with_original_language=ja&sort_by=vote_count.desc']},
+    // «🎭 Актёры и режиссёры» — портреты людей (profile_path TMDB) вместо постеров.
+    // ids — постоянные лица; popular — популярные сейчас актёры (person/popular). Актёры и режиссёры:
+    // Нолан, Ди Каприо, Спилберг, Фостер, Тарантино, Питт.
+    people: {people: true, fresh: false, ids: [525, 6193, 488, 1038, 138, 287]},
+    // Живые или ушедшие: три легенды, ушедшие с 2015 года (Рикман, Боузман, Коннери), и три живые (Хопкинс, Де Ниро, Пачино).
+    peopleLife: {people: true, fresh: false, ids: [4566, 172069, 738, 4173, 380, 1158]},
+    peopleSearch: {people: true, fresh: true, popular: true},
+    birthdays: {people: true, fresh: true, popular: true}
 }
 const POSTERS_PER_SCREEN = 6
 const onlyScreens = option('screens', '').split(',').filter(Boolean)
@@ -99,10 +111,44 @@ const shuffle = list => {
     return copy
 }
 
+// Известный актёр или режиссёр: есть портрет, не 18+, и среди «известен по» — тайтл
+// с 12 тысячами голосов и больше не из исключённых стран (как в подборках).
+const famousPerson = person =>
+    person.profile_path && /^\/[A-Za-z0-9]+\.jpg$/.test(person.profile_path) && !person.adult &&
+    ['Acting', 'Directing'].includes(person.known_for_department) &&
+    (person.known_for ?? []).some(title => (title.vote_count ?? 0) >= 12000 && !['ru', 'hi', 'ta', 'te', 'ml', 'kn', 'ko'].includes(title.original_language))
+
+const popularPeople = async () => {
+    const pages = await Promise.all([1, 2, 3].map(page => tmdb(`person/popular?page=${page}`)))
+    return pages.flatMap(page => page.results ?? []).filter(famousPerson)
+}
+
+const pickPeople = async (key, used) => {
+    const {fresh, ids = [], popular} = SCREENS[key]
+    const fixed = []
+    for (const id of ids) {
+        const person = await tmdb(`person/${id}`)
+        if (person.profile_path) fixed.push({...person, _key: `person:${id}`})
+    }
+    const live = popular ? (await popularPeople()).map(person => ({...person, _key: `person:${person.id}`})) : []
+    const pool = [...shuffle(fixed), ...shuffle(live.slice(0, fresh ? 15 : 30))]
+    const chosen = pool.filter(person => !used.has(person._key)).slice(0, POSTERS_PER_SCREEN)
+    for (const person of pool) if (chosen.length < POSTERS_PER_SCREEN && !chosen.includes(person)) chosen.push(person)
+    if (chosen.length < POSTERS_PER_SCREEN) throw new Error(`Not enough portraits for "${key}": ${chosen.length}`)
+    return chosen.map(person => ({...person, poster_path: person.profile_path, title: person.name}))
+}
+
 const pickPosters = async () => {
     const used = new Set()
     const picked = {}
     for (const key of screenKeys) {
+        if (SCREENS[key].people) {
+            const chosen = await pickPeople(key, used)
+            chosen.forEach(person => used.add(person._key))
+            picked[key] = chosen.map(person => ({path: person.poster_path.slice(1, -4), title: person.title}))
+            console.log(`[COVERS] ${key}: ${picked[key].map(p => p.title).join(' · ')}`)
+            continue
+        }
         const {fresh, minVotes, sources} = SCREENS[key]
         const items = []
         for (const source of sources) items.push(...((await tmdb(source)).results ?? []))
