@@ -42,6 +42,11 @@ const OCCUPATIONS: Record<PersonRole, string[]> = {
     director: ['wd:Q2526255']
 }
 const MIN_FILMS: Record<PersonRole, number> = {actor: 10, director: 4}
+/**
+ * Ушедшие — только умершие с 2015 года: звёзд, ушедших раньше (Джин Тирни 1920–1991,
+ * Клифтон Уэбб 1889–1966), нынешние зрители уже не знают.
+ */
+export const MIN_DEATH_YEAR = 2015
 /** Порог известности (статей в Википедиях); с номинацией в главной категории — AWARD_LINKS. */
 export const MIN_LINKS: Record<PersonRole, number> = {actor: 50, director: 40}
 export const AWARD_LINKS = 30
@@ -79,7 +84,9 @@ export const birthdayQuery = (role: PersonRole, life: PersonLife, day: string, l
   FILTER EXISTS { VALUES ?occ { ${OCCUPATIONS[role].join(' ')} } ?p wdt:P106 ?occ }
   FILTER NOT EXISTS { VALUES ?country { ${EXCLUDED_CITIZENSHIP.join(' ')} } ?p wdt:P27 ?country }
   FILTER NOT EXISTS { VALUES ?other { ${EXCLUDED_OCCUPATIONS.join(' ')} } ?p wdt:P106 ?other }
-  ${life === 'dead' ? 'OPTIONAL { ?p wdt:P570 ?death } FILTER(BOUND(?death))' : 'FILTER NOT EXISTS { ?p wdt:P570 [] }'}
+  ${life === 'dead'
+        ? `OPTIONAL { ?p wdt:P570 ?death } FILTER(BOUND(?death) && ?death >= "${MIN_DEATH_YEAR}-01-01T00:00:00Z"^^xsd:dateTime)`
+        : 'FILTER NOT EXISTS { ?p wdt:P570 [] }'}
   ?film ${filmProp} ?p; wdt:P31 wd:Q11424.
   OPTIONAL { ?p rdfs:label ?ru FILTER(LANG(?ru) = "ru") }
   OPTIONAL { ?p rdfs:label ?en FILTER(LANG(?en) = "en") }

@@ -16,7 +16,7 @@ import type {SectionGroup, WizardState} from '#server/bot/actions/collections/wi
 import {type ShelfKey, SHELVES} from '#server/global/engine/collections/shelves'
 import {type Bundle, bundleByKey} from '#server/global/engine/collections/bundles'
 import type {AvailableBundle} from '#server/global/engine/collections/buildCollection'
-import {lifeLabel, type PersonLife, type PersonRole} from '#server/global/engine/collections/people/birthdays'
+import {lifeLabel, MIN_DEATH_YEAR, type PersonLife, type PersonRole} from '#server/global/engine/collections/people/birthdays'
 
 /** Текст и кнопки мастера подборки для текущего состояния. */
 
@@ -291,7 +291,8 @@ export const renderWizard = (state: WizardState, options: RenderOptions = {}) =>
             // Как в подборках: список с номерами (фото — в «подробнее»), снизу кнопки-номера.
             const numbers = (state.birthdays ?? []).map((_, index) => btn(String(index + 1), 'pp', String(index), 'success'))
             for (let i = 0; i < numbers.length; i += 5) rows.push(numbers.slice(i, i + 5))
-            if (!state.birthdays?.length) rows.push([disabledBtn('Сегодня никого не нашлось')])
+            // Ушедшие — только с MIN_DEATH_YEAR: пустой день объясняем, чтобы не казалось поломкой.
+            if (!state.birthdays?.length) rows.push([disabledBtn(state.personLife === 'dead' ? `Сегодня никого (ушедшие с ${MIN_DEATH_YEAR} года)` : 'Сегодня никого не нашлось')])
             rows.push(back)
             break
         }

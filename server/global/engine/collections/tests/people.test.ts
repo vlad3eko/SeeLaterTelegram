@@ -21,6 +21,9 @@ test('именинники: день по Москве, запрос — точ�
     assert.ok(query.includes('wd:Q668') && query.includes('wd:Q159'))
     const directors = birthdayQuery('director', 'dead', '11-19', 2016)
     assert.ok(directors.includes('wdt:P57') && directors.includes('BOUND(?death)'))
+    // Ушедшие — только умершие с 2015 года.
+    assert.ok(directors.includes('?death >= "2015-01-01T00:00:00Z"^^xsd:dateTime'))
+    assert.ok(!query.includes('?death >='), 'у живых фильтра по смерти нет')
 })
 
 test('именинники: только звёзды — порог статей или номинация в главной категории', () => {
@@ -239,4 +242,11 @@ test('кадры с актёром: ни одна картинка точног�
     const found = await findStill('Meg Ryan', 'French Kiss', 1995, async urls => urls[0] === 'https://a/big.jpg' ? 'file-big' : undefined, {key: 'k', fetchImpl, character: 'Kate'})
     assert.equal(found, 'file-big')
     assert.equal(queries.length, 2)
+})
+
+test('именинники: пустой список ушедших объясняет порог по году смерти', () => {
+    const texts = (life: string) => renderWizard({...emptyState(), group: 'people', screen: 'birthdays', personRole: 'actor', personLife: life as any, birthdays: []})
+        .keyboard.inline_keyboard.flat().map((button: any) => button.text)
+    assert.ok(texts('dead').includes('Сегодня никого (ушедшие с 2015 года)'))
+    assert.ok(texts('alive').includes('Сегодня никого не нашлось'))
 })
