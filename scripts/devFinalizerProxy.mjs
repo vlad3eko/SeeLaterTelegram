@@ -17,7 +17,9 @@ const ALLOWED_PATHS = new Set(['/api/bot/reeljobs/finalize', '/api/bot/trailerde
 const MAX_BODY_BYTES = 64 * 1024
 
 const server = http.createServer((request, response) => {
-    const path = (request.url ?? '').split('?')[0].replace(/\/+$/, '').toLowerCase()
+    // Исходный регистр — для пересылки (роуты Nitro его различают), нижний — для сверки.
+    const rawPath = (request.url ?? '').split('?')[0].replace(/\/+$/, '')
+    const path = rawPath.toLowerCase()
 
     if (request.method !== 'POST' || !ALLOWED_PATHS.has(path)) {
         response.writeHead(404).end()
@@ -40,7 +42,7 @@ const server = http.createServer((request, response) => {
     request.on('end', async () => {
         if (response.writableEnded) return
         try {
-            const upstream = await fetch(`${TARGET}${path}`, {
+            const upstream = await fetch(`${TARGET}${rawPath}`, {
                 method: 'POST',
                 headers: {'content-type': request.headers['content-type'] ?? 'application/json'},
                 body: Buffer.concat(chunks)
