@@ -61,8 +61,9 @@ export const showSimilarList = async (ctx: any, base: SimilarRef) => {
         text: [{type: 'italic', text: 'Рекомендации зрителей TMDB и общие темы, без своей франшизы. Нажмите номер — покажу карточку.'}]
     })
 
-    const editable = Boolean(target.inlineMessageId) || (target.chatId !== undefined && target.messageId !== undefined)
-    if (editable) await tryGenerateCard(target, caption, keyboard)
+    // Править — только нажатое сообщение; из /start similar_… (ссылка из канала) — новым сообщением,
+    // иначе целью стало бы сообщение пользователя «/start», а его бот править не может.
+    if (ctx.callbackQuery) await tryGenerateCard(target, caption, keyboard)
     else await sendRichMessage(ctx, caption, keyboard)
 }
 
