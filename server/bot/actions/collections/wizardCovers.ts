@@ -2,18 +2,17 @@ import {getSupabase} from '#server/global/engine/instagram/reel/jobs/dispatchRee
 import type {WizardScreen} from '#server/bot/actions/collections/wizardState'
 
 /**
- * Обложки экранов мастера /g (таблица collection_covers). Их раз в квартал рисует и загружает
- * в служебный Telegram-канал scripts/covers/buildCovers.mjs (GitHub Actions), здесь — только file_id.
- * На экран несколько вариантов: вариант выбирается по id сообщения мастера, поэтому в одном меню
- * картинка не прыгает от нажатия к нажатию, а при новом /g может быть другой.
+ * Обложки экранов мастера /g (таблица collection_covers) — по одной GIF на экран. Их раз в квартал рисует
+ * и загружает в служебный Telegram-канал от имени обоих ботов scripts/covers/buildCovers.mjs (GitHub Actions),
+ * здесь — только file_id.
  */
 
 /** Экраны, у которых есть обложка; loading — пока собирается подборка, result — все страницы готовой подборки. */
 export type CoverScreen = Exclude<WizardScreen, 'title'> | 'loading'
 
 const CACHE_TTL_MS = 60 * 60_000
-let cache: {at: number, covers: Map<string, string[]>} | null = null
-let loading: Promise<Map<string, string[]>> | null = null
+let cache: {at: number, covers: Map<string, string>} | null = null
+let loading: Promise<Map<string, string>> | null = null
 
 /**
  * file_id принадлежит боту, который загрузил файл, поэтому у каждого бота свои строки (колонка bot):
@@ -21,18 +20,15 @@ let loading: Promise<Map<string, string[]>> | null = null
  */
 export const coversBot = (env: NodeJS.ProcessEnv = process.env) => env.NODE_ENV === 'development' ? 'dev' : 'prod'
 
-const loadCovers = async (): Promise<Map<string, string[]>> => {
-    const bot = coversBot()
-    const query = () => getSupabase().from('collection_covers').select('screen,variant,file_id').order('variant', {ascending: true})
-    let {data, error} = await query().eq('bot', bot)
-    // Миграция collection_covers_bot.sql ещё не выполнена: все строки — боевого бота.
-    if (error?.code === '42703') ({data, error} = bot === 'prod' ? await query() : {data: [], error: null})
+const loadCovers = async (): Promise<Map<string, string>> => {
+    const {data, error} = await getSupabase().from('collection_covers').select('screen,file_id')
+        .eq('bot', coversBot()).order('variant', {ascending: true})
     if (error) throw new Error(error.message)
 
-    const covers = new Map<string, string[]>()
+    // Строки отсортированы по variant: до перехода на GIF у экрана было по три картинки — берём первую.
+    const covers = new Map<string, string>()
     for (const row of data ?? []) {
-        if (!row.file_id) continue
-        covers.set(row.screen, [...(covers.get(row.screen) ?? []), row.file_id])
+        if (row.file_id && !covers.has(row.screen)) covers.set(row.screen, row.file_id)
     }
     return covers
 }
@@ -57,16 +53,11 @@ const coversMap = async () => {
 }
 
 /** file_id обложки экрана или undefined (обложек нет — показываем мастер без картинки). */
-export const coverFor = async (screen: CoverScreen, seed?: number): Promise<string | undefined> => {
-    const variants = (await coversMap()).get(screen)
-    if (!variants?.length) return undefined
-    const index = seed === undefined ? Math.floor(Math.random() * variants.length) : Math.abs(seed) % variants.length
-    return variants[index]
-}
+export const coverFor = async (screen: CoverScreen): Promise<string | undefined> => (await coversMap()).get(screen)
 
 /**
- * Обложка — GIF (buildCovers.mjs --animate) или картинка. Тип записан в самом file_id Bot API:
- * у анимаций он начинается с «CgAC», у фото — с «AgAC»; отдельной колонки в таблице не нужно.
+ * Обложка — GIF или (до первой публикации GIF у боевого бота) прежняя картинка. Тип записан в самом
+ * file_id Bot API: у анимаций он начинается с «CgAC», у фото — с «AgAC»; отдельной колонки не нужно.
  */
 export const isAnimationCover = (fileId: string) => fileId.startsWith('CgAC')
 

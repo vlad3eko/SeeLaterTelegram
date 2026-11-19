@@ -1,10 +1,10 @@
-# Обложки мастера подборок /g: раз в квартал свежие постеры из TMDB → новые обложки →
-# служебный Telegram-канал → file_id в таблицу collection_covers (scripts/covers/buildCovers.mjs).
+# Обложки мастера подборок /g: раз в квартал свежие постеры из TMDB → по одной GIF на экран →
+# служебный Telegram-канал от имени обоих ботов → file_id в таблицу collection_covers (scripts/covers/buildCovers.mjs).
 #
 # Секреты репозитория (Settings → Secrets and variables → Actions):
-#   TMDB_API_KEY, TELEGRAM_TOKEN, TELEGRAM_MEDIA_STORAGE_CHAT_ID, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY.
+#   TMDB_API_KEY, TELEGRAM_TOKEN, TELEGRAM_DEV_TOKEN, TELEGRAM_MEDIA_STORAGE_CHAT_ID, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY.
 # Перед первым запуском выполнить database/migrations/collection_covers.sql.
-# Вручную: Actions → Collection covers → Run workflow (можно без публикации — только картинки в артефакте).
+# Вручную: Actions → Collection covers → Run workflow (можно без публикации — только GIF в артефакте).
 
 name: Collection covers
 
@@ -14,9 +14,6 @@ on:
     - cron: '0 6 1 1,4,7,10 *'
   workflow_dispatch:
     inputs:
-      variants:
-        description: 'Вариантов обложки на экран'
-        default: '3'
       publish:
         description: 'Отправить в Telegram и записать в Supabase'
         type: boolean
@@ -32,7 +29,8 @@ permissions:
 jobs:
   covers:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    # 15 экранов × ~1,5 минуты на кадры и сборку GIF + отправка от двух ботов.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
@@ -48,16 +46,15 @@ jobs:
         env:
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
-          # Необязательный: с ним обложки загружаются и для тестового бота (file_id у каждого бота свои).
+          # Обязательный: обложки загружаются от имени обоих ботов сразу (file_id у каждого бота свои).
           TELEGRAM_DEV_TOKEN: ${{ secrets.TELEGRAM_DEV_TOKEN }}
           TELEGRAM_MEDIA_STORAGE_CHAT_ID: ${{ secrets.TELEGRAM_MEDIA_STORAGE_CHAT_ID }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          VARIANTS: ${{ inputs.variants || '3' }}
           # По расписанию inputs пустые — публикуем; при ручном запуске — как отмечено.
           PUBLISH: ${{ github.event_name == 'schedule' || inputs.publish }}
         run: |
-          node scripts/covers/buildCovers.mjs --variants "$VARIANTS" $([ "$PUBLISH" = "true" ] && echo --publish)
+          node scripts/covers/buildCovers.mjs $([ "$PUBLISH" = "true" ] && echo --publish)
 
       - name: Upload covers
         if: always()
@@ -65,7 +62,7 @@ jobs:
         with:
           name: collection-covers
           path: |
-            .covers-out/*.jpg
+            .covers-out/*.gif
             .covers-out/covers.json
           if-no-files-found: ignore
           retention-days: 30

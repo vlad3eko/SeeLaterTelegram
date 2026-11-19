@@ -176,7 +176,7 @@ const showWizard = async (ctx: any, row: WizardRow, options: RenderOptions = {})
         admin: isAdmin(row.telegramId)
     })
     const coverScreen = coverScreenFor(row, options)
-    const cover = coverScreen ? await coverFor(coverScreen, row.messageId) : undefined
+    const cover = coverScreen ? await coverFor(coverScreen) : undefined
     const chatId = row.chatId ?? ctx.chat?.id
 
     if (chatId && row.messageId) {
@@ -589,7 +589,7 @@ const showCollection = async (ctx: any, row: WizardRow, collection: CollectionRo
     caption.blocks.push(collectionPagesFooter(page, loaded, rest, botName(ctx)))
 
     // Обложка «Ваш топ готов!» — одна на все страницы и разделы; не принял Telegram — без неё.
-    const cover = await coverFor('result', row.messageId)
+    const cover = await coverFor('result')
     if (cover) {
         try {
             await tryGenerateCard(target, {...caption, blocks: [coverBlock(cover), ...caption.blocks]}, keyboard)

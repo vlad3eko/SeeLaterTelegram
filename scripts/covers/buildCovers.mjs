@@ -1,22 +1,22 @@
-// Обложки экранов мастера подборок /g.
+// Обложки экранов мастера подборок /g — по одной GIF на экран.
 //
-//   node --env-file=.env scripts/covers/buildCovers.mjs [--out dir] [--variants 3] [--screens home,root] [--publish] [--bot dev|prod] [--animate]
+//   node --env-file=.env scripts/covers/buildCovers.mjs [--out dir] [--screens home,root] [--publish]
 //
-// 1. Берёт из TMDB актуальные постеры под каждый экран (тренды, популярные сериалы, премьеры…).
-// 2. Рисует шаблон scripts/covers/template.html в Chrome без окна: --variants вариантов на экран,
-//    у каждого свой случайный наклон карточек.
-// 3. Без --publish только сохраняет JPG и covers.json в --out (по умолчанию .covers-out).
-//    С --publish отправляет каждую обложку в служебный Telegram-канал (TELEGRAM_MEDIA_STORAGE_CHAT_ID),
-//    записывает file_id в таблицу collection_covers (database/migrations/collection_covers.sql)
-//    и удаляет из неё прошлые партии.
+// 1. Берёт из TMDB актуальные постеры (у экранов «Актёры и режиссёры» — портреты) под каждый экран.
+// 2. Рисует шаблон scripts/covers/template.html в Chrome без окна и снимает 48 кадров: карточки
+//    покачиваются, по заголовку бежит волна; ffmpeg собирает зацикленную GIF 800 px (~3,5 МБ).
+// 3. Без --publish только сохраняет GIF и covers.json в --out (по умолчанию .covers-out).
+//    С --publish отправляет каждую GIF в служебный Telegram-канал (TELEGRAM_MEDIA_STORAGE_CHAT_ID)
+//    от имени обоих ботов — боевого и тестового, записывает file_id в таблицу collection_covers
+//    и удаляет из неё прошлые партии этих экранов. Один запуск обновляет оба бота сразу.
 //
 // Новых зависимостей нет: Chrome (CHROME_PATH или стандартный путь), ffmpeg (FFMPEG_PATH,
-// ffmpeg-static из node_modules или ffmpeg в PATH), fetch из Node 22.
+// ffmpeg-static из node_modules или ffmpeg в PATH), fetch и WebSocket из Node 22.
 // Запуск раз в квартал — .github/workflows/collection-covers.yml.
 
 import {execFile, spawn} from 'node:child_process'
 import {existsSync} from 'node:fs'
-import {mkdir, readFile, stat, writeFile} from 'node:fs/promises'
+import {mkdir, readFile, rm, writeFile} from 'node:fs/promises'
 import {createRequire} from 'node:module'
 import path from 'node:path'
 import {fileURLToPath, pathToFileURL} from 'node:url'
@@ -34,9 +34,6 @@ const option = (name, fallback) => {
     return index >= 0 && args[index + 1] ? args[index + 1] : fallback
 }
 const OUT = path.resolve(option('out', '.covers-out'))
-// --animate — вместо трёх картинок одна GIF на экран: карточки покачиваются, по заголовку бежит волна.
-const ANIMATE = flag('animate')
-const VARIANTS = ANIMATE ? 1 : Math.max(1, Number(option('variants', 3)))
 const PUBLISH = flag('publish')
 // GIF: 48 кадров по 12 в секунду — цикл 4 секунды; ширина 800 px — около 3,5 МБ на экран.
 const GIF_FRAMES = 48
@@ -213,27 +210,10 @@ const findFfmpeg = () => {
     return 'ffmpeg'
 }
 
-const render = async (chrome, ffmpeg, screen, posters, variant) => {
-    const seed = Math.floor(Math.random() * 1e9)
-    const png = path.join(OUT, 'png', `${screen}-${variant}.png`)
-    const jpg = path.join(OUT, `${screen}-${variant}.jpg`)
-    const url = `${pathToFileURL(TEMPLATE).href}#screen=${screen}&posters=${posters.map(p => p.path).join(',')}&seed=${seed}`
-    await run(chrome, [
-        '--headless=new', '--hide-scrollbars', '--force-device-scale-factor=2',
-        // Ждём шрифт, постеры и цвета боков карточек (canvas) — сеть, поэтому с запасом.
-        '--virtual-time-budget=20000', '--window-size=1280,853',
-        ...(process.platform === 'linux' ? ['--no-sandbox', '--disable-dev-shm-usage'] : []),
-        `--screenshot=${png}`, url
-    ], {timeout: 120_000})
-    if (!existsSync(png) || (await stat(png)).size < 200_000) throw new Error(`Screenshot failed: ${screen} #${variant}`)
-    // Telegram всё равно ужимает фото до 1280 по длинной стороне; 1920 — с запасом на чёткость.
-    await run(ffmpeg, ['-y', '-loglevel', 'error', '-i', png, '-vf', 'scale=1920:-1:flags=lanczos', '-q:v', '3', jpg], {timeout: 60_000})
-    return {screen, variant, seed, file: path.basename(jpg), posters: posters.map(p => p.path)}
-}
-
-// Анимация: Chrome без окна по протоколу DevTools (WebSocket из Node 22, без новых зависимостей).
+// Chrome без окна по протоколу DevTools (WebSocket из Node 22, без новых зависимостей).
 // Шаблон рисуется один раз, затем для каждого кадра — setPhase(0…1) и снимок; ffmpeg собирает GIF.
-const renderAnimated = async (chrome, ffmpeg, screen, posters) => {
+// seed — случайный наклон карточек (повторить: #seed=… в адресе шаблона).
+const render = async (chrome, ffmpeg, screen, posters) => {
     const seed = Math.floor(Math.random() * 1e9)
     const framesDir = path.join(OUT, 'frames', screen)
     const gif = path.join(OUT, `${screen}-1.gif`)
@@ -290,6 +270,7 @@ const renderAnimated = async (chrome, ffmpeg, screen, posters) => {
     await run(ffmpeg, ['-y', '-loglevel', 'error', '-framerate', String(GIF_FPS), '-i', path.join(framesDir, 'f%03d.png'),
         '-vf', `scale=${GIF_WIDTH}:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=192:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle`,
         '-loop', '0', gif], {timeout: 180_000})
+    await rm(framesDir, {recursive: true, force: true})
     return {screen, variant: 1, seed, file: path.basename(gif), posters: posters.map(p => p.path)}
 }
 
@@ -306,60 +287,42 @@ const TELEGRAM_API = (process.env.TELEGRAM_API_URL || 'https://api.telegram.org'
 
 // file_id в Telegram принадлежит боту, который загрузил файл: чужие file_id бот показывать не обязан
 // (19.11.2026 тестовый бот перестал принимать обложки боевого). Поэтому каждая обложка загружается
-// от имени каждого бота: prod — TELEGRAM_TOKEN, dev — TELEGRAM_DEV_TOKEN, если он задан.
-// --bot dev — только тестовый бот (проверить новые обложки, не трогая боевые строки).
-const ONLY_BOT = option('bot', '')
-const botsToPublish = () => {
-    if (ONLY_BOT === 'dev') return [{bot: 'dev', token: requireEnv('TELEGRAM_DEV_TOKEN')}]
-    if (ONLY_BOT === 'prod') return [{bot: 'prod', token: requireEnv('TELEGRAM_TOKEN')}]
-    if (ONLY_BOT) throw new Error(`Unknown --bot: ${ONLY_BOT}`)
-    return [
-        {bot: 'prod', token: requireEnv('TELEGRAM_TOKEN')},
-        ...(process.env.TELEGRAM_DEV_TOKEN?.trim() ? [{bot: 'dev', token: process.env.TELEGRAM_DEV_TOKEN.trim()}] : [])
-    ]
-}
+// от имени обоих ботов сразу — prod (TELEGRAM_TOKEN) и dev (TELEGRAM_DEV_TOKEN): обновили экран —
+// обновился у обоих. Нет любого из токенов — запуск падает до отрисовки, чтобы боты не разошлись.
+const botsToPublish = () => [
+    {bot: 'prod', token: requireEnv('TELEGRAM_TOKEN')},
+    {bot: 'dev', token: requireEnv('TELEGRAM_DEV_TOKEN')}
+]
 
 // В канал Telegram пускает ~20 сообщений в минуту: между отправками пауза, на 429 — ждём сколько
 // велено (retry_after), на сбой сети или 5xx — повтор. Всего до 6 попыток на обложку.
-// Обложка-анимация (GIF) уходит через sendAnimation: Telegram показывает её как GIF — сама проигрывается
-// по кругу у всех, независимо от настройки автовоспроизведения видео.
-const sendToStorage = async (photo, cover, batch, token, animated = false) => {
-    const [method, field, mime, extension] = animated
-        ? ['sendAnimation', 'animation', 'image/gif', 'gif']
-        : ['sendPhoto', 'photo', 'image/jpeg', 'jpg']
+// GIF уходит через sendAnimation: Telegram показывает её как GIF — сама проигрывается по кругу
+// у всех, независимо от настройки автовоспроизведения видео.
+const sendToStorage = async (gif, cover, batch, token) => {
     for (let attempt = 1; ; attempt++) {
         const form = new FormData()
         form.append('chat_id', requireEnv('TELEGRAM_MEDIA_STORAGE_CHAT_ID'))
-        form.append('caption', `Обложка /g · ${cover.screen} #${cover.variant} · ${batch}`)
+        form.append('caption', `Обложка /g · ${cover.screen} · ${batch}`)
         form.append('disable_notification', 'true')
-        form.append(field, new Blob([photo], {type: mime}), `${cover.screen}-${cover.variant}.${extension}`)
+        form.append('animation', new Blob([gif], {type: 'image/gif'}), `${cover.screen}.gif`)
         let body = null
         let retryAfter = 5 * attempt
         try {
-            const response = await fetch(`${TELEGRAM_API}/bot${token}/${method}`,
+            const response = await fetch(`${TELEGRAM_API}/bot${token}/sendAnimation`,
                 {method: 'POST', body: form, signal: AbortSignal.timeout(60_000)})
             body = await response.json().catch(() => ({ok: false, error_code: response.status, description: `HTTP ${response.status}`}))
         } catch (error) {
             body = {ok: false, error_code: 0, description: error instanceof Error ? error.message : String(error)}
         }
-        if (body.ok) return animated ? (body.result.animation ?? body.result.document).file_id : body.result.photo.at(-1).file_id
+        if (body.ok) return (body.result.animation ?? body.result.document).file_id
         const retryable = body.error_code === 429 || body.error_code === 0 || body.error_code >= 500
         if (!retryable || attempt >= 6) {
-            throw new Error(`Telegram ${method} failed (${cover.screen} #${cover.variant}): ${body.description}`)
+            throw new Error(`Telegram sendAnimation failed (${cover.screen}): ${body.description}`)
         }
         if (body.error_code === 429) retryAfter = (body.parameters?.retry_after ?? 30) + 1
         console.warn(`[COVERS] Telegram: ${body.description} — retry in ${retryAfter}s`)
         await sleep(retryAfter * 1000)
     }
-}
-
-/** Скачать файл по file_id от имени бота-владельца. */
-const downloadFile = async (fileId, token) => {
-    const info = await (await fetch(`${TELEGRAM_API}/bot${token}/getFile?file_id=${encodeURIComponent(fileId)}`)).json()
-    if (!info.ok) throw new Error(`Telegram getFile failed: ${info.description}`)
-    const response = await fetch(`${TELEGRAM_API}/file/bot${token}/${info.result.file_path}`, {signal: AbortSignal.timeout(60_000)})
-    if (!response.ok) throw new Error(`Telegram file download ${response.status}`)
-    return Buffer.from(await response.arrayBuffer())
 }
 
 const supabase = async (method, query, body) => {
@@ -377,61 +340,36 @@ const supabase = async (method, query, body) => {
 
 const sendDelay = () => sleep(Number(process.env.COVERS_SEND_DELAY_MS ?? 3500))
 
-/**
- * --mirror-dev: без отрисовки — текущие обложки боевого бота загрузить ещё и от имени тестового
- * (TELEGRAM_DEV_TOKEN) и заменить ими строки bot = dev.
- */
-const mirrorDev = async () => {
-    const prodToken = requireEnv('TELEGRAM_TOKEN')
-    const devToken = requireEnv('TELEGRAM_DEV_TOKEN')
-    const rows = await supabase('GET', '?select=batch,screen,variant,file_id,posters,seed&bot=eq.prod&order=screen,variant')
-    if (!rows.length) throw new Error('No prod covers to mirror')
-    const mirrored = []
-    for (const [index, row] of rows.entries()) {
-        if (index) await sendDelay()
-        const photo = await downloadFile(row.file_id, prodToken)
-        mirrored.push({...row, bot: 'dev', file_id: await sendToStorage(photo, row, row.batch, devToken, row.file_id.startsWith('CgAC'))})
-        console.log(`[COVERS] mirrored ${row.screen} #${row.variant}`)
-    }
-    await supabase('DELETE', '?bot=eq.dev')
-    await supabase('POST', '', mirrored)
-    console.log(`[COVERS] dev covers: ${mirrored.length}`)
-}
-
 // ---------- запуск ----------
 const main = async () => {
-    if (flag('mirror-dev')) return mirrorDev()
-
-    await mkdir(path.join(OUT, 'png'), {recursive: true})
+    // Токены проверяем до отрисовки (она идёт ~20 минут), а не после.
+    const bots = PUBLISH ? botsToPublish() : []
+    await mkdir(OUT, {recursive: true})
     const chrome = await findChrome()
     const ffmpeg = findFfmpeg()
     const posters = await pickPosters()
 
     const covers = []
     for (const screen of screenKeys) {
-        for (let variant = 1; variant <= VARIANTS; variant++) {
-            covers.push(ANIMATE ? await renderAnimated(chrome, ffmpeg, screen, posters[screen]) : await render(chrome, ffmpeg, screen, posters[screen], variant))
-            console.log(`[COVERS] rendered ${screen} #${variant}`)
-        }
+        covers.push(await render(chrome, ffmpeg, screen, posters[screen]))
+        console.log(`[COVERS] rendered ${screen}`)
     }
 
     const batch = new Date().toISOString().replace(/[-:]/g, '').slice(0, 13)
     if (PUBLISH) {
-        const bots = botsToPublish()
         const rows = []
         let sent = 0
         for (const cover of covers) {
-            const photo = await readFile(path.join(OUT, cover.file))
+            const gif = await readFile(path.join(OUT, cover.file))
             for (const {bot, token} of bots) {
                 if (sent++) await sendDelay()
                 rows.push({batch, bot, screen: cover.screen, variant: cover.variant,
-                    file_id: await sendToStorage(photo, cover, batch, token, cover.file.endsWith('.gif')), posters: cover.posters, seed: cover.seed})
-                console.log(`[COVERS] sent ${cover.screen} #${cover.variant} (${bot})`)
+                    file_id: await sendToStorage(gif, cover, batch, token), posters: cover.posters, seed: cover.seed})
+                console.log(`[COVERS] sent ${cover.screen} (${bot})`)
             }
         }
         await supabase('POST', '', rows)
-        // Новая партия записана — прошлые больше не нужны: только у ботов этой партии
-        // (без TELEGRAM_DEV_TOKEN обложки тестового бота остаются) и при --screens — только по этим экранам.
+        // Новая партия записана у обоих ботов — прошлые больше не нужны (при --screens — только по этим экранам).
         const botNames = bots.map(({bot}) => bot).join(',')
         const screensFilter = onlyScreens.length ? `&screen=in.(${screenKeys.join(',')})` : ''
         await supabase('DELETE', `?batch=neq.${batch}&bot=in.(${botNames})${screensFilter}`)
