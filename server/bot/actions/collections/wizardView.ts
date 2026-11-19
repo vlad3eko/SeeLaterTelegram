@@ -16,6 +16,7 @@ import type {SectionGroup, WizardState} from '#server/bot/actions/collections/wi
 import {type ShelfKey, SHELVES} from '#server/global/engine/collections/shelves'
 import {type Bundle, bundleByKey} from '#server/global/engine/collections/bundles'
 import type {AvailableBundle} from '#server/global/engine/collections/buildCollection'
+import {lifeLabel, type PersonLife, type PersonRole} from '#server/global/engine/collections/people/birthdays'
 
 /** Текст и кнопки мастера подборки для текущего состояния. */
 
@@ -48,7 +49,7 @@ export const GROUPS: Array<{key: SectionGroup, label: string, ready: boolean, sh
     {key: 'cseries', label: '🎨 Мультсериалы', ready: true, shelves: ['animated_series']},
     {key: 'anime', label: '🌸 Аниме', ready: true, shelves: ['anime_movie', 'anime_series']},
     {key: 'donghua', label: '🐉 Дунхуа', ready: true, shelves: ['donghua_movie', 'donghua_series']},
-    {key: 'people', label: '🎭 Актёры и режиссёры', ready: false, shelves: []}
+    {key: 'people', label: '🎭 Актёры и режиссёры', ready: true, shelves: []}
 ]
 
 /** Полка выбора: явная или по группе (старые сохранённые меню без полки). */
@@ -62,6 +63,12 @@ export const isTvShelf = (state: WizardState) => SHELVES[shelfKeyOf(state)].medi
 export const hasFormat = (group?: SectionGroup) => (GROUPS.find(item => item.key === group)?.shelves.length ?? 0) > 1
 
 export const CRITERION_LABEL = {filter: 'Фильтр', popular: 'Популярное', bundle: 'Связки'} as const
+export const ROLE_LABEL: Record<PersonRole, string> = {actor: 'Актёры', director: 'Режиссёры'}
+export const LIFE_LABEL: Record<PersonLife, string> = {alive: 'Живые', dead: 'Ушедшие'}
+
+/** «19 ноября» — сегодня по Москве. */
+export const todayLabel = (date = new Date()) =>
+    new Intl.DateTimeFormat('ru-RU', {timeZone: 'Europe/Moscow', day: 'numeric', month: 'long'}).format(date)
 
 /** Выбранная связка (только при criterion bundle). */
 export const bundleOf = (state: WizardState): Bundle | undefined =>
@@ -97,6 +104,8 @@ const crumbsOf = (state: WizardState, period?: string): Array<{label: string, st
     const crumbs: Array<{label: string, step?: CrumbStep}> = [{label: 'Меню', step: 'home'}]
     const group = GROUPS.find(item => item.key === state.group)
     if (group) crumbs.push({label: group.label.replace(/^\S+\s/, ''), step: 'group'})
+    if (state.group === 'people' && state.personRole) crumbs.push({label: ROLE_LABEL[state.personRole].toLowerCase()})
+    if (state.group === 'people' && state.personLife) crumbs.push({label: LIFE_LABEL[state.personLife].toLowerCase()})
     if (hasFormat(state.group) && state.shelf) crumbs.push({label: SHELVES[state.shelf].mediaType === 'tv' ? 'сериалы' : 'фильмы', step: 'format'})
     if (isTvShelf(state) && state.section) crumbs.push({label: SECTIONS[state.section].label.toLowerCase(), step: 'section'})
     const bundle = bundleOf(state)
@@ -165,7 +174,11 @@ const HINT: Record<WizardState['screen'], string> = {
     direction: 'Уже в кино и онлайн — или премьеры ещё впереди.',
     period: 'В скобках — сколько нашлось с трейлером.',
     result: '',
-    title: ''
+    title: '',
+    people: 'Подборка ко дню рождения: 10 лучших фильмов актёра или режиссёра.',
+    peopleLife: 'Живые или уже ушедшие.',
+    peopleSearch: '',
+    birthdays: 'Самые известные — сверху. Нажмите имя: соберу 10 лучших фильмов.'
 }
 
 const FILTER_HINT: TextLine = {quote: true, parts: [
@@ -235,6 +248,9 @@ export const renderWizard = (state: WizardState, options: RenderOptions = {}) =>
                 : state.screen === 'filter' ? [FILTER_HINT]
                     : hint ? [{parts: [italic(hint)]}] : [])
     ]
+    if (state.screen === 'peopleSearch' && !note && !counting) {
+        lines.push({parts: [italic('Найду самых известных, у кого день рождения сегодня — '), bold(todayLabel()), italic('.')]})
+    }
     const text = htmlText(lines)
 
     const rows: any[][] = []
@@ -254,6 +270,24 @@ export const renderWizard = (state: WizardState, options: RenderOptions = {}) =>
             rows.push(back)
             break
         }
+        case 'people':
+            rows.push([btn('🎭 Актёры', 'pr', 'actor', 'success'), btn('🎬 Режиссёры', 'pr', 'director', 'success')])
+            rows.push(back)
+            break
+        case 'peopleLife':
+            rows.push([btn('🌟 Живые', 'pl', 'alive', 'success'), btn('🕯 Ушедшие', 'pl', 'dead', 'success')])
+            rows.push(back)
+            break
+        case 'peopleSearch':
+            rows.push([btn('🔎 Искать именинников', 'ps', undefined, 'success')])
+            rows.push(back)
+            break
+        case 'birthdays':
+            ;(state.birthdays ?? []).forEach((person, index) =>
+                rows.push([btn(`🎂 ${person.name} · ${lifeLabel(person)}`, 'pp', String(index), 'success')]))
+            if (!state.birthdays?.length) rows.push([disabledBtn('Сегодня никого не нашлось')])
+            rows.push(back)
+            break
         case 'format':
             rows.push([btn('🎬 Фильмы', 'fm', 'movie', 'success'), btn('📺 Сериалы', 'fm', 'tv', 'success')])
             rows.push(back)

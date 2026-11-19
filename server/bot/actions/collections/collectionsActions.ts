@@ -32,6 +32,8 @@ import {
 import {sendRichMessage} from '#server/global/engine/card/transport/sendRichMessage'
 import {coverFor, forgetCovers, type CoverScreen} from '#server/bot/actions/collections/wizardCovers'
 import {dispatchBundles, dispatchMessage} from '#server/global/engine/collections/judge/dispatch'
+import {findBirthdays, lifeLabel, type PersonRole} from '#server/global/engine/collections/people/birthdays'
+import {buildPersonTop} from '#server/global/engine/collections/people/personTop'
 import {addMessageSession} from '#server/bot/services/session/addMessageSession'
 import {SessionMessageType} from '#server/bot/consts/types/SessionMessageTypes'
 import type {ContentType} from '#server/global/engine/search/strategy/enums'
@@ -102,11 +104,13 @@ type CollectionRecord = {
 
 /** «Похожее»: подборка от тайтла; parent_id — подборка, из которой его открыли (кнопка «К подборке»). */
 type SimilarParams = {similar?: {media_type: 'movie' | 'tv', id: number, title: string}, parent_id?: string}
+/** «Именинники дня»: подборка лучших фильмов человека. */
+type PersonParams = {person?: {id: number, name: string, role: PersonRole, born: number, died?: number}}
 
 type CollectionRow = {
     id: string
     telegram_id: number
-    params: CollectionParams & {match?: 'and' | 'or'} & SimilarParams
+    params: CollectionParams & {match?: 'and' | 'or'} & SimilarParams & PersonParams
     items: CollectionRecord[]
     candidates: Array<{id: number, score: number}>
     page: number
@@ -307,6 +311,7 @@ const jumpState = (state: WizardState, step: CrumbStep): WizardState | null => {
 
 /** Экран после выбора раздела меню: аниме и дунхуа — «Фильмы или сериалы», иначе полка сразу. */
 const groupState = (group: WizardState['group']): WizardState | null => {
+    if (group === 'people') return {...emptyState(), screen: 'people', group}
     const entry = GROUPS.find(item => item.key === group)
     if (!entry?.ready || !entry.shelves.length) return null
     if (entry.shelves.length > 1) return {...emptyState(), screen: 'format', group: entry.key}
@@ -336,7 +341,14 @@ const backFrom = (state: WizardState): WizardState => {
         case 'root':
             return emptyState()
         case 'format':
+        case 'people':
             return {...emptyState(), screen: 'root'}
+        case 'peopleLife':
+            return {...emptyState(), screen: 'people', group: 'people'}
+        case 'peopleSearch':
+            return {...state, screen: 'peopleLife', personLife: undefined, birthdays: undefined}
+        case 'birthdays':
+            return {...state, screen: 'peopleSearch', birthdays: undefined}
         case 'series':
             return hasFormat(state.group)
                 ? {...emptyState(), screen: 'format', group: state.group}
@@ -374,6 +386,10 @@ const ALLOWED_ON_SCREEN: Record<string, WizardState['screen'][]> = {
     c: ['criterion'],
     bn: ['bundles'],
     gb: ['bundles'],
+    pr: ['people'],
+    pl: ['peopleLife'],
+    ps: ['peopleSearch'],
+    pp: ['birthdays'],
     sim: ['title'],
     up: ['result'],
     f: ['filter'],
@@ -518,13 +534,14 @@ const showCollection = async (ctx: any, row: WizardRow, collection: CollectionRo
     const hasMore = page + 1 < loaded || rest > 0
 
     const similar = collection.params.similar
-    const bundle = !similar && collection.params.criterion === 'bundle' ? bundleByKey(collection.params.bundle) : undefined
+    const person = !similar ? collection.params.person : undefined
+    const bundle = !similar && !person && collection.params.criterion === 'bundle' ? bundleByKey(collection.params.bundle) : undefined
     const footerRows = [
         ...(canPublishCollections(row.telegramId) ? [[btn('🎠 Собрать карусель', 'car')]] : []),
         [
             similar && collection.params.parent_id
                 ? btn('◀️ К подборке', 'up', undefined, 'danger')
-                : btn('◀️ Назад в меню', 'cb', undefined, 'danger'),
+                : btn(person ? '◀️ К именинникам' : '◀️ Назад в меню', 'cb', undefined, 'danger'),
             ...(hasMore ? [btn('🔁 Ещё вариант', 'more', undefined, 'success')] : [])
         ]
     ]
@@ -532,7 +549,9 @@ const showCollection = async (ctx: any, row: WizardRow, collection: CollectionRo
     const target = richTarget(ctx, row)
     const {caption, keyboard} = await constructRichListCard(target, items.map(queryOf), {
         title: collectionHeading(count, page,
-            similar ? `🔗 Похоже на «${similar.title}»` : bundle ? `${bundle.emoji} ${bundle.title}` : undefined),
+            similar ? `🔗 Похоже на «${similar.title}»`
+                : person ? `🎂 ${person.name}: ${count} ${person.role === 'director' ? 'лучших фильмов' : 'лучших ролей'}`
+                    : bundle ? `${bundle.emoji} ${bundle.title}` : undefined),
         footerRows,
         tvDate: tvDateFor(collection.params.section),
         itemButton: (text, index) => btn(text, 't', String(index)),
@@ -541,7 +560,12 @@ const showCollection = async (ctx: any, row: WizardRow, collection: CollectionRo
     // Под заголовком «Топ-10»: путь со ссылками, отметки фильтра, пояснение.
     caption.blocks.splice(1, 0, ...richBlocks(similar
         ? [{parts: [{text: 'Рекомендации зрителей TMDB и общие темы, та же полка, без своей франшизы.', italic: true}]}]
-        : collectionLines(state, collection.params.period, note, botName(ctx))))
+        : person
+            ? [{parts: [{
+                text: `Сегодня день рождения · ${lifeLabel(person)}. ${person.role === 'director' ? 'Фильмы, которые он снял, — по рейтингу.' : 'Главные роли — по рейтингу.'}`,
+                italic: true
+            }]}]
+            : collectionLines(state, collection.params.period, note, botName(ctx))))
     caption.blocks.push(collectionPagesFooter(page, loaded, rest, botName(ctx)))
 
     // Обложка «Ваш топ готов!» — одна на все страницы и разделы; не принял Telegram — без неё.
@@ -727,6 +751,73 @@ const showSimilar = async (ctx: any, row: WizardRow) => {
     await saveWizard(row)
 }
 
+/** «🔎 Искать именинников»: Wikidata (по нажатию, без TMDB) → экран со списком. */
+const searchBirthdays = async (ctx: any, row: WizardRow) => {
+    const state = row.state
+    if (!state.personRole || !state.personLife) return
+    await showWizard(ctx, row, {note: '⏳ Ищу именинников…', building: true})
+    let people
+    try {
+        people = await findBirthdays(state.personRole, state.personLife)
+    } catch (error) {
+        console.warn('[COLLECTIONS] Birthdays failed', error instanceof Error ? error.message : error)
+        await showWizard(ctx, row, {note: '😕 Wikidata не ответила. Попробуйте ещё раз через минуту.'})
+        return
+    }
+    // Пока искали, меню могли увести.
+    const current = await loadWizard(row.telegramId)
+    if (current.state.screen !== 'peopleSearch' || current.messageId !== row.messageId) return
+    row.state = {...state, screen: 'birthdays', birthdays: people}
+    await showWizard(ctx, row)
+    await saveWizard(row)
+}
+
+/** Имя именинника → 10 лучших фильмов (главные роли / снятые) с трейлерами — правкой того же сообщения. */
+const showPersonTop = async (ctx: any, row: WizardRow, index: number) => {
+    const state = row.state
+    const person = state.birthdays?.[index]
+    if (!person || !state.personRole) return safeAnswer(ctx, 'Список устарел — нажмите «Искать» ещё раз.', true)
+    await safeAnswer(ctx, `Собираю фильмы: ${person.name}…`)
+    await showWizard(ctx, row, {note: `⏳ Собираю лучшие фильмы: ${person.name}…`, building: true})
+
+    const role = state.personRole
+    const result = await buildPersonTop(person.id, role)
+    const current = await loadWizard(row.telegramId)
+    if (current.state.screen !== 'birthdays' || current.messageId !== row.messageId) return
+    if (result.items.length < 3) {
+        await showWizard(ctx, row, {note: `😕 У «${person.name}» мало ${role === 'director' ? 'фильмов' : 'главных ролей'} с трейлером. Выберите другого.`})
+        return
+    }
+
+    const shelf = shelfForParams({section: 'movies'})
+    const {data: saved, error} = await getSupabase()
+        .from('collections')
+        .insert({
+            telegram_id: row.telegramId,
+            params: {section: 'movies', criterion: 'popular', period: 'all', person: {...person, role}},
+            items: result.items.map((item, rank) => ({
+                rank: rank + 1,
+                media_type: 'movie',
+                content_type: shelf.contentType,
+                id: item.id,
+                title: item.title,
+                year: item.year ?? null,
+                score: item.score,
+                trailer_key: item.trailer.key,
+                trailer_language: item.trailer.language
+            })),
+            candidates: result.rest,
+            page: 0
+        })
+        .select('id,telegram_id,params,items,candidates,page')
+        .single()
+    if (error) throw new Error(`[COLLECTIONS] Person save failed: ${error.message}`)
+
+    row.state = {...state, screen: 'result', collectionId: saved.id}
+    await showCollection(ctx, row, saved as CollectionRow)
+    await saveWizard(row)
+}
+
 /** Все кнопки /g. */
 export const collectionAction = async (ctx: any) => {
     const telegramId = Number(ctx.from?.id)
@@ -809,6 +900,23 @@ export const collectionAction = async (ctx: any) => {
                 state = afterCriterion({...state, bundle: bundle.key})
                 break
             }
+
+            case 'pr':
+                if (arg === 'actor' || arg === 'director') state = {...state, screen: 'peopleLife', personRole: arg}
+                break
+
+            case 'pl':
+                if (arg === 'alive' || arg === 'dead') state = {...state, screen: 'peopleSearch', personLife: arg, birthdays: undefined}
+                break
+
+            case 'ps':
+                await safeAnswer(ctx, 'Ищу именинников…')
+                await searchBirthdays(ctx, row)
+                return
+
+            case 'pp':
+                await showPersonTop(ctx, row, Number(arg))
+                return
 
             case 'gb': {
                 if (!isAdmin(telegramId)) return safeAnswer(ctx)
@@ -906,6 +1014,11 @@ export const collectionAction = async (ctx: any) => {
             }
 
             case 'cb': {
+                // Подборка именинника — назад к списку именинников.
+                if (state.group === 'people') {
+                    state = {...state, screen: state.birthdays?.length ? 'birthdays' : 'peopleSearch', collectionId: undefined, titleIndex: undefined}
+                    break
+                }
                 // «Назад в меню»: подборка снова становится меню на экране периода.
                 const toPeriod: WizardState = {...state, screen: 'period', collectionId: undefined}
                 state = availablePeriods(toPeriod).length > 1 ? toPeriod : backFrom(toPeriod)

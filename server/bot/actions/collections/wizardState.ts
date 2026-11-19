@@ -3,6 +3,7 @@ import {isAdmin} from '#server/bot/consts/admins'
 import type {CollectionCriterion} from '#server/global/engine/collections/buildCollection'
 import type {Direction, SectionKey, YearRangeKey} from '#server/global/engine/collections/catalog'
 import type {ShelfKey} from '#server/global/engine/collections/shelves'
+import type {BirthdayPerson, PersonLife, PersonRole} from '#server/global/engine/collections/people/birthdays'
 
 /**
  * Состояние мастера подборки /g (таблица collection_wizard, одна строка на пользователя).
@@ -11,6 +12,8 @@ import type {ShelfKey} from '#server/global/engine/collections/shelves'
 
 /** home — режимы /g; result — меню превратилось в подборку; title — открыт тайтл из подборки. */
 export type WizardScreen = 'home' | 'root' | 'format' | 'series' | 'criterion' | 'filter' | 'bundles' | 'direction' | 'period' | 'result' | 'title'
+    // «🎭 Актёры и режиссёры»: роль → живые/ушедшие → «Искать» → именинники дня.
+    | 'people' | 'peopleLife' | 'peopleSearch' | 'birthdays'
 
 /** Раздел верхнего меню (схема владельца 17.11; дунхуа — отдельной полкой, 19.11). format — у аниме и дунхуа: фильмы или сериалы. */
 export type SectionGroup = 'movies' | 'series' | 'cartoons' | 'cseries' | 'anime' | 'donghua' | 'people'
@@ -36,6 +39,10 @@ export type WizardState = {
     collectionId?: string
     /** Открытый тайтл (номер на странице подборки) — для «🔗 Похожее». */
     titleIndex?: number
+    /** «Актёры и режиссёры»: кого ищем и найденные именинники (до 10, из Wikidata). */
+    personRole?: PersonRole
+    personLife?: PersonLife
+    birthdays?: BirthdayPerson[]
 }
 
 export type WizardRow = {

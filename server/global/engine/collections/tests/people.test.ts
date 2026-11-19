@@ -1,0 +1,116 @@
+import assert from 'node:assert/strict'
+import {test} from 'node:test'
+import {birthdayQuery, displayName, findBirthdays, lifeLabel, monthDay, parseBirthdays} from '#server/global/engine/collections/people/birthdays'
+import {MAIN_ROLES, personFilms} from '#server/global/engine/collections/people/personTop'
+import {renderWizard} from '#server/bot/actions/collections/wizardView'
+import {emptyState} from '#server/bot/actions/collections/wizardState'
+
+const binding = (tmdb: number, ru: string | undefined, birth: string, death?: string, en = 'Name') => ({
+    tmdb: {value: String(tmdb)}, ...(ru ? {ru: {value: ru}} : {}), en: {value: en},
+    birth: {value: `${birth}T00:00:00Z`}, ...(death ? {death: {value: `${death}T00:00:00Z`}} : {})
+})
+
+test('именинники: день по Москве, запрос — точные даты по годам, без Индии и России', () => {
+    // 21:30 UTC 18 ноября — в Москве уже 19-е.
+    assert.equal(monthDay(new Date('2026-11-18T21:30:00Z')), '11-19')
+    const query = birthdayQuery('actor', 'alive', '11-19', 2016)
+    assert.ok(query.includes('"1962-11-19T00:00:00Z"^^xsd:dateTime'))
+    assert.ok(query.includes('wdt:P161'))
+    assert.ok(query.includes('FILTER NOT EXISTS { ?p wdt:P570 [] }'))
+    assert.ok(query.includes('wd:Q668') && query.includes('wd:Q159'))
+    const directors = birthdayQuery('director', 'dead', '11-19', 2016)
+    assert.ok(directors.includes('wdt:P57') && directors.includes('BOUND(?death)'))
+})
+
+test('именинники: разбор ответа — русское имя, дубли, не больше 10', () => {
+    const people = parseBirthdays({results: {bindings: [
+        binding(1038, 'Джоди Фостер', '1962-11-19'),
+        binding(1038, 'Джоди Фостер', '1962-11-19'), // второй ID TMDB / дубль строки
+        binding(20124, 'Джин Тирни', '1920-11-19', '1991-11-06'),
+        binding(99, undefined, '1970-11-19', undefined, 'No Russian Label')
+    ]}})
+    assert.deepEqual(people, [
+        {id: 1038, name: 'Джоди Фостер', born: 1962},
+        {id: 20124, name: 'Джин Тирни', born: 1920, died: 1991},
+        {id: 99, name: 'No Russian Label', born: 1970}
+    ])
+    const many = parseBirthdays({results: {bindings: Array.from({length: 30}, (_, i) => binding(i + 1, `Актёр ${i}`, '1980-11-19'))}})
+    assert.equal(many.length, 10)
+})
+
+test('именинники: возраст и годы жизни', () => {
+    assert.equal(lifeLabel({id: 1, name: 'a', born: 1962}, 2026), '64 года')
+    assert.equal(lifeLabel({id: 1, name: 'a', born: 1975}, 2026), '51 год')
+    assert.equal(lifeLabel({id: 1, name: 'a', born: 1915}, 2026), '111 лет')
+    assert.equal(lifeLabel({id: 1, name: 'a', born: 1920, died: 1991}, 2026), '1920–1991')
+})
+
+test('именинники: Wikidata только по нажатию, повтор в тот же день — из памяти', async () => {
+    let calls = 0
+    const fetchImpl = (async () => {
+        calls++
+        return Response.json({results: {bindings: [binding(1038, 'Джоди Фостер', '1962-11-19')]}})
+    }) as typeof fetch
+    const date = new Date('2030-03-05T10:00:00Z')
+    const first = await findBirthdays('actor', 'alive', {date, fetchImpl})
+    const again = await findBirthdays('actor', 'alive', {date, fetchImpl})
+    assert.equal(calls, 1)
+    assert.deepEqual(again, first)
+    await findBirthdays('director', 'alive', {date, fetchImpl})
+    assert.equal(calls, 2, 'другой выбор — новый запрос')
+})
+
+const film = (id: number, extra: Record<string, unknown> = {}) => ({
+    id, title: `Фильм ${id}`, original_language: 'en', genre_ids: [18], release_date: '2000-01-01',
+    vote_average: 7, vote_count: 5000, order: 0, character: 'Герой', ...extra
+})
+
+test('лучшие роли: только главные, без камео, озвучки, документалок и малоизвестного', () => {
+    const films = personFilms({cast: [
+        film(1, {vote_average: 8.5}),
+        film(2, {order: MAIN_ROLES}), // не главная роль
+        film(3, {character: 'Himself'}),
+        film(4, {character: 'камео'}),
+        film(5, {genre_ids: [16]}), // озвучка мультфильма
+        film(6, {genre_ids: [99]}),
+        film(7, {vote_count: 20}),
+        film(8, {title: 'No Russian Title'}),
+        film(9, {original_language: 'hi'}),
+        film(10, {release_date: '2999-01-01'}),
+        film(11, {vote_average: 7.5}),
+        film(1, {vote_average: 8.5}) // дубль (две роли в одном фильме)
+    ]}, 'actor')
+    assert.deepEqual(films.map(item => item.id), [1, 11])
+})
+
+test('лучшие фильмы режиссёра: только Director, порядок — байесовский рейтинг', () => {
+    const films = personFilms({crew: [
+        film(1, {job: 'Director', vote_average: 9, vote_count: 150}),
+        film(2, {job: 'Director', vote_average: 8.2, vote_count: 30000}),
+        film(3, {job: 'Writer', vote_average: 9.5})
+    ]}, 'director')
+    // 9.0 при 150 голосах тянется к средней ниже, чем 8.2 при 30 000.
+    assert.deepEqual(films.map(item => item.id), [2, 1])
+})
+
+test('экраны «Актёры и режиссёры»: роль → живые/ушедшие → «Искать» → именинники', () => {
+    const ids = (screen: any, extra: Record<string, unknown> = {}) =>
+        renderWizard({...emptyState(), group: 'people', screen, ...extra}).keyboard.inline_keyboard.flat().map((button: any) => button.callback_data)
+    assert.deepEqual(ids('people'), ['col:pr:actor', 'col:pr:director', 'col:b'])
+    assert.deepEqual(ids('peopleLife', {personRole: 'actor'}), ['col:pl:alive', 'col:pl:dead', 'col:b'])
+    assert.deepEqual(ids('peopleSearch', {personRole: 'actor', personLife: 'alive'}), ['col:ps', 'col:b'])
+    const view = renderWizard({...emptyState(), group: 'people', screen: 'birthdays', personRole: 'actor', personLife: 'dead',
+        birthdays: [{id: 20124, name: 'Джин Тирни', born: 1920, died: 1991}]})
+    const first = view.keyboard.inline_keyboard[0]![0] as any
+    assert.equal(first.text, '🎂 Джин Тирни · 1920–1991')
+    assert.equal(first.callback_data, 'col:pp:0')
+    assert.match(view.text, /актёры.*ушедшие/)
+    // Раздел в меню больше не «скоро».
+    const root = renderWizard({...emptyState(), screen: 'root'}).keyboard.inline_keyboard.flat() as any[]
+    assert.ok(root.some(button => button.callback_data === 'col:s:people' && !button.text.includes('скоро')))
+})
+
+test('именинники: имя «Фамилия, Имя Отчество» переставляется', () => {
+    assert.equal(displayName('Озолиня, Лилита Арвидовна'), 'Лилита Арвидовна Озолиня')
+    assert.equal(displayName('Джоди Фостер'), 'Джоди Фостер')
+})
