@@ -158,7 +158,7 @@ test('именинники: портрет из Wikidata — https и умень
     assert.equal(person?.image, 'https://commons.wikimedia.org/wiki/Special:FilePath/Jodie%20Foster.jpg?width=640')
 })
 
-test('кадры с актёром (Brave): постеры и вертикальные отсеиваются, оригинал — затем копия с прокси', async () => {
+test('кадры с актёром (Brave): постеры, вертикальные и мелкие отсеиваются, только оригиналы', async () => {
     const {pickStills, searchStills, stillQuery} = await import('#server/global/engine/collections/people/filmStills')
     assert.equal(stillQuery('Meg Ryan', 'When Harry Met Sally...', 1989), 'Meg Ryan When Harry Met Sally... 1989 movie still')
     assert.equal(stillQuery('Meg Ryan', 'Innerspace', 1987, 'Lydia Maxwell'), '"Meg Ryan" as Lydia Maxwell "Innerspace" 1987 film still')
@@ -170,15 +170,15 @@ test('кадры с актёром (Brave): постеры и вертикаль
         {title: 'Meg Ryan in When Harry Met Sally', properties: {url: 'https://a/still.jpg', width: 1920, height: 1080}, thumbnail: {src: 'https://proxy/4'}},
         {title: 'Small still', properties: {url: 'https://a/small.jpg', width: 400, height: 225}, thumbnail: {src: 'https://proxy/5'}}
     ]})
-    // Горизонтальные известного размера — первыми; мелкий оригинал заменяется копией; неизвестный размер — в конце.
-    assert.deepEqual(urls, ['https://a/still.jpg', 'https://proxy/4', 'https://proxy/5', 'https://a/unknown.jpg', 'https://proxy/3'])
+    // Только оригиналы: крупные горизонтальные — первыми, неизвестного размера — в конце; мелкие и копии с прокси — нет.
+    assert.deepEqual(urls, ['https://a/still.jpg', 'https://a/unknown.jpg'])
 
     let called = ''
     const fetchImpl = (async (url: string, init: RequestInit) => {
         called = `${url} ${(init.headers as Record<string, string>)['X-Subscription-Token']}`
         return Response.json({results: [{title: 'still', properties: {url: 'https://a/s.jpg', width: 1280, height: 720}, thumbnail: {src: 'https://proxy/s'}}]})
     }) as unknown as typeof fetch
-    assert.deepEqual(await searchStills('Meg Ryan', 'Sleepless in Seattle', 1993, {key: 'k', fetchImpl}), ['https://a/s.jpg', 'https://proxy/s'])
+    assert.deepEqual(await searchStills('Meg Ryan', 'Sleepless in Seattle', 1993, {key: 'k', fetchImpl}), ['https://a/s.jpg'])
     assert.match(called, /images\/search\?q=Meg\+Ryan\+Sleepless\+in\+Seattle\+1993\+movie\+still.* k$/)
     assert.deepEqual(await searchStills('Meg Ryan', 'X', 1993, {key: '', fetchImpl}), [], 'без ключа — не ищем')
 })
@@ -190,7 +190,7 @@ test('кадры с актёром: фото с водяными знаками 
         {title: 'Meg Ryan', url: 'https://www.alamy.com/stock-photo', properties: {url: 'https://c7.alamy.com/x.jpg', width: 1300, height: 900}, thumbnail: {src: 'https://proxy/a'}},
         {title: 'Sleepless in Seattle', properties: {url: 'https://site/still.jpg', width: 1280, height: 720}, thumbnail: {src: 'https://proxy/s'}}
     ]})
-    assert.deepEqual(urls, ['https://site/still.jpg', 'https://proxy/s'])
+    assert.deepEqual(urls, ['https://site/still.jpg'])
 })
 
 test('кадры с актёром: точный запрос с персонажем, пусто — второй, простой', async () => {
@@ -206,4 +206,37 @@ test('кадры с актёром: точный запрос с персона�
     queries.length = 0
     await searchStills('Meg Ryan', 'Innerspace', 1987, {key: 'k', fetchImpl})
     assert.equal(queries.length, 1, 'без персонажа — один запрос')
+})
+
+test('кадры с актёром: одного вида — только крупные горизонтальные, результат ровно 1280×720', async () => {
+    const {acceptFrame, frameSize, normalizeStill} = await import('#server/global/engine/collections/people/normalizeStill')
+    assert.deepEqual(frameSize('Stream #0:0: Video: mjpeg (Baseline), yuvj420p(pc, bt470bg/unknown/unknown), 1920x1080 [SAR 1:1 DAR 16:9]'), {width: 1920, height: 1080})
+    assert.equal(acceptFrame({width: 1920, height: 1080}), true)
+    assert.equal(acceptFrame({width: 1440, height: 1080}), true, '4:3 — обрежется до 16:9')
+    assert.equal(acceptFrame({width: 1000, height: 562}), false, 'мелкая — растянутая будет мыльной')
+    assert.equal(acceptFrame({width: 1200, height: 1600}), false, 'вертикальная')
+    assert.equal(acceptFrame({width: 3000, height: 1000}), false, 'слишком широкая полоса')
+
+    // Настоящий ffmpeg: 2.39:1 1800×753 → 1280×720; 900×500 — отказ.
+    const {spawnSync} = await import('node:child_process')
+    const ffmpeg = (await import('ffmpeg-static')).default as unknown as string
+    const make = (size: string) => spawnSync(ffmpeg, ['-hide_banner', '-loglevel', 'error', '-f', 'lavfi', '-i', `testsrc=size=${size}`, '-frames:v', '1', '-f', 'image2', '-c:v', 'mjpeg', 'pipe:1']).stdout as Buffer
+    const out = await normalizeStill(make('1800x753'))
+    assert.ok(out, 'широкий кадр принят')
+    const probe = spawnSync(ffmpeg, ['-hide_banner', '-i', 'pipe:0'], {input: out}).stderr.toString()
+    assert.deepEqual(frameSize(probe), {width: 1280, height: 720})
+    assert.equal(await normalizeStill(make('900x500')), undefined)
+})
+
+test('кадры с актёром: ни одна картинка точного запроса не подошла — простой запрос', async () => {
+    const {findStill} = await import('#server/global/engine/collections/people/filmStills')
+    const queries: string[] = []
+    const fetchImpl = (async (url: string) => {
+        const q = new URL(url).searchParams.get('q')!
+        queries.push(q)
+        return Response.json({results: [{title: 'still', properties: {url: q.startsWith('"') ? 'https://a/small.jpg' : 'https://a/big.jpg', width: 1920, height: 1080}}]})
+    }) as unknown as typeof fetch
+    const found = await findStill('Meg Ryan', 'French Kiss', 1995, async urls => urls[0] === 'https://a/big.jpg' ? 'file-big' : undefined, {key: 'k', fetchImpl, character: 'Kate'})
+    assert.equal(found, 'file-big')
+    assert.equal(queries.length, 2)
 })

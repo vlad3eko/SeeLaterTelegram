@@ -4,15 +4,16 @@
  * это 1000 запросов, один запрос на фильм). Без ключа ничего не ищется — в списке кадр TMDB.
  *
  * Постеры отсеиваются по форме (кадр горизонтальный, постер вертикальный) и по словам в
- * названии и адресе (poster, wallpaper, fan art…), фото с водяными знаками — по сайту (eBay, фотобанки). Сначала берётся оригинал картинки, запасной —
- * её копия 500 px через прокси Brave (Telegram скачивает её надёжнее, чем с чужого сайта).
+ * названии и адресе (poster, wallpaper, fan art…), фото с водяными знаками — по сайту (eBay, фотобанки).
+ * Берутся только оригиналы: копия 500 px с прокси Brave после растягивания до 1280×720 мыльная.
+ * Дальше normalizeStill проверяет настоящий размер и приводит кадр к 1280×720.
  */
 
 const ENDPOINT = 'https://api.search.brave.com/res/v1/images/search'
 /** Горизонтальный кадр: ширина хотя бы в 1.3 раза больше высоты (16:9 = 1.78, постер ≈ 0.67). */
 const MIN_RATIO = 1.3
-/** Оригинал меньше — мутный кадр, лучше копия с прокси или следующий результат. */
-const MIN_WIDTH = 600
+/** Оригинал уже этого (если Brave знает ширину) не берём — после растягивания мутный. */
+const MIN_WIDTH = 1100
 const NOT_A_STILL = /poster|постер|wallpaper|обои|fan[\s_-]?art|fanart|collage|коллаж|cover|обложк|dvd|blu[\s_-]?ray|vhs|logo|soundtrack|premiere|red[\s_-]?carpet|interview|press[\s_-]?conference|getty/i
 /** Сайты с водяными знаками и подписями на фото (живая проверка 19.11: пресс-фото с eBay с надписью Historic Images). */
 const WATERMARKED = /ebayimg|ebay\.|historicimages|alamy|shutterstock|dreamstime|istockphoto|depositphotos|123rf|bigstock|agefotostock|mediastorehouse|worthpoint/i
@@ -46,27 +47,23 @@ const ratioOf = (image: BraveImage) => {
 }
 
 /**
- * Ответ Brave → ссылки для загрузки, лучшие первыми: на каждый подходящий результат — оригинал
- * (если крупный) и копия с прокси. Картинки неизвестной формы — после горизонтальных.
+ * Ответ Brave → ссылки на оригиналы для загрузки, по порядку выдачи: сначала крупные
+ * горизонтальные, затем неизвестного размера (их размер проверит normalizeStill).
  */
-export const pickStills = (body: {results?: BraveImage[]}, limit = 3): string[] => {
+export const pickStills = (body: {results?: BraveImage[]}, limit = 6): string[] => {
     const known: BraveImage[] = []
     const unknown: BraveImage[] = []
     for (const image of body.results ?? []) {
         const text = `${image.title ?? ''} ${image.url ?? ''} ${image.properties?.url ?? ''}`
         if (NOT_A_STILL.test(text) || WATERMARKED.test(text)) continue
         const ratio = ratioOf(image)
+        const original = image.properties?.url
+        const width = Number(image.properties?.width) || 0
+        if (!original?.startsWith('https://') || (width && width < MIN_WIDTH)) continue
         if (ratio === undefined) unknown.push(image)
         else if (ratio >= MIN_RATIO) known.push(image)
     }
-    const urls: string[] = []
-    for (const image of [...known, ...unknown].slice(0, limit)) {
-        const original = image.properties?.url
-        const width = Number(image.properties?.width) || 0
-        if (original?.startsWith('https://') && (!width || width >= MIN_WIDTH)) urls.push(original)
-        if (image.thumbnail?.src) urls.push(image.thumbnail.src)
-    }
-    return [...new Set(urls)]
+    return [...new Set([...known, ...unknown].map(image => image.properties!.url!))].slice(0, limit)
 }
 
 export const hasStillSearch = (env: NodeJS.ProcessEnv = process.env) => Boolean(env.BRAVE_SEARCH_API_KEY?.trim())
@@ -79,11 +76,33 @@ export const searchStills = async (
     actor: string,
     film: string,
     year?: number | null,
-    {key = process.env.BRAVE_SEARCH_API_KEY?.trim(), fetchImpl = fetch, character}: {key?: string, fetchImpl?: typeof fetch, character?: string | null} = {}
-): Promise<string[]> => {
-    if (!key) return []
-    const precise = characterName(character) ? await braveStills(stillQuery(actor, film, year, character), key, fetchImpl) : []
-    return precise.length ? precise : braveStills(stillQuery(actor, film, year), key, fetchImpl)
+    options: StillSearchOptions = {}
+): Promise<string[]> => await findStill(actor, film, year, async urls => urls, options) ?? []
+
+type StillSearchOptions = {key?: string, fetchImpl?: typeof fetch, character?: string | null}
+
+/**
+ * Найти кадр: ссылки каждого запроса (точный, затем простой) отдаются в use — первая принятая
+ * (use вернул не undefined) — ответ. Простой запрос идёт, только если по точному ничего не нашлось
+ * или ни одна картинка не подошла (живая проверка 19.11: «Французский поцелуй» — по точному одна
+ * мелкая картинка).
+ */
+export const findStill = async <T>(
+    actor: string,
+    film: string,
+    year: number | null | undefined,
+    use: (urls: string[]) => Promise<T | undefined>,
+    {key = process.env.BRAVE_SEARCH_API_KEY?.trim(), fetchImpl = fetch, character}: StillSearchOptions = {}
+): Promise<T | undefined> => {
+    if (!key) return undefined
+    const queries = characterName(character) ? [stillQuery(actor, film, year, character), stillQuery(actor, film, year)] : [stillQuery(actor, film, year)]
+    for (const query of queries) {
+        const urls = await braveStills(query, key, fetchImpl)
+        if (!urls.length) continue
+        const found = await use(urls)
+        if (found !== undefined) return found
+    }
+    return undefined
 }
 
 const braveStills = async (query: string, key: string, fetchImpl: typeof fetch): Promise<string[]> => {
