@@ -13,6 +13,8 @@ import {
     yearRangeByKey
 } from '#server/global/engine/collections/catalog'
 import type {SectionGroup, WizardState} from '#server/bot/actions/collections/wizardState'
+import {type ShelfKey, SHELVES} from '#server/global/engine/collections/shelves'
+import {type Bundle, bundleByKey} from '#server/global/engine/collections/bundles'
 
 /** Текст и кнопки мастера подборки для текущего состояния. */
 
@@ -34,16 +36,35 @@ const disabledBtn = (text: string) => ({text, disabled: {}})
 const escapeHtml = (value: string) =>
     value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
-export const GROUPS: Array<{key: SectionGroup, label: string, ready: boolean}> = [
-    {key: 'movies', label: '🎬 Фильмы', ready: true},
-    {key: 'series', label: '📺 Сериалы', ready: true},
-    {key: 'cartoons', label: '🧸 Мультфильмы', ready: false},
-    {key: 'cseries', label: '🎨 Мультсериалы', ready: false},
-    {key: 'anime', label: '🌸 Аниме', ready: false},
-    {key: 'people', label: '🎭 Актёры и режиссёры', ready: false}
+/**
+ * Разделы верхнего меню и их полки: у мультфильмов и мультсериалов полка одна, у аниме и
+ * дунхуа — две (экран «Фильмы или сериалы»).
+ */
+export const GROUPS: Array<{key: SectionGroup, label: string, ready: boolean, shelves: ShelfKey[]}> = [
+    {key: 'movies', label: '🎬 Фильмы', ready: true, shelves: ['movie']},
+    {key: 'series', label: '📺 Сериалы', ready: true, shelves: ['series']},
+    {key: 'cartoons', label: '🧸 Мультфильмы', ready: true, shelves: ['animated_movie']},
+    {key: 'cseries', label: '🎨 Мультсериалы', ready: true, shelves: ['animated_series']},
+    {key: 'anime', label: '🌸 Аниме', ready: true, shelves: ['anime_movie', 'anime_series']},
+    {key: 'donghua', label: '🐉 Дунхуа', ready: true, shelves: ['donghua_movie', 'donghua_series']},
+    {key: 'people', label: '🎭 Актёры и режиссёры', ready: false, shelves: []}
 ]
 
-export const CRITERION_LABEL = {filter: 'Фильтр', popular: 'Популярное'} as const
+/** Полка выбора: явная или по группе (старые сохранённые меню без полки). */
+export const shelfKeyOf = (state: WizardState): ShelfKey =>
+    state.shelf ?? (state.group === 'series' ? 'series' : 'movie')
+
+/** Полка сериального типа: разделы «вышли полностью / новые серии / новые сезоны / скоро». */
+export const isTvShelf = (state: WizardState) => SHELVES[shelfKeyOf(state)].mediaType === 'tv'
+
+/** У группы два формата (аниме, дунхуа) — был экран «Фильмы или сериалы». */
+export const hasFormat = (group?: SectionGroup) => (GROUPS.find(item => item.key === group)?.shelves.length ?? 0) > 1
+
+export const CRITERION_LABEL = {filter: 'Фильтр', popular: 'Популярное', bundle: 'Связки'} as const
+
+/** Выбранная связка (только при criterion bundle). */
+export const bundleOf = (state: WizardState): Bundle | undefined =>
+    state.criterion === 'bundle' ? bundleByKey(state.bundle) : undefined
 export const DIRECTION_LABEL = {released: 'Уже вышли', upcoming: 'Скоро'} as const
 
 /** У «Сериалы · Скоро» год не выбирается: первая серия ещё впереди. */
@@ -68,16 +89,19 @@ const quote = (text: string): TextLine => ({quote: true, parts: [italic(text)]})
  * t.me/<бот>?start=g_<шаг>: нажатие возвращает мастер на экран сразу после этого выбора
  * (обработчик — jumpCollections).
  */
-export type CrumbStep = 'home' | 'group' | 'section' | 'criterion' | 'direction'
-export const CRUMB_STEPS: readonly CrumbStep[] = ['home', 'group', 'section', 'criterion', 'direction']
+export type CrumbStep = 'home' | 'group' | 'format' | 'section' | 'criterion' | 'bundle' | 'direction'
+export const CRUMB_STEPS: readonly CrumbStep[] = ['home', 'group', 'format', 'section', 'criterion', 'bundle', 'direction']
 
 const crumbsOf = (state: WizardState, period?: string): Array<{label: string, step?: CrumbStep}> => {
     const crumbs: Array<{label: string, step?: CrumbStep}> = [{label: 'Меню', step: 'home'}]
     const group = GROUPS.find(item => item.key === state.group)
     if (group) crumbs.push({label: group.label.replace(/^\S+\s/, ''), step: 'group'})
-    if (state.group === 'series' && state.section) crumbs.push({label: SECTIONS[state.section].label.toLowerCase(), step: 'section'})
+    if (hasFormat(state.group) && state.shelf) crumbs.push({label: SHELVES[state.shelf].mediaType === 'tv' ? 'сериалы' : 'фильмы', step: 'format'})
+    if (isTvShelf(state) && state.section) crumbs.push({label: SECTIONS[state.section].label.toLowerCase(), step: 'section'})
+    const bundle = bundleOf(state)
     if (state.criterion) crumbs.push({label: CRITERION_LABEL[state.criterion], step: 'criterion'})
-    if (state.direction && state.group === 'movies') crumbs.push({label: DIRECTION_LABEL[state.direction].toLowerCase(), step: 'direction'})
+    if (bundle) crumbs.push({label: bundle.title, step: 'bundle'})
+    if (state.direction && !isTvShelf(state) && state.criterion !== 'bundle') crumbs.push({label: DIRECTION_LABEL[state.direction].toLowerCase(), step: 'direction'})
     if (period) crumbs.push({label: period})
     return crumbs
 }
@@ -132,9 +156,11 @@ const filterLines = (state: WizardState, full: boolean): TextLine[] => {
 const HINT: Record<WizardState['screen'], string> = {
     home: 'Выберите режим.',
     root: 'Выберите раздел.',
+    format: 'Полнометражные фильмы или сериалы.',
     series: 'Уже вышли целиком, выходят новые серии или скоро стартуют.',
-    criterion: 'Фильтр — сами отметите жанры, теги и год. Популярное — самое смотримое.',
+    criterion: 'Фильтр — сами отметите жанры, теги и год. Популярное — самое смотримое. Связки — готовые подборки под настроение и сюжет.',
     filter: '',
+    bundles: 'Готовые подборки: сюжет, настроение, формат.',
     direction: 'Уже в кино и онлайн — или премьеры ещё впереди.',
     period: 'В скобках — сколько нашлось с трейлером.',
     result: '',
@@ -191,6 +217,8 @@ export type RenderOptions = {
     period?: string
     /** Username бота для ссылок пути; без него путь — просто текст. */
     bot?: string
+    /** Экран связок: доступные на полке и в разделе (судимые — только с готовыми вердиктами). */
+    bundles?: Bundle[]
 }
 
 export const renderWizard = (state: WizardState, options: RenderOptions = {}) => {
@@ -223,6 +251,10 @@ export const renderWizard = (state: WizardState, options: RenderOptions = {}) =>
             rows.push(back)
             break
         }
+        case 'format':
+            rows.push([btn('🎬 Фильмы', 'fm', 'movie', 'success'), btn('📺 Сериалы', 'fm', 'tv', 'success')])
+            rows.push(back)
+            break
         case 'series':
             rows.push([btn('✅ Вышли полностью', 'ss', 'series_completed', 'success')])
             rows.push([btn('🆕 Новые серии', 'ss', 'series_new', 'success'), btn('🎬 Новые сезоны', 'ss', 'series_seasons', 'success')])
@@ -231,6 +263,12 @@ export const renderWizard = (state: WizardState, options: RenderOptions = {}) =>
             break
         case 'criterion':
             rows.push([btn('🔎 Фильтр', 'c', 'filter', 'success'), btn('🔥 Популярное', 'c', 'popular', 'success')])
+            if (options.bundles?.length) rows.push([btn('🧩 Связки', 'c', 'bundle', 'success')])
+            rows.push(back)
+            break
+        case 'bundles':
+            for (const bundle of options.bundles ?? []) rows.push([btn(`${bundle.emoji} ${bundle.title}`, 'bn', bundle.key, 'success')])
+            if (!options.bundles?.length) rows.push([disabledBtn('Связок здесь пока нет')])
             rows.push(back)
             break
         case 'filter': {
@@ -246,7 +284,7 @@ export const renderWizard = (state: WizardState, options: RenderOptions = {}) =>
             }
             rows.push([btn(`${state.openTags ? '▼' : '▶'} Теги${state.tags.length ? ` (выбрано ${state.tags.length})` : ''}`, 'f', 't', 'primary')])
             if (state.openTags) {
-                const tags = tagsForSection(section)
+                const tags = tagsForSection(section, shelfKeyOf(state))
                 for (const [group, groupLabel] of Object.entries(TAG_GROUPS)) {
                     const groupTags = tags.filter(tag => tag.group === group)
                     if (!groupTags.length) continue
@@ -310,16 +348,20 @@ export const periodCrumb = (state: WizardState, period?: string) => {
     return (periodByKey(period)?.label ?? period).toLowerCase()
 }
 
-/** Заголовок карточки-результата: «Топ-10» или «Места 11–20». */
-export const collectionHeading = (count: number, page = 0) =>
-    page > 0 ? `Места ${page * 10 + 1}–${page * 10 + count}` : `Топ-${count}`
+/** Заголовок карточки-результата: «Топ-10» или «Места 11–20»; у связки и «Похожего» — своё название. */
+export const collectionHeading = (count: number, page = 0, title?: string) =>
+    page > 0 ? `Места ${page * 10 + 1}–${page * 10 + count}` : title ?? `Топ-${count}`
 
 /** Строки под заголовком подборки: путь (со ссылками), отметки фильтра, пояснение. */
-export const collectionLines = (state: WizardState, period: string, note: string, bot?: string): TextLine[] => [
-    crumbLine(state, bot, periodCrumb(state, period)),
-    ...filterLines(state, false),
-    ...(note ? [quote(note)] : [])
-]
+export const collectionLines = (state: WizardState, period: string, note: string, bot?: string): TextLine[] => {
+    const bundle = bundleOf(state)
+    return [
+        crumbLine(state, bot, periodCrumb(state, period)),
+        ...(bundle ? [{parts: [italic(bundle.lead)]}] : []),
+        ...filterLines(state, false),
+        ...(note ? [quote(note)] : [])
+    ]
+}
 
 /**
  * Страницы внизу подборки: «📄 Страница 1, 2, 3 из ≈10». Номера загруженных страниц — ссылки

@@ -5,13 +5,18 @@ import type {TvDate} from '#server/global/engine/card/variant/createRichListCapt
 import {tryGenerateCard} from '#server/global/engine/card/construct/tryGenerateCard'
 import {engineRichCard} from '#server/global/engine/card/engineRichCard'
 import {
+    availableBundles,
     buildCollectionFor,
     COLLECTION_SIZE,
     collectionWindow,
     countCollection,
+    shelfForParams,
     type CollectionItem,
     type CollectionParams
 } from '#server/global/engine/collections/buildCollection'
+import {buildSimilar} from '#server/global/engine/collections/similar'
+import {bundleByKey, bundleFits} from '#server/global/engine/collections/bundles'
+import {SHELVES, type ShelfKey} from '#server/global/engine/collections/shelves'
 import {mapLimit} from '#server/global/engine/collections/tmdb'
 import {findTrailers} from '#server/global/engine/collections/trailers'
 import {
@@ -47,6 +52,9 @@ import {
     collectionPagesFooter,
     CRUMB_STEPS,
     GROUPS,
+    hasFormat,
+    isTvShelf,
+    shelfKeyOf,
     periodCrumb,
     renderWizard,
     richBlocks,
@@ -91,10 +99,13 @@ type CollectionRecord = {
     trailer_language: string
 }
 
+/** «Похожее»: подборка от тайтла; parent_id — подборка, из которой его открыли (кнопка «К подборке»). */
+type SimilarParams = {similar?: {media_type: 'movie' | 'tv', id: number, title: string}, parent_id?: string}
+
 type CollectionRow = {
     id: string
     telegram_id: number
-    params: CollectionParams & {match?: 'and' | 'or'}
+    params: CollectionParams & {match?: 'and' | 'or'} & SimilarParams
     items: CollectionRecord[]
     candidates: Array<{id: number, score: number}>
     page: number
@@ -102,12 +113,15 @@ type CollectionRow = {
 
 const paramsFor = (state: WizardState, period: PeriodKey): CollectionParams | null => {
     if (!state.section || !state.criterion) return null
+    if (state.criterion === 'bundle' && !state.bundle) return null
     return {
         section: state.section,
         criterion: state.criterion,
         ...(state.criterion === 'filter'
             ? {genres: state.genres, tags: state.tags, ...(state.year ? {year: state.year} : {})}
             : {}),
+        ...(state.criterion === 'bundle' ? {bundle: state.bundle} : {}),
+        shelf: shelfKeyOf(state),
         period
     }
 }
@@ -132,9 +146,11 @@ const coverScreenFor = (row: WizardRow, options: RenderOptions): CoverScreen | u
  * если Telegram его не принял — прежний текст с HTML, чтобы меню работало в любом случае.
  */
 const showWizard = async (ctx: any, row: WizardRow, options: RenderOptions = {}) => {
+    const needsBundles = (row.state.screen === 'criterion' || row.state.screen === 'bundles') && row.state.section && !options.bundles
     const {text, keyboard, rich} = renderWizard(row.state, {
         bot: botName(ctx),
         ...options,
+        ...(needsBundles ? {bundles: await availableBundles(shelfKeyOf(row.state), row.state.section!)} : {}),
         periods: options.periods ?? availablePeriods(row.state)
     })
     const coverScreen = coverScreenFor(row, options)
@@ -259,15 +275,22 @@ const jumpState = (state: WizardState, step: CrumbStep): WizardState | null => {
         case 'home':
             return base
         case 'group':
-            if (state.group === 'series') return {...base, screen: 'series', group: 'series'}
-            if (state.group === 'movies') return {...base, screen: 'criterion', group: 'movies', section: 'movies'}
-            return null
+            return state.group ? groupState(state.group) : null
+        case 'format':
+            return state.group && state.shelf ? shelfState(state.group, state.shelf) : null
         case 'section':
-            return state.group && state.section ? {...base, screen: 'criterion', group: state.group, section: state.section} : null
+            return state.group && state.section ? {...base, screen: 'criterion', group: state.group, shelf: state.shelf, section: state.section} : null
+        case 'bundle':
+            return state.group && state.section && state.criterion === 'bundle'
+                ? {...base, screen: 'bundles', group: state.group, shelf: state.shelf, section: state.section, criterion: 'bundle'}
+                : null
         case 'criterion': {
             if (!state.group || !state.section || !state.criterion) return null
+            if (state.criterion === 'bundle') {
+                return {...base, screen: 'bundles', group: state.group, shelf: state.shelf, section: state.section, criterion: 'bundle'}
+            }
             const kept: WizardState = {
-                ...base, group: state.group, section: state.section, criterion: state.criterion,
+                ...base, group: state.group, shelf: state.shelf, section: state.section, criterion: state.criterion,
                 genres: state.genres, tags: state.tags, year: state.year,
                 openGenres: state.openGenres, openTags: state.openTags, openYear: state.openYear
             }
@@ -280,10 +303,26 @@ const jumpState = (state: WizardState, step: CrumbStep): WizardState | null => {
     }
 }
 
-/** Следующий экран после фильтра или «Популярного». */
+/** Экран после выбора раздела меню: аниме и дунхуа — «Фильмы или сериалы», иначе полка сразу. */
+const groupState = (group: WizardState['group']): WizardState | null => {
+    const entry = GROUPS.find(item => item.key === group)
+    if (!entry?.ready || !entry.shelves.length) return null
+    if (entry.shelves.length > 1) return {...emptyState(), screen: 'format', group: entry.key}
+    return shelfState(entry.key, entry.shelves[0]!)
+}
+
+/** Полка выбрана: у сериальных — выбор раздела, у фильмов — сразу отбор. */
+const shelfState = (group: NonNullable<WizardState['group']>, shelf: ShelfKey): WizardState =>
+    SHELVES[shelf].mediaType === 'tv'
+        ? {...emptyState(), screen: 'series', group, shelf}
+        : {...emptyState(), screen: 'criterion', group, shelf, section: 'movies'}
+
+/** Следующий экран после фильтра, «Популярного» или связки. */
 const afterCriterion = (state: WizardState): WizardState => {
     const direction = state.section ? SECTIONS[state.section].direction : undefined
-    if (state.group === 'series' && direction) return {...state, screen: 'period', direction}
+    if (isTvShelf(state) && direction) return {...state, screen: 'period', direction}
+    // Связки — только о вышедшем.
+    if (state.criterion === 'bundle') return {...state, screen: 'period', direction: 'released'}
     // Фильм из диапазона «1985–2000» или «2000–2015» уже вышел: «Скоро» не спрашиваем.
     if (isPastYearRange(state.year)) return {...state, screen: 'period', direction: 'released'}
     return {...state, screen: 'direction'}
@@ -294,19 +333,26 @@ const backFrom = (state: WizardState): WizardState => {
     switch (state.screen) {
         case 'root':
             return emptyState()
+        case 'format':
+            return {...emptyState(), screen: 'root'}
         case 'series':
-            return {...state, screen: 'root', group: undefined, section: undefined}
+            return hasFormat(state.group)
+                ? {...emptyState(), screen: 'format', group: state.group}
+                : {...emptyState(), screen: 'root'}
         case 'criterion':
-            return state.group === 'series'
-                ? {...state, screen: 'series', section: undefined, criterion: undefined}
+            if (isTvShelf(state)) return {...state, screen: 'series', section: undefined, criterion: undefined, bundle: undefined}
+            return hasFormat(state.group)
+                ? {...emptyState(), screen: 'format', group: state.group}
                 : {...emptyState(), screen: 'root'}
         case 'filter':
-            return {...state, screen: 'criterion', criterion: undefined}
+        case 'bundles':
+            return {...state, screen: 'criterion', criterion: undefined, bundle: undefined}
         case 'direction':
             return {...state, screen: state.criterion === 'filter' ? 'filter' : 'criterion', direction: undefined, ...(state.criterion === 'popular' ? {criterion: undefined} : {})}
         case 'period': {
             // Экрана «Уже вышли / Скоро» не было (сериалы, фильмы с прошедшим «Годом») — назад к фильтру.
-            const skippedDirection = state.group === 'series' || isPastYearRange(state.year)
+            if (state.criterion === 'bundle') return {...state, screen: 'bundles', bundle: undefined, direction: undefined}
+            const skippedDirection = isTvShelf(state) || isPastYearRange(state.year)
             if (!skippedDirection) return {...state, screen: 'direction', direction: undefined}
             return state.criterion === 'filter'
                 ? {...state, screen: 'filter', direction: undefined}
@@ -321,8 +367,12 @@ const backFrom = (state: WizardState): WizardState => {
 const ALLOWED_ON_SCREEN: Record<string, WizardState['screen'][]> = {
     m: ['home'],
     s: ['root'],
+    fm: ['format'],
     ss: ['series'],
     c: ['criterion'],
+    bn: ['bundles'],
+    sim: ['title'],
+    up: ['result'],
     f: ['filter'],
     tg: ['filter'],
     tt: ['filter'],
@@ -353,8 +403,8 @@ const tvDateFor = (section?: string): TvDate | undefined => {
 }
 
 const sameSelection = (a: WizardState, b: WizardState) =>
-    JSON.stringify([a.screen, a.section, a.criterion, a.genres, a.tags, a.year, a.direction]) ===
-    JSON.stringify([b.screen, b.section, b.criterion, b.genres, b.tags, b.year, b.direction])
+    JSON.stringify([a.screen, a.shelf, a.section, a.criterion, a.bundle, a.genres, a.tags, a.year, a.direction]) ===
+    JSON.stringify([b.screen, b.shelf, b.section, b.criterion, b.bundle, b.genres, b.tags, b.year, b.direction])
 
 /**
  * Экран периода с числами на кнопках (сколько нашлось с трейлером). Пока считаем —
@@ -464,24 +514,31 @@ const showCollection = async (ctx: any, row: WizardRow, collection: CollectionRo
     const rest = (collection.candidates ?? []).length
     const hasMore = page + 1 < loaded || rest > 0
 
+    const similar = collection.params.similar
+    const bundle = !similar && collection.params.criterion === 'bundle' ? bundleByKey(collection.params.bundle) : undefined
     const footerRows = [
         ...(canPublishCollections(row.telegramId) ? [[btn('🎠 Собрать карусель', 'car')]] : []),
         [
-            btn('◀️ Назад в меню', 'cb', undefined, 'danger'),
+            similar && collection.params.parent_id
+                ? btn('◀️ К подборке', 'up', undefined, 'danger')
+                : btn('◀️ Назад в меню', 'cb', undefined, 'danger'),
             ...(hasMore ? [btn('🔁 Ещё вариант', 'more', undefined, 'success')] : [])
         ]
     ]
 
     const target = richTarget(ctx, row)
     const {caption, keyboard} = await constructRichListCard(target, items.map(queryOf), {
-        title: collectionHeading(count, page),
+        title: collectionHeading(count, page,
+            similar ? `🔗 Похоже на «${similar.title}»` : bundle ? `${bundle.emoji} ${bundle.title}` : undefined),
         footerRows,
         tvDate: tvDateFor(collection.params.section),
         itemButton: (text, index) => btn(text, 't', String(index)),
         startNumber: page * COLLECTION_SIZE + 1
     })
     // Под заголовком «Топ-10»: путь со ссылками, отметки фильтра, пояснение.
-    caption.blocks.splice(1, 0, ...richBlocks(collectionLines(state, collection.params.period, note, botName(ctx))))
+    caption.blocks.splice(1, 0, ...richBlocks(similar
+        ? [{parts: [{text: 'Рекомендации зрителей TMDB и общие темы, та же полка, без своей франшизы.', italic: true}]}]
+        : collectionLines(state, collection.params.period, note, botName(ctx))))
     caption.blocks.push(collectionPagesFooter(page, loaded, rest, botName(ctx)))
 
     // Обложка «Ваш топ готов!» — одна на все страницы и разделы; не принял Telegram — без неё.
@@ -544,6 +601,8 @@ const buildAndSend = async (ctx: any, row: WizardRow, period: PeriodKey) => {
 const showMore = async (ctx: any, row: WizardRow) => {
     const collection = await loadCollection(row.state.collectionId, row.telegramId)
     const section = collection ? SECTIONS[collection.params.section] : undefined
+    const mediaType = collection?.params.similar?.media_type ?? section?.mediaType
+    const contentType = collection ? shelfForParams(collection.params).contentType : undefined
     const rest = collection?.candidates ?? []
 
     // Следующая страница уже загружена (вернулись назад по номеру) — просто показать её.
@@ -567,7 +626,7 @@ const showMore = async (ctx: any, row: WizardRow) => {
     let consumed = 0
     while (picked.length < COLLECTION_SIZE && consumed < rest.length) {
         const batch = rest.slice(consumed, consumed + 6)
-        const trailers = await findTrailers(section.mediaType, batch.map(entry => entry.id))
+        const trailers = await findTrailers(mediaType!, batch.map(entry => entry.id))
         for (const entry of batch) {
             if (picked.length >= COLLECTION_SIZE) break
             consumed++
@@ -588,8 +647,8 @@ const showMore = async (ctx: any, row: WizardRow) => {
         candidates: rest.slice(consumed),
         items: [...collection.items, ...picked.map((entry, index) => ({
             rank: page * COLLECTION_SIZE + index + 1,
-            media_type: section.mediaType,
-            content_type: section.contentType,
+            media_type: mediaType!,
+            content_type: contentType!,
             id: entry.id,
             score: entry.score,
             trailer_key: entry.trailer.key,
@@ -608,6 +667,61 @@ const showMore = async (ctx: any, row: WizardRow) => {
     if (!saved?.length) return
 
     await showCollection(ctx, row, updated)
+}
+
+/**
+ * «🔗 Похожее» из карточки тайтла: подборка похожих (та же полка) — правкой того же сообщения.
+ * Новая запись collections с parent_id: «◀️ К подборке» возвращает исходную.
+ */
+const showSimilar = async (ctx: any, row: WizardRow) => {
+    const state = row.state
+    const collection = await loadCollection(state.collectionId, row.telegramId)
+    const record = collection && state.titleIndex !== undefined
+        ? pageItems(collection, Number(collection.page ?? 0))[state.titleIndex]
+        : undefined
+    if (!collection || !record) return safeAnswer(ctx, 'Тайтл не найден.', true)
+    await safeAnswer(ctx, 'Ищу похожее…')
+
+    const shelf = shelfForParams(collection.params)
+    const result = await buildSimilar({mediaType: record.media_type, id: record.id}, shelf)
+    const current = await loadWizard(row.telegramId)
+    if (current.state.screen !== 'title' || current.messageId !== row.messageId) return
+    if (!result.items.length) {
+        await ctx.reply('😕 Похожих с трейлером не нашлось.').catch(() => undefined)
+        return
+    }
+
+    const params = {
+        ...collection.params,
+        similar: {media_type: record.media_type, id: record.id, title: result.title || record.title || ''},
+        parent_id: collection.id
+    }
+    const {data: saved, error} = await getSupabase()
+        .from('collections')
+        .insert({
+            telegram_id: row.telegramId,
+            params,
+            items: result.items.map((item, index) => ({
+                rank: index + 1,
+                media_type: item.mediaType,
+                content_type: shelf.contentType,
+                id: item.id,
+                title: item.title,
+                year: item.year ?? null,
+                score: item.score,
+                trailer_key: item.trailer.key,
+                trailer_language: item.trailer.language
+            })),
+            candidates: result.rest,
+            page: 0
+        })
+        .select('id,telegram_id,params,items,candidates,page')
+        .single()
+    if (error) throw new Error(`[COLLECTIONS] Similar save failed: ${error.message}`)
+
+    row.state = {...state, screen: 'result', collectionId: saved.id, titleIndex: undefined}
+    await showCollection(ctx, row, saved as CollectionRow)
+    await saveWizard(row)
 }
 
 /** Все кнопки /g. */
@@ -661,10 +775,16 @@ export const collectionAction = async (ctx: any) => {
             case 's': {
                 const group = GROUPS.find(item => item.key === arg)
                 if (!group) break
-                if (!group.ready) return safeAnswer(ctx, 'Этот раздел появится на следующих этапах.', true)
-                state = group.key === 'series'
-                    ? {...emptyState(), screen: 'series', group: 'series'}
-                    : {...emptyState(), screen: 'criterion', group: 'movies', section: 'movies'}
+                const next = groupState(group.key)
+                if (!next) return safeAnswer(ctx, 'Этот раздел появится на следующих этапах.', true)
+                state = next
+                break
+            }
+
+            case 'fm': {
+                const entry = GROUPS.find(item => item.key === state.group)
+                const shelf = entry?.shelves.find(key => SHELVES[key].mediaType === arg)
+                if (entry && shelf) state = shelfState(entry.key, shelf)
                 break
             }
 
@@ -675,9 +795,17 @@ export const collectionAction = async (ctx: any) => {
                 break
 
             case 'c':
+                if (arg === 'bundle') state = {...state, screen: 'bundles', criterion: 'bundle', bundle: undefined, genres: [], tags: [], year: undefined}
                 if (arg === 'filter') state = {...state, screen: 'filter', criterion: 'filter'}
                 if (arg === 'popular') state = afterCriterion({...state, criterion: 'popular', genres: [], tags: [], year: undefined})
                 break
+
+            case 'bn': {
+                const bundle = bundleByKey(arg)
+                if (!bundle || !state.section || !bundleFits(bundle, shelfKeyOf(state), state.section)) return safeAnswer(ctx)
+                state = afterCriterion({...state, bundle: bundle.key})
+                break
+            }
 
             case 'f':
                 state = arg === 't' ? {...state, openTags: !state.openTags}
@@ -737,9 +865,24 @@ export const collectionAction = async (ctx: any) => {
                 if (!record) return safeAnswer(ctx, 'Тайтл не найден.', true)
                 await safeAnswer(ctx)
                 await engineRichCard(richTarget(ctx, row), queryOf(record), {
-                    footerRows: [[btn('◀️ К подборке', 'l', undefined, 'danger')]]
+                    footerRows: [[btn('🔗 Похожее', 'sim', undefined, 'success')], [btn('◀️ К подборке', 'l', undefined, 'danger')]]
                 })
-                row.state = {...state, screen: 'title'}
+                row.state = {...state, screen: 'title', titleIndex: Number(arg)}
+                await saveWizard(row)
+                return
+            }
+
+            case 'sim':
+                await showSimilar(ctx, row)
+                return
+
+            case 'up': {
+                const current = await loadCollection(state.collectionId, telegramId)
+                const parent = await loadCollection(current?.params.parent_id, telegramId)
+                if (!parent) return safeAnswer(ctx, 'Подборка не найдена — соберите новую.', true)
+                await safeAnswer(ctx)
+                row.state = {...state, screen: 'result', collectionId: parent.id}
+                await showCollection(ctx, row, parent)
                 await saveWizard(row)
                 return
             }

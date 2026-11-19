@@ -51,3 +51,6 @@ server/models/*.bin
 
 # Обложки подборок (scripts/covers/buildCovers.mjs)
 .covers-out
+
+# Локальное хранилище судьи связок (до миграции collection_bundle_*)
+.bundles-store.json

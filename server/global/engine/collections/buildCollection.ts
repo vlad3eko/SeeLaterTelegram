@@ -1,5 +1,4 @@
 import {
-    EXCLUDED_GENRES,
     genreByKey,
     isExcludedOrigin,
     MIN_RELEASE_DATE,
@@ -16,6 +15,10 @@ import {
 } from '#server/global/engine/collections/catalog'
 import {mapLimit, tmdbGet} from '#server/global/engine/collections/tmdb'
 import {findTrailers, pickTrailer, rememberTrailers, type Trailer} from '#server/global/engine/collections/trailers'
+import {fitsShelf, type Shelf, shelfByKey, type ShelfKey, shelfQuery, SHELVES} from '#server/global/engine/collections/shelves'
+import {type Bundle, bundleByKey, bundleFits, bundlesFor, rubricOf} from '#server/global/engine/collections/bundles'
+import {bundleMatches, bundleQuery, bundleScore, meanRating} from '#server/global/engine/collections/bundleRules'
+import {getBundleStore, type VerdictRow} from '#server/global/engine/collections/judge/store'
 
 /**
  * Сборка топа (правки владельца 18.11, см. TASKS.md):
@@ -28,7 +31,7 @@ import {findTrailers, pickTrailer, rememberTrailers, type Trailer} from '#server
  *   - в топ идут только тайтлы с трейлером (русский, иначе английский).
  */
 
-export type CollectionCriterion = 'filter' | 'popular'
+export type CollectionCriterion = 'filter' | 'popular' | 'bundle'
 
 /**
  * Внутри группы (жанры, теги): and — все отмеченные, or — любой из отмеченных.
@@ -44,7 +47,22 @@ export type CollectionParams = {
     year?: YearRangeKey
     period: PeriodKey
     match?: MatchMode
+    /** Полка (мультфильмы, аниме…); без неё — живое кино типа раздела. */
+    shelf?: ShelfKey
+    /** Связка (criterion 'bundle'). */
+    bundle?: string
 }
+
+/** Полка подборки: явная, если её тип совпадает с разделом, иначе живое кино типа раздела. */
+export const shelfForParams = (params: Pick<CollectionParams, 'section' | 'shelf'>): Shelf => {
+    const mediaType = SECTIONS[params.section]?.mediaType ?? 'movie'
+    const shelf = shelfByKey(params.shelf)
+    return shelf && shelf.mediaType === mediaType ? shelf : SHELVES[mediaType === 'tv' ? 'series' : 'movie']
+}
+
+/** Связка подборки (только при criterion 'bundle'). */
+export const bundleForParams = (params: Pick<CollectionParams, 'criterion' | 'bundle'>): Bundle | undefined =>
+    params.criterion === 'bundle' ? bundleByKey(params.bundle) : undefined
 
 export type CollectionItem = {
     rank: number
@@ -235,12 +253,16 @@ export const collectionWindow = (params: CollectionParams): {window: Window, dir
     const period = periodByKey(params.period)
     const section = SECTIONS[params.section]
     if (!period || !section || !periodAllowed(section, period.key)) return null
+    const bundle = bundleForParams(params)
+    if (params.criterion === 'bundle' && (!bundle || !bundleFits(bundle, shelfForParams(params).key, section.key))) return null
+    const released = section.mediaType === 'movie' ? bundle?.criteria.props?.released : undefined
     const year = yearRangeByKey(params.year)
     const yearIsStart = section.mediaType === 'tv' && period.direction === 'released'
     const window = intersect(
         periodRange(params.period),
         period.direction === 'released' ? {from: MIN_RELEASE_DATE} : {},
-        year && !yearIsStart ? {from: year.from, ...(year.to ? {to: year.to} : {})} : {}
+        year && !yearIsStart ? {from: year.from, ...(year.to ? {to: year.to} : {})} : {},
+        released ?? {}
     )
     if (!window) return null
     // Сериал не может закончиться или выйти новым сезоном раньше, чем начался.
@@ -249,12 +271,14 @@ export const collectionWindow = (params: CollectionParams): {window: Window, dir
 }
 
 /** Параметры discover раздела: фильтр по датам и сортировка. */
-const sectionQuery = (section: Section, window: Window, params: CollectionParams): Record<string, string> => {
+const sectionQuery = (section: Section, window: Window, params: CollectionParams, shelf: Shelf, extraWithout: number[] = []): Record<string, string> => {
     const year = yearRangeByKey(params.year)
+    const shelfParams = shelfQuery(shelf)
     const base: Record<string, string> = {
         language: 'ru-RU',
         include_adult: 'false',
-        without_genres: EXCLUDED_GENRES[section.mediaType].join(',')
+        without_genres: [...new Set([...shelfParams.without_genres!.split(','), ...extraWithout.map(String)])].join(','),
+        ...(shelfParams.with_origin_country ? {with_origin_country: shelfParams.with_origin_country} : {})
     }
     const range = (field: string, w: Window) => ({
         ...(w.from ? {[`${field}.gte`]: w.from} : {}),
@@ -339,7 +363,75 @@ const tvFitsSection = (section: Section, details: Raw, window: Window): boolean 
     }
 }
 
-type Candidate = {item: Raw, details?: Raw}
+export type Candidate = {item: Raw, details?: Raw, keywords?: number[] | null, judgeScore?: number}
+
+/**
+ * Несколько условий with_genres в один параметр: «и» (запятая) склеиваются; условие «или» («|»)
+ * вместе с другими TMDB понимает ненадёжно — оно уходит в проверку у нас (exact = false).
+ */
+export const mergeGenres = (parts: Array<string | undefined>): {value?: string, exact: boolean} => {
+    const present = parts.filter((part): part is string => Boolean(part))
+    const and = present.filter(part => !part.includes('|'))
+    const or = present.filter(part => part.includes('|'))
+    if (!and.length) return {value: or[0], exact: or.length <= 1}
+    return {value: [...new Set(and.join(',').split(','))].join(','), exact: !or.length}
+}
+
+/** Discover у фильмов не отдаёт страну: при with_origin_country её знаем из запроса. */
+const withOrigin = (item: Raw, shelf: Shelf): Raw =>
+    shelf.originCountry && !(item.origin_country ?? []).length ? {...item, origin_country: [shelf.originCountry]} : item
+
+const verdictKey = (mediaType: string, id: number) => `${mediaType}:${id}`
+
+/** Вердикты судьи по связке (текущая версия рубрики). Хранилище недоступно — пусто. */
+export const bundleVerdicts = async (bundle: Bundle): Promise<Map<string, VerdictRow>> => {
+    try {
+        const store = await getBundleStore()
+        const rows = await store.verdicts(bundle.key, rubricOf(bundle).version)
+        return new Map(rows.map(row => [verdictKey(row.media_type, Number(row.media_id)), row]))
+    } catch (error) {
+        console.warn('[COLLECTIONS] Bundle verdicts unavailable', bundle.key, error instanceof Error ? error.message : error)
+        return new Map()
+    }
+}
+
+/**
+ * Кандидаты судимой связки: только тайтлы с вердиктом «да» (их снимок хранится с вердиктом —
+ * discover не нужен), отбор по полке и периоду раздела.
+ */
+const judgedCandidates = async (bundle: Bundle, shelf: Shelf, section: Section, window: Window, excludeIds: number[]): Promise<Candidate[]> => {
+    const verdicts = await bundleVerdicts(bundle)
+    const skip = new Set(excludeIds)
+    const items = [...verdicts.values()]
+        .filter(row => row.verdict === 'yes' && row.media_type === shelf.mediaType && !skip.has(Number(row.media_id)))
+        .map((row): Candidate => {
+            const snap = row.snapshot
+            const item: Raw = {
+                id: Number(row.media_id),
+                [shelf.mediaType === 'movie' ? 'title' : 'name']: snap.title,
+                [shelf.mediaType === 'movie' ? 'release_date' : 'first_air_date']: snap.date ?? '',
+                vote_average: snap.voteAverage,
+                vote_count: snap.voteCount,
+                popularity: snap.popularity,
+                genre_ids: snap.genreIds ?? [],
+                origin_country: snap.originCountry ?? [],
+                original_language: snap.originalLanguage ?? ''
+            }
+            return {item, judgeScore: Number(row.score) || 0}
+        })
+        .filter(({item}) => hasRussianTitle(String(item.title || item.name || '')) && !isExcludedOrigin(item) && fitsShelf(item, shelf))
+
+    if (shelf.mediaType === 'movie') return items.filter(({item}) => inWindow(item.release_date, window))
+    const withDetails = await mapLimit(items, 8, async (candidate): Promise<Candidate | null> => {
+        try {
+            const details = await tvDetails(Number(candidate.item.id))
+            return tvFitsSection(section, details, window) ? {...candidate, details} : null
+        } catch {
+            return null
+        }
+    })
+    return withDetails.filter((entry): entry is Candidate => Boolean(entry))
+}
 
 /**
  * Кандидаты раздела за период с фильтрами (без проверки трейлеров): discover до 100 штук на
@@ -348,23 +440,40 @@ type Candidate = {item: Raw, details?: Raw}
  */
 export const collectCandidates = async (
     params: CollectionParams,
-    excludeIds: number[] = []
+    excludeIds: number[] = [],
+    /** Для судьи: кандидаты по правилам связки без учёта вердиктов (и у судимых — через discover). */
+    {ignoreVerdicts = false}: {ignoreVerdicts?: boolean} = {}
 ): Promise<{candidates: Candidate[], capped: boolean}> => {
     const section = SECTIONS[params.section]
     const scope = collectionWindow(params)
     if (!section || !scope) return {candidates: [], capped: false}
     const {window, direction} = scope
+    const shelf = shelfForParams(params)
+    const bundle = bundleForParams(params)
+    if (bundle?.kind === 'judged' && !ignoreVerdicts) {
+        return {candidates: await judgedCandidates(bundle, shelf, section, window, excludeIds), capped: false}
+    }
+    const rules = bundle ? bundleQuery(bundle, shelf) : undefined
 
-    const base = sectionQuery(section, window, params)
+    const base = sectionQuery(section, window, params, shelf, rules?.withoutGenres)
     const seen = new Set<number>(excludeIds)
     const raw: Raw[] = []
     let capped = false
     const match = params.match ?? 'and'
     const filter = resolveFilter(params)
-    const {params: filterParams, exact} = filterQuery(filter, match)
+    const {params: filterParams, exact: filterExact} = filterQuery(filter, match)
+    const genres = mergeGenres([shelfQuery(shelf).with_genres, filterParams.with_genres, rules?.params.with_genres])
+    const exact = filterExact && genres.exact
+    const filterUsesKeywords = [...filter.genres, ...filter.tags].some(concept => concept.keywords.length)
 
     {
-        const query = new URLSearchParams({...base, ...filterParams})
+        const query = new URLSearchParams({
+            ...base,
+            ...filterParams,
+            ...(rules?.params ?? {})
+        })
+        if (genres.value) query.set('with_genres', genres.value)
+        else query.delete('with_genres')
         for (let page = 1; page <= MAX_PAGES; page++) {
             query.set('page', String(page))
             const body = await tmdbGet<{results?: Raw[], total_pages?: number}>(`discover/${section.mediaType}?${query}`)
@@ -385,40 +494,52 @@ export const collectCandidates = async (
     }
 
     const minPopularity = MIN_UPCOMING_POPULARITY[section.mediaType]
-    const titled = raw.filter(item =>
+    const titled = raw.map(item => withOrigin(item, shelf)).filter(item =>
         hasRussianTitle(String(item.title || item.name || '')) &&
         !isExcludedOrigin(item) &&
+        fitsShelf(item, shelf) &&
         (direction === 'released' || Number(item.popularity) >= minPopularity))
 
     const genreIdsOf = (item: Raw): number[] => (item.genre_ids ?? []).map(Number)
 
+    // Судья уже сказал «нет» — тайтл в автоматическую связку не идёт (шум ключевых слов).
+    const verdicts = bundle && !ignoreVerdicts ? await bundleVerdicts(bundle) : undefined
+    const rejected = (item: Raw) => verdicts?.get(verdictKey(section.mediaType, Number(item.id)))?.verdict === 'no'
+
     if (section.mediaType === 'movie') {
-        if (exact) return {candidates: titled.map(item => ({item})), capped}
-        // Выборка шире правила (несколько тегов-понятий и т. п.) — проверка по ключевым словам фильма.
-        const checked = await mapLimit(titled, 8, async item => {
+        if (exact && !bundle) return {candidates: titled.map(item => ({item})), capped}
+        // Выборка шире правила (несколько тегов-понятий, правила связки) — проверка по ключевым словам фильма.
+        const fetchKeywords = Boolean(rules?.needsKeywords) || (!exact && filterUsesKeywords)
+        const checked = await mapLimit(titled, 8, async (item): Promise<Candidate | null> => {
             try {
-                return matchesFilter(filter, match, genreIdsOf(item), await movieKeywords(Number(item.id))) ? item : null
+                if (rejected(item)) return null
+                const keywords = fetchKeywords ? await movieKeywords(Number(item.id)) : null
+                if (!exact && !matchesFilter(filter, match, genreIdsOf(item), keywords ?? [])) return null
+                if (bundle && !bundleMatches(bundle, shelf, item, keywords)) return null
+                return {item, keywords}
             } catch (error) {
                 console.warn('[COLLECTIONS] Movie keywords failed', item.id, error instanceof Error ? error.message : error)
                 return null
             }
         })
-        return {candidates: checked.filter((item): item is Raw => Boolean(item)).map(item => ({item})), capped}
+        return {candidates: checked.filter((entry): entry is Candidate => Boolean(entry)), capped}
     }
 
     // Одна неудачная карточка не должна ронять всю подборку: такой сериал просто пропускаем.
-    const withDetails = await mapLimit(titled, 8, async item => {
+    const withDetails = await mapLimit(titled.filter(item => !rejected(item)), 8, async item => {
         try {
             const details = await tvDetails(Number(item.id))
-            if (!exact && !matchesFilter(filter, match, genreIdsOf(item), keywordIdsOf(details))) return null
-            return {item, details}
+            const keywords = keywordIdsOf(details)
+            if (!exact && !matchesFilter(filter, match, genreIdsOf(item), keywords)) return null
+            if (bundle && !bundleMatches(bundle, shelf, item, keywords, details)) return null
+            return {item, details, keywords}
         } catch (error) {
             console.warn('[COLLECTIONS] TV details failed', item.id, error instanceof Error ? error.message : error)
             return null
         }
     })
     return {
-        candidates: withDetails.filter((entry): entry is {item: Raw, details: Raw} =>
+        candidates: withDetails.filter((entry): entry is {item: Raw, details: Raw, keywords: number[]} =>
             Boolean(entry) && tvFitsSection(section, entry!.details, window)),
         capped
     }
@@ -451,11 +572,18 @@ export const buildCollection = async (
     const scope = collectionWindow(params)
     if (!scope) return {params, items: [], rest: [], match, stats: {candidates: 0, withoutTrailer: 0}}
 
+    const shelf = shelfForParams(params)
+    const bundle = bundleForParams(params)
     const {candidates} = await collectCandidates(params, excludeIds)
     const maxLogVotes = Math.max(1e-9, ...candidates.map(c => Math.log1p(Number(c.item.vote_count) || 0)))
     const maxLogPopularity = Math.max(1e-9, ...candidates.map(c => Math.log1p(Number(c.item.popularity) || 0)))
+    const mean = meanRating(candidates.map(c => c.item))
+    const scoreOf = (candidate: Candidate) => bundle
+        // У судимых — плюс уверенность судьи (баллы рубрики из 6).
+        ? bundleScore(bundle, shelf, candidate.item, candidate.keywords ?? null, {mean, maxLogPopularity}) + 0.15 * (candidate.judgeScore ?? 0) / 6
+        : rankScore(candidate, scope.direction, maxLogVotes, maxLogPopularity)
     const scored = candidates
-        .map(candidate => ({candidate, score: rankScore(candidate, scope.direction, maxLogVotes, maxLogPopularity)}))
+        .map(candidate => ({candidate, score: scoreOf(candidate)}))
         .sort((a, b) => b.score - a.score)
 
     const items: CollectionItem[] = []
@@ -486,7 +614,7 @@ export const buildCollection = async (
             items.push({
                 rank: items.length + 1,
                 mediaType: section.mediaType,
-                contentType: section.contentType,
+                contentType: shelf.contentType,
                 id: Number(item.id),
                 title: String(item.title || item.name),
                 ...(date ? {year: Number(date.slice(0, 4))} : {}),
@@ -560,4 +688,30 @@ export const countCollection = async (params: CollectionParams): Promise<{count:
     const or = await collectCandidates({...params, match: 'or'}, and.candidates.map(c => Number(c.item.id)))
     const orCount = await countWithTrailers(section.mediaType, or.candidates)
     return {count: andCount.count + orCount.count, capped: or.capped || orCount.more}
+}
+
+/**
+ * Связки для экрана «🧩 Связки»: автоматические — все применимые на полке в разделе; судимые —
+ * только если у судьи уже набралось «да» на подборку (minResults), иначе связка скрыта.
+ */
+export const availableBundles = async (shelfKey: ShelfKey, section: SectionKey): Promise<Bundle[]> => {
+    // Последний расчёт провалил контрольные тайтлы — судимую связку не показываем.
+    const blocked = async (bundle: Bundle) => {
+        try {
+            const last = (await (await getBundleStore()).runs(bundle.key)).find(run => run.status === 'done')
+            return last?.stats?.publishable === false
+        } catch {
+            return false
+        }
+    }
+    const shelf = SHELVES[shelfKey]
+    const fitting = bundlesFor(shelfKey, section)
+    const judged = await mapLimit(fitting.filter(bundle => bundle.kind === 'judged'), 3, async bundle => {
+        const verdicts = await bundleVerdicts(bundle)
+        const yes = [...verdicts.values()].filter(row =>
+            row.verdict === 'yes' && row.media_type === shelf.mediaType && (!row.snapshot?.shelf || row.snapshot.shelf === shelfKey))
+        return yes.length >= bundle.minResults && !(await blocked(bundle)) ? bundle.key : null
+    })
+    const ready = new Set(judged.filter(Boolean))
+    return fitting.filter(bundle => bundle.kind === 'auto' || ready.has(bundle.key))
 }

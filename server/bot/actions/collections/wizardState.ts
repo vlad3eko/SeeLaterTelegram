@@ -2,6 +2,7 @@ import {getSupabase} from '#server/global/engine/instagram/reel/jobs/dispatchRee
 import {isAdmin} from '#server/bot/consts/admins'
 import type {CollectionCriterion} from '#server/global/engine/collections/buildCollection'
 import type {Direction, SectionKey, YearRangeKey} from '#server/global/engine/collections/catalog'
+import type {ShelfKey} from '#server/global/engine/collections/shelves'
 
 /**
  * Состояние мастера подборки /g (таблица collection_wizard, одна строка на пользователя).
@@ -9,16 +10,20 @@ import type {Direction, SectionKey, YearRangeKey} from '#server/global/engine/co
  */
 
 /** home — режимы /g; result — меню превратилось в подборку; title — открыт тайтл из подборки. */
-export type WizardScreen = 'home' | 'root' | 'series' | 'criterion' | 'filter' | 'direction' | 'period' | 'result' | 'title'
+export type WizardScreen = 'home' | 'root' | 'format' | 'series' | 'criterion' | 'filter' | 'bundles' | 'direction' | 'period' | 'result' | 'title'
 
-/** Раздел верхнего меню (схема владельца 17.11). Этап 1: фильмы и сериалы, остальное — позже. */
-export type SectionGroup = 'movies' | 'series' | 'cartoons' | 'cseries' | 'anime' | 'people'
+/** Раздел верхнего меню (схема владельца 17.11; дунхуа — отдельной полкой, 19.11). format — у аниме и дунхуа: фильмы или сериалы. */
+export type SectionGroup = 'movies' | 'series' | 'cartoons' | 'cseries' | 'anime' | 'donghua' | 'people'
 
 export type WizardState = {
     screen: WizardScreen
     group?: SectionGroup
+    /** Полка (что смотрим): без неё — живое кино по группе (старые сохранённые меню). */
+    shelf?: ShelfKey
     section?: SectionKey
     criterion?: CollectionCriterion
+    /** Выбранная связка (criterion bundle). */
+    bundle?: string
     genres: string[]
     tags: string[]
     openGenres: boolean
@@ -29,6 +34,8 @@ export type WizardState = {
     direction?: Direction
     /** Подборка, в которую превратилось сообщение мастера (screen result/title). */
     collectionId?: string
+    /** Открытый тайтл (номер на странице подборки) — для «🔗 Похожее». */
+    titleIndex?: number
 }
 
 export type WizardRow = {

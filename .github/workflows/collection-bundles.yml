@@ -1,0 +1,57 @@
+# Связки подборок /g: 2 раза в неделю считаются 2 связки, которые дольше всех не считались
+# (scripts/bundles/runBundles.ts): кандидаты TMDB → досье (TMDB + Википедия) → судья Gemini →
+# вердикты и готовый список в Supabase (collection_bundle_*). ТЗ — TASKS.md.
+#
+# Секреты репозитория (Settings → Secrets and variables → Actions):
+#   TMDB_API_KEY, GEMINI_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY.
+# Перед первым запуском выполнить database/migrations/collection_bundles.sql.
+# Вручную: Actions → Collection bundles → Run workflow (можно указать связки и лимит).
+
+name: Collection bundles
+
+on:
+  schedule:
+    # Понедельник и четверг, 05:00 UTC.
+    - cron: '0 5 * * 1,4'
+  workflow_dispatch:
+    inputs:
+      bundles:
+        description: 'Связки через запятую (пусто — 2 самые давние)'
+        default: ''
+      limit:
+        description: 'Новых тайтлов на связку'
+        default: '60'
+
+concurrency:
+  group: collection-bundles
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  bundles:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Без postinstall (nuxt prepare): скрипту нужен только tsx и серверные модули.
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Run bundles
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          BUNDLES: ${{ inputs.bundles || '' }}
+          LIMIT: ${{ inputs.limit || '60' }}
+        run: |
+          npx tsx --tsconfig tsconfig.reel-dryrun.json scripts/bundles/runBundles.ts --limit "$LIMIT" $([ -n "$BUNDLES" ] && echo --bundle "$BUNDLES")

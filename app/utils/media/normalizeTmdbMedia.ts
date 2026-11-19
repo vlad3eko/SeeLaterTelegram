@@ -1,6 +1,7 @@
 
 import {ContentType} from "#server/global/engine/search/strategy/enums";
 import {convertTranslateKnowForDepartment} from "#server/global/helpers/person/convert/translateKnowForDepartment";
+import {classifyOrigin} from "#server/global/engine/collections/shelves";
 
 const ANIMATION_GENRE = 16
 
@@ -21,11 +22,11 @@ export const normalizeTmdbMedia = (media: any) => {
     const isAnimation =
         genreIds.includes(ANIMATION_GENRE)
 
+    // Один классификатор с подборками /g (shelves.ts): аниме — японская анимация; китайская
+    // (дунхуа) и совместная — мультфильмы и мультсериалы (решение владельца 19.11).
     const isJapanese =
-        media.original_language === "ja" ||
-        media.original_language === "zh" ||
-        (media.origin_country ?? []).includes("JP") ||
-        (media.origin_country ?? []).includes("ZH")
+        isAnimation &&
+        classifyOrigin(media, media.title ? 'movie' : 'tv') === 'japan'
 
     const isPerson =
         mediaType === 'person' ||
@@ -40,9 +41,11 @@ export const normalizeTmdbMedia = (media: any) => {
     } else if (mediaType === 'movie') {
 
         contentType =
-            isAnimation
-                ? ContentType.CARTOON
-                : ContentType.MOVIE
+            !isAnimation
+                ? ContentType.MOVIE
+                : isJapanese
+                    ? ContentType.ANIME
+                    : ContentType.CARTOON
 
     } else {
 
