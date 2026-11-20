@@ -1,5 +1,6 @@
 import type {SupabaseClient} from '@supabase/supabase-js'
 import {bot} from '#server/bot/bot'
+import {coverBlock, coverFor, forgetCovers} from '#server/bot/actions/collections/wizardCovers'
 import {BOT_ADMINS} from '#server/global/oneLinkApp'
 import {
     buildDigest,
@@ -126,6 +127,10 @@ export const prepareDigests = async (supabase: Supabase, now = new Date(), {forc
     if (futureError) throw futureError
     const future = new Map(((futureRows ?? []) as WatchRow[]).map(row => [mediaKey(row.media_type, row.tmdb_id), row]))
 
+    // Обложка «Ваши новости сегодня» — одна на всех (file_id этого бота); нет в базе — коллаж постеров.
+    const coverId = await coverFor('digest')
+    const cover = coverId ? coverBlock(coverId) : undefined
+
     const rows: any[] = []
     for (const userId of recipients) {
         const mine = allSubscriptions.filter(row => row.user_id === userId)
@@ -138,7 +143,7 @@ export const prepareDigests = async (supabase: Supabase, now = new Date(), {forc
             .map(row => future.get(mediaKey(row.media_type, row.tmdb_id)))
             .filter((row): row is WatchRow => Boolean(row))
             .map(row => ({...row, title: titles.get(mediaKey(row.media_type, row.tmdb_id))?.title || row.title})), today)
-        const payload = buildDigest({events: userEvents, titles, calendar, today})
+        const payload = buildDigest({events: userEvents, titles, calendar, today, cover})
         if (!payload) continue
         rows.push({user_id: userId, digest_date: today, event_ids: userEvents.map(event => event.id), cutoff: nowIso, payload})
     }
@@ -165,6 +170,16 @@ const sendDigest = async (chatId: number, payload: DigestPayload, deliveryId: nu
         return await callApi('sendRichMessage', {chat_id: chatId, rich_message: payload.rich, reply_markup})
     } catch (error: any) {
         if (errorCode(error) !== 400) throw error
+        // Обложку удалили из канала-хранилища — та же сводка без неё (дальше возьмётся коллаж постеров).
+        const first = payload.rich.blocks?.[0]
+        if (first?.type === 'animation' || first?.type === 'photo') {
+            forgetCovers()
+            try {
+                return await callApi('sendRichMessage', {chat_id: chatId, rich_message: {...payload.rich, blocks: payload.rich.blocks.slice(1)}, reply_markup})
+            } catch (retryError: any) {
+                if (errorCode(retryError) !== 400) throw retryError
+            }
+        }
         console.warn('[NOTIFY] rich digest rejected, fallback to HTML', error?.message)
         return await callApi('sendMessage', {chat_id: chatId, text: payload.html, parse_mode: 'HTML', reply_markup, link_preview_options: {is_disabled: true}})
     }

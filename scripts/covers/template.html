@@ -1,7 +1,7 @@
 <!doctype html>
 <!--
   Обложка экрана мастера подборок /g (1280×853, снимается Chrome в 2×).
-  Параметры в адресе: #screen=home|root|series|criterion|filter|direction|period|bundles|loading|result|format|cartoons|cseries|people|peopleLife|peopleSearch|birthdays,
+  Параметры в адресе: #screen=home|root|series|criterion|filter|direction|period|bundles|loading|result|format|cartoons|cseries|people|peopleLife|peopleSearch|birthdays|digest,
   posters=… (шесть poster_path TMDB через запятую), seed=… (повторить случайный наклон карточек).
   Рисует scripts/covers/buildCovers.mjs; раз в квартал — GitHub Actions (.github/workflows/collection-covers.yml).
 -->
@@ -86,7 +86,7 @@
   <div class="title" id="title"></div>
   <div class="scene" id="scene"></div>
 
-  <div class="brand"><img src="logo.png" alt="">ПОДБОРКИ</div>
+  <div class="brand"><img src="logo.png" alt=""><span id="brandName">ПОДБОРКИ</span></div>
   <div class="pill" id="pill"></div>
   <div class="lead" id="lead"></div>
   <div class="steps" id="steps"></div>
@@ -135,6 +135,16 @@
     peopleSearch: {pill: '<b>именинники</b> дня', lead: 'Найду, у кого из звёзд<br>сегодня день рождения', lines: ['Кто сегодня', 'родился?'],
       posters: ['1xYLoNf4Zi3xppZ6JSmQgK1F3HS', 'yvmKPlTIi0xdcFQIFcQKQJcI63W', 'gNBiOPEbEPGPTfTIyGDvNQ50m0V', 'r5PYZGOiIQuGpaZas9TTplNZ5Ox', 'kEDbym5htJgDQNenjUtSJxAHysB', 'n7NR7SH7CyiiF70yN96r3d1jWr0']},
     birthdays: {pill: '<b>именинники</b> дня', lead: 'Выберите номер —<br>соберу 10 лучших фильмов', lines: ['С днём', 'рождения!'],
+      posters: ['1xYLoNf4Zi3xppZ6JSmQgK1F3HS', 'yvmKPlTIi0xdcFQIFcQKQJcI63W', 'gNBiOPEbEPGPTfTIyGDvNQ50m0V', 'r5PYZGOiIQuGpaZas9TTplNZ5Ox', 'kEDbym5htJgDQNenjUtSJxAHysB', 'n7NR7SH7CyiiF70yN96r3d1jWr0']},
+    // Сводка обновлений по сохранённым (server/global/engine/notifications/): на обложке — почему
+    // пришло сообщение: «Сохранить» = подписка, раз в день одна сводка, без новостей — тишина.
+    digest: {brand: 'КОЛЛЕКЦИЯ', pill: '<b>сводка</b> по сохранённым', lead: 'Вы сохранили эти фильмы и сериалы —<br>я слежу за ними за вас', lines: ['Ваши новости', 'сегодня'],
+      steps: [
+        ['1', 'Нажали <b>«Сохранить»</b> — это подписка'],
+        ['2', 'Слежу: <b>премьеры, серии, даты, трейлеры</b>'],
+        ['3', 'Раз в день — <b>одна сводка</b>, если есть новости'],
+        ['✓', 'Нет новостей — <b>ничего не присылаю</b>', true]
+      ],
       posters: ['1xYLoNf4Zi3xppZ6JSmQgK1F3HS', 'yvmKPlTIi0xdcFQIFcQKQJcI63W', 'gNBiOPEbEPGPTfTIyGDvNQ50m0V', 'r5PYZGOiIQuGpaZas9TTplNZ5Ox', 'kEDbym5htJgDQNenjUtSJxAHysB', 'n7NR7SH7CyiiF70yN96r3d1jWr0']}
   }
   const screenKey = (location.hash.match(/screen=(\w+)/) || [])[1] || 'root'
@@ -143,6 +153,8 @@
   // Без параметра остаются постеры по умолчанию из SCREENS.
   const hashPosters = (location.hash.match(/posters=([A-Za-z0-9,]+)/) || [])[1]
   if (hashPosters) SCREEN.posters = hashPosters.split(',')
+  // Подпись у логотипа: у подборок «ПОДБОРКИ», у сводки — «КОЛЛЕКЦИЯ».
+  document.getElementById('brandName').textContent = SCREEN.brand || 'ПОДБОРКИ'
   document.getElementById('pill').innerHTML = SCREEN.pill
   document.getElementById('lead').innerHTML = SCREEN.lead
   // Шаги «как это работает»: [значок, текст, ok — зелёный кружок].

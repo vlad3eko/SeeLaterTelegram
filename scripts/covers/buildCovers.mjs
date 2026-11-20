@@ -78,6 +78,8 @@ const SCREENS = {
     cseries: {fresh: false, minVotes: 500, sources: [
         'discover/tv?with_genres=16&with_original_language=en&sort_by=vote_count.desc',
         'discover/tv?with_genres=16&with_original_language=en&sort_by=vote_count.desc&page=2']},
+    // Сводка обновлений по сохранённым: премьеры и сериалы в эфире — то, за чем обычно следят.
+    digest: {fresh: true, minVotes: 0, sources: ['movie/upcoming?region=US', 'tv/on_the_air', 'movie/now_playing?region=US']},
     // «🎭 Актёры и режиссёры» — портреты людей (profile_path TMDB) вместо постеров.
     // ids — постоянные лица; popular — популярные сейчас актёры (person/popular). Актёры и режиссёры:
     // Нолан, Ди Каприо, Спилберг, Фостер, Тарантино, Питт.

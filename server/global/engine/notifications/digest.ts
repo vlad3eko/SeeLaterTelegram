@@ -188,11 +188,13 @@ export type TitleInfo = {title: string, genres: unknown, poster?: string | null}
  * Пустой список событий — undefined (сводку не шлём; календарь сам по себе не повод).
  */
 export const buildDigest = (
-    {events, titles, calendar, today}: {
+    {events, titles, calendar, today, cover: coverMedia}: {
         events: EventRow[]
         titles: Map<string, TitleInfo>
         calendar: CalendarItem[]
         today: string
+        /** Готовый блок обложки «Ваши новости сегодня» (scripts/covers, экран digest); нет — коллаж постеров. */
+        cover?: Record<string, unknown>
     }
 ): DigestPayload | undefined => {
     if (!events.length) return undefined
@@ -269,12 +271,14 @@ export const buildDigest = (
     const blocks: any[] = []
     const html: string[] = []
 
-    // Обложка: постеры главных тайтлов (премьеры и серии первыми), до 4.
+    // Обложка: анимация «Ваши новости сегодня» (объясняет, почему пришло сообщение), а без неё —
+    // постеры главных тайтлов (премьеры и серии первыми), до 4.
     const cover = [...new Set(order.map(item => item.key))]
         .map(key => titles.get(key)?.poster)
         .filter((path): path is string => Boolean(path))
         .slice(0, MAX_COVER)
-    if (cover.length === 1) blocks.push(photo(cover[0]!, 'w780'))
+    if (coverMedia) blocks.push(coverMedia)
+    else if (cover.length === 1) blocks.push(photo(cover[0]!, 'w780'))
     else if (cover.length > 1) blocks.push({type: 'collage', blocks: cover.map(path => photo(path, 'w342'))})
 
     const heading = '🎬 Обновления коллекции'

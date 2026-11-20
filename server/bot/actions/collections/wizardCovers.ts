@@ -9,9 +9,9 @@ import type {WizardScreen} from '#server/bot/actions/collections/wizardState'
 
 /**
  * Экраны, у которых есть обложка; loading — пока собирается подборка, result — все страницы готовой подборки,
- * cartoons и cseries — все экраны разделов «Мультфильмы» и «Мультсериалы».
+ * cartoons и cseries — все экраны разделов «Мультфильмы» и «Мультсериалы», digest — сводка обновлений по сохранённым.
  */
-export type CoverScreen = Exclude<WizardScreen, 'title'> | 'loading' | 'cartoons' | 'cseries'
+export type CoverScreen = Exclude<WizardScreen, 'title'> | 'loading' | 'cartoons' | 'cseries' | 'digest'
 
 const CACHE_TTL_MS = 60 * 60_000
 let cache: {at: number, covers: Map<string, string>} | null = null
