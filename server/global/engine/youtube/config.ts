@@ -56,6 +56,28 @@ export const findExcludedTitleReason = (title: string): string | undefined => {
         (EXCLUDED_TITLE_PATTERNS.some(pattern => pattern.test(title)) ? 'хэштег' : undefined)
 }
 
+/**
+ * Жанры TMDB, которые не публикуются (решение владельца 20.11): ток-шоу, реалити, новости —
+ * у них есть сезоны и серии, но это не сериалы.
+ */
+export const EXCLUDED_TMDB_GENRES: Record<number, string> = {
+    10767: 'ток-шоу',
+    10764: 'реалити-шоу',
+    10763: 'новости'
+}
+
+/**
+ * Почему тайтл из TMDB не публикуется, или undefined. Проверяется полная карточка (ru-RU),
+ * которую очередь и так запрашивает перед публикацией: пост без сюжета или постера пустой.
+ */
+export const findUnsuitableMediaReason = (media: Record<string, any>): string | undefined => {
+    const genre = (media.genres ?? []).find((item: {id?: number}) => EXCLUDED_TMDB_GENRES[Number(item?.id)])
+    if (genre) return `не фильм и не сериал (${EXCLUDED_TMDB_GENRES[Number(genre.id)]})`
+    if (!String(media.overview ?? '').trim()) return 'в TMDB нет описания сюжета'
+    if (!media.poster_path) return 'в TMDB нет постера'
+    return undefined
+}
+
 const DEFAULT_CHANNELS: WatchedChannel[] = [
     // Русские трейлеры: только дубляж. В очереди — первыми.
     {id: 'UC6A-Z0jDKemh9-CwGbj5yog', name: 'KinomanTrailers', keywords: ['дубляж'], priority: true},

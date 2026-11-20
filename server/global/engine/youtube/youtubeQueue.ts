@@ -1,7 +1,7 @@
 import {getSupabase, dispatchReelJob} from '#server/global/engine/instagram/reel/jobs/dispatchReelJob'
 import {listChannelVideos, type ChannelVideo} from '#server/global/engine/youtube/channelFeed'
 import {matchTmdbMedia, parseTrailerTitle} from '#server/global/engine/youtube/matchTmdbMedia'
-import {findExcludedTitleReason, youtubeQueueConfig, type WatchedChannel} from '#server/global/engine/youtube/config'
+import {findExcludedTitleReason, findUnsuitableMediaReason, youtubeQueueConfig, type WatchedChannel} from '#server/global/engine/youtube/config'
 import {BOT_ADMINS} from '#server/global/oneLinkApp'
 
 /**
@@ -186,6 +186,10 @@ const dispatchNext = async (supabase: Supabase, config: ReturnType<typeof youtub
         return {videoId: row.video_id, result: 'retry', message: errorText(matchError)}
     }
     if (!matched) return fail(`в TMDB нет точного совпадения для «${parsed.name}»${parsed.year ? ` (${parsed.year})` : ''}`, {notify: false})
+
+    // Ток-шоу и реалити, тайтлы без сюжета или постера не публикуются.
+    const unsuitable = findUnsuitableMediaReason(matched.media)
+    if (unsuitable) return fail(`«${matched.tmdbTitle}»: ${unsuitable}`, {notify: false})
 
     // Один фильм часто выходит на нескольких каналах (студия, Disney+, потом дубляж): не чаще
     // раза в YOUTUBE_QUEUE_FILM_COOLDOWN_DAYS.
