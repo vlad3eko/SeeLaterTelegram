@@ -31,6 +31,8 @@ import {moscowDate, moscowMinutes} from '#server/global/engine/notifications/sna
 
 type Supabase = SupabaseClient<any, any, any>
 
+/** Сводки готовятся заранее (09:30), чтобы в 10:00 только отправить готовое. */
+const PREPARE_START = 9 * 60 + 30
 const DIGEST_START = 10 * 60
 const PREPARE_END = 12 * 60
 const SEND_END = 14 * 60
@@ -54,7 +56,7 @@ export const prepareDigests = async (supabase: Supabase, now = new Date(), {forc
     const mode = digestMode()
     if (mode === 'off') return {...report, skipped: 'NOTIFICATIONS_DIGEST=off'}
     const minutes = moscowMinutes(now)
-    if (!force && (minutes < DIGEST_START || minutes >= PREPARE_END)) return {...report, skipped: 'не время сводки (10:00–12:00 МСК)'}
+    if (!force && (minutes < PREPARE_START || minutes >= PREPARE_END)) return {...report, skipped: 'не время сводки (09:30–12:00 МСК)'}
 
     const today = moscowDate(now)
     const nowIso = now.toISOString()

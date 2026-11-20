@@ -8,7 +8,8 @@ import {prepareDigests, sendDigests} from '#server/global/engine/notifications/d
  * Google Cloud Scheduler каждые 30 минут (0,30 * * * *, Europe/Moscow), GET или POST
  * с `Authorization: Bearer <CRON_SECRET>`.
  *
- *   ?mode=auto (по умолчанию) — detect каждый раз; с 10:00 по Москве — подготовка и отправка сводок
+ *   ?mode=auto (по умолчанию) — detect каждый раз; с 09:30 по Москве сводки готовятся заранее,
+ *     с 10:00 отправляются — готовые первыми, ещё до detect, чтобы в 10:00 уйти без задержки
  *   ?mode=detect | ?mode=digest — только один этап
  *   &force=1 — сводка вне окна 10:00–12:00 (ручная проверка)
  */
@@ -33,8 +34,11 @@ export default defineEventHandler(async (event) => {
     const now = new Date()
     const result: Record<string, unknown> = {}
 
+    const digest = mode === 'auto' || mode === 'digest'
+    // Подготовленные в 09:30 сводки уходят сразу, не дожидаясь проверки тайтлов (до 2 минут).
+    if (digest && mode === 'auto') result.sendPrepared = await sendDigests(supabase, now, {force})
     if (mode === 'auto' || mode === 'detect') result.detect = await detectUpdates(supabase, now)
-    if ((mode === 'auto' || mode === 'digest') && !(result.detect as any)?.skipped) {
+    if (digest && !(result.detect as any)?.skipped) {
         result.prepare = await prepareDigests(supabase, now, {force})
         result.send = await sendDigests(supabase, now, {force})
     }

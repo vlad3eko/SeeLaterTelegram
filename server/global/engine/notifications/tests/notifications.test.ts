@@ -216,10 +216,10 @@ test('сводка: разделы, склейка премьеры с пере�
         '<b>🎬 Обновления коллекции</b>', '<i>Суббота, 21 ноября · 5 новостей</i>',
         '', '<b>🍿 Премьеры</b>', '• <code>Дюна 3</code> — премьера сегодня (перенесли с 25.12)',
         '', '<b>📺 Новые серии</b>', '• <code>Разделение</code> — 2 сезон, 5 серия',
-        '', '<b>📅 Даты</b>', '• <code>Аватар 4</code> — перенесли: 18.12 → 25.12',
+        '', '<b>📅 Даты</b>', '• <code>Аватар 4</code> — перенесли: 18.12.2026 → 25.12.2026',
         '', '<b>▶️ Трейлеры</b>', '• <code>Зверополис 2</code> — <a href="https://www.youtube.com/watch?v=BBBBBBBBBBB">🇷🇺 трейлер</a> · ещё 1',
         '', '<b>🖼 Новые постеры</b>', 'Зверополис 2',
-        '', '<b>📆 Скоро</b>', '25.12 · <code>Аватар 4</code> · через 34 дня'
+        '', '<b>📆 Скоро</b>', '25.12.2026 · <code>Аватар 4</code> · через 34 дня'
     ].join('\n'))
 
     const blocks = payload.rich.blocks
@@ -233,8 +233,8 @@ test('сводка: разделы, склейка премьеры с пере�
     // Раскрыли раздел — сверху пояснение курсивом, дальше содержимое.
     assert.ok(sections.every((block: any) => block.blocks[0].type === 'paragraph' && block.blocks[0].text[0].type === 'italic'))
     assert.equal(sections[0].blocks[1].type, 'list')
-    assert.deepEqual(sections[2].blocks[1].cells[1].map((cell: any) => cell.text), ['Аватар 4', '18.12', '25.12'])
-    assert.deepEqual(sections[5].blocks[1].cells[1].map((cell: any) => cell.text), ['25.12', 'Аватар 4', '34 дня'])
+    assert.deepEqual(sections[2].blocks[1].cells[1].map((cell: any) => cell.text), [[{type: 'code', text: 'Аватар 4'}], '18.12.2026', '25.12.2026'])
+    assert.deepEqual(sections[5].blocks[1].cells[1].map((cell: any) => cell.text), ['25.12.2026', [{type: 'code', text: 'Аватар 4'}], '34 дня'])
     assert.equal(blocks.at(-1).type, 'footer')
     // Постеры: внутри раздела — свой свёрнутый блок у каждого тайтла.
     const details = sections[4].blocks[1]

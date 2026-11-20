@@ -109,6 +109,12 @@ export const shortDate = (date: string, today: string) => {
     return `${day}.${month}${year === today.slice(0, 4) ? '' : `.${year}`}`
 }
 
+/** «15.12.2027» — в таблицах сводки даты всегда полные, в одном стиле (решение владельца 21.11). */
+export const fullDate = (date: string) => {
+    const [year, month, day] = date.split('-')
+    return `${day}.${month}.${year}`
+}
+
 const plural = (count: number, one: string, few: string, many: string) => {
     const tens = count % 100
     const units = count % 10
@@ -183,7 +189,8 @@ const longDate = (date: string) => {
 
 const photo = (path: string, size = 'w500') => ({type: 'photo', photo: {type: 'photo', media: `https://image.tmdb.org/t/p/${size}${path}`}})
 
-const table = (header: string[], rows: string[][], striped = false) => ({
+/** Ячейка — строка или RichText (название тайтла моноширинным). */
+const table = (header: string[], rows: (string | any[])[][], striped = false) => ({
     type: 'table',
     is_compact: true,
     ...(striped ? {is_striped: true} : {is_bordered: true}),
@@ -248,10 +255,10 @@ export const buildDigest = (
         const lastChange = changes.filter(event => event.payload?.to !== premiereDate).at(-1)
         if (lastChange) {
             // Несколько переносов за день — один пункт: с самой первой даты на последнюю.
-            dates.push({title, from: shortDate(String(changes[0]!.payload.from), today), to: shortDate(String(lastChange.payload.to), today)})
+            dates.push({title, from: fullDate(String(changes[0]!.payload.from)), to: fullDate(String(lastChange.payload.to))})
             order.push({section: 2, key})
         } else if (!premiere && sets.length) {
-            dates.push({title, from: '—', to: shortDate(String(sets.at(-1)!.payload.date), today)})
+            dates.push({title, from: '—', to: fullDate(String(sets.at(-1)!.payload.date))})
             order.push({section: 2, key})
         }
 
@@ -321,7 +328,7 @@ export const buildDigest = (
     if (episodes.length) list('📺 Новые серии', episodes)
     if (dates.length) {
         const shown = dates.slice(0, MAX_PER_SECTION)
-        const inner: any[] = [table(['Фильм', 'Было', 'Стало'], shown.map(item => [item.title, item.from, item.to]))]
+        const inner: any[] = [table(['Фильм', 'Было', 'Стало'], shown.map(item => [[{type: 'code', text: item.title}], item.from, item.to]))]
         const lines = shown.map(item => item.from === '—'
             ? `• <code>${escapeHtml(item.title)}</code> — назначили дату: ${item.to}`
             : `• <code>${escapeHtml(item.title)}</code> — перенесли: ${item.from} → ${item.to}`)
@@ -352,11 +359,11 @@ export const buildDigest = (
     }
 
     if (calendar.length) {
-        const name = (item: CalendarItem) => item.note ? `${item.title} · ${item.note}` : item.title
+        const name = (item: CalendarItem) => [{type: 'code', text: item.title}, ...(item.note ? [` · ${item.note}`] : [])]
         section('📆 Скоро', calendar.length,
-            [table(['Дата', 'Название', 'Через'], calendar.map(item => [shortDate(item.date, today), name(item), daysText(item.days)]), true)],
+            [table(['Дата', 'Название', 'Через'], calendar.map(item => [fullDate(item.date), name(item), daysText(item.days)]), true)],
             calendar.map(item =>
-                `${shortDate(item.date, today)} · <code>${escapeHtml(item.title)}</code>${item.note ? ` · ${escapeHtml(item.note)}` : ''} · через ${daysText(item.days)}`))
+                `${fullDate(item.date)} · <code>${escapeHtml(item.title)}</code>${item.note ? ` · ${escapeHtml(item.note)}` : ''} · через ${daysText(item.days)}`))
     }
 
     blocks.push({type: 'footer', text: ['Раз в день по вашим сохранённым · без новостей сводки нет']})
