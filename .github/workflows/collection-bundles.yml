@@ -3,7 +3,8 @@
 # вердикты и готовый список в Supabase (collection_bundle_*). ТЗ — TASKS.md.
 #
 # Секреты репозитория (Settings → Secrets and variables → Actions):
-#   TMDB_API_KEY, GEMINI_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY.
+#   TMDB_API_KEY, GEMINI_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
+#   TELEGRAM_TOKEN — итог запуска сообщением администратору (BUNDLES_NOTIFY_CHAT_ID ниже).
 # Перед первым запуском выполнить database/migrations/collection_bundles.sql.
 # Вручную: Actions → Collection bundles → Run workflow (можно указать связки, число и лимит)
 # или кнопкой «⚙️ Сгенерировать связки» в боте (админ, экран «🧩 Связки»; GITHUB_ACTIONS_TOKEN).
@@ -55,6 +56,9 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          # Администратор (ADMIN_TELEGRAM_ID в server/global/oneLinkApp.ts).
+          BUNDLES_NOTIFY_CHAT_ID: '788847654'
           BUNDLES: ${{ inputs.bundles || '' }}
           LIMIT: ${{ inputs.limit || '60' }}
           COUNT: ${{ inputs.count || '' }}

@@ -14,6 +14,7 @@
 import {BUNDLES} from '#server/global/engine/collections/bundles'
 import {buildDossier} from '#server/global/engine/collections/judge/dossier'
 import {geminiJudge} from '#server/global/engine/collections/judge/gemini'
+import {bundleRunSummary, notifyBundleRun} from '#server/global/engine/collections/judge/notify'
 import {runScheduled} from '#server/global/engine/collections/judge/run'
 import {getBundleStore, setBundleStore} from '#server/global/engine/collections/judge/store'
 
@@ -23,6 +24,11 @@ const option = (name: string) => {
     return at >= 0 ? args[at + 1] : undefined
 }
 const flag = (name: string) => args.includes(`--${name}`)
+
+// Ссылка на запуск в GitHub Actions (в уведомлении администратору).
+const runLink = process.env.GITHUB_RUN_ID
+    ? `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`
+    : undefined
 
 const main = async () => {
     const storeOption = option('store')
@@ -52,10 +58,13 @@ const main = async () => {
 
     const failed = runs.filter(run => run.status === 'failed')
     console.log(`[BUNDLES] Готово: ${runs.map(run => `${run.bundle_key} ${run.status}${run.stats?.publishable === false ? ' (контроль провален)' : ''}`).join(', ')}`)
+    await notifyBundleRun(bundleRunSummary(runs, {link: runLink}))
     if (failed.length) process.exitCode = 1
 }
 
-main().catch(error => {
-    console.error('[BUNDLES] Ошибка', error instanceof Error ? error.message : error)
+main().catch(async error => {
+    const message = error instanceof Error ? error.message : String(error)
+    console.error('[BUNDLES] Ошибка', message)
+    await notifyBundleRun(bundleRunSummary([], {error: message, link: runLink}))
     process.exitCode = 1
 })
