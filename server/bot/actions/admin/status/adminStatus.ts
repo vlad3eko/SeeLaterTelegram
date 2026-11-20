@@ -1,6 +1,8 @@
 import {Markup} from 'telegraf'
 import {ADMIN_STATUS, ADMIN_STATUS_QUEUE_CANCEL, ADMIN_STATUS_REEL_CANCEL} from '#server/bot/callbacks/routes'
 import {isAdmin} from '#server/bot/consts/admins'
+import {normalizeRichContext} from '#server/global/engine/card/construct/normalizeRichContext'
+import {tryGenerateCard} from '#server/global/engine/card/construct/tryGenerateCard'
 import {BUNDLES} from '#server/global/engine/collections/bundles'
 import {getSupabase} from '#server/global/engine/instagram/reel/jobs/dispatchReelJob'
 import {digestMode} from '#server/global/engine/notifications/digest'
@@ -12,9 +14,9 @@ import {currentSlot, formatSlot, nextSlotAt} from '#server/global/engine/youtube
 
 /**
  * /status — панель администратора (запрос владельца 20.11): что сейчас идёт — Reels, очередь
- * автопубликации YouTube, судья связок, пользователи за сегодня (21.11). Каждый блок — заголовок и
- * сворачиваемая цитата, чтобы сообщение не было длинным. Под панелью: «✖️ N» — убрать ролик N из
- * очереди, «🗑 Снять» — снять зависший Reel, «🔄 Обновить». Всё в одном сообщении.
+ * автопубликации YouTube, судья связок, пользователи за сегодня (21.11). Rich Message, как сводка
+ * уведомлений: каждый блок — раскрывающийся (details), чтобы сообщение не было длинным. Под панелью:
+ * «✖️ N» — убрать ролик N из очереди, «🗑 Снять» — снять зависший Reel, «🔄 Обновить». Всё в одном сообщении.
  */
 
 const ACTIVE_REEL_STATUSES = ['queued', 'processing', 'awaiting_review', 'ready', 'publishing']
@@ -28,8 +30,11 @@ const BUNDLE_RUN_DAYS = [1, 4]
 const BUNDLE_RUN_HOUR_UTC = 5
 
 type Button = ReturnType<typeof Markup.button.callback>
-/** Первая строка — заголовок блока, остальные — в сворачиваемой цитате; list — второй цитатой (длинный список). */
-type Section = {lines: string[], list?: string[], rows?: Button[][]}
+/**
+ * Строки — короткий HTML (<b>, <i>, <a href>), в сообщение идут через htmlToRich. Первая строка —
+ * заголовок раскрывающегося блока, остальные — внутри; list — вложенный раскрывающийся список.
+ */
+type Section = {lines: string[], list?: {title: string, items: string[]}, rows?: Button[][]}
 
 const escapeHtml = (value: unknown) =>
     String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -268,21 +273,43 @@ const usersSection = async (supabase: any, now: number): Promise<Section> => {
         lines.push(`🔔 Сводка (${mode}): получили ${count('sent')}, не доставлено ${count('failed', 'unknown', 'blocked')}${blocked ? ` (заблокировали бота ${blocked})` : ''}${waiting ? `, ждут отправки ${waiting}` : ''}`)
     }
 
-    const titles = (saved.data ?? []).map((row: any, index: number) =>
-        `${index + 1}. ${row.media_type === 'tv' ? '📺' : '🎬'} ${escapeHtml(row.title ?? 'Без названия')}`)
+    const titles = (saved.data ?? []).map((row: any) => `${row.media_type === 'tv' ? '📺' : '🎬'} ${escapeHtml(row.title ?? 'Без названия')}`)
     const more = (saved.count ?? 0) - titles.length
     return {
         lines,
-        list: titles.length ? [`💾 <b>Сохранённые сегодня</b>`, ...titles, ...(more > 0 ? [`<i>… и ещё ${more}</i>`] : [])] : undefined
+        list: titles.length ? {title: `📋 Сохранённые сегодня · ${saved.count}`, items: [...titles, ...(more > 0 ? [`<i>… и ещё ${more}</i>`] : [])]} : undefined
     }
 }
 
-/** Блок: заголовок, под ним сворачиваемая цитата; длинный список — своей цитатой ниже. */
-const renderSection = ({lines: [title, ...body], list}: Section) => [
-    title,
-    ...(body.length ? [`<blockquote expandable>${body.join('\n')}</blockquote>`] : []),
-    ...(list?.length ? [`<blockquote expandable>${list.join('\n')}</blockquote>`] : [])
-].join('\n')
+const unescapeHtml = (text: string) => text.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&amp;/g, '&')
+
+/** Строка панели (<b>, <i>, <a href>) → RichText Rich Message. */
+export const htmlToRich = (line: string): any[] =>
+    line.split(/(<b>.*?<\/b>|<i>.*?<\/i>|<a href="[^"]*">.*?<\/a>)/).filter(Boolean).map(part => {
+        const bold = part.match(/^<b>(.*)<\/b>$/)
+        if (bold) return {type: 'bold', text: unescapeHtml(bold[1]!)}
+        const italic = part.match(/^<i>(.*)<\/i>$/)
+        if (italic) return {type: 'italic', text: unescapeHtml(italic[1]!)}
+        const link = part.match(/^<a href="([^"]*)">(.*)<\/a>$/)
+        if (link) return {type: 'url', text: unescapeHtml(link[2]!), url: unescapeHtml(link[1]!)}
+        return unescapeHtml(part)
+    })
+
+const paragraph = (line: string) => ({type: 'paragraph', text: htmlToRich(line)})
+
+/** Блок панели — раскрывающийся, как разделы сводки; список сохранённых — вложенный блок. */
+const sectionBlock = ({lines: [title, ...body], list}: Section) => ({
+    type: 'details',
+    summary: htmlToRich(title!),
+    blocks: [
+        ...body.map(paragraph),
+        ...(list ? [{
+            type: 'details',
+            summary: htmlToRich(list.title),
+            blocks: [{type: 'list', items: list.items.map(item => ({blocks: [paragraph(item)]}))}]
+        }] : [])
+    ]
+})
 
 export const buildAdminStatus = async (now = Date.now()) => {
     const supabase = getSupabase() as any
@@ -290,7 +317,10 @@ export const buildAdminStatus = async (now = Date.now()) => {
         usersSection(supabase, now), reelsSection(supabase, now), queueSection(supabase, now), bundlesSection(supabase, now)
     ])
     return {
-        text: [`📊 <b>Что сейчас происходит</b> · ${clock(new Date(now))}`, ...sections.map(renderSection)].join('\n\n'),
+        rich: {blocks: [
+            {type: 'heading', size: 2, text: [`📊 Что сейчас происходит · ${clock(new Date(now))}`]},
+            ...sections.map(sectionBlock)
+        ]},
         keyboard: Markup.inlineKeyboard([
             ...sections.flatMap(section => section.rows ?? []),
             [Markup.button.callback('🔄 Обновить', ADMIN_STATUS.encode())]
@@ -298,25 +328,19 @@ export const buildAdminStatus = async (now = Date.now()) => {
     }
 }
 
-const statusMessage = async () => {
-    const {text, keyboard} = await buildAdminStatus()
-    return {text, extra: {parse_mode: 'HTML' as const, reply_markup: keyboard, link_preview_options: {is_disabled: true}}}
-}
-
+/** «🔄 Обновить» и кнопки под панелью: то же Rich-сообщение перерисовывается на месте, вид не меняется. */
 const redraw = async (ctx: any) => {
-    const {text, extra} = await statusMessage()
-    await ctx.editMessageText(text, extra).catch((error: any) => {
-        if (!String(error?.response?.description ?? '').includes('not modified')) {
-            console.warn('[ADMIN STATUS]', error?.response?.description ?? error)
-        }
+    const {rich, keyboard} = await buildAdminStatus()
+    await tryGenerateCard(normalizeRichContext(ctx), rich, keyboard).catch((error: any) => {
+        console.warn('[ADMIN STATUS]', error?.response?.description ?? error)
     })
 }
 
 /** /status: только администратору; остальным команда не отвечает. */
 export const adminStatusCommand = async (ctx: any) => {
     if (!isAdmin(ctx.from?.id)) return
-    const {text, extra} = await statusMessage()
-    await ctx.reply(text, extra)
+    const {rich, keyboard} = await buildAdminStatus()
+    await ctx.telegram.callApi('sendRichMessage', {chat_id: ctx.chat.id, rich_message: rich, reply_markup: keyboard})
 }
 
 export const adminStatusRefresh = async (ctx: any) => {
