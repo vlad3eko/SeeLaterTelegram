@@ -246,3 +246,10 @@ test('сводка: больше 5 в разделе — «и ещё N»', () =>
     assert.match(payload.html, /и ещё 2 — в коллекции/)
     assert.equal((payload.html.match(/премьера сегодня/g) ?? []).length, 5)
 })
+
+test('таймер сводки открыт снаружи (своя проверка CRON_SECRET), соседние служебные — нет', async () => {
+    const {isInternalOnlyPath} = await import('../../../../utils/api/internalPaths')
+    assert.equal(isInternalOnlyPath('/api/bot/notifications/tick'), false)
+    assert.equal(isInternalOnlyPath('/api/bot/notifications/tick?mode=detect'), false)
+    assert.equal(isInternalOnlyPath('/api/bot/notifications/other'), true)
+})

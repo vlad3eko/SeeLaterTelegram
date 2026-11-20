@@ -6,6 +6,7 @@
 //  - reelJobs/finalize, reelJobs/progress: токен задачи, который приходит из Cloud Run Job
 //  - reelJobs/expireReviews: `Authorization: Bearer CRON_SECRET` (таймер проверки Reel)
 //  - youtubeQueue/tick: `Authorization: Bearer CRON_SECRET` (таймер очереди YouTube)
+//  - notifications/tick: `Authorization: Bearer CRON_SECRET` (таймер сводки по сохранённым)
 //  - trailerDelivery: подпись HMAC от токена бота, которую воркер Cloud Run получил при запуске
 const PUBLIC_BOT_PATHS = new Set([
     '/api/bot/webhook',
@@ -13,6 +14,7 @@ const PUBLIC_BOT_PATHS = new Set([
     '/api/bot/reeljobs/progress',
     '/api/bot/reeljobs/expirereviews',
     '/api/bot/youtubequeue/tick',
+    '/api/bot/notifications/tick',
     '/api/bot/trailerdelivery',
 ])
 
