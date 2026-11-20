@@ -4,7 +4,7 @@ import type {TypeButtonContext} from "#server/bot/consts/buttons/admin/keyboardA
 import {ContentType} from "#server/global/engine/search/strategy/enums";
 import {telegramBotShortLink} from "#server/global/oneLinkApp";
 import {contentTypeConvert} from "~/utils/convert/contentTypeConvert";
-import {CHECK_SUBSCRIPTION, DELETE_MEDIA, SAVE_MEDIA, SIMILAR_LIST} from "#server/bot/callbacks/routes";
+import {CARD_MORE, CHECK_SUBSCRIPTION, DELETE_MEDIA, SAVE_MEDIA, SIMILAR_LIST} from "#server/bot/callbacks/routes";
 
 export const startButtonBot = (
     text: string,
@@ -61,6 +61,13 @@ export const deleteMediaButtonBot = (mediaId: number, mediaType: string) => {
         '🗑 Удалить',
         DELETE_MEDIA.encode({mediaId, mediaType: mediaType as 'movie' | 'tv'}))
 }
+
+/** «⋯ Ещё»: раскрывает остальные кнопки карточки (server/bot/actions/media/cardMore.ts). */
+export const moreButtonBot = (mediaId: number, mediaType: string, contentType: ContentType, keyTrailer?: string) =>
+    Markup.button.callback(
+        '⋯ Ещё',
+        CARD_MORE.encode({mediaId, mediaType: mediaType as 'movie' | 'tv', contentType, keyTrailer})
+    )
 
 // Под сообщением «Подпишитесь на канал» (failedChannelSubscriber).
 export const checkSubscriptionButtonBot = () => {

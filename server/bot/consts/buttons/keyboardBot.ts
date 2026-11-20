@@ -3,6 +3,7 @@ import {Markup} from "telegraf";
 import {
     checkBookmarksMedias,
     deleteMediaButtonBot,
+    moreButtonBot,
     mediaCast, mediaPersonFirstJob, mediaPersonSecondJob, recommendationButtonBot,
     SaveMediaButtonBot,
     SearchButtonBot, startButtonBot
@@ -39,22 +40,24 @@ export const keyboardSendMediaCardInline = (
     ButtonContext: TypeButtonContext = 'inline',
     saveCount = 0,
     keyTrailer?: string | undefined,
-    isRichTypeCard: boolean = false
+    isRichTypeCard: boolean = false,
+    expanded: boolean = false
 ) => {
 
     if (mediaType === 'person')
         return
 
-    // Четыре кнопки в два ряда (решение владельца 20.11), «Коллекция» убрана. «Удалить» — только
-    // вне канала: это единственный способ убрать тайтл из сохранённого.
+    // Решение владельца 20.11: «Сохранить | Похожее», под ними «⋯ Ещё» — раскрывает «Актёры»,
+    // «Поиск» и «Удалить» (единственный способ убрать тайтл из сохранённого). В канале «Ещё»
+    // нет: раскрытие поменяло бы пост для всех, там сразу «Актёры | Поиск», без «Удалить».
     const keyboard = [
         [SaveMediaButtonBot(mediaId, mediaType, ButtonContext, saveCount), recommendationButtonBot(contentType, ButtonContext, mediaId, mediaType)],
-        [mediaCast(mediaId, mediaType, contentType, ButtonContext), SearchButtonBot('Поиск', ButtonContext)]
+        ...(ButtonContext === 'channel'
+            ? [cardMoreRows(mediaId, mediaType, contentType, ButtonContext)[0]!]
+            : expanded
+                ? cardMoreRows(mediaId, mediaType, contentType, ButtonContext)
+                : [[moreButtonBot(mediaId, mediaType, contentType, keyTrailer)]])
     ]
-
-    if (ButtonContext !== 'channel') {
-        keyboard.push([deleteMediaButtonBot(mediaId, mediaType)])
-    }
 
     if (admin) {
         keyboard.push(
@@ -63,6 +66,17 @@ export const keyboardSendMediaCardInline = (
 
     return Markup.inlineKeyboard(keyboard).reply_markup
 }
+
+/** Кнопки под «⋯ Ещё». */
+export const cardMoreRows = (
+    mediaId: number,
+    mediaType: typeRichCard,
+    contentType: ContentType,
+    ButtonContext: TypeButtonContext = 'inline'
+) => [
+    [mediaCast(mediaId, mediaType, contentType, ButtonContext), SearchButtonBot('Поиск', ButtonContext)],
+    [deleteMediaButtonBot(mediaId, mediaType)]
+]
 
 // PERSON KEYBOARD
 

@@ -279,6 +279,23 @@ export const SIMILAR_CARD = defineCallback<SimilarRef & {from?: SimilarRef}>({
     })
 })
 
+/**
+ * «⋯ Ещё» на карточке: раскрывает «Актёры», «Поиск», «Удалить» в том же сообщении.
+ * Ключ трейлера — для кнопок администратора, если карточку приходится собирать заново.
+ */
+export const CARD_MORE = defineCallback<SimilarRef & {keyTrailer?: string}>({
+    id: 'card_more',
+    pattern: /^more:([mt]):(\d+):([A-Za-z]+):([\w-]+)$/,
+    encode: ({mediaType, mediaId, contentType, keyTrailer}) =>
+        `more:${shortType(mediaType)}:${mediaId}:${contentType}:${encodeTrailerKey(keyTrailer)}`,
+    decode: match => ({
+        mediaType: longType(match[1]),
+        mediaId: Number(match[2]),
+        contentType: match[3] as ContentType,
+        keyTrailer: decodeTrailerKey(match[4])
+    })
+})
+
 // ---------------------------------------------------------------------------
 // Только для старых сообщений: обработчики зарегистрированы, но кнопок с такими
 // данными в коде больше нет (проверено 11.11). Удалять, когда старые сообщения
