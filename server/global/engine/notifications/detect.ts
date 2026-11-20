@@ -228,7 +228,9 @@ export const detectUpdates = async (supabase: Supabase, now = new Date()): Promi
 
     const {data: due, error} = await supabase.from('media_watch')
         .select('media_type,tmdb_id,title,poster_path,status,release_date,digital_date,next_episode_air_date,next_episode,last_episode_id,snapshot,checked_at')
-        .lte('next_check_at', now.toISOString())
+        // Текущее время, а не начало прогона: только что занесённые тайтлы (next_check_at = now() базы)
+        // попадают в эту же проверку, а не ждут следующего таймера.
+        .lte('next_check_at', new Date().toISOString())
         .order('next_check_at')
         .limit(BATCH)
     if (error) throw error
