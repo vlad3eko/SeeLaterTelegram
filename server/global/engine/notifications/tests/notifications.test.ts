@@ -217,9 +217,9 @@ test('сводка: разделы, склейка премьеры с пере�
         '', '<b>🍿 Премьеры</b>', '• <code>Дюна 3</code> — премьера сегодня (перенесли с 25.12)',
         '', '<b>📺 Новые серии</b>', '• <code>Разделение</code> — 2 сезон, 5 серия',
         '', '<b>📅 Даты</b>', '• <code>Аватар 4</code> — перенесли: 18.12 → 25.12',
-        '', '<b>▶️ Трейлеры</b>', '• <code>Зверополис 2</code> — <a href="https://www.youtube.com/watch?v=BBBBBBBBBBB">▶ 🇷🇺 трейлер</a> · ещё 1',
+        '', '<b>▶️ Трейлеры</b>', '• <code>Зверополис 2</code> — <a href="https://www.youtube.com/watch?v=BBBBBBBBBBB">🇷🇺 трейлер</a> · ещё 1',
         '', '🖼 Новые постеры: 2 — Зверополис 2',
-        '', '<b>📆 Скоро</b>', '25.12 · <code>Аватар 4</code> — премьера · через 34 дня'
+        '', '<b>📆 Скоро</b>', '25.12 · <code>Аватар 4</code> · через 34 дня'
     ].join('\n'))
 
     const blocks = payload.rich.blocks
@@ -227,16 +227,16 @@ test('сводка: разделы, склейка премьеры с пере�
     assert.equal(blocks[0].type, 'collage')
     assert.equal(blocks[0].blocks[0].photo.media, 'https://image.tmdb.org/t/p/w342/dune.jpg')
     assert.deepEqual(blocks.filter((block: any) => block.type === 'heading' && block.size === 3).map((block: any) => block.text[0]),
-        ['🍿 Премьеры', '📺 Новые серии', '📅 Даты', '▶️ Трейлеры', '🖼 Постеры', '📆 Скоро'])
+        ['🍿 Премьеры', '📺 Новые серии', '📅 Даты', '▶️ Трейлеры', '🖼 Новые постеры', '📆 Скоро'])
     assert.equal(blocks.filter((block: any) => block.type === 'list').length, 3)
     const tables = blocks.filter((block: any) => block.type === 'table')
     assert.deepEqual(tables[0].cells[1].map((cell: any) => cell.text), ['Аватар 4', '18.12', '25.12'])
-    assert.deepEqual(tables[1].cells[1].map((cell: any) => cell.text), ['25.12', 'Аватар 4 — премьера', '34 дня'])
+    assert.deepEqual(tables[1].cells[1].map((cell: any) => cell.text), ['25.12', 'Аватар 4', '34 дня'])
     assert.equal(blocks.at(-1).type, 'footer')
     const details = blocks.find((block: any) => block.type === 'details')
-    assert.match(details.summary, /^Новые постеры · 2/)
-    assert.equal(details.blocks[1].type, 'collage')
-    assert.equal(details.blocks[1].blocks[0].photo.media, 'https://image.tmdb.org/t/p/w500/p1.jpg')
+    assert.deepEqual(details.summary, [{type: 'code', text: 'Зверополис 2'}, ' · 2 постера'])
+    assert.equal(details.blocks[0].type, 'collage')
+    assert.equal(details.blocks[0].blocks[0].photo.media, 'https://image.tmdb.org/t/p/w500/p1.jpg')
     assert.deepEqual(payload.cards.map(card => [card.title, card.contentType]),
         [['Дюна 3', 'movie'], ['Разделение', 'series'], ['Аватар 4', 'movie']])
 

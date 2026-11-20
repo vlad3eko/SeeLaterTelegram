@@ -158,7 +158,8 @@ export const upcoming = (watch: WatchRow[], today: string): CalendarItem[] =>
         .map(({row, date}) => ({
             date,
             title: row.title ?? 'Без названия',
-            note: row.media_type === 'tv' && row.next_episode ? row.next_episode : 'премьера',
+            // У фильма в «Скоро» и так премьера — пишем только серию сериала.
+            note: row.media_type === 'tv' && row.next_episode ? row.next_episode : '',
             days: daysBetween(today, date)
         }))
 
@@ -245,7 +246,7 @@ export const buildDigest = (
         if (videos.length) {
             const rank = (event: EventRow) => (event.payload?.russian ? 0 : 4) + (event.payload?.teaser ? 2 : 0)
             const best = [...videos].sort((a, b) => rank(a) - rank(b) || b.id - a.id)[0]!
-            const label = `▶ ${best.payload?.russian ? '🇷🇺 ' : ''}${best.payload?.teaser ? 'тизер' : 'трейлер'}`
+            const label = `${best.payload?.russian ? '🇷🇺 ' : ''}${best.payload?.teaser ? 'тизер' : 'трейлер'}`
             trailers.push([{code: title}, ' — ',
                 {link: label, url: `https://www.youtube.com/watch?v=${best.payload?.key}`},
                 videos.length > 1 ? ` · ещё ${videos.length - 1}` : ''])
@@ -310,28 +311,31 @@ export const buildDigest = (
     if (trailers.length) { section('▶️ Трейлеры'); list(trailers) }
 
     if (posterCount) {
-        // Свёрнутый блок с фото (решение владельца): раскрыл — посмотрел. Не больше 6 фото.
+        // У каждого тайтла свой свёрнутый блок «Название · N постера» (решение владельца 21.11):
+        // раскрыл — посмотрел. Всего не больше 6 фото.
+        blocks.push({type: 'heading', size: 3, text: ['🖼 Новые постеры']})
         let left = MAX_POSTERS
-        const inner: any[] = []
         for (const item of posters) {
             if (left <= 0) break
             const paths = item.paths.slice(0, left)
             left -= paths.length
             const photos = paths.map(path => photo(path))
-            inner.push({type: 'paragraph', text: [{type: 'code', text: item.title}]})
-            inner.push(photos.length > 1 ? {type: 'collage', blocks: photos} : photos[0])
+            blocks.push({
+                type: 'details',
+                summary: [{type: 'code', text: item.title}, ` · ${item.paths.length} ${plural(item.paths.length, 'постер', 'постера', 'постеров')}`],
+                blocks: [photos.length > 1 ? {type: 'collage', blocks: photos} : photos[0]]
+            })
         }
-        blocks.push({type: 'heading', size: 3, text: ['🖼 Постеры']})
-        blocks.push({type: 'details', summary: `Новые постеры · ${posterCount} — нажмите, чтобы посмотреть`, blocks: inner})
         html.push('', `🖼 Новые постеры: ${posterCount} — ${posters.map(item => escapeHtml(item.title)).join(', ')}`)
     }
 
     if (calendar.length) {
         section('📆 Скоро')
-        blocks.push(table(['Дата', 'Что', 'Через'],
-            calendar.map(item => [shortDate(item.date, today), `${item.title} — ${item.note}`, daysText(item.days)]), true))
+        const name = (item: CalendarItem) => item.note ? `${item.title} · ${item.note}` : item.title
+        blocks.push(table(['Дата', 'Название', 'Через'],
+            calendar.map(item => [shortDate(item.date, today), name(item), daysText(item.days)]), true))
         html.push(...calendar.map(item =>
-            `${shortDate(item.date, today)} · <code>${escapeHtml(item.title)}</code> — ${escapeHtml(item.note)} · через ${daysText(item.days)}`))
+            `${shortDate(item.date, today)} · <code>${escapeHtml(item.title)}</code>${item.note ? ` · ${escapeHtml(item.note)}` : ''} · через ${daysText(item.days)}`))
     }
 
     blocks.push({type: 'footer', text: ['Раз в день по вашим сохранённым · без новостей сводки нет']})
