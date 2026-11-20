@@ -1,5 +1,5 @@
 import {Markup} from 'telegraf'
-import {NOTIFY_CARD} from '#server/bot/callbacks/routes'
+import {NOTIFY_CARD, NOTIFY_MORE} from '#server/bot/callbacks/routes'
 import {ContentType} from '#server/global/engine/search/strategy/enums'
 import {daysBetween, type MediaType} from '#server/global/engine/notifications/snapshot'
 
@@ -63,9 +63,10 @@ export const digestMode = (env: NodeJS.ProcessEnv = process.env): DigestMode => 
     return value === 'off' || value === 'all' ? value : 'admin'
 }
 
-const MAX_PER_SECTION = 5
-const MAX_CARDS = 3
-const MAX_POSTERS = 6
+const MAX_PER_SECTION = 10
+const MAX_CARDS = 12
+const VISIBLE_CARDS = 3
+const MAX_POSTERS = 10
 const MAX_CALENDAR = 4
 const MAX_COVER = 4
 
@@ -287,59 +288,59 @@ export const buildDigest = (
     blocks.push({type: 'paragraph', text: [{type: 'italic', text: subtitle}]})
     html.push(`<b>${escapeHtml(heading)}</b>`, `<i>${escapeHtml(subtitle)}</i>`)
 
-    const section = (title: string) => {
-        // Заголовок раздела — свой отступ сверху, разделы не слипаются.
-        blocks.push({type: 'heading', size: 3, text: [title]})
-        html.push('', `<b>${escapeHtml(title)}</b>`)
+    // Каждый раздел — свёрнутый блок «🍿 Премьеры · 2» (решение владельца 21.11): первая сводка
+    // будет большой, а так сообщение остаётся коротким — раскрывают то, что интересно.
+    const section = (title: string, count: number, inner: any[], htmlLines: string[]) => {
+        blocks.push({type: 'details', summary: [{type: 'bold', text: title}, ` · ${count}`], blocks: inner})
+        html.push('', `<b>${escapeHtml(title)}</b>`, ...htmlLines)
     }
-    const list = (lines: Line[]) => {
+    const list = (title: string, lines: Line[]) => {
         const shown = limited(lines)
-        blocks.push({type: 'list', items: shown.map(line => ({blocks: [{type: 'paragraph', text: toRich(line)}]}))})
-        html.push(...shown.map(line => `• ${toHtml(line)}`))
+        section(title, lines.length,
+            [{type: 'list', items: shown.map(line => ({blocks: [{type: 'paragraph', text: toRich(line)}]}))}],
+            shown.map(line => `• ${toHtml(line)}`))
     }
 
-    if (premieres.length) { section('🍿 Премьеры'); list(premieres) }
-    if (episodes.length) { section('📺 Новые серии'); list(episodes) }
+    if (premieres.length) list('🍿 Премьеры', premieres)
+    if (episodes.length) list('📺 Новые серии', episodes)
     if (dates.length) {
-        section('📅 Даты')
         const shown = dates.slice(0, MAX_PER_SECTION)
-        blocks.push(table(['Фильм', 'Было', 'Стало'], shown.map(item => [item.title, item.from, item.to])))
-        html.push(...shown.map(item => item.from === '—'
+        const inner: any[] = [table(['Фильм', 'Было', 'Стало'], shown.map(item => [item.title, item.from, item.to]))]
+        const lines = shown.map(item => item.from === '—'
             ? `• <code>${escapeHtml(item.title)}</code> — назначили дату: ${item.to}`
-            : `• <code>${escapeHtml(item.title)}</code> — перенесли: ${item.from} → ${item.to}`))
+            : `• <code>${escapeHtml(item.title)}</code> — перенесли: ${item.from} → ${item.to}`)
         if (dates.length > MAX_PER_SECTION) {
-            blocks.push({type: 'paragraph', text: [`и ещё ${dates.length - MAX_PER_SECTION} — в коллекции`]})
-            html.push(`• и ещё ${dates.length - MAX_PER_SECTION} — в коллекции`)
+            inner.push({type: 'paragraph', text: [`и ещё ${dates.length - MAX_PER_SECTION} — в коллекции`]})
+            lines.push(`• и ещё ${dates.length - MAX_PER_SECTION} — в коллекции`)
         }
+        section('📅 Даты', dates.length, inner, lines)
     }
-    if (trailers.length) { section('▶️ Трейлеры'); list(trailers) }
+    if (trailers.length) list('▶️ Трейлеры', trailers)
 
     if (posterCount) {
-        // У каждого тайтла свой свёрнутый блок «Название · N постера» (решение владельца 21.11):
-        // раскрыл — посмотрел. Всего не больше 6 фото.
-        blocks.push({type: 'heading', size: 3, text: ['🖼 Новые постеры']})
+        // Внутри раздела у каждого тайтла свой свёрнутый блок «Название · N постера». Всего не больше MAX_POSTERS фото.
+        const inner: any[] = []
         let left = MAX_POSTERS
         for (const item of posters) {
             if (left <= 0) break
             const paths = item.paths.slice(0, left)
             left -= paths.length
             const photos = paths.map(path => photo(path))
-            blocks.push({
+            inner.push({
                 type: 'details',
                 summary: [{type: 'code', text: item.title}, ` · ${item.paths.length} ${plural(item.paths.length, 'постер', 'постера', 'постеров')}`],
                 blocks: [photos.length > 1 ? {type: 'collage', blocks: photos} : photos[0]]
             })
         }
-        html.push('', `🖼 Новые постеры: ${posterCount} — ${posters.map(item => escapeHtml(item.title)).join(', ')}`)
+        section('🖼 Новые постеры', posterCount, inner, [posters.map(item => escapeHtml(item.title)).join(', ')])
     }
 
     if (calendar.length) {
-        section('📆 Скоро')
         const name = (item: CalendarItem) => item.note ? `${item.title} · ${item.note}` : item.title
-        blocks.push(table(['Дата', 'Название', 'Через'],
-            calendar.map(item => [shortDate(item.date, today), name(item), daysText(item.days)]), true))
-        html.push(...calendar.map(item =>
-            `${shortDate(item.date, today)} · <code>${escapeHtml(item.title)}</code>${item.note ? ` · ${escapeHtml(item.note)}` : ''} · через ${daysText(item.days)}`))
+        section('📆 Скоро', calendar.length,
+            [table(['Дата', 'Название', 'Через'], calendar.map(item => [shortDate(item.date, today), name(item), daysText(item.days)]), true)],
+            calendar.map(item =>
+                `${shortDate(item.date, today)} · <code>${escapeHtml(item.title)}</code>${item.note ? ` · ${escapeHtml(item.note)}` : ''} · через ${daysText(item.days)}`))
     }
 
     blocks.push({type: 'footer', text: ['Раз в день по вашим сохранённым · без новостей сводки нет']})
@@ -359,17 +360,24 @@ export const buildDigest = (
 const shortTitle = (title: string, max = 22) => title.length > max ? `${title.slice(0, max - 1)}…` : title
 
 /**
- * Кнопки сводки: «🎬 Название» на главные события — карточка в этом же сообщении, под ней
- * «◀️ К сводке» (решение владельца 21.11); «📦 Коллекция».
+ * Кнопки сводки: «🎬 Название» — карточка в этом же сообщении, под ней «◀️ К сводке» (решение
+ * владельца 21.11). Больше трёх — первые три и «Ещё · N», остальные открываются там же. «📦 Коллекция».
  */
-export const digestKeyboard = (cards: DigestCard[], deliveryId: number) => ({
-    inline_keyboard: [
-        ...cards.map(card => [Markup.button.callback(`🎬 ${shortTitle(card.title)}`, NOTIFY_CARD.encode({
-            deliveryId,
-            mediaType: card.mediaType,
-            mediaId: card.tmdbId,
-            contentType: card.contentType
-        }))]),
-        [Markup.button.switchToCurrentChat('📦 Коллекция', '#collection')]
-    ]
-})
+export const digestKeyboard = (cards: DigestCard[], deliveryId: number, expanded = false) => {
+    const collapsible = cards.length > VISIBLE_CARDS
+    const shown = collapsible && !expanded ? cards.slice(0, VISIBLE_CARDS) : cards
+    return {
+        inline_keyboard: [
+            ...shown.map(card => [Markup.button.callback(`🎬 ${shortTitle(card.title)}`, NOTIFY_CARD.encode({
+                deliveryId,
+                mediaType: card.mediaType,
+                mediaId: card.tmdbId,
+                contentType: card.contentType
+            }))]),
+            ...(collapsible ? [[expanded
+                ? Markup.button.callback('▲ Свернуть', NOTIFY_MORE.encode({deliveryId, open: false}))
+                : Markup.button.callback(`▼ Ещё · ${cards.length - VISIBLE_CARDS}`, NOTIFY_MORE.encode({deliveryId, open: true}))]] : []),
+            [Markup.button.switchToCurrentChat('📦 Коллекция', '#collection')]
+        ]
+    }
+}

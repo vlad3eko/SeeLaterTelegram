@@ -297,6 +297,14 @@ export const NOTIFY_BACK = defineCallback<{deliveryId: number}>({
     decode: match => ({deliveryId: Number(match[1])})
 })
 
+/** «▼ Ещё · N» / «▲ Свернуть» под сводкой: все кнопки тайтлов или первые три. */
+export const NOTIFY_MORE = defineCallback<{deliveryId: number, open: boolean}>({
+    id: 'notify_more',
+    pattern: /^ntf:m:(\d+):([01])$/,
+    encode: ({deliveryId, open}) => `ntf:m:${deliveryId}:${open ? 1 : 0}`,
+    decode: match => ({deliveryId: Number(match[1]), open: match[2] === '1'})
+})
+
 /**
  * «⋯ Ещё» на карточке: раскрывает «Актёры», «Поиск», «Удалить» в том же сообщении.
  * Ключ трейлера — для кнопок администратора, если карточку приходится собирать заново.

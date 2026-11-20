@@ -1,5 +1,5 @@
 import {Markup} from 'telegraf'
-import {NOTIFY_BACK, NOTIFY_CARD} from '#server/bot/callbacks/routes'
+import {NOTIFY_BACK, NOTIFY_CARD, NOTIFY_MORE} from '#server/bot/callbacks/routes'
 import {isAdmin} from '#server/bot/consts/admins'
 import {normalizeRichContext} from '#server/global/engine/card/construct/normalizeRichContext'
 import {tryGenerateCard} from '#server/global/engine/card/construct/tryGenerateCard'
@@ -37,19 +37,38 @@ export const notifyCardAction = async (ctx: any) => {
     }
 }
 
+/** Сводка этого пользователя; чужую или удалённую не отдаём (ответ на нажатие уже дан). */
+const ownDigest = async (ctx: any, deliveryId: number): Promise<DigestPayload | undefined> => {
+    const supabase = getSupabase()
+    const {data: delivery} = await supabase.from('digest_deliveries').select('user_id,payload').eq('id', deliveryId).maybeSingle()
+    const {data: user} = await supabase.from('users').select('id').eq('telegram_id', ctx.from?.id).maybeSingle()
+    if (!delivery || !user || Number(delivery.user_id) !== Number(user.id)) {
+        await ctx.answerCbQuery('Сводка больше недоступна.').catch(() => undefined)
+        return undefined
+    }
+    await ctx.answerCbQuery().catch(() => undefined)
+    return delivery.payload as DigestPayload
+}
+
+/** «▼ Ещё» / «▲ Свернуть»: меняются только кнопки, сообщение остаётся. */
+export const notifyMoreAction = async (ctx: any) => {
+    const {deliveryId, open} = NOTIFY_MORE.parse(ctx)
+    try {
+        const payload = await ownDigest(ctx, deliveryId)
+        if (!payload) return
+        await ctx.editMessageReplyMarkup(digestKeyboard(payload.cards, deliveryId, open))
+    } catch (error: any) {
+        if (String(error?.message).includes('message is not modified')) return
+        console.error('[NOTIFY] More buttons failed', error)
+        await ctx.answerCbQuery().catch(() => undefined)
+    }
+}
+
 export const notifyBackAction = async (ctx: any) => {
     const {deliveryId} = NOTIFY_BACK.parse(ctx)
     try {
-        const supabase = getSupabase()
-        const {data: delivery} = await supabase.from('digest_deliveries').select('user_id,payload').eq('id', deliveryId).maybeSingle()
-        const {data: user} = await supabase.from('users').select('id').eq('telegram_id', ctx.from?.id).maybeSingle()
-        // Чужую сводку не показываем.
-        if (!delivery || !user || Number(delivery.user_id) !== Number(user.id)) {
-            await ctx.answerCbQuery('Сводка больше недоступна.').catch(() => undefined)
-            return
-        }
-        await ctx.answerCbQuery().catch(() => undefined)
-        const payload = delivery.payload as DigestPayload
+        const payload = await ownDigest(ctx, deliveryId)
+        if (!payload) return
         await tryGenerateCard(targetOf(ctx), payload.rich, digestKeyboard(payload.cards, deliveryId))
     } catch (error) {
         console.error('[NOTIFY] Back to digest failed', error)

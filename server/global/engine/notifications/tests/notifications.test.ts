@@ -11,7 +11,7 @@ import {
     type Snapshot
 } from '../snapshot'
 import {buildDigest, contentTypeOf, digestKeyboard, episodesText, eventsForUser, upcoming, type EventRow} from '../digest'
-import {NOTIFY_BACK, NOTIFY_CARD} from '../../../../bot/callbacks/routes'
+import {NOTIFY_BACK, NOTIFY_CARD, NOTIFY_MORE} from '../../../../bot/callbacks/routes'
 
 const now = new Date('2026-11-21T07:00:00Z') // 10:00 МСК
 const DAY = 24 * 60 * 60_000
@@ -218,30 +218,33 @@ test('сводка: разделы, склейка премьеры с пере�
         '', '<b>📺 Новые серии</b>', '• <code>Разделение</code> — 2 сезон, 5 серия',
         '', '<b>📅 Даты</b>', '• <code>Аватар 4</code> — перенесли: 18.12 → 25.12',
         '', '<b>▶️ Трейлеры</b>', '• <code>Зверополис 2</code> — <a href="https://www.youtube.com/watch?v=BBBBBBBBBBB">🇷🇺 трейлер</a> · ещё 1',
-        '', '🖼 Новые постеры: 2 — Зверополис 2',
+        '', '<b>🖼 Новые постеры</b>', 'Зверополис 2',
         '', '<b>📆 Скоро</b>', '25.12 · <code>Аватар 4</code> · через 34 дня'
     ].join('\n'))
 
     const blocks = payload.rich.blocks
-    // Обложка — коллаж постеров главных тайтлов; разделы — заголовки (отступ сверху) и списки.
+    // Обложка — коллаж постеров главных тайтлов; разделы — свёрнутые блоки «Название · N».
     assert.equal(blocks[0].type, 'collage')
     assert.equal(blocks[0].blocks[0].photo.media, 'https://image.tmdb.org/t/p/w342/dune.jpg')
-    assert.deepEqual(blocks.filter((block: any) => block.type === 'heading' && block.size === 3).map((block: any) => block.text[0]),
-        ['🍿 Премьеры', '📺 Новые серии', '📅 Даты', '▶️ Трейлеры', '🖼 Новые постеры', '📆 Скоро'])
-    assert.equal(blocks.filter((block: any) => block.type === 'list').length, 3)
-    const tables = blocks.filter((block: any) => block.type === 'table')
-    assert.deepEqual(tables[0].cells[1].map((cell: any) => cell.text), ['Аватар 4', '18.12', '25.12'])
-    assert.deepEqual(tables[1].cells[1].map((cell: any) => cell.text), ['25.12', 'Аватар 4', '34 дня'])
+    const sections = blocks.filter((block: any) => block.type === 'details')
+    assert.deepEqual(sections.map((block: any) => [block.summary[0].text, block.summary[1]]),
+        [['🍿 Премьеры', ' · 1'], ['📺 Новые серии', ' · 1'], ['📅 Даты', ' · 1'], ['▶️ Трейлеры', ' · 1'], ['🖼 Новые постеры', ' · 2'], ['📆 Скоро', ' · 1']])
+    assert.ok(sections.every((block: any) => block.summary[0].type === 'bold' && !block.is_open))
+    assert.equal(sections[0].blocks[0].type, 'list')
+    assert.deepEqual(sections[2].blocks[0].cells[1].map((cell: any) => cell.text), ['Аватар 4', '18.12', '25.12'])
+    assert.deepEqual(sections[5].blocks[0].cells[1].map((cell: any) => cell.text), ['25.12', 'Аватар 4', '34 дня'])
     assert.equal(blocks.at(-1).type, 'footer')
-    const details = blocks.find((block: any) => block.type === 'details')
+    // Постеры: внутри раздела — свой свёрнутый блок у каждого тайтла.
+    const details = sections[4].blocks[0]
+    assert.equal(details.type, 'details')
     assert.deepEqual(details.summary, [{type: 'code', text: 'Зверополис 2'}, ' · 2 постера'])
     assert.equal(details.blocks[0].type, 'collage')
     assert.equal(details.blocks[0].blocks[0].photo.media, 'https://image.tmdb.org/t/p/w500/p1.jpg')
     assert.deepEqual(payload.cards.map(card => [card.title, card.contentType]),
-        [['Дюна 3', 'movie'], ['Разделение', 'series'], ['Аватар 4', 'movie']])
+        [['Дюна 3', 'movie'], ['Разделение', 'series'], ['Аватар 4', 'movie'], ['Зверополис 2', 'cartoon']])
 
     const keyboard = digestKeyboard(payload.cards, 42)
-    assert.equal(keyboard.inline_keyboard.length, 4)
+    assert.equal(keyboard.inline_keyboard.length, 5)
     const data = (keyboard.inline_keyboard[1]![0] as any).callback_data
     assert.ok(data.length <= 64)
     assert.deepEqual(NOTIFY_CARD.decode(data.match(NOTIFY_CARD.pattern)!), {deliveryId: 42, mediaType: 'tv', mediaId: 2, contentType: 'series'})
@@ -251,14 +254,22 @@ test('сводка: разделы, склейка премьеры с пере�
     assert.equal(buildDigest({events: [], titles, calendar: [], today: '2026-11-21'}), undefined)
 })
 
-test('сводка: больше 5 в разделе — «и ещё N»', () => {
-    const titles = new Map(Array.from({length: 7}, (_, index) => [`movie:${index + 1}`, {title: `Фильм ${index + 1}`, genres: []}]))
+test('сводка: больше 10 в разделе — «и ещё N»; больше 3 тайтлов — кнопка «Ещё»', () => {
+    const titles = new Map(Array.from({length: 12}, (_, index) => [`movie:${index + 1}`, {title: `Фильм ${index + 1}`, genres: []}]))
     const payload = buildDigest({
         today: '2026-11-21', titles, calendar: [],
-        events: Array.from({length: 7}, (_, index) => event(index + 1, {tmdb_id: index + 1}))
+        events: Array.from({length: 12}, (_, index) => event(index + 1, {tmdb_id: index + 1}))
     })!
     assert.match(payload.html, /и ещё 2 — в коллекции/)
-    assert.equal((payload.html.match(/премьера сегодня/g) ?? []).length, 5)
+    assert.equal((payload.html.match(/премьера сегодня/g) ?? []).length, 10)
+
+    const texts = (keyboard: any) => keyboard.inline_keyboard.map((row: any) => row[0].text)
+    assert.deepEqual(texts(digestKeyboard(payload.cards, 7)), ['🎬 Фильм 1', '🎬 Фильм 2', '🎬 Фильм 3', '▼ Ещё · 9', '📦 Коллекция'])
+    const open = digestKeyboard(payload.cards, 7, true)
+    assert.equal(open.inline_keyboard.length, 14)
+    assert.deepEqual(texts(open).slice(-2), ['▲ Свернуть', '📦 Коллекция'])
+    const more = (digestKeyboard(payload.cards, 7).inline_keyboard[3]![0] as any).callback_data
+    assert.deepEqual(NOTIFY_MORE.decode(more.match(NOTIFY_MORE.pattern)!), {deliveryId: 7, open: true})
 })
 
 test('таймер сводки открыт снаружи (своя проверка CRON_SECRET), соседние служебные — нет', async () => {
