@@ -36,6 +36,10 @@ const fetchTmdb = async (pathAndQuery: string): Promise<unknown> => {
     throw new Error(`[COLLECTIONS] TMDB 429: ${pathAndQuery.split('?')[0]}`)
 }
 
+/** Без кэша — для слежения за сохранёнными (notifications): нужен свежий ответ. */
+export const tmdbFetch = async <T = Record<string, any>>(pathAndQuery: string): Promise<T> =>
+    await fetchTmdb(pathAndQuery) as T
+
 export const tmdbGet = async <T = Record<string, any>>(pathAndQuery: string): Promise<T> =>
     await memo.get(pathAndQuery, tmdbTtl(pathAndQuery), () => fetchTmdb(pathAndQuery)) as T
 

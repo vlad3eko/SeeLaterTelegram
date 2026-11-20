@@ -390,16 +390,21 @@ create index favorites_media on favorites (media_type, tmdb_id);
 ```
 Названия моноширинные (копируются нажатием). Пустые разделы не показываем. До 5 пунктов в разделе, остальное — «и ещё N — в коллекции»; второе сообщение не шлём.
 
-### План
-1. **SQL** (выше) — владелец.
-2. **Backfill**: скрипт заполняет `media_watch` из `favorites` и делает baseline всем тайтлам (без событий).
-3. **«Сохранить»** (`createFavorite` в `server/bot/services/supabase/addFavorite.ts` — через него идут и бот `saveMediaBot.ts`, и сайт `api/favorites/add.post.ts`): upsert в `media_watch` (`next_check_at = now`, существующую строку не перезаписывать).
-4. **detect**: модуль `server/global/engine/notifications/` (снимок, сравнение, события — чистые функции + тонкий слой Supabase/TMDB) и эндпоинт.
-5. **digest**: сборка сводки (чистая функция: события → блоки Rich), отправка, статусы.
-6. **Кнопка «Карточка»**: найти deep link открытия карточки по `tmdb_id` (`?start=…`, рядом `start=similar_`/`media_cast_` в `buttonsBot.ts`) и переиспользовать.
-7. **Тесты**: сравнение снимков (перенос с подтверждением, пропавшая дата, порядок постеров — не событие, baseline без событий), группировка серий, дедуп трейлера из двух источников, фильтр по `created_at` и `cutoff`, склейка премьеры с переносом, лимиты разделов, «сегодня» по Москве (`schedule.ts`).
-8. **Обкатка**: неделю события только пишутся (`NOTIFICATIONS_DIGEST=off`); затем сводка только администратору; затем всем. Rich-сообщение с `details` и фото проверить на Android, iOS и Desktop.
-9. **Выкатка**: push → Cloud Scheduler: `detect` ежечасно, `digest` в 10:00/10:15/10:30 МСК (шаблон — `kinomanov-youtube-queue-tick`).
+### Сделано (21.11, код в master, не выкачен)
+- SQL: `database/migrations/notifications.sql` (3 таблицы, колонки `users`, индекс `favorites`).
+- `server/global/engine/notifications/`: `snapshot.ts` (сравнение со снимком, события, частота проверки), `detect.ts` (TMDB без кэша — `tmdbFetch`, YouTube-очередь и `reel_processing_jobs`, премьеры), `digest.ts` (события → подписчикам, текст Rich и HTML, кнопки), `digestJob.ts` (prepare/send, статусы, 403/429/unknown).
+- Эндпоинт `server/api/bot/notifications/tick.ts`: `?mode=auto` (detect каждый раз, сводка 10:00–12:00, отправка до 14:00), `?mode=detect|digest`, `&force=1`.
+- Backfill отдельным скриптом не нужен: первый detect сам заносит тайтлы из `favorites` и делает baseline (до 50 тайтлов за вызов).
+- «Сохранить» (`createFavorite`) ставит тайтл под слежение; ошибка не ломает сохранение.
+- Кнопка «🎬 Название» в сводке — `NOTIFY_CARD` (`ntf:c:…`): карточка новым сообщением, сводка остаётся.
+- `NOTIFICATIONS_DIGEST`: `admin` по умолчанию (сводка только администратору), `all` — всем, `off` — не слать.
+- Тесты: `server/global/engine/notifications/tests/notifications.test.ts` — `npx tsx --tsconfig tsconfig.reel-dryrun.json --test server/global/engine/notifications/tests/*.test.ts`.
+- Проверено на живом TMDB: «Зверополис 2» (у крупных премьер 300+ постеров — снимок хранит все, пачка больше 12 новых разом — молча) и «Разделение».
+
+### Осталось
+1. **SQL** — владелец: `database/migrations/notifications.sql` в Supabase SQL Editor.
+2. **Выкатка**: push → Cloud Scheduler `kinomanov-notifications-tick`: `0,30 * * * *`, Europe/Moscow, GET `https://<прод>/api/bot/notifications/tick` с `Authorization: Bearer CRON_SECRET` (шаблон — `kinomanov-youtube-queue-tick`).
+3. **Обкатка**: сводка только администратору (по умолчанию); проверить Rich-сообщение с `details` и фото на Android, iOS и Desktop; затем `NOTIFICATIONS_DIGEST=all` в Vercel.
 
 ### Второй этап (после MVP)
 Кнопка «🔕/🔔 Обновления» в карточке (`favorites.notifications_enabled`, фильм остаётся в коллекции); `users.digest_silent` → `disable_notification`; метрики (запросы TMDB в сутки, событий на сводку — следить, чтобы не было шума); цифровой релиз отдельным событием.

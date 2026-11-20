@@ -279,6 +279,14 @@ export const SIMILAR_CARD = defineCallback<SimilarRef & {from?: SimilarRef}>({
     })
 })
 
+/** «🎬 Название» в сводке обновлений коллекции: карточка новым сообщением, сводка остаётся. */
+export const NOTIFY_CARD = defineCallback<SimilarRef>({
+    id: 'notify_card',
+    pattern: /^ntf:c:([mt]):(\d+):([A-Za-z]+)$/,
+    encode: ({mediaType, mediaId, contentType}) => `ntf:c:${shortType(mediaType)}:${mediaId}:${contentType}`,
+    decode: match => ({mediaType: longType(match[1]), mediaId: Number(match[2]), contentType: match[3] as ContentType})
+})
+
 /**
  * «⋯ Ещё» на карточке: раскрывает «Актёры», «Поиск», «Удалить» в том же сообщении.
  * Ключ трейлера — для кнопок администратора, если карточку приходится собирать заново.
