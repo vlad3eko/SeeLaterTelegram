@@ -4,8 +4,8 @@ import {processYoutubeQueue} from '#server/global/engine/youtube/youtubeQueue'
 /**
  * Таймер автопубликации трейлеров с YouTube (server/global/engine/youtube/youtubeQueue.ts).
  * Вызывать каждые 10–15 минут GET или POST с заголовком `Authorization: Bearer <CRON_SECRET>`
- * (Google Cloud Scheduler; у Vercel Cron на Hobby только раз в сутки). Интервал между
- * публикациями задаёт сама очередь (YOUTUBE_QUEUE_INTERVAL_MINUTES), а не частота вызова.
+ * (Google Cloud Scheduler; у Vercel Cron на Hobby только раз в сутки). Время публикаций задаёт
+ * расписание очереди (YOUTUBE_QUEUE_SLOTS, schedule.ts), а не частота вызова.
  * В npm run dev тот же тик запускает server/plugins/devYoutubeQueue.ts.
  */
 

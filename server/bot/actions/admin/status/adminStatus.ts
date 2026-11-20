@@ -6,6 +6,7 @@ import {getSupabase} from '#server/global/engine/instagram/reel/jobs/dispatchRee
 import {humanReelError} from '#server/global/engine/instagram/reel/jobs/reelProgress'
 import {youtubeQueueConfig} from '#server/global/engine/youtube/config'
 import {parseTrailerTitle} from '#server/global/engine/youtube/matchTmdbMedia'
+import {currentSlot, formatSlot, nextSlotAt} from '#server/global/engine/youtube/schedule'
 
 /**
  * /status — панель администратора (запрос владельца 20.11): что сейчас идёт — Reels, очередь
@@ -109,14 +110,14 @@ const queueSection = async (supabase: any, now: number): Promise<Section> => {
         supabase.from('youtube_publish_queue')
             .select('id,video_id,channel_id,channel_name,title,tmdb_title,video_published_at,not_before,status')
             .in('status', ['queued', 'dispatching']).limit(200),
-        // Тот же отсчёт интервала, что в youtubeQueue.ts: последняя задача очереди с запущенным воркером.
+        // Как в youtubeQueue.ts: последняя задача очереди с запущенным воркером — занят ли текущий слот.
         supabase.from('reel_processing_jobs').select('created_at')
             .gte('source_update_id', QUEUE_SOURCE_UPDATE_OFFSET).not('worker_execution_name', 'is', null)
             .order('created_at', {ascending: false}).limit(1).maybeSingle(),
         supabase.from('youtube_publish_queue').select('id', {count: 'exact', head: true})
             .in('status', ['skipped', 'failed']).gte('updated_at', new Date(now - DAY_MS).toISOString())
     ])
-    const lines = [`▶️ <b>Очередь YouTube</b> · ${config.enabled ? `раз в ${config.intervalMinutes / 60} ч` : 'выключена'}`]
+    const lines = [`▶️ <b>Очередь YouTube</b> · ${config.enabled ? `в ${config.slots.map(formatSlot).join(' · ')}` : 'выключена'}`]
     if (error) return {lines: [...lines, failedLine(error)]}
 
     // Порядок выдачи как в claim_youtube_queue_item: приоритетные каналы, затем от старых к новым.
@@ -127,7 +128,11 @@ const queueSection = async (supabase: any, now: number): Promise<Section> => {
     if (!items.length) {
         lines.push('Очередь пуста.')
     } else {
-        const next = new Date(lastJob ? Math.max(now, Date.parse(lastJob.created_at) + config.intervalMinutes * 60_000) : now)
+        // Слот идёт и в нём ещё не публиковали — сейчас, иначе следующий слот.
+        const slot = currentSlot(new Date(now), config.slots)
+        const next = slot && !(lastJob && Date.parse(lastJob.created_at) >= slot.start.getTime())
+            ? new Date(now)
+            : nextSlotAt(new Date(now), config.slots)
         const russian = items.filter((item: any) => priority.has(item.channel_id)).length
         lines.push(`В очереди ${items.length}${russian ? `, русских ${russian}` : ''} · следующая ≈ ${clock(next)}`)
         shown.forEach((item: any, index: number) => {

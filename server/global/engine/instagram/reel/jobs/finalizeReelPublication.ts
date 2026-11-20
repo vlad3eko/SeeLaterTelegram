@@ -9,7 +9,7 @@ import {CURRENT_KEYBOARD_VERSION} from "#server/bot/consts/keyboardVersion/keybo
 import {createInstagramCaption} from "#server/global/engine/instagram/reel/caption/createInstagramCaption";
 import {publishInstagramReel} from "#server/global/publishers/instagram/publishInstagramReel";
 import {reelTarget, sendReelPreview} from "#server/global/publishers/reelTarget";
-import {deleteCloudflareR2ObjectByUrl} from "#server/global/engine/instagram/reel/utils/storageCloudflareR2";
+import {graphErrorText} from "#server/global/publishers/instagram/instagramGraphUrl";
 import {deleteReelTempFiles} from "#server/global/engine/instagram/reel/jobs/reelStorageCleanup";
 import {deleteOldMessagesSession} from "#server/bot/services/session/deleteOldMessagesSession";
 import {resetAdminPublishLock} from "#server/global/engine/instagram/reel/jobs/adminPublishLock";
@@ -49,10 +49,11 @@ type FinalizeResult = {
 }
 
 const getErrorMessage = (error: unknown): string => {
+    const graph = graphErrorText(error)
     if (error instanceof Error) {
-        return `${error.name}: ${error.message}${error.stack ? `\n${error.stack}` : ''}`
+        return `${graph ? `${graph}\n` : ''}${error.name}: ${error.message}${error.stack ? `\n${error.stack}` : ''}`
     }
-    return String(error)
+    return graph ?? String(error)
 }
 
 const asRecord = (value: unknown): Record<string, any> =>
@@ -419,36 +420,14 @@ export const finalizeReelPublication = async (
         console.error('[REEL FINALIZER FAILED]', {jobId, error: message})
 
         try {
-
-            let publishReelDeleted = false
-
-            if (job.instagram_publish_r2_url) {
-                try {
-                    await deleteCloudflareR2ObjectByUrl(
-                        job.instagram_publish_r2_url
-                    )
-
-                    publishReelDeleted = true
-
-                } catch (error) {
-                    // Публикация уже завершена.
-                    // Ошибка удаления не должна приводить к повторной публикации.
-                    console.error('[R2 PUBLISHED REEL DELETE ERROR]', {
-                        url: job.instagram_publish_r2_url,
-                        error
-                    })
-                }
-            }
-
+            // Готовый Reel в R2 не удаляется: повторное нажатие опубликует его в Instagram без
+            // новой сборки (раньше файл удалялся, и повтор Instagram пропускал). Удаляется после публикации.
             await updateOwnedJob({
                 status: 'failed',
                 last_error: message,
                 failed_at: new Date().toISOString(),
                 lease_token: null,
-                lease_expires_at: null,
-                instagram_publish_r2_url: publishReelDeleted
-                    ? null
-                    : job.instagram_publish_r2_url,
+                lease_expires_at: null
             })
         } catch (updateError) {
             console.error('[REEL FINALIZER FAILED-STATUS UPDATE ERROR]', updateError)
@@ -457,7 +436,8 @@ export const finalizeReelPublication = async (
         await resetAdminPublishLock(supabase, job)
         await sendAdminNotice(
             Number(job.admin_telegram_id),
-            'Подготовка видео завершилась, но публикация не прошла полностью. Задача сохранена; повторное нажатие кнопки продолжит финализацию.'
+            'Подготовка видео завершилась, но публикация не прошла полностью. Задача сохранена; повторное нажатие кнопки продолжит финализацию.' +
+            `\nПричина: ${graphErrorText(error) ?? (error instanceof Error ? error.message : String(error)).split('\n')[0]!.slice(0, 300)}`
         )
 
         throw error

@@ -14,3 +14,14 @@ export const instagramGraphUrl = (token: string | undefined = process.env.INSTAG
     token?.trim().startsWith('EAA')
         ? `https://graph.facebook.com/${API_VERSION}`
         : `https://graph.instagram.com/${API_VERSION}`
+
+/**
+ * Ответ Graph API из ошибки $fetch: «400 Bad Request» сам по себе ничего не говорит, причина — в
+ * теле («API access blocked», лимит публикаций, неверная ссылка на видео).
+ */
+export const graphErrorText = (error: unknown): string | undefined => {
+    const graph = (error as {data?: {error?: {message?: string, code?: number, error_subcode?: number}}})?.data?.error
+    return graph?.message
+        ? `Instagram: ${graph.message}${graph.code ? ` (код ${graph.code}${graph.error_subcode ? `/${graph.error_subcode}` : ''})` : ''}`
+        : undefined
+}

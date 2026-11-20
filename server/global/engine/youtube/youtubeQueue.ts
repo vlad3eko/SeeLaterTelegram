@@ -4,6 +4,7 @@ import {resolveTrailerMedia, type MatchedMedia} from '#server/global/engine/yout
 import {findExcludedTitleReason, isRussianAudio, youtubeQueueConfig, type WatchedChannel} from '#server/global/engine/youtube/config'
 import {findRussianTrailer} from '#server/global/engine/youtube/russianTrailer'
 import {generateRussianOverview, overviewFacts} from '#server/global/engine/youtube/russianOverview'
+import {currentSlot} from '#server/global/engine/youtube/schedule'
 import {BOT_ADMINS} from '#server/global/oneLinkApp'
 
 /**
@@ -217,12 +218,15 @@ const updateRow = async (supabase: Supabase, id: number, patch: Record<string, u
     if (error) console.error('[YOUTUBE QUEUE UPDATE ERROR]', {id, message: error.message})
 }
 
-/** 2. Следующий ролик очереди → задача Reel (если подошёл интервал), строка удаляется. */
+/** 2. Следующий ролик очереди → задача Reel (если идёт слот расписания), строка удаляется. */
 const dispatchNext = async (supabase: Supabase, config: ReturnType<typeof youtubeQueueConfig>) => {
-    // Интервал от прошлой задачи Reel (с запущенным воркером) и блокировку от двух таймеров
-    // проверяет сама функция базы: не подошёл интервал — ничего не вернёт.
+    // Публикации — только в слоты расписания (schedule.ts), по одной на слот. «Не было задачи с
+    // начала слота» и блокировку от двух таймеров проверяет функция базы: интервал = минуты с
+    // начала слота; задача в этом слоте уже была — ничего не вернёт.
+    const slot = currentSlot(new Date(), config.slots)
+    if (!slot) return null
     const {data, error} = await supabase.rpc('claim_youtube_queue_item', {
-        p_interval_minutes: config.intervalMinutes,
+        p_interval_minutes: Math.max(1, Math.ceil((Date.now() - slot.start.getTime()) / 60_000)),
         // Ролики этих каналов (русские трейлеры) выдаются первыми.
         p_priority_channels: config.channels.filter(channel => channel.priority).map(channel => channel.id)
     })

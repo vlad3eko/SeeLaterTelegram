@@ -4,7 +4,8 @@
  *   YOUTUBE_WATCH_CHANNELS          заменить список каналов: «UC…:слово|слово,UC…:слово», например
  *                                   «*UC6A-Z0jDKemh9-CwGbj5yog:дубляж,UCWOA1ZGywLbqmigxE4Qlvuw:trailer|teaser»;
  *                                   канал без слов получает trailer|teaser; «*» — приоритетный канал
- *   YOUTUBE_QUEUE_INTERVAL_MINUTES  минут между публикациями, по умолчанию 120
+ *   YOUTUBE_QUEUE_SLOTS             время публикаций по Москве через запятую, по умолчанию
+ *                                   «08:00,12:00,18:00,22:00» (schedule.ts)
  *   YOUTUBE_QUEUE_MAX_AGE_HOURS     ролики старше не ставятся в очередь, по умолчанию 72
  *   YOUTUBE_QUEUE_FILM_COOLDOWN_DAYS фильм, опубликованный за столько дней, не публикуется снова, по умолчанию 7
  *   YOUTUBE_API_KEY                 ключ YouTube Data API v3: самый надёжный и дешёвый источник списка роликов
@@ -14,6 +15,8 @@
  *   YOUTUBE_OVERVIEW_SEARCH         on — русский сюжет Gemini сначала ищет в Google (нужен платный
  *                                   тариф Gemini: на бесплатном поиск отвечает 429); иначе только перевод
  */
+
+import {parseSlots} from '#server/global/engine/youtube/schedule'
 
 export type WatchedChannel = {
     id: string
@@ -177,7 +180,7 @@ export const youtubeQueueConfig = () => {
         enabled: !isOff(process.env.YOUTUBE_QUEUE_ENABLED),
         devTick: !isOff(process.env.YOUTUBE_QUEUE_DEV_TICK),
         channels: fromEnv.length ? fromEnv : DEFAULT_CHANNELS,
-        intervalMinutes: readNumber('YOUTUBE_QUEUE_INTERVAL_MINUTES', 120, 1, 7 * 24 * 60),
+        slots: parseSlots(process.env.YOUTUBE_QUEUE_SLOTS),
         maxAgeHours: readNumber('YOUTUBE_QUEUE_MAX_AGE_HOURS', 72, 1, 30 * 24),
         filmCooldownDays: readNumber('YOUTUBE_QUEUE_FILM_COOLDOWN_DAYS', 7, 0, 365),
         devTickMinutes: readNumber('YOUTUBE_QUEUE_TICK_MINUTES', 10, 1, 24 * 60),
