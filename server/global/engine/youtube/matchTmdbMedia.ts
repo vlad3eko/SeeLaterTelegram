@@ -56,7 +56,7 @@ export const parseTrailerTitle = (title: string): ParsedTrailerTitle | null => {
     return {name, ...(year ? {year} : {}), ...(isSeason ? {isSeason} : {})}
 }
 
-const normalize = (value: string | undefined) =>
+export const normalize = (value: string | undefined) =>
     String(value ?? '')
         .toLowerCase()
         .replace(/ё/g, 'е')

@@ -43,6 +43,11 @@ test('русский трейлер для карточки: по media_id ил�
     assert.equal(isRussianTrailerFor(row('Соловей — Русский трейлер (Дубляж, 2019)'), film, 'movie', 458896), false)
     // Название не совпало, но очередь уже сопоставила ролик с этим фильмом.
     assert.equal(isRussianTrailerFor(row('Мангуст — Русский трейлер (Дубляж, 2027)', {media_id: 458896, media_type: 'movie'}), film, 'movie', 458896), true)
+    // В TMDB нет русского названия: ролик, найденный поиском, подходит по оригинальному названию в описании.
+    const english = {title: 'The Nightingale', original_title: 'The Nightingale', release_date: '2027-03-17'}
+    assert.equal(isRussianTrailerFor(row('Соловей — Русский трейлер (Дубляж, 2027) Эль Фаннинг'), english, 'movie', 458896), false)
+    assert.equal(isRussianTrailerFor({...row('Соловей — Русский трейлер (Дубляж, 2027) Эль Фаннинг'), description: 'Соловей / The Nightingale (2027). Режиссёр Мелани Лоран'}, english, 'movie', 458896), true)
+    assert.equal(isRussianTrailerFor({...row('Соловей — Русский трейлер (Дубляж, 2019)'), description: 'The Nightingale'}, english, 'movie', 458896), false)
 })
 
 test('очередь: один фильм — одна строка, русская озвучка с первого канала важнее', () => {

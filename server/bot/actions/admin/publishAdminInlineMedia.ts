@@ -145,7 +145,8 @@ export const publishAdminInlineMedia = async (ctx: any) => {
     // английский) — как ручное «Изменить ключ трейлера», только сам. Ролик с субтитрами не берётся.
     const russianTrailer = session.trailerKeySource === 'manual'
         ? undefined
-        : await findRussianTrailer(session.media, session.mediaType, Number(session.mediaId))
+        // Сначала таблица очереди, нет — поиск YouTube «<название> русский трейлер».
+        : await findRussianTrailer(session.media, session.mediaType, Number(session.mediaId), {search: true})
     if (russianTrailer && russianTrailer.videoId !== session.keyTrailer) {
         session.keyTrailer = russianTrailer.videoId
         await updateAdminEditSession(ctx.from.id, {keyTrailer: russianTrailer.videoId})
