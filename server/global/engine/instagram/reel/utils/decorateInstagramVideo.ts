@@ -536,7 +536,8 @@ export const decorateInstagramVideo = async (inputPath: string, keyTrailer: stri
             `[withProgress]ass=filename='${escapeFilterPath(templateAssPath)}':fontsdir='${escapeFilterPath(fontsDirectory)}',format=yuv420p[vout]`
         )
 
-        // Звук: фоновая музыка (reelMusic.ts) — третий вход, повторяется, если короче ролика.
+        // Звук: фоновая музыка (reelMusic.ts) — третий вход, повторяется, если короче ролика;
+        // в паузах речи звук трейлера тише, музыка громче.
         const music = musicSettings()
         let musicLog: Record<string, unknown> = {enabled: false}
         const musicInputArgs: string[] = []
@@ -555,7 +556,8 @@ export const decorateInstagramVideo = async (inputPath: string, keyTrailer: stri
                     voiceLufs,
                     musicLufs,
                     speech: music.speech,
-                    pause: music.pause
+                    pause: music.pause,
+                    trailerPause: music.trailerPause
                 })
                 filterParts.push(...mix.filters)
                 musicInputArgs.push('-stream_loop', '-1', '-i', music.path)

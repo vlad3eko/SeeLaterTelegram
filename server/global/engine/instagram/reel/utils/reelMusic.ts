@@ -6,29 +6,36 @@ import {promisify} from 'node:util'
 const execFileAsync = promisify(execFile)
 
 /**
- * Фоновая музыка под ролик (решение владельца 20.11.2026). Громкость задаётся в процентах от
- * громкости звука трейлера: 100% — музыка так же громкая, как речь. По просьбе владельца уровни
- * вдвое ниже, чем в образце («На цепи», фон там примерно на 12 дБ тише речи):
- *   под речью — 12%, в паузах — 25%.
- * Окна речи — из Whisper (те же, что у субтитров); переход между уровнями плавный, 0,3 с.
- * Без окон речи музыка весь ролик идёт на уровне «под речью» — так она точно не мешает.
+ * Фоновая музыка под ролик (решения владельца 20.11.2026). Громкость — в процентах от громкости
+ * звука трейлера: 100% — музыка так же громкая, как трейлер. Уровни как в образце («На цепи»,
+ * фон там примерно на 12 дБ тише речи):
+ *   под речью — музыка 25%, звук трейлера 100%;
+ *   в паузах — музыка 50%, звук трейлера 40%: своя музыка трейлера уходит на второй план,
+ *   наша выходит вперёд.
+ * Пауза — промежуток без речи от MIN_PAUSE_SECONDS; короче — считается речью (музыка не прыгает
+ * между фразами). Окна речи — из Whisper (те же, что у субтитров), переходы плавные.
+ * Без окон речи (Whisper не сработал) трейлер не трогается, музыка весь ролик на уровне «под речью».
  * Трек обрезается по длине ролика (короткий — повторяется), в начале и в конце плавное появление
  * и затухание.
  *
  * Настройки (переменные окружения, все необязательные):
- *   REEL_MUSIC                off — без музыки
- *   REEL_MUSIC_PATH           путь к треку; по умолчанию public/instagram/music/background.mp3
- *   REEL_MUSIC_SPEECH_VOLUME  0–1, по умолчанию 0.12
- *   REEL_MUSIC_PAUSE_VOLUME   0–1, по умолчанию 0.25
+ *   REEL_MUSIC                  off — без музыки (и без приглушения трейлера)
+ *   REEL_MUSIC_PATH             путь к треку; по умолчанию public/instagram/music/background.mp3
+ *   REEL_MUSIC_SPEECH_VOLUME    0–1, по умолчанию 0.25
+ *   REEL_MUSIC_PAUSE_VOLUME     0–1, по умолчанию 0.5
+ *   REEL_TRAILER_PAUSE_VOLUME   0–1, звук трейлера в паузах, по умолчанию 0.4 (1 — не приглушать)
  */
 
 export type SpeechWindow = {start: number, end: number}
 
-export const MUSIC_SPEECH_VOLUME = 0.12
-export const MUSIC_PAUSE_VOLUME = 0.25
+export const MUSIC_SPEECH_VOLUME = 0.25
+export const MUSIC_PAUSE_VOLUME = 0.5
+export const TRAILER_PAUSE_VOLUME = 0.4
 /** Время перехода между уровнями, с. */
-export const MUSIC_RAMP_SECONDS = 0.3
-/** Запас вокруг речи: музыка опускается чуть раньше первого слова и поднимается чуть позже последнего. */
+export const RAMP_SECONDS = 0.4
+/** Промежуток без речи короче этого — не пауза. Не меньше двух переходов: переходы не накладываются. */
+export const MIN_PAUSE_SECONDS = 1.5
+/** Запас вокруг речи: уровни меняются чуть раньше первого слова и чуть позже последнего. */
 const SPEECH_LEAD_SECONDS = 0.1
 const SPEECH_TAIL_SECONDS = 0.25
 const FADE_IN_SECONDS = 0.8
@@ -48,13 +55,11 @@ export const musicSettings = (env: NodeJS.ProcessEnv = process.env) => ({
     enabled: !isOff(env.REEL_MUSIC),
     path: env.REEL_MUSIC_PATH?.trim() || path.join(process.cwd(), 'public', 'instagram', 'music', 'background.mp3'),
     speech: readVolume(env.REEL_MUSIC_SPEECH_VOLUME, MUSIC_SPEECH_VOLUME),
-    pause: readVolume(env.REEL_MUSIC_PAUSE_VOLUME, MUSIC_PAUSE_VOLUME)
+    pause: readVolume(env.REEL_MUSIC_PAUSE_VOLUME, MUSIC_PAUSE_VOLUME),
+    trailerPause: readVolume(env.REEL_TRAILER_PAUSE_VOLUME, TRAILER_PAUSE_VOLUME)
 })
 
-/**
- * Окна речи с запасом, слитые так, чтобы переходы соседних окон не накладывались
- * (пауза короче двух переходов — музыка между фразами не поднимается).
- */
+/** Окна речи с запасом; промежутки короче MIN_PAUSE_SECONDS сливаются (это ещё речь). */
 export const mergeSpeechWindows = (windows: SpeechWindow[], duration: number): SpeechWindow[] => {
     const padded = windows
         .filter(window => Number.isFinite(window.start) && Number.isFinite(window.end) && window.end > window.start)
@@ -68,25 +73,26 @@ export const mergeSpeechWindows = (windows: SpeechWindow[], duration: number): S
     const merged: SpeechWindow[] = []
     for (const window of padded) {
         const last = merged.at(-1)
-        if (last && window.start - last.end < MUSIC_RAMP_SECONDS * 2) last.end = Math.max(last.end, window.end)
+        if (last && window.start - last.end < MIN_PAUSE_SECONDS) last.end = Math.max(last.end, window.end)
         else merged.push({...window})
     }
     return merged
 }
 
 /**
- * Выражение громкости для фильтра volume (eval=frame): `pause` в паузах, `speech` в окнах речи,
- * линейные переходы по MUSIC_RAMP_SECONDS перед окном и после него.
+ * Выражение громкости для фильтра volume (eval=frame): `speech` в окнах речи, `pause` в паузах,
+ * линейные переходы по RAMP_SECONDS перед окном и после него. Подходит и для музыки
+ * (в паузах громче), и для трейлера (в паузах тише).
  */
-export const musicVolumeExpression = (
+export const speechVolumeExpression = (
     windows: SpeechWindow[],
     {speech, pause}: {speech: number, pause: number}
 ): string => {
     if (!windows.length) return fmt(speech)
-    const r = fmt(MUSIC_RAMP_SECONDS)
-    const ducks = windows.map(({start, end}) =>
-        `clip((t-(${fmt(start - MUSIC_RAMP_SECONDS)}))/${r},0,1)*clip((${fmt(end + MUSIC_RAMP_SECONDS)}-t)/${r},0,1)`)
-    return `${fmt(pause)}-${fmt(pause - speech)}*min(1,${ducks.join('+')})`
+    const r = fmt(RAMP_SECONDS)
+    const inSpeech = windows.map(({start, end}) =>
+        `clip((t-(${fmt(start - RAMP_SECONDS)}))/${r},0,1)*clip((${fmt(end + RAMP_SECONDS)}-t)/${r},0,1)`)
+    return `${fmt(pause)}+(${fmt(speech - pause)})*min(1,${inSpeech.join('+')})`
 }
 
 const loudnessCache = new Map<string, Promise<number | undefined>>()
@@ -124,7 +130,7 @@ export type MusicMix = {
  * voiceLufs — громкость звука трейлера; undefined — звука нет, в ролике одна музыка.
  */
 export const buildMusicMix = (
-    {musicInput, duration, speechWindows, voiceLufs, musicLufs, speech, pause}: {
+    {musicInput, duration, speechWindows, voiceLufs, musicLufs, speech, pause, trailerPause}: {
         musicInput: number
         duration: number
         speechWindows: SpeechWindow[]
@@ -132,6 +138,7 @@ export const buildMusicMix = (
         musicLufs: number
         speech: number
         pause: number
+        trailerPause: number
     }
 ): MusicMix => {
     const windows = mergeSpeechWindows(speechWindows, duration)
@@ -143,15 +150,22 @@ export const buildMusicMix = (
         `[${musicInput}:a]atrim=0:${fmt(duration)},asetpts=PTS-STARTPTS,` +
         'aformat=sample_rates=48000:channel_layouts=stereo,' +
         `volume=${fmt(matchGain)},` +
-        `volume='${musicVolumeExpression(windows, {speech, pause})}':eval=frame,` +
+        `volume='${speechVolumeExpression(windows, {speech, pause})}':eval=frame,` +
         `afade=t=in:st=0:d=${fmt(Math.min(FADE_IN_SECONDS, duration / 4))},` +
         `afade=t=out:st=${fmt(fadeOutStart)}:d=${fmt(Math.min(FADE_OUT_SECONDS, duration))}[music]`
+
+    // Трейлер в паузах тише; без окон речи (или trailerPause=1) не трогается.
+    const trailerDucked = windows.length > 0 && trailerPause < 1
+    const voice =
+        '[0:a]aformat=sample_rates=48000:channel_layouts=stereo' +
+        (trailerDucked ? `,volume='${speechVolumeExpression(windows, {speech: 1, pause: trailerPause})}':eval=frame` : '') +
+        '[voice]'
 
     const filters = voiceLufs === undefined
         ? [music, '[music]loudnorm=I=-14:TP=-1.5:LRA=11[aout]']
         : [
             music,
-            '[0:a]aformat=sample_rates=48000:channel_layouts=stereo[voice]',
+            voice,
             '[voice][music]amix=inputs=2:duration=first:normalize=0,loudnorm=I=-14:TP=-1.5:LRA=11[aout]'
         ]
 
@@ -160,6 +174,7 @@ export const buildMusicMix = (
         settings: {
             speech,
             pause,
+            trailerPause: trailerDucked ? trailerPause : 1,
             speechWindows: windows.length,
             voiceLufs: voiceLufs ?? 'нет звука',
             musicLufs,
