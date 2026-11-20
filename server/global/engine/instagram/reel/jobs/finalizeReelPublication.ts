@@ -41,8 +41,6 @@ type ReelJob = {
     instagram_media_id: string | null
     instagram_permalink: string | null
     lease_token: string | null
-    /** Ошибка воркера, если Reel не собрался (причина в итоговом уведомлении). */
-    last_error?: string | null
 }
 
 type FinalizeResult = {
@@ -98,6 +96,15 @@ export const finalizeReelPublication = async (
 ): Promise<FinalizeResult> => {
     const leaseToken = randomUUID()
     const leaseSeconds = 240
+
+    // Причина сбоя воркера — до захвата: claim_reel_publication_job обнуляет last_error,
+    // и в итоговом уведомлении строка «Причина» не появлялась.
+    const {data: failure} = await supabase
+        .from('reel_processing_jobs')
+        .select('last_error')
+        .eq('id', jobId)
+        .maybeSingle()
+    const workerError: string | null = failure?.last_error ?? null
 
     const {data: claimedData, error: claimError} = await supabase.rpc(
         'claim_reel_publication_job',
@@ -395,7 +402,7 @@ export const finalizeReelPublication = async (
                 ? 'Опубликовано в Telegram и Instagram'
                 : previewSent
                     ? 'Dev: опубликовано в тестовом канале, Reel — выше в этом чате. В Instagram ничего не отправлено.'
-                    : `Опубликовано в Telegram. Не удалось подготовить Reel для Instagram.${job.last_error ? `\nПричина: ${humanReelError(job.last_error)}` : ''}`
+                    : `Опубликовано в Telegram. Не удалось подготовить Reel для Instagram.${workerError ? `\nПричина: ${humanReelError(workerError)}` : ''}`
         )
 
         console.log('[REEL FINALIZER PUBLISHED]', {
