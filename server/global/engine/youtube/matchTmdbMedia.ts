@@ -128,10 +128,13 @@ export const matchTmdbMedia = async (parsed: ParsedTrailerTitle): Promise<Matche
         mediaId: Number(best.id),
         mediaType,
         contentType: normalizeTmdbMedia(best).content_type,
-        media: await fetchTmdbMedia(mediaType, Number(best.id)),
+        media: await fetchTmdbMedia(mediaType, Number(best.id), WITH_CREDITS),
         tmdbTitle: String(best.title || best.name || parsed.name)
     }
 }
+
+/** Карточка для проверки очереди: актёры — для порога известности (WELL_KNOWN). */
+const WITH_CREDITS = 'language=ru-RU&append_to_response=credits'
 
 /** Полная карточка TMDB (по умолчанию ru-RU). */
 export const fetchTmdbMedia = (mediaType: string, mediaId: number, query = 'language=ru-RU') =>
@@ -148,7 +151,7 @@ export const resolveTrailerMedia = async (
 ): Promise<{matched: MatchedMedia, reason?: undefined} | {reason: string}> => {
     let matched: MatchedMedia | null
     if (known) {
-        matched = {...known, media: await fetchTmdbMedia(known.mediaType, known.mediaId)}
+        matched = {...known, media: await fetchTmdbMedia(known.mediaType, known.mediaId, WITH_CREDITS)}
     } else {
         const parsed = parseTrailerTitle(title)
         if (!parsed) return {reason: 'не удалось выделить название фильма'}
@@ -156,5 +159,7 @@ export const resolveTrailerMedia = async (
         if (!matched) return {reason: `в TMDB нет точного совпадения для «${parsed.name}»${parsed.year ? ` (${parsed.year})` : ''}`}
     }
     const unsuitable = findUnsuitableMediaReason(matched.media)
-    return unsuitable ? {reason: `«${matched.tmdbTitle}»: ${unsuitable}`} : {matched}
+    // Актёры нужны только для проверки известности: в сессию Reel карточка идёт без них.
+    const {credits: _credits, ...media} = matched.media
+    return unsuitable ? {reason: `«${matched.tmdbTitle}»: ${unsuitable}`} : {matched: {...matched, media}}
 }

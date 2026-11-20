@@ -69,6 +69,25 @@ export const EXCLUDED_TMDB_GENRES: Record<number, string> = {
     99: 'документальный'
 }
 
+/** Страны производства, тайтлы которых не публикуются (решение владельца 20.11). */
+export const EXCLUDED_COUNTRIES: Record<string, string> = {
+    ID: 'Индонезия'
+}
+
+/**
+ * Пороги известности (решение владельца 20.11: «два актёра, никто не будет смотреть»). Тайтл
+ * подходит, если выполнено хоть одно: есть оценки, TMDB считает его популярным, или среди
+ * первых пяти актёров есть известный. У новинок оценок нет — их вытягивают актёры: на 20.11
+ * The Comeback King (Глен Пауэлл) 3.2, Killing Castro (Аль Пачино) 5.0, а Collect & Praise 1.8,
+ * Living the Dream 0.3. Нужен media.credits (append_to_response=credits).
+ */
+export const WELL_KNOWN = {votes: 100, popularity: 10, castPopularity: 2}
+
+export const isWellKnown = (media: Record<string, any>) =>
+    Number(media.vote_count) >= WELL_KNOWN.votes ||
+    Number(media.popularity) >= WELL_KNOWN.popularity ||
+    (media.credits?.cast ?? []).slice(0, 5).some((person: {popularity?: number}) => Number(person.popularity) >= WELL_KNOWN.castPopularity)
+
 /**
  * Почему тайтл из TMDB не публикуется, или undefined. Проверяется полная карточка (ru-RU):
  * пост без постера пустой. Нет русского сюжета — его допишет Gemini перед публикацией
@@ -77,7 +96,13 @@ export const EXCLUDED_TMDB_GENRES: Record<number, string> = {
 export const findUnsuitableMediaReason = (media: Record<string, any>): string | undefined => {
     const genre = (media.genres ?? []).find((item: {id?: number}) => EXCLUDED_TMDB_GENRES[Number(item?.id)])
     if (genre) return `не фильм и не сериал (${EXCLUDED_TMDB_GENRES[Number(genre.id)]})`
+    const countries: string[] = media.origin_country?.length
+        ? media.origin_country
+        : (media.production_countries ?? []).map((item: {iso_3166_1?: string}) => item.iso_3166_1)
+    const country = countries.find(code => EXCLUDED_COUNTRIES[code])
+    if (country) return `страна: ${EXCLUDED_COUNTRIES[country]}`
     if (!media.poster_path) return 'в TMDB нет постера'
+    if (!isWellKnown(media)) return 'малоизвестный: нет ни оценок, ни популярности, ни известных актёров'
     return undefined
 }
 
