@@ -299,6 +299,22 @@ export const CARD_MORE = defineCallback<SimilarRef & {keyTrailer?: string}>({
 /** «🔄 Обновить» под панелью /status (только администратор). */
 export const ADMIN_STATUS = defineStaticCallback('admin_status', 'adm:status')
 
+/** «✖️ N» в панели /status: убрать ролик из очереди YouTube (id строки youtube_publish_queue). */
+export const ADMIN_STATUS_QUEUE_CANCEL = defineCallback<{queueId: number}>({
+    id: 'admin_status_queue_cancel',
+    pattern: /^adm:qx:(\d+)$/,
+    encode: ({queueId}) => `adm:qx:${queueId}`,
+    decode: match => ({queueId: Number(match[1])})
+})
+
+/** «🗑 Снять» в панели /status: зависший Reel. */
+export const ADMIN_STATUS_REEL_CANCEL = defineCallback<{jobId: string}>({
+    id: 'admin_status_reel_cancel',
+    pattern: new RegExp(`^adm:rx:(${UUID})$`),
+    encode: ({jobId}) => `adm:rx:${jobId}`,
+    decode: match => ({jobId: match[1]!})
+})
+
 // ---------------------------------------------------------------------------
 // Только для старых сообщений: обработчики зарегистрированы, но кнопок с такими
 // данными в коде больше нет (проверено 11.11). Удалять, когда старые сообщения
