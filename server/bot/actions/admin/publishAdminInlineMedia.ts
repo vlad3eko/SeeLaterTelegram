@@ -14,6 +14,7 @@ import {internalFetch, internalTmdbFetch} from "#server/utils/api/internalFetch"
 import {ADMIN_PUBLISH_CARD} from "#server/bot/callbacks/routes";
 import {sendReelReviewStatus} from "#server/bot/actions/admin/reelReview/reelReviewMessages";
 import {initialReelProgress} from "#server/global/engine/instagram/reel/jobs/reelProgress";
+import {findRussianTrailer} from "#server/global/engine/youtube/russianTrailer";
 
 export const publishAdminInlineMedia = async (ctx: any) => {
     const {
@@ -140,6 +141,16 @@ export const publishAdminInlineMedia = async (ctx: any) => {
         fileId: `https://image.tmdb.org/t/p/original${media.poster_path || media.backdrop_path}`
     }
 
+    // Ключ не вставлен вручную: русский дубляж с каналов слежения важнее ключа из TMDB (он часто
+    // английский) — как ручное «Изменить ключ трейлера», только сам. Ролик с субтитрами не берётся.
+    const russianTrailer = session.trailerKeySource === 'manual'
+        ? undefined
+        : await findRussianTrailer(session.media, session.mediaType, Number(session.mediaId))
+    if (russianTrailer && russianTrailer.videoId !== session.keyTrailer) {
+        session.keyTrailer = russianTrailer.videoId
+        await updateAdminEditSession(ctx.from.id, {keyTrailer: russianTrailer.videoId})
+    }
+
     // Единственный долгий этап — подготовка видео. Создаём durable job,
     // запускаем Cloud Run и выходим из Telegram webhook.
     if (session.keyTrailer) {
@@ -192,7 +203,7 @@ export const publishAdminInlineMedia = async (ctx: any) => {
                 await sendReelReviewStatus(
                     {id: result.jobId, admin_telegram_id: ctx.from.id},
                     initialReelProgress(
-                        mediaTitle ? `«${mediaTitle}»` : 'Reel',
+                        `${mediaTitle ? `«${mediaTitle}»` : 'Reel'}${russianTrailer ? ' · русский дубляж' : ''}`,
                         session.trailerKeySource !== 'manual' ? 'full' : session.videoType === 'clip' ? 'fragments' : 'clean'
                     ),
                     {withCancel: true}

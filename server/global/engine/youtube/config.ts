@@ -44,7 +44,9 @@ export const EXCLUDED_TITLE_WORDS = [
     // Анонс трейлера, а не сам трейлер («Bottoms up! Trailer tomorrow.»)
     'trailer tomorrow', 'trailer drops', 'trailer coming', 'trailer arrives',
     // Промо-нарезка к уже вышедшему трейлеру («Reba. Frickin. McEntire. Watch the trailer for … now!»)
-    'watch the trailer', 'watch the new trailer'
+    'watch the trailer', 'watch the new trailer',
+    // Русские каналы: не трейлер («Отрывок «Поехали»», «Специальный ролик», «Официальный клип»)
+    'отрывок', 'специальный ролик', 'клип', 'фрагмент', 'за кадром', 'интервью'
 ]
 
 /**
@@ -108,9 +110,25 @@ export const findUnsuitableMediaReason = (media: Record<string, any>, cast: Arra
     return undefined
 }
 
+/**
+ * Русская озвучка в названии ролика. «Субтитры» — оригинальная дорожка: такой ролик не берётся,
+ * публикуется оригинал со своими субтитрами (решение владельца 20.11).
+ */
+export const RUSSIAN_AUDIO = ['дубляж', 'озвучка']
+
+export const isRussianAudio = (title: string) => {
+    const lower = title.toLowerCase()
+    return RUSSIAN_AUDIO.some(word => lower.includes(word)) && !lower.includes('субтитр')
+}
+
 const DEFAULT_CHANNELS: WatchedChannel[] = [
-    // Русские трейлеры: только дубляж. В очереди — первыми.
-    {id: 'UC6A-Z0jDKemh9-CwGbj5yog', name: 'KinomanTrailers', keywords: ['дубляж'], priority: true},
+    // Русские трейлеры: только дубляж и озвучка. В очереди — первыми; один фильм выходит на всех
+    // четырёх, лишние копии отсеивает очередь (dropDuplicates в youtubeQueue.ts). Порядок —
+    // кому отдать предпочтение при дублях.
+    {id: 'UC6A-Z0jDKemh9-CwGbj5yog', name: 'KinomanTrailers', keywords: RUSSIAN_AUDIO, priority: true},
+    {id: 'UCEScTo5Hk1YXsCqGW1zgQEw', name: 'топКино', keywords: RUSSIAN_AUDIO, priority: true},
+    {id: 'UCbd7vzvz5wFe7r_KaW5tQUw', name: 'FRESH Trailers', keywords: RUSSIAN_AUDIO, priority: true},
+    {id: 'UCnRHJsRYt_v5ZwwEK--2z9g', name: 'INS', keywords: RUSSIAN_AUDIO, priority: true},
 
     // Киностудии и стриминги (оригинальные трейлеры; субтитры переводит цепочка Reel).
     {id: 'UCjmJDM5pRKbUlVIzDYYWb6g', name: 'Warner Bros.', keywords: TRAILER},

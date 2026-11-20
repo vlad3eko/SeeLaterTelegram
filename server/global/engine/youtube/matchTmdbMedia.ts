@@ -19,14 +19,19 @@ export type ParsedTrailerTitle = {
 const TRAILER_WORDS =
     /\b(?:official\s+)?(?:final\s+|new\s+|main\s+|first\s+|teaser\s+)?(?:trailer|teaser)(?:\s*#?\s*\d+)?\b|\[?\b(?:hd|4k|uhd)\b\]?/gi
 
+/** «ПРИЗРАЧНЫЙ СОЛДАТ Русский трейлер (4K Дубляж, 2026)» (FRESH Trailers): название без тире. */
+const RU_TRAILER_WORDS = /\s+(?:финальный\s+|официальный\s+|новый\s+)?(?:русский\s+)?(?:трейлер|тизер)(?=[\s(#,.]|$)/iu
+
 export const parseTrailerTitle = (title: string): ParsedTrailerTitle | null => {
     // Название — первая часть до « — », « - » или « | » (русские и английские каналы):
     //   «Бункер — Русский трейлер (Дубляж, 4К, 2027)», «Dune: Part Three | Final Trailer»,
-    //   «Killing Castro (2026) Teaser Trailer - Diego Boneta …», «Wednesday: Season 2 | Official Teaser».
-    const firstPart = title.split(/\s+[—–-]\s+|\s*\|\s*/)[0] ?? ''
+    //   «Killing Castro (2026) Teaser Trailer - Diego Boneta …», «Wednesday: Season 2 | Official Teaser»,
+    //   или до «Русский трейлер», если тире нет.
+    const firstPart = (title.split(/\s+[—–-]\s+|\s*\|\s*/)[0] ?? '').split(RU_TRAILER_WORDS)[0] ?? ''
     const rest = title.slice(firstPart.length)
-    // «Wednesday: Season 2 | …» и «Bad Monkey — Season 2 Official Trailer»: сезон в любой части.
-    const isSeason = /\bseason\s+\d+/i.test(title)
+    // «Wednesday: Season 2 | …», «Bad Monkey — Season 2 Official Trailer», «Неуязвимый (5 сезон) — …»,
+    // «Задача трёх тел: 2 сезон | …»: сезон в любой части.
+    const isSeason = /\bseason\s+\d+/i.test(title) || /\d+\s*сезон/iu.test(title)
 
     const yearInName = firstPart.match(/\((19\d{2}|20\d{2})\)/)?.[1]
     const name = firstPart
@@ -34,6 +39,7 @@ export const parseTrailerTitle = (title: string): ParsedTrailerTitle | null => {
         .replace(TRAILER_WORDS, ' ')
         // Сезон сериала: в TMDB это один сериал («Wednesday: Season 2» → «Wednesday»).
         .replace(/[:\s]+season\s+\d+\b.*$/i, '')
+        .replace(/[:\s]*\(?\s*\d+\s*сезон\s*\)?.*$/iu, '')
         .replace(/^(?:marvel\s+studios[’']?|disney[’']?s|pixar[’']?s)\s+/i, '')
         .replace(/[\s:,–—-]+$/g, '')
         .replace(/\s+/g, ' ')
@@ -59,7 +65,27 @@ const normalize = (value: string | undefined) =>
         .replace(/\s+/g, ' ')
         .trim()
 
-const yearOf = (item: Record<string, any>) => {
+/** Название без номера части: «Ледниковый период 6: Точка кипения» → как в TMDB, без «6». */
+const withoutPartNumber = (value: string | undefined) =>
+    normalize(value).replace(/(^|\s)\d{1,2}(?=\s|$)/g, ' ').replace(/\s+/g, ' ').trim()
+
+/**
+ * Совпадает ли название из ролика с тайтлом TMDB (русское или оригинальное название): 'exact',
+ * 'part' — совпало без номера части (каналы пишут «… 6:», в TMDB его нет; только для новинок
+ * текущего года и позже, иначе «Пчеловод 2» нашёл бы первого «Пчеловода»), или undefined.
+ */
+export const titleMatch = (name: string, item: Record<string, any>): 'exact' | 'part' | undefined => {
+    const titles = [item.title, item.name, item.original_title, item.original_name]
+    const wanted = normalize(name)
+    if (titles.some(value => normalize(value) === wanted)) return 'exact'
+    const loose = withoutPartNumber(name)
+    if (loose === wanted || !loose) return undefined
+    return (yearOf(item) ?? 0) >= new Date().getFullYear() && titles.some(value => withoutPartNumber(value) === loose)
+        ? 'part'
+        : undefined
+}
+
+export const yearOf = (item: Record<string, any>) => {
     const date = String(item.release_date || item.first_air_date || '')
     const year = Number(date.slice(0, 4))
     return Number.isFinite(year) && year > 0 ? year : undefined
@@ -93,28 +119,26 @@ const tmdbFetch = async (pathAndQuery: string) => {
 }
 
 /**
- * Лучшее совпадение или null. Принимается только точное совпадение названия (русского или
- * оригинального); при нескольких — то, у которого год ближе к году из ролика, затем популярнее.
+ * Лучшее совпадение или null. Принимается только совпадение названия (русского или
+ * оригинального, см. titleMatch); при нескольких — точное, затем то, у которого год ближе к году
+ * из ролика, затем популярнее.
  * Без точного названия ничего не публикуется: лучше пропустить ролик, чем выложить чужой фильм.
  */
 export const matchTmdbMedia = async (parsed: ParsedTrailerTitle): Promise<MatchedMedia | null> => {
     const params = new URLSearchParams({query: parsed.name, language: 'ru-RU', include_adult: 'false', page: '1'})
     const search = await tmdbFetch(`search/multi?${params}`)
-    const wanted = normalize(parsed.name)
-
     const candidates = (search.results ?? [])
         .filter((item: Record<string, any>) => parsed.isSeason
             ? item.media_type === 'tv'
             : item.media_type === 'movie' || item.media_type === 'tv')
-        .filter((item: Record<string, any>) =>
-            [item.title, item.name, item.original_title, item.original_name].some(value => normalize(value) === wanted))
         .map((item: Record<string, any>) => {
             const year = yearOf(item)
             const distance = parsed.isSeason
                 ? 0
                 : parsed.year && year ? Math.abs(parsed.year - year) : parsed.year ? 50 : 0
-            return {item, distance}
+            return {item, distance, match: titleMatch(parsed.name, item)}
         })
+        .filter(({match}: {match?: string}) => match)
         // Год из ролика, если он есть, должен быть близок: трейлер выходит до премьеры или в её год.
         .filter(({distance}: {distance: number}) => distance <= 2)
         // Года в ролике нет («The Riot | Official Trailer | Netflix»): трейлеры выходят к новинкам,
@@ -124,7 +148,9 @@ export const matchTmdbMedia = async (parsed: ParsedTrailerTitle): Promise<Matche
             const year = yearOf(item)
             return !year || year >= new Date().getFullYear() - 1
         })
-        .sort((a: any, b: any) => a.distance - b.distance || (b.item.popularity ?? 0) - (a.item.popularity ?? 0))
+        // Точное название важнее совпадения без номера части.
+        .sort((a: any, b: any) => (a.match === 'exact' ? 0 : 1) - (b.match === 'exact' ? 0 : 1) ||
+            a.distance - b.distance || (b.item.popularity ?? 0) - (a.item.popularity ?? 0))
 
     const best = candidates[0]?.item
     if (!best) return null

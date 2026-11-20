@@ -1,7 +1,8 @@
 import {getSupabase, dispatchReelJob} from '#server/global/engine/instagram/reel/jobs/dispatchReelJob'
 import {listChannelVideos, type ChannelVideo} from '#server/global/engine/youtube/channelFeed'
 import {resolveTrailerMedia, type MatchedMedia} from '#server/global/engine/youtube/matchTmdbMedia'
-import {findExcludedTitleReason, youtubeQueueConfig, type WatchedChannel} from '#server/global/engine/youtube/config'
+import {findExcludedTitleReason, isRussianAudio, youtubeQueueConfig, type WatchedChannel} from '#server/global/engine/youtube/config'
+import {findRussianTrailer} from '#server/global/engine/youtube/russianTrailer'
 import {generateRussianOverview, overviewFacts} from '#server/global/engine/youtube/russianOverview'
 import {BOT_ADMINS} from '#server/global/oneLinkApp'
 
@@ -117,6 +118,8 @@ const syncChannel = async (supabase: Supabase, channel: WatchedChannel, config: 
         if (!channel.keywords.some(keyword => title.includes(keyword))) {
             return {status: 'skipped', reason: `нет «${channel.keywords.join(' / ')}» в названии`}
         }
+        // Русские субтитры к оригиналу: публикуется оригинал со своими субтитрами.
+        if (title.includes('субтитр')) return {status: 'skipped', reason: 'русские субтитры — нужен оригинал или дубляж'}
         const excluded = findExcludedTitleReason(video.title)
         if (excluded) return {status: 'skipped', reason: `не трейлер фильма («${excluded}»)`}
         if (video.publishedAt && now - Date.parse(video.publishedAt) > maxAgeMs) {
@@ -150,6 +153,60 @@ const syncChannel = async (supabase: Supabase, channel: WatchedChannel, config: 
     const queued = (inserted ?? []).filter(row => row.status === 'queued')
     // Без сообщения на каждый ролик: у студий их несколько в день. Сообщение приходит при сборке Reel.
     console.log('[YOUTUBE QUEUE SYNC]', {channel: channel.name, source, seen: videos.length, inserted: inserted?.length ?? 0, queued: queued.length, baseline})
+}
+
+/**
+ * Один фильм — одна строка в очереди: русские каналы выкладывают одни и те же трейлеры, студия
+ * и стриминг — тоже. Остаётся русская озвучка с приоритетного канала (по порядку в списке
+ * каналов), иначе ролик, вышедший раньше; остальные — skipped «дубль».
+ */
+export const pickDuplicates = <T extends {id: number, channel_id: string, title: string, media_id: number | null, media_type: string | null, video_published_at: string | null}>(
+    rows: T[],
+    channels: WatchedChannel[]
+): Array<{keep: T, drop: T[]}> => {
+    const rank = (row: T) => {
+        const index = channels.findIndex(channel => channel.id === row.channel_id)
+        const russian = channels[index]?.priority && isRussianAudio(row.title) ? 0 : 1
+        return [russian, index < 0 ? channels.length : index, Date.parse(row.video_published_at ?? '') || Number.MAX_SAFE_INTEGER, row.id]
+    }
+    const groups = new Map<string, T[]>()
+    for (const row of rows) {
+        if (!row.media_id) continue
+        const key = `${row.media_type}/${row.media_id}`
+        groups.set(key, [...(groups.get(key) ?? []), row])
+    }
+    return [...groups.values()]
+        .filter(group => group.length > 1)
+        .map(group => {
+            const [keep, ...drop] = [...group].sort((a, b) => {
+                const [ra, rb] = [rank(a), rank(b)]
+                const i = ra.findIndex((value, index) => value !== rb[index])
+                return i < 0 ? 0 : ra[i]! - rb[i]!
+            })
+            return {keep: keep!, drop}
+        })
+}
+
+const dropDuplicates = async (supabase: Supabase, config: ReturnType<typeof youtubeQueueConfig>) => {
+    const {data, error} = await supabase
+        .from('youtube_publish_queue')
+        .select('id,channel_id,channel_name,title,media_id,media_type,tmdb_title,video_published_at')
+        .eq('status', 'queued')
+        .not('media_id', 'is', null)
+    if (error) throw new Error(`[YOUTUBE QUEUE] ${error.message}`)
+
+    for (const {keep, drop} of pickDuplicates(data ?? [], config.channels)) {
+        const {error: dropError} = await supabase
+            .from('youtube_publish_queue')
+            .update({
+                status: 'skipped',
+                last_error: `дубль: «${keep.tmdb_title || keep.title}» уже в очереди (${keep.channel_name || keep.channel_id})`,
+                updated_at: new Date().toISOString()
+            })
+            .in('id', drop.map(row => row.id))
+            .eq('status', 'queued')
+        if (dropError) throw new Error(`[YOUTUBE QUEUE] ${dropError.message}`)
+    }
 }
 
 const updateRow = async (supabase: Supabase, id: number, patch: Record<string, unknown>) => {
@@ -256,6 +313,10 @@ const dispatchNext = async (supabase: Supabase, config: ReturnType<typeof youtub
         if (!overview) return fail(`«${matched.tmdbTitle}»: сюжета нет ни в TMDB, ни в поиске`, {notify: false})
     }
 
+    // Английский трейлер, а русский дубляж уже есть на каналах слежения — публикуется дубляж.
+    const russian = isRussianAudio(row.title) ? undefined : await findRussianTrailer(matched.media, matched.mediaType, matched.mediaId)
+    const keyTrailer = russian?.videoId ?? row.video_id
+
     try {
         // Те же значения, что у кнопки «Опубликовать» (publishAdminInlineMedia.ts).
         const {CHANEL_LINK, URL_ACTIVE} = await import('#server/bot/bot')
@@ -273,7 +334,7 @@ const dispatchNext = async (supabase: Supabase, config: ReturnType<typeof youtub
                 mediaId: matched.mediaId,
                 mediaType: matched.mediaType,
                 contentType: matched.contentType,
-                keyTrailer: row.video_id,
+                keyTrailer,
                 ...(overview ? {overview} : {}),
                 currentMedia: {
                     type: 'photo',
@@ -287,14 +348,21 @@ const dispatchNext = async (supabase: Supabase, config: ReturnType<typeof youtub
         // Задача Reel поставлена: дальше ролик живёт в reel_processing_jobs, из очереди он удаляется.
         // Если удаление не прошло, строка останется dispatching и через 15 минут будет взята снова:
         // dispatchReelJob с тем же source_update_id вернёт ту же задачу, второй не будет.
-        const {error: deleteError} = await supabase
-            .from('youtube_publish_queue')
-            .delete()
-            .eq('id', row.id)
+        // Опубликован русский дубляж вместо этого ролика: строка остаётся (skipped), иначе лента
+        // снова увидит ролик — его ключа нет в задачах Reel — и поставит его в очередь.
+        const {error: deleteError} = russian
+            ? await supabase
+                .from('youtube_publish_queue')
+                .update({status: 'skipped', last_error: `вместо него — русский дубляж ${russian.videoId}`, finished_at: new Date().toISOString()})
+                .eq('id', row.id)
+            : await supabase
+                .from('youtube_publish_queue')
+                .delete()
+                .eq('id', row.id)
         if (deleteError) console.error('[YOUTUBE QUEUE DELETE ERROR]', {id: row.id, message: deleteError.message})
 
-        await notifyAdmin(`▶️ Автопубликация: собираю Reel «${matched.tmdbTitle}» из ${row.title}\n${videoUrl(row.video_id)}`)
-        console.log('[YOUTUBE QUEUE DISPATCHED]', {videoId: row.video_id, jobId: result.jobId, mediaId: matched.mediaId})
+        await notifyAdmin(`▶️ Автопубликация: собираю Reel «${matched.tmdbTitle}» из ${russian?.title ?? row.title}\n${videoUrl(keyTrailer)}`)
+        console.log('[YOUTUBE QUEUE DISPATCHED]', {videoId: keyTrailer, queueVideoId: row.video_id, jobId: result.jobId, mediaId: matched.mediaId})
         return {videoId: row.video_id, result: 'dispatched', jobId: result.jobId}
 
     } catch (dispatchError) {
@@ -332,6 +400,14 @@ export const processYoutubeQueue = async () => {
         }
     }
     await Promise.all([syncWorker(), syncWorker(), syncWorker(), syncWorker()])
+
+    // После всех каналов: они синхронизируются параллельно, дубли между ними видны только здесь.
+    try {
+        await dropDuplicates(supabase, config)
+    } catch (error) {
+        errors.push(errorText(error))
+        console.error('[YOUTUBE QUEUE DEDUP ERROR]', errorText(error))
+    }
 
     // Воркер Cloud Run сообщает о готовом Reel по https (dispatchReelJob требует https). В npm run dev
     // без туннеля адреса нет: ролики спокойно ждут в очереди, попытки не тратятся.
