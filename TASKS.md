@@ -278,58 +278,132 @@
 4. Проверено в песочнице (yt-dlp заменён подделкой, `ctx` с записью вызовов): аргумент `-S res:1080,vcodec:h264,acodec:m4a`; переход на следующий набор клиентов при сбое первого; закрытое видео сразу ошибка без повторов; файл 62 МБ (4K) уходит сжатым 3,6 МБ, оба временных файла удалены; сбой отправки в Telegram пробрасывается, временный файл удалён, «процесс окончен» не отправляется; путь Reel по-прежнему качает с `res,+hdr`; `prepareReel` целиком проходит с кэшем clean и без него (clean и Reel 1080×1080, 24000/1001). Не проверено: настоящий yt-dlp с этой сортировкой, отправка в настоящий Telegram, время функции Vercel (должно быть секунды на загрузку, плюс сжатие, если файл больше 45 МБ).
 5. Ошибка скачивания или отправки в режиме `download` по-прежнему только пишется в лог, администратору сообщение не уходит (поведение не менялось).
 
-## Notification: уведомления о выходе сохранённых (запрос владельца 20.11)
+## Notification: сводка обновлений по сохранённым (запрос владельца 20.11, план сверен с консультацией GPT 21.11)
 
 > Когда всё сделано и выкачено, этот раздел удалить целиком (решение владельца).
 
-Пользователь нажал «Сохранить» → строка в `favorites` (`user_id, tmdb_id, media_type, title, release_date, poster_path, vote_average, genres_ids`). В день выхода бот присылает уведомление. Объём на 20.11: 152 строки, из них 13 с датой в будущем, 25 сериалов, у 2 нет даты: нагрузка ничтожная.
+**Суть.** «Сохранить» — подписка на фильм или сериал. Раз в день (10:00 МСК) пользователь получает **одно** сообщение-сводку по всем сохранённым, если есть новости; нет новостей — ничего (календарь сам по себе не повод писать). События: премьера сегодня, новая серия, перенос даты, новый трейлер (ссылка), новые постеры (свёрнутый блок с фото). В конце — до 4 ближайших дат. Кнопки только наши: «Карточка» (до 3, на главные события) и «📦 Коллекция». Онлайн-кинотеатров пока нет.
 
-### Решения владельца
-- Кнопок онлайн-кинотеатров (Кинопоиск, Иви, Wink) пока нет. Кнопки только наши: «Карточка», «Коллекция» (`switchToCurrentChat('#collection')`, как в `checkBookmarksMedias`).
-- Дата из момента сохранения устаревает (переносы): раз в неделю обновлять `release_date` из TMDB.
-- Сериалы: уведомлять о новой серии, а не о дате первого показа.
-- Макет: B (премьера + «Дальше в вашей коллекции»); несколько выходов в один день → одно сообщение-дайджест (C).
+Объём на 21.11: 152 строки `favorites`, ~40 уникальных тайтлов в будущем или в эфире, пользователей — десятки. Считаем по **уникальным тайтлам**, а не по строкам: один тайтл = один снимок и одно событие на всех подписчиков.
 
-### Наброски сообщений
-Фильм (фото: постер или кадр; название моноширинным, копируется нажатием):
-```
-🎉 Сегодня выходит `Мстители: Доктор Дум`
-фантастика, боевик · ⭐ 8.1
+### Что взяли из консультации GPT и что упростили под нас
+Взяли: общий снимок тайтла и сравнение с ним; журнал событий с уникальным `event_key` (повтор таймера и два источника трейлера не дают дублей); разделение detect / digest; первое заполнение снимка — без событий; события только после `favorites.created_at`; наступление уже известной даты — локально, без TMDB; частота опроса по близости даты; серии — через `last_episode_to_air` + запрос сезона (пачка серий одним днём → один пункт); allowlist событий (рейтинг, описание, порядок картинок — не события); перенос и новые постеры — только после повторного подтверждения; 403 → больше не слать; при неясном исходе отправки не повторять (лучше пропуск, чем дубль).
 
-📅 Дальше в вашей коллекции:
-03.01 Аватар 3 · через 44 дн.
-10.01 Дюна 3 · через 51 дн.
-[Карточка] [📦 Коллекция]
+Упростили (на десятки пользователей 7 таблиц и очередь с `SKIP LOCKED` — лишнее; заложено так, что расширяется без смены фундамента):
+- 3 таблицы вместо 7: `media_watch` (каталог + снимок + расписание проверки в одной строке; даты релизов, известные постеры и трейлеры — в `snapshot jsonb`, а не отдельными таблицами), `media_events`, `digest_deliveries` (состав — массив `event_ids` вместо таблицы элементов).
+- `users.id` у нас число, а не UUID (в эскизе GPT ошибка).
+- Очередь обновления — колонка `next_check_at` в `media_watch`; один тик за раз, без блокировок; повтор Scheduler безопасен благодаря `event_key`.
+- Постеры — **Rich Messages** (`sendRichMessage`, блок `details` с фото, свёрнут по умолчанию). Это уже работает в проекте: `server/global/engine/card/transport/sendRichMessage.ts` (через `callApi`, Telegraf 4.16 метода не знает), фото внутри `details` — `createRichListCaption.ts`. Инлайн `#posters_<id>` не нужен.
+- Источник трейлеров: наша YouTube-очередь (`youtube_publish_queue`, уже с `media_type/media_id`; русские каналы помечены `priority` в `youtube/config.ts`) + TMDB `videos` из того же запроса деталей (ранжирование — `pickTrailer` из `collections/trailers.ts`). Ключ — YouTube video ID, событие одно.
+- Настройки (выключить по фильму, тихий режим) — второй этап; в MVP только `users.digest_enabled`.
+
+### Модель данных (SQL запускает владелец)
+```sql
+create table media_watch (
+  media_type text not null check (media_type in ('movie','tv')),
+  tmdb_id bigint not null,
+  title text, poster_path text, status text,
+  release_date date,            -- фильм: выбранная дата (RU тип 3 → RU тип 2 → общая премьера) для календаря и «сегодня»
+  digital_date date,            -- фильм: RU тип 4 (цифровой релиз), показываем отдельно
+  next_episode_air_date date,   -- сериал: next_episode_to_air
+  next_episode text,            -- «2 сезон, 5 серия»
+  last_episode_id bigint,       -- сериал: last_episode_to_air.id, по нему ловим новые серии
+  snapshot jsonb not null default '{}',  -- release_dates, poster_paths[], trailer_keys[], pending{...}
+  checked_at timestamptz,
+  next_check_at timestamptz not null default now(),
+  last_error text,
+  primary key (media_type, tmdb_id)
+);
+create index media_watch_due on media_watch (next_check_at);
+
+create table media_events (
+  id bigint generated always as identity primary key,
+  media_type text not null, tmdb_id bigint not null,
+  event_type text not null,       -- movie_premiere | release_date_changed | release_date_set | tv_episodes | tv_season_started | trailer_added | posters_added
+  event_key text not null unique, -- movie:550:premiere:2027-02-15 | movie:550:date:3:2027-02-15>2027-02-22 | tv:1399:ep:123456 | movie:550:trailer:AbC123 | movie:550:posters:2026-11-21
+  payload jsonb not null default '{}',
+  source text not null,           -- tmdb | youtube_queue | calendar
+  detected_at timestamptz not null default now()
+);
+create index media_events_media on media_events (media_type, tmdb_id, detected_at desc);
+create index media_events_detected on media_events (detected_at);
+
+create table digest_deliveries (
+  id bigint generated always as identity primary key,
+  user_id bigint not null references users(id),
+  digest_date date not null,
+  event_ids bigint[] not null,
+  cutoff timestamptz not null,    -- события до этой отметки учтены; следующая сводка берёт позже
+  payload jsonb not null,         -- готовое сообщение: повтор отправки шлёт ровно его
+  status text not null default 'pending' check (status in ('pending','sending','sent','failed','unknown','blocked')),
+  telegram_message_id bigint, attempts int not null default 0, last_error text,
+  created_at timestamptz not null default now(), sent_at timestamptz,
+  unique (user_id, digest_date)
+);
+
+alter table users add column digest_enabled boolean not null default true,
+                  add column bot_blocked_at timestamptz;
+create index favorites_media on favorites (media_type, tmdb_id);
 ```
-Сериалы (одно сообщение на все сериалы дня):
+`favorites.release_date` остаётся датой на момент сохранения; актуальная — в `media_watch`.
+
+### Частота проверки TMDB (`next_check_at`)
+Фильм: до премьеры ≤30 дн. — раз в сутки; 31–90 — раз в 3 дня; дальше или без даты — раз в неделю; вышел больше 14 дн. назад — раз в 30 дней. Сериал: следующая серия в ближайшие 7 дн. (или вчера/сегодня) — раз в сутки; в эфире без даты — раз в неделю; `Ended`/`Canceled` — раз в 30 дней. Неподтверждённое изменение (pending) — перепроверка через 12 ч. Ошибка TMDB — снимок не трогаем, пишем `last_error`, повтор через 6 ч; один 404 — не удаляем. Сейчас это ~10–15 запросов в сутки.
+
+### Задачи
+- **detect** (`server/api/bot/notifications/tick.ts?mode=detect`, Bearer `CRON_SECRET` как `youtubeQueue/tick.ts`; Scheduler раз в час, бюджет вызова ~120 с, остаток — следующим вызовом):
+  1. Синхронизация: тайтлы из `favorites`, которых нет в `media_watch`, — вставить (`next_check_at = now`, снимка нет).
+  2. Due-тайтлы (`next_check_at <= now`, до ~50 за вызов, параллельно 4 — `mapLimit`/`tmdbGet` из `collections/tmdb.ts`): фильм — `/movie/{id}?language=ru-RU&append_to_response=release_dates,videos,images&include_image_language=ru,null`; сериал — `/tv/{id}?…&append_to_response=videos,images`.
+     - снимка нет → записать снимок **без событий** (baseline);
+     - даты: изменилась выбранная дата и старая была в будущем → `pending`; при следующей проверке та же новая дата → `release_date_changed` (даты не было → `release_date_set`); дата пропала — молчим;
+     - сериал: `last_episode_to_air.id` ≠ сохранённого → `/tv/{id}/season/{n}`; все серии новее прежней с `air_date <= сегодня` → одно событие `tv_episodes` на (сезон, дата): «5 серия» / «5–7 серии» / «весь 3 сезон — 8 серий»; первая серия сезона → `tv_season_started`; `Ended` из статуса — в payload последней серии, отдельно не шлём;
+     - трейлеры: новые YouTube-ключи типа `Trailer` (ru/en), опубликованные не раньше прошлого снимка → `trailer_added`;
+     - постеры: новые `file_path` в множестве (не порядок и не рейтинг), подтверждённые второй проверкой → одно `posters_added` (до 6 путей) на тайтл.
+  3. YouTube-очередь: строки `youtube_publish_queue` с `media_id` из `media_watch` и `created_at` после прошлого прохода → `trailer_added` с тем же `event_key` (каналы с `priority` → `payload.russian = true`; совпал ключ с TMDB — не дубль).
+  4. Календарь (раз в сутки, после 09:00 МСК): `release_date = сегодня` → `movie_premiere`; `next_episode_air_date = сегодня` → сериал принудительно проверить (серию подтверждает `last_episode_to_air`).
+- **digest** (тот же эндпоинт `?mode=digest`; Scheduler в 10:00, 10:15, 10:30 — добирает недоотправленное):
+  1. prepare: пользователи с `digest_enabled` и без `bot_blocked_at`; их `favorites`; события по их тайтлам с `detected_at > max(favorite.created_at, cutoff прошлой сводки)`; нет событий → ничего. Склейка: перенос + премьера сегодня = один пункт «премьера сегодня (перенесли с 25.12)»; несколько трейлеров тайтла = один пункт, русский в приоритете. Календарь — 4 ближайшие будущие даты. Insert в `digest_deliveries` (unique по дню: повтор не создаст вторую).
+  2. send: `pending/failed` → `sending` → `sendRichMessage` → `sent` + `message_id`. 403 → `blocked` и `users.bot_blocked_at`; 429 → ждать `retry_after`; таймаут или обрыв → `unknown`, без повтора; прочие ошибки → `failed`, до 3 попыток. Пауза ~40 мс между пользователями (≤25 сообщений/с).
+
+### Сообщение (Rich Message; ошибка Rich → обычный HTML `sendMessage` без фото)
 ```
-📺 Сегодня:
-`Презумпция невиновности` — 2 сезон, 5 серия
-`Одни из нас` — 3 сезон, 1 серия
+🎬 Обновления вашей коллекции · 4
+
+🍿 Премьеры
+• Дюна: Часть третья — сегодня в кино
+📺 Новые серии
+• Разделение — 2 сезон, 5 серия
+• Одни из нас — вышел весь 3 сезон, 8 серий
+📅 Даты
+• Аватар 4 — перенесли: 18.12 → 25.12
+▶️ Трейлеры
+• Мандалорец и Грогу — 🇷🇺 дубляж · ссылка на YouTube
+▸ 🖼 Новые постеры · 3        ← details, свёрнут; внутри фото с подписью-названием
+
+📆 Скоро: 03.01 Аватар 3 · через 44 дн. / 10.01 Дюна 3 · через 51 дн.
+[Карточка: Дюна] [Карточка: Разделение]
 [📦 Коллекция]
 ```
-Несколько фильмов в один день — один дайджест: «🎉 Сегодня выходят 2 из ваших сохранённых», список, по кнопке «Карточка» на каждый. Календарь — до 4 ближайших будущих дат пользователя; пусто → строку не показывать.
+Названия моноширинные (копируются нажатием). Пустые разделы не показываем. До 5 пунктов в разделе, остальное — «и ещё N — в коллекции»; второе сообщение не шлём.
 
 ### План
-1. **SQL (запускает владелец).** В `favorites`: `next_air_date date` (сериалы: дата следующей серии), `next_episode text` («2 сезон, 5 серия»), `notified_on date` (защита от повторной отправки при повторе таймера), `date_checked_at timestamptz`. Индексы: `(release_date)`, `(next_air_date)`.
-2. **Ежедневный тик** `server/api/bot/notifications/tick.ts` (Bearer `CRON_SECRET`, как `youtubeQueue/tick.ts`), Cloud Scheduler в 10:00 по Москве:
-   - один запрос: `favorites` где `(media_type='movie' and release_date = сегодня) or (media_type='tv' and next_air_date = сегодня)`, `notified_on is distinct from сегодня`, вместе с `users.telegram_id`;
-   - сгруппировать по пользователю; для календаря второй запрос: будущие фильмы этих пользователей (`release_date > сегодня`, по 4 на человека);
-   - отправить (фильмы: B/C, сериалы: список), между пользователями пауза ~50 мс (лимит Telegram ~30 сообщений/с); ошибка 403 «bot was blocked» — пропустить;
-   - отметить `notified_on = сегодня` у отправленных строк;
-   - сериалы, по которым ушло уведомление: сразу обновить `next_air_date` из TMDB (иначе до еженедельного прохода следующая серия не появится).
-3. **Еженедельное обновление дат** (тот же эндпоинт с `?mode=refresh` или отдельный, Cloud Scheduler раз в неделю):
-   - фильмы: `release_date >= сегодня - 1 день` или `null`; уникальные `tmdb_id` → `GET /movie/{id}?language=ru-RU` (1 запрос на фильм), обновить `release_date` у всех строк с этим `tmdb_id`;
-   - сериалы: все `media_type='tv'`; `GET /tv/{id}` → `next_episode_to_air` (`air_date`, `season_number`, `episode_number`) → `next_air_date`, `next_episode`; сериал закончился (`next_episode_to_air = null`) → `null`;
-   - `date_checked_at = now()`; запросов к TMDB — по числу уникальных будущих фильмов и сериалов (сейчас ~40 в неделю).
-4. **«Сохранить»** (`server/bot/services/supabase/addFavorite.ts`): для сериала сразу писать `next_air_date` и `next_episode`, если они есть в данных карточки (иначе их заполнит еженедельный проход).
-5. **Кнопка «Карточка»**: найти, как сейчас открывается карточка по `tmdb_id` (`registerCommands.ts`, `startPayload`), и использовать тот же путь (deep link `?start=...` или callback).
-6. **Тесты:** группировка по пользователю, текст B/C и сериалов (экранирование, моноширинное название), календарь (до 4 дат, «через N дн.»), выбор строк на сегодня с учётом `notified_on`; дата «сегодня» — по Москве (как `schedule.ts`).
-7. **Выкатка:** SQL владельцу → push → Cloud Scheduler: ежедневный и еженедельный тики (шаблон — `kinomanov-youtube-queue-tick`).
+1. **SQL** (выше) — владелец.
+2. **Backfill**: скрипт заполняет `media_watch` из `favorites` и делает baseline всем тайтлам (без событий).
+3. **«Сохранить»** (`createFavorite` в `server/bot/services/supabase/addFavorite.ts` — через него идут и бот `saveMediaBot.ts`, и сайт `api/favorites/add.post.ts`): upsert в `media_watch` (`next_check_at = now`, существующую строку не перезаписывать).
+4. **detect**: модуль `server/global/engine/notifications/` (снимок, сравнение, события — чистые функции + тонкий слой Supabase/TMDB) и эндпоинт.
+5. **digest**: сборка сводки (чистая функция: события → блоки Rich), отправка, статусы.
+6. **Кнопка «Карточка»**: найти deep link открытия карточки по `tmdb_id` (`?start=…`, рядом `start=similar_`/`media_cast_` в `buttonsBot.ts`) и переиспользовать.
+7. **Тесты**: сравнение снимков (перенос с подтверждением, пропавшая дата, порядок постеров — не событие, baseline без событий), группировка серий, дедуп трейлера из двух источников, фильтр по `created_at` и `cutoff`, склейка премьеры с переносом, лимиты разделов, «сегодня» по Москве (`schedule.ts`).
+8. **Обкатка**: неделю события только пишутся (`NOTIFICATIONS_DIGEST=off`); затем сводка только администратору; затем всем. Rich-сообщение с `details` и фото проверить на Android, iOS и Desktop.
+9. **Выкатка**: push → Cloud Scheduler: `detect` ежечасно, `digest` в 10:00/10:15/10:30 МСК (шаблон — `kinomanov-youtube-queue-tick`).
+
+### Второй этап (после MVP)
+Кнопка «🔕/🔔 Обновления» в карточке (`favorites.notifications_enabled`, фильм остаётся в коллекции); `users.digest_silent` → `disable_notification`; метрики (запросы TMDB в сутки, событий на сводку — следить, чтобы не было шума); цифровой релиз отдельным событием.
 
 ### Открытые вопросы
-- Время уведомления: 10:00 по Москве?
-- Дата «выхода» для фильма: сейчас общая премьера TMDB; цифровой релиз (тип 4 в `release_dates`) — отдельным шагом, если понадобится.
+- Время сводки 10:00 МСК — ок?
+- Тизеры (`Teaser`) считать трейлерами?
+- Постеры только русские и без текста (`ru,null`) — достаточно?
 
 ## Запланировано
 
