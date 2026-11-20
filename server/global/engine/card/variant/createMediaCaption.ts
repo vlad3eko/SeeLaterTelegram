@@ -1,4 +1,5 @@
 import {dateConvert} from "~/utils/convert/dateConvert";
+import {genresConvert} from "~/utils/convert/genresConvert";
 import {
     dataCollectionMediaCard
 } from "#server/global/engine/card/collectionCard/dataCollectionMediaCard";
@@ -12,8 +13,12 @@ const formatRuntime = (minutes: number | undefined): string => {
     return [hours ? `${hours} ч` : '', rest ? `${rest} мин` : ''].filter(Boolean).join(' ')
 }
 
+/** «100,000,000$», как на прежних постах; неизвестно — «—». */
 const money = (value: unknown): string =>
-    Number(value) > 0 ? `${Number(value).toLocaleString('en-US')} $` : '—'
+    Number(value) > 0 ? `${Number(value).toLocaleString('en-US')}$` : '—'
+
+/** Тег типа карточки: «фильм» → «#фильм», «мультсериал» → «#мультсериал» — для поиска по каналу. */
+const hashtag = (text: string) => `#${text.replace(/[^а-яёА-ЯЁa-zA-Z0-9]/g, '')}`
 
 /** Блок в цитате: выделен цветом в карточке. */
 const quote = (block: any) => ({type: 'blockquote', blocks: [block]})
@@ -26,9 +31,10 @@ const photo = (media: string) => ({type: 'photo', photo: {type: 'photo', media}}
 /**
  * Карточка фильма или сериала (вариант «Компактная», решение владельца 20.11): сверху широкий
  * кадр (backdrop TMDB, вертикального постера нет), «Название · год», одна строка «⭐ рейтинг ·
- * жанры · длительность», комментарий администратора моноширинным шрифтом, остальное свёрнуто:
- * «Сюжет», «Актёры», «Подробнее». Без широкого кадра карточка начинается с названия.
- * Сериалы — та же карточка, в «Подробнее» добавлены число сезонов и серий и таблица сезонов.
+ * #жанры · длительность» (жанры хэштегами — для поиска по каналу, 21.11), комментарий
+ * администратора моноширинным шрифтом, сюжет — открытой цитатой, «Актёры» и «Дополнительная
+ * информация» (состав прежних постов) свёрнуты. Без широкого кадра карточка начинается с названия.
+ * Сериалы — та же карточка, в «Дополнительной информации» ещё число сезонов и серий и таблица сезонов.
  */
 export const createMediaCaption = (
     preview: statusRichCard,
@@ -41,11 +47,10 @@ export const createMediaCaption = (
     // images.poster: [постер, широкий кадр] (resolveCardStrategies, режим item).
     const wideImage = images?.poster?.[1] || undefined
     const year = dataCollection.date !== '-' ? dataCollection.date : ''
-    const genres = (media.genres ?? [])
-        .map((genre: {name?: string}) => String(genre?.name ?? '').toLowerCase())
-        .filter(Boolean)
-        .slice(0, 3)
-        .join(', ')
+    // Жанры хэштегами (#драма • #история), как на прежних постах: по ним ищут в канале.
+    const tags = media.genres?.length ? genresConvert(media.genres) : ''
+    const typeTag = hashtag(dataCollection.mediaType)
+    const countries = (media.production_countries ?? []).map((country: any) => country.name).join(' · ')
     const runtime = formatRuntime(media.runtime || media.episode_run_time?.[0])
     const rating = dataCollection.rating !== '—' ? `⭐ ${dataCollection.rating}` : ''
 
@@ -57,7 +62,7 @@ export const createMediaCaption = (
     }
     const metaLine = {
         type: 'paragraph',
-        text: [rating, genres, runtime].filter(Boolean).join(' · ') || dataCollection.mediaType
+        text: [rating, tags, runtime].filter(Boolean).join(' · ') || typeTag
     }
 
     if (preview === 'pending') {
@@ -89,22 +94,19 @@ export const createMediaCaption = (
         titleLine,
         metaLine,
 
+        // Оригинальное название — мелко под строкой, как на прежних постах.
+        ...(dataCollection.originalTitle && dataCollection.originalTitle !== dataCollection.title
+            ? [{type: 'footer', text: `original: «${dataCollection.originalTitle}»`}]
+            : []),
+
         // Комментарий администратора — моноширинным, сразу под строкой с рейтингом.
         ...(data.addComment
             ? [{type: 'paragraph', text: [{type: 'code', text: String(data.addComment)}]}]
             : []),
 
-        // «Шахматка» (решение владельца 20.11): Сюжет — в цитате, Актёры — обычный блок
-        // (в цитате только таблица), Подробнее — в цитате.
+        // Сюжет — открытой цитатой, как на прежних постах (решение владельца 21.11).
         divider,
-        quote({
-            type: 'details',
-            summary: 'Сюжет',
-            blocks: [
-                ...(media.tagline ? [{type: 'pullquote', text: media.tagline}] : []),
-                {type: 'paragraph', text: dataCollection.overview}
-            ]
-        }),
+        quote({type: 'pullquote', text: dataCollection.overview}),
 
         ...(cast.length
             ? [divider, {
@@ -128,37 +130,28 @@ export const createMediaCaption = (
             }]
             : []),
 
+        // «Дополнительная информация» — состав и порядок прежних постов (решение владельца 21.11);
+        // жанры и тип — хэштегами: по ним ищут посты в канале. У сериалов — ещё сезоны и серии.
         divider,
         quote({
             type: 'details',
-            summary: 'Подробнее',
+            summary: 'Дополнительная информация',
             blocks: [
-                ...(dataCollection.originalTitle && dataCollection.originalTitle !== dataCollection.title
-                    ? [{type: 'paragraph', text: `🎬 Оригинальное название: ${dataCollection.originalTitle}`}]
-                    : []),
-                {
-                    type: 'paragraph',
-                    text: `📅 Дата выхода: ${dateConvert(media.release_date || media.first_air_date) || '—'}`
-                },
-                ...((media.production_countries ?? []).length
-                    ? [{
-                        type: 'paragraph',
-                        text: `🌍 Страны: ${media.production_countries.map((country: any) => country.name).join(' · ')}`
-                    }]
-                    : []),
-                ...(Number(media.budget) > 0 || Number(media.revenue) > 0
-                    ? [
-                        {type: 'paragraph', text: `💰 Бюджет: ${money(media.budget)}`},
-                        {type: 'paragraph', text: `💵 Сборы: ${money(media.revenue)}`}
-                    ]
-                    : []),
+                {type: 'paragraph', text: `💂🏼‍♀️ Страны: ${countries || '—'}`},
+                {type: 'paragraph', text: `💰 Бюджет: ${money(media.budget)}`},
+                {type: 'paragraph', text: `💰 Сборы: ${money(media.revenue)}`},
+                {type: 'paragraph', text: `💎 imdb: ${dataCollection.rating !== '—' ? dataCollection.rating : '...'}`},
+                {type: 'paragraph', text: `🍿 Голосов: ${Number(media.vote_count) || '...'}`},
+                {type: 'paragraph', text: `⏳ Продолжительность: ${runtime || '-'}`},
+                {type: 'paragraph', text: `📅 Дата выхода: ${dateConvert(media.release_date || media.first_air_date) || '...'}`},
                 ...(media.number_of_seasons
                     ? [{
                         type: 'paragraph',
                         text: `📺 Сезонов: ${media.number_of_seasons} · серий: ${media.number_of_episodes || '—'}`
                     }]
                     : []),
-                {type: 'paragraph', text: `🍿 Оценок: ${Number(media.vote_count) || '—'}`},
+                ...(tags ? [{type: 'paragraph', text: `Жанр: ${tags}`}] : []),
+                {type: 'paragraph', text: [{type: 'bold', text: `Тип: ${typeTag}`}]},
                 ...(media.seasons?.length
                     ? [{
                         type: 'table',
@@ -175,19 +168,17 @@ export const createMediaCaption = (
                         ]
                     }]
                     : []),
-                // Трейлер — между линиями, как на старых постах.
                 divider,
                 dataCollection.hasTrailer
                     ? {
                         type: 'paragraph',
                         text: [{
                             type: 'url',
-                            text: '▶️ Смотреть трейлер',
+                            text: '🔥 Смотреть трейлер',
                             url: `https://www.youtube.com/watch?v=${data.keyTrailer}`
                         }]
                     }
-                    : {type: 'paragraph', text: '🎥 Трейлера пока нет'},
-                divider
+                    : {type: 'paragraph', text: '🎥 Трейлера пока нет'}
             ]
         }),
         divider

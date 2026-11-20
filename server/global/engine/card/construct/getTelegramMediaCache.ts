@@ -6,8 +6,11 @@ const supabase = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+// file_id принадлежит боту, который загрузил файл: префикс выбирается тем же правилом, что токен
+// в server/bot/bot.ts (и coversBot в wizardCovers.ts) — по NODE_ENV. Раньше — по наличию
+// TELEGRAM_DEV_TOKEN: скрипт с боевым ботом и .env разработчика получал file_id тестового бота.
 const cachePrefix =
-    process.env.TELEGRAM_DEV_TOKEN
+    process.env.NODE_ENV === 'development'
         ? 'dev'
         : 'prod'
 
