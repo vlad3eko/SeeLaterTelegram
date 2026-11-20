@@ -25,9 +25,8 @@ import {moscowDate, moscowMinutes} from '#server/global/engine/notifications/sna
  * send — готовые сводки пачкой; повтор таймера не шлёт дважды (unique user_id + digest_date,
  * статус sending ставится до отправки; неясный исход — unknown, без повтора).
  *
- * NOTIFICATIONS_DIGEST: off — не слать; admin (по умолчанию, обкатка — решение владельца 21.11:
- * пока фича в разработке, сводка только ему, остальным не спамим) — только BOT_ADMINS; all — всем.
- * В npm run dev — всегда только администратору.
+ * NOTIFICATIONS_DIGEST (digestMode): all — всем (по умолчанию с 22.11, решение владельца), admin —
+ * только BOT_ADMINS (так шла обкатка), off — не слать. В npm run dev — всегда только администратору.
  */
 
 type Supabase = SupabaseClient<any, any, any>

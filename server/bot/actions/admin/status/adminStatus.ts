@@ -3,6 +3,8 @@ import {ADMIN_STATUS, ADMIN_STATUS_QUEUE_CANCEL, ADMIN_STATUS_REEL_CANCEL} from 
 import {isAdmin} from '#server/bot/consts/admins'
 import {BUNDLES} from '#server/global/engine/collections/bundles'
 import {getSupabase} from '#server/global/engine/instagram/reel/jobs/dispatchReelJob'
+import {digestMode} from '#server/global/engine/notifications/digest'
+import {moscowDate} from '#server/global/engine/notifications/snapshot'
 import {humanReelError} from '#server/global/engine/instagram/reel/jobs/reelProgress'
 import {youtubeQueueConfig} from '#server/global/engine/youtube/config'
 import {parseTrailerTitle} from '#server/global/engine/youtube/matchTmdbMedia'
@@ -10,8 +12,9 @@ import {currentSlot, formatSlot, nextSlotAt} from '#server/global/engine/youtube
 
 /**
  * /status — панель администратора (запрос владельца 20.11): что сейчас идёт — Reels, очередь
- * автопубликации YouTube, судья связок. Под панелью: «✖️ N» — убрать ролик N из очереди,
- * «🗑 Снять» — снять зависший Reel, «🔄 Обновить». Всё в одном сообщении.
+ * автопубликации YouTube, судья связок, пользователи за сегодня (21.11). Каждый блок — заголовок и
+ * сворачиваемая цитата, чтобы сообщение не было длинным. Под панелью: «✖️ N» — убрать ролик N из
+ * очереди, «🗑 Снять» — снять зависший Reel, «🔄 Обновить». Всё в одном сообщении.
  */
 
 const ACTIVE_REEL_STATUSES = ['queued', 'processing', 'awaiting_review', 'ready', 'publishing']
@@ -19,19 +22,38 @@ const ACTIVE_REEL_STATUSES = ['queued', 'processing', 'awaiting_review', 'ready'
 const QUEUE_SOURCE_UPDATE_OFFSET = 1_000_000_000_000
 const DAY_MS = 24 * 60 * 60_000
 const QUEUE_SHOWN = 5
+const SAVED_SHOWN = 40
+// Как в .github/workflows/collection-bundles.yml: cron '0 5 * * 1,4' — понедельник и четверг, 05:00 UTC.
+const BUNDLE_RUN_DAYS = [1, 4]
+const BUNDLE_RUN_HOUR_UTC = 5
 
 type Button = ReturnType<typeof Markup.button.callback>
-type Section = {lines: string[], rows?: Button[][]}
+/** Первая строка — заголовок блока, остальные — в сворачиваемой цитате; list — второй цитатой (длинный список). */
+type Section = {lines: string[], list?: string[], rows?: Button[][]}
 
 const escapeHtml = (value: unknown) =>
     String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
 const clock = (date: Date) => date.toLocaleTimeString('ru-RU', {timeZone: 'Europe/Moscow', hour: '2-digit', minute: '2-digit'})
 
-const ago = (iso: string | null | undefined, now: number) => {
-    const minutes = Math.max(0, Math.round((now - Date.parse(String(iso))) / 60_000))
-    return minutes < 60 ? `${minutes} мин` : minutes < 48 * 60 ? `${Math.floor(minutes / 60)} ч ${minutes % 60} мин` : `${Math.floor(minutes / 1440)} дн`
+const duration = (ms: number) => {
+    const minutes = Math.max(0, Math.round(ms / 60_000))
+    return minutes < 60 ? `${minutes} мин` : minutes < 48 * 60 ? `${Math.floor(minutes / 60)} ч ${minutes % 60} мин` : `${Math.floor(minutes / 1440)} дн ${Math.floor(minutes % 1440 / 60)} ч`
 }
+
+const ago = (iso: string | null | undefined, now: number) => duration(now - Date.parse(String(iso)))
+
+/** Ближайший плановый запуск связок (GitHub может задержать его на несколько минут). */
+export const nextBundleRun = (now: number): Date => {
+    for (let day = 0; ; day++) {
+        const run = new Date(now)
+        run.setUTCDate(run.getUTCDate() + day)
+        run.setUTCHours(BUNDLE_RUN_HOUR_UTC, 0, 0, 0)
+        if (BUNDLE_RUN_DAYS.includes(run.getUTCDay()) && run.getTime() > now) return run
+    }
+}
+
+const weekdayDate = (date: Date) => date.toLocaleDateString('ru-RU', {timeZone: 'Europe/Moscow', weekday: 'short', day: '2-digit', month: '2-digit'})
 
 const shorten = (text: string, max = 32) => text.length > max ? `${text.slice(0, max - 1)}…` : text
 
@@ -208,14 +230,67 @@ const bundlesSection = async (supabase: any, now: number): Promise<Section> => {
             : 'Сейчас не считается.')
     }
     if (covers?.running || covers?.queued) lines.push(`🖼 Рисуются обложки /g: в работе ${covers.running}, в очереди ${covers.queued}`)
+    const next = nextBundleRun(now)
+    lines.push(`⏭ Следующая подготовка: ${weekdayDate(next)} в ${clock(next)} · через ${duration(next.getTime() - now)}`)
     return {lines}
 }
 
+/** Пользователи за сегодня (по Москве): новые, сохранения, доставка сводки — запрос владельца 21.11. */
+const usersSection = async (supabase: any, now: number): Promise<Section> => {
+    const today = moscowDate(new Date(now))
+    const dayStart = new Date(`${today}T00:00:00+03:00`).toISOString()
+    const [total, subscribers, fresh, saved, deliveries] = await Promise.all([
+        supabase.from('users').select('id', {count: 'exact', head: true}),
+        supabase.from('users').select('id', {count: 'exact', head: true}).eq('subscriber', true),
+        supabase.from('users').select('subscriber').gte('created_at', dayStart),
+        supabase.from('favorites').select('title,media_type', {count: 'exact'}).gte('created_at', dayStart)
+            .order('created_at', {ascending: false}).limit(SAVED_SHOWN),
+        supabase.from('digest_deliveries').select('status').eq('digest_date', today)
+    ])
+    const lines = ['👥 <b>Пользователи</b> · сегодня']
+    const error = [total, subscribers, fresh, saved, deliveries].find(result => result.error)?.error
+    if (error) return {lines: [...lines, failedLine(error)]}
+
+    const newcomers = fresh.data ?? []
+    const active = newcomers.filter((user: any) => user.subscriber === true).length
+    lines.push(`Новые: ${newcomers.length}, активных ${active} (subscriber = true), без подписки ${newcomers.length - active}`)
+    lines.push(`<i>Всего ${total.count ?? 0}, подписаны на канал ${subscribers.count ?? 0}</i>`)
+    lines.push(`💾 Сохранили фильмов: ${saved.count ?? 0}`)
+
+    const statuses = (deliveries.data ?? []).map((row: any) => row.status as string)
+    const count = (...names: string[]) => statuses.filter(status => names.includes(status)).length
+    const mode = ({all: 'всем', admin: 'только администратору', off: 'выключена'} as const)[digestMode()]
+    if (!statuses.length) {
+        lines.push(`🔔 Сводка (${mode}): сегодня не было`)
+    } else {
+        const blocked = count('blocked')
+        const waiting = count('pending', 'sending')
+        lines.push(`🔔 Сводка (${mode}): получили ${count('sent')}, не доставлено ${count('failed', 'unknown', 'blocked')}${blocked ? ` (заблокировали бота ${blocked})` : ''}${waiting ? `, ждут отправки ${waiting}` : ''}`)
+    }
+
+    const titles = (saved.data ?? []).map((row: any, index: number) =>
+        `${index + 1}. ${row.media_type === 'tv' ? '📺' : '🎬'} ${escapeHtml(row.title ?? 'Без названия')}`)
+    const more = (saved.count ?? 0) - titles.length
+    return {
+        lines,
+        list: titles.length ? [`💾 <b>Сохранённые сегодня</b>`, ...titles, ...(more > 0 ? [`<i>… и ещё ${more}</i>`] : [])] : undefined
+    }
+}
+
+/** Блок: заголовок, под ним сворачиваемая цитата; длинный список — своей цитатой ниже. */
+const renderSection = ({lines: [title, ...body], list}: Section) => [
+    title,
+    ...(body.length ? [`<blockquote expandable>${body.join('\n')}</blockquote>`] : []),
+    ...(list?.length ? [`<blockquote expandable>${list.join('\n')}</blockquote>`] : [])
+].join('\n')
+
 export const buildAdminStatus = async (now = Date.now()) => {
     const supabase = getSupabase() as any
-    const sections = await Promise.all([reelsSection(supabase, now), queueSection(supabase, now), bundlesSection(supabase, now)])
+    const sections = await Promise.all([
+        usersSection(supabase, now), reelsSection(supabase, now), queueSection(supabase, now), bundlesSection(supabase, now)
+    ])
     return {
-        text: [`📊 <b>Что сейчас происходит</b> · ${clock(new Date(now))}`, ...sections.map(section => section.lines.join('\n'))].join('\n\n'),
+        text: [`📊 <b>Что сейчас происходит</b> · ${clock(new Date(now))}`, ...sections.map(renderSection)].join('\n\n'),
         keyboard: Markup.inlineKeyboard([
             ...sections.flatMap(section => section.rows ?? []),
             [Markup.button.callback('🔄 Обновить', ADMIN_STATUS.encode())]

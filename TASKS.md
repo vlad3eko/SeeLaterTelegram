@@ -393,18 +393,18 @@ create index favorites_media on favorites (media_type, tmdb_id);
 ### Сделано (21.11, код в master, не выкачен)
 - SQL: `database/migrations/notifications.sql` (3 таблицы, колонки `users`, индекс `favorites`).
 - `server/global/engine/notifications/`: `snapshot.ts` (сравнение со снимком, события, частота проверки), `detect.ts` (TMDB без кэша — `tmdbFetch`, YouTube-очередь и `reel_processing_jobs`, премьеры), `digest.ts` (события → подписчикам, текст Rich и HTML, кнопки), `digestJob.ts` (prepare/send, статусы, 403/429/unknown).
-- Эндпоинт `server/api/bot/notifications/tick.ts`: `?mode=auto` (detect каждый раз, сводка 10:00–12:00, отправка до 14:00), `?mode=detect|digest`, `&force=1`.
+- Эндпоинт `server/api/bot/notifications/tick.ts`: `?mode=auto` (detect каждый раз; сводки готовятся с 09:30, в 10:00 готовые уходят первыми, до проверки тайтлов; подготовка до 12:00, отправка до 14:00), `?mode=detect|digest`, `&force=1`.
 - Backfill отдельным скриптом не нужен: первый detect сам заносит тайтлы из `favorites` и делает baseline (до 50 тайтлов за вызов).
 - «Сохранить» (`createFavorite`) ставит тайтл под слежение; ошибка не ломает сохранение.
-- Кнопка «🎬 Название» в сводке — `NOTIFY_CARD` (`ntf:c:…`): карточка новым сообщением, сводка остаётся.
-- `NOTIFICATIONS_DIGEST`: `admin` по умолчанию (сводка только администратору), `all` — всем, `off` — не слать.
+- Вид (решения владельца 21.11): обложка «Ваши новости сегодня» (экран `digest` в `scripts/covers`), разделы — свёрнутые блоки с пояснением курсивом, даты в таблицах полностью, названия моноширинным, постеры — блок у каждого тайтла, внизу благодарность и ссылка на @Zerno_Kopeica.
+- Кнопки: три тайтла и «▼ Ещё · N» (`NOTIFY_MORE`); «🎬 Название» — карточка в этом же сообщении (`NOTIFY_CARD`), «◀️ К сводке» (`NOTIFY_BACK`).
+- `NOTIFICATIONS_DIGEST`: `all` по умолчанию с 22.11 (всем), `admin` — только администратору, `off` — не слать.
 - Тесты: `server/global/engine/notifications/tests/notifications.test.ts` — `npx tsx --tsconfig tsconfig.reel-dryrun.json --test server/global/engine/notifications/tests/*.test.ts`.
 - Проверено на живом TMDB: «Зверополис 2» (у крупных премьер 300+ постеров — снимок хранит все, пачка больше 12 новых разом — молча) и «Разделение».
 
 ### Осталось
-1. **SQL** — владелец: `database/migrations/notifications.sql` в Supabase SQL Editor.
-2. **Выкатка**: push → Cloud Scheduler `kinomanov-notifications-tick`: `0,30 * * * *`, Europe/Moscow, GET `https://<прод>/api/bot/notifications/tick` с `Authorization: Bearer CRON_SECRET` (шаблон — `kinomanov-youtube-queue-tick`).
-3. **Обкатка**: сводка только администратору (по умолчанию); проверить Rich-сообщение с `details` и фото на Android, iOS и Desktop; затем `NOTIFICATIONS_DIGEST=all` в Vercel.
+1. ~~SQL~~, ~~Cloud Scheduler `kinomanov-notifications-tick`~~, ~~обкатка у администратора~~ — сделано 21.11.
+2. Проверить первую сводку всем (22.11, 10:00): /status → «👥 Пользователи» — доставлено / не доставлено.
 
 ### Второй этап (после MVP)
 Кнопка «🔕/🔔 Обновления» в карточке (`favorites.notifications_enabled`, фильм остаётся в коллекции); `users.digest_silent` → `disable_notification`; метрики (запросы TMDB в сутки, событий на сводку — следить, чтобы не было шума); цифровой релиз отдельным событием.

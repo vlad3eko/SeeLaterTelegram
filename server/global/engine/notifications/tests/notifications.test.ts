@@ -221,7 +221,7 @@ test('сводка: разделы, склейка премьеры с пере�
         '', '<b>🖼 Новые постеры</b>', 'Зверополис 2',
         '', '<b>📆 Скоро</b>', '25.12.2026 · <code>Аватар 4</code> · через 34 дня',
         '', '<i>Раз в день по вашим сохранённым · без новостей сводки нет</i>',
-        'Спасибо, что пользуетесь ботом! О его разработке я пишу в канале <a href="https://t.me/Zerno_Kopeica">@Zerno_Kopeica</a> — буду рад, если подпишетесь и поддержите 🙏'
+        'Спасибо, что пользуетесь.', '', 'О его разработке я пишу в канале <a href="https://t.me/Zerno_Kopeica">@Zerno_Kopeica</a> — присоединяйтесь.'
     ].join('\n'))
 
     const blocks = payload.rich.blocks
@@ -284,10 +284,11 @@ test('таймер сводки открыт снаружи (своя прове
     assert.equal(isInternalOnlyPath('/api/bot/notifications/other'), true)
 })
 
-test('сводка по умолчанию только администратору; всем — только с NOTIFICATIONS_DIGEST=all', async () => {
+test('сводка по умолчанию всем; только администратору — NOTIFICATIONS_DIGEST=admin и в npm run dev', async () => {
     const {digestMode} = await import('../digest')
-    assert.equal(digestMode({} as NodeJS.ProcessEnv), 'admin')
-    assert.equal(digestMode({NOTIFICATIONS_DIGEST: 'что-то'} as NodeJS.ProcessEnv), 'admin')
+    assert.equal(digestMode({} as NodeJS.ProcessEnv), 'all')
+    assert.equal(digestMode({NOTIFICATIONS_DIGEST: 'что-то'} as NodeJS.ProcessEnv), 'all')
+    assert.equal(digestMode({NOTIFICATIONS_DIGEST: 'admin'} as NodeJS.ProcessEnv), 'admin')
     assert.equal(digestMode({NOTIFICATIONS_DIGEST: 'all', NODE_ENV: 'development'} as NodeJS.ProcessEnv), 'admin')
     assert.equal(digestMode({NOTIFICATIONS_DIGEST: 'all'} as NodeJS.ProcessEnv), 'all')
     assert.equal(digestMode({NOTIFICATIONS_DIGEST: 'off'} as NodeJS.ProcessEnv), 'off')

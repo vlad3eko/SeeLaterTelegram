@@ -53,15 +53,15 @@ export type DigestPayload = {
 }
 
 /**
- * Кому слать сводку. NOTIFICATIONS_DIGEST: off — никому; admin (по умолчанию: решение владельца 21.11 —
- * пока фича в разработке, только ему) — BOT_ADMINS; all — всем. В npm run dev — всегда admin.
+ * Кому слать сводку. NOTIFICATIONS_DIGEST: off — никому; admin — только BOT_ADMINS (так шла обкатка);
+ * all (по умолчанию: решение владельца 21.11 — с 22.11 всем, включая его). В npm run dev — всегда admin.
  */
 export type DigestMode = 'off' | 'admin' | 'all'
 
 export const digestMode = (env: NodeJS.ProcessEnv = process.env): DigestMode => {
     if (env.NODE_ENV === 'development') return 'admin'
     const value = env.NOTIFICATIONS_DIGEST?.trim().toLowerCase()
-    return value === 'off' || value === 'all' ? value : 'admin'
+    return value === 'off' || value === 'admin' ? value : 'all'
 }
 
 const MAX_PER_SECTION = 10
@@ -85,7 +85,7 @@ type SectionKind = keyof typeof SECTIONS
 /** Канал владельца о разработке бота — благодарность внизу сводки (решение владельца 21.11). */
 export const DEVELOPER_CHANNEL = {name: '@Zerno_Kopeica', url: 'https://t.me/Zerno_Kopeica'}
 const SCHEDULE_NOTE = 'Раз в день по вашим сохранённым · без новостей сводки нет'
-const THANKS = ['Спасибо, что пользуетесь ботом! О его разработке я пишу в канале ', ' — буду рад, если подпишетесь и поддержите 🙏'] as const
+const THANKS = ['Спасибо, что пользуетесь.\n\nО его разработке я пишу в канале ', ' — присоединяйтесь.'] as const
 
 export const mediaKey = (mediaType: string, tmdbId: number | string) => `${mediaType}:${tmdbId}`
 
@@ -379,7 +379,7 @@ export const buildDigest = (
     blocks.push({type: 'paragraph', text: [{type: 'italic', text: SCHEDULE_NOTE}]})
     blocks.push({type: 'footer', text: [THANKS[0], {type: 'url', text: DEVELOPER_CHANNEL.name, url: DEVELOPER_CHANNEL.url}, THANKS[1]]})
     html.push('', `<i>${SCHEDULE_NOTE}</i>`,
-        `${THANKS[0]}<a href="${DEVELOPER_CHANNEL.url}">${DEVELOPER_CHANNEL.name}</a>${THANKS[1]}`)
+        `${escapeHtml(THANKS[0])}<a href="${DEVELOPER_CHANNEL.url}">${DEVELOPER_CHANNEL.name}</a>${escapeHtml(THANKS[1])}`)
 
     const cards: DigestCard[] = []
     for (const {key} of order) {
