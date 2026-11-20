@@ -20,12 +20,31 @@ export const reelTarget = (env: NodeJS.ProcessEnv = process.env): ReelTarget =>
 
 /** Telegram принимает видео файлом до 50 МБ; больше — ролик приходит ссылкой. */
 const TELEGRAM_UPLOAD_LIMIT = 50 * 1024 * 1024
-/** Подпись к видео в Telegram — до 1024 символов, у Instagram до 2200: подпись идёт отдельным сообщением. */
+/** Подпись к видео в Telegram — до 1024 символов (подписи Instagram у нас 100–470), сообщение — до 4096. */
+const TELEGRAM_CAPTION_LIMIT = 1024
 const TELEGRAM_TEXT_LIMIT = 4096
 
 const escapeHtml = (text: string) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
-/** Подпись блоком кода: в Telegram у него кнопка «Копировать» — удобно вставить в Instagram с телефона. */
+/** Заголовок сообщения с роликом. */
+export const reelHeading = (title: string | undefined, dev: boolean): string => {
+    const name = title ? ` «${title}»` : ''
+    return dev
+        ? `🧪 Dev: Reel${name} — в Instagram не отправлен. Так он уйдёт из основного бота.`
+        : `📲 Reel${name} — загрузите в Instagram. Подпись — нажмите, чтобы скопировать:`
+}
+
+/**
+ * Заголовок и подпись Instagram блоком кода (в Telegram у него кнопка «Копировать» — удобно
+ * вставить в Instagram с телефона). Не влезает в limit (считаются буквы без разметки, как у
+ * Telegram) — undefined.
+ */
+export const reelCaptionHtml = (heading: string, caption: string, limit: number): string | undefined =>
+    heading.length + 1 + caption.length <= limit
+        ? `${escapeHtml(heading)}\n<pre>${escapeHtml(caption)}</pre>`
+        : undefined
+
+/** Подпись отдельным сообщением — только если вместе с роликом она не влезает (длиннее ~950 символов). */
 export const reelCaptionMessage = (caption: string): string => {
     const head = `<b>Подпись для Instagram</b> (${caption.length} симв.) — нажмите «Копировать»:\n`
     // Запас под разметку и экранирование; подпись Instagram (до 2200) в лимит помещается.
@@ -35,18 +54,16 @@ export const reelCaptionMessage = (caption: string): string => {
 }
 
 /**
- * Готовый Reel (тот же файл, что ушёл бы в Instagram) — видео в чат администратора, следом подпись
- * Instagram отдельным сообщением. Видео скачивается и загружается файлом: по ссылке Telegram берёт
- * только до 20 МБ. Файл в R2 остаётся, поэтому запасной вариант — ссылка.
+ * Готовый Reel (тот же файл, что ушёл бы в Instagram) — одним сообщением в чат администратора:
+ * видео, под ним подпись Instagram блоком «Копировать» (решение владельца 20.11). Видео скачивается
+ * и загружается файлом: по ссылке Telegram берёт только до 20 МБ. Файл в R2 остаётся, поэтому
+ * запасной вариант — ссылка. Подпись длиннее лимита подписи к видео — вторым сообщением.
  */
 export const sendReelPreview = async (
     telegram: Telegram,
     {chatId, videoUrl, caption, title, dev = false}: {chatId: number, videoUrl: string, caption: string, title?: string, dev?: boolean}
 ): Promise<void> => {
-    const name = title ? ` «${title}»` : ''
-    const heading = dev
-        ? `🧪 Dev: Reel${name} — в Instagram не отправлен. Так он уйдёт из основного бота.`
-        : `📲 Reel${name} готов — загрузите его в Instagram вручную. Подпись — следующим сообщением.`
+    const heading = reelHeading(title, dev)
 
     let video: Buffer | undefined
     try {
@@ -62,13 +79,23 @@ export const sendReelPreview = async (
     }
 
     if (video) {
+        const together = reelCaptionHtml(heading, caption, TELEGRAM_CAPTION_LIMIT)
         await telegram.sendVideo(chatId, {source: video, filename: 'reel.mp4'}, {
-            caption: heading,
+            caption: together ?? escapeHtml(heading),
+            parse_mode: 'HTML',
             supports_streaming: true
         })
-    } else {
-        await telegram.sendMessage(chatId, `${heading}\n\nВидео: ${videoUrl}`)
+        if (!together) await telegram.sendMessage(chatId, reelCaptionMessage(caption), {parse_mode: 'HTML'})
+        return
     }
 
-    await telegram.sendMessage(chatId, reelCaptionMessage(caption), {parse_mode: 'HTML'})
+    // Видео не скачалось или больше 50 МБ: ссылка и подпись тоже одним сообщением.
+    const linkHeading = `${heading.replace(/:$/, '.')}\nВидео: ${videoUrl}\nПодпись:`
+    const together = reelCaptionHtml(linkHeading, caption, TELEGRAM_TEXT_LIMIT)
+    if (together) {
+        await telegram.sendMessage(chatId, together, {parse_mode: 'HTML'})
+    } else {
+        await telegram.sendMessage(chatId, escapeHtml(`${heading}\nВидео: ${videoUrl}`), {parse_mode: 'HTML'})
+        await telegram.sendMessage(chatId, reelCaptionMessage(caption), {parse_mode: 'HTML'})
+    }
 }
