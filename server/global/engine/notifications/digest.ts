@@ -159,7 +159,7 @@ export const upcoming = (watch: WatchRow[], today: string): Line[] =>
                 `${shortDate(date, today)} · `,
                 {code: row.title ?? 'Без названия'},
                 row.media_type === 'tv' && row.next_episode ? ` — ${row.next_episode}` : '',
-                ` · через ${days} ${plural(days, 'день', 'дня', 'дн.')}`
+                ` · через ${days} ${plural(days, 'день', 'дня', 'дней')}`
             ]
         })
 
