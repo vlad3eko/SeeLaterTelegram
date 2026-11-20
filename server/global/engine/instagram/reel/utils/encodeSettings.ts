@@ -15,7 +15,12 @@
  *   REEL_CLEAN_CRF             10–28, по умолчанию 16
  *   REEL_FINAL_CRF             10–28, по умолчанию 17
  *   REEL_X264_THREADS          1–8, по умолчанию 2
- *   REEL_FINAL_MAXRATE_KBPS    потолок битрейта финала, по умолчанию 25000 (25 Мбит/с)
+ *   REEL_FINAL_MAXRATE_KBPS    потолок битрейта финала, по умолчанию 25000 (25 Мбит/с);
+ *                              с эффектами (reelLook.ts) — 5000
+ *
+ * С эффектами зерно почти не сжимается: при CRF 17 40-секундный ролик весил 56 МБ (11 Мбит/с) —
+ * больше лимита Telegram 50 МБ, и в бот для ручной загрузки он ушёл бы ссылкой. Потолок 5 Мбит/с:
+ * 60 с ≈ 37 МБ; Instagram всё равно пережимает ролики до 2–4 Мбит/с.
  */
 
 export type EncodeStage = 'clean' | 'final'
@@ -39,7 +44,7 @@ const readNumber = (name: string, fallback: number, min: number, max: number) =>
 /**
  * Аргументы ffmpeg для видеокодера libx264 (без -pix_fmt: его каждый этап задаёт сам).
  */
-export const getX264Args = (stage: EncodeStage): string[] => {
+export const getX264Args = (stage: EncodeStage, {grain = false}: {grain?: boolean} = {}): string[] => {
     const rawPreset = process.env.REEL_X264_PRESET?.trim().toLowerCase()
     const preset = rawPreset && PRESETS.has(rawPreset) ? rawPreset : 'veryfast'
 
@@ -57,7 +62,7 @@ export const getX264Args = (stage: EncodeStage): string[] => {
 
     if (stage === 'final') {
         // Потолок на редкие всплески битрейта в очень детальных кадрах.
-        const maxrate = readNumber('REEL_FINAL_MAXRATE_KBPS', 25_000, 3_000, 100_000)
+        const maxrate = readNumber('REEL_FINAL_MAXRATE_KBPS', grain ? 5_000 : 25_000, 3_000, 100_000)
         args.push('-maxrate', `${maxrate}k`, '-bufsize', `${maxrate * 2}k`)
     }
 

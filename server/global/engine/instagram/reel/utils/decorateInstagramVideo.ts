@@ -15,6 +15,8 @@ import {
     reelAssetDirectory
 } from "./prepareInstagramVideo";
 import {existsSync} from "node:fs";
+import {buildLookFilters} from "./reelLook";
+import {buildMusicMix, measureLoudness, musicSettings, musicTrackExists, type SpeechWindow} from "./reelMusic";
 
 const execFileAsync = promisify(execFile)
 
@@ -27,6 +29,8 @@ type DecorateInstagramVideoOptions = {
     ctaAssPath?: string
     /** Цвета подложки хука. По умолчанию 'dark'. */
     hookPlate?: HookPlateStyle
+    /** Окна речи (Whisper): под речью фоновая музыка тише (reelMusic.ts). */
+    speechWindows?: SpeechWindow[]
 }
 
 const escapeFilterPath = (value: string) =>
@@ -480,6 +484,19 @@ export const decorateInstagramVideo = async (inputPath: string, keyTrailer: stri
         const filterParts: string[] = []
         let currentVideoLabel = '0:v'
 
+        // Слой 0: «вид» — улучшение качества, цвет, зерно (reelLook.ts). До субтитров: буквы чистые.
+        const lookFilters = buildLookFilters({
+            input: currentVideoLabel,
+            output: 'looked',
+            width: REEL_WIDTH,
+            height: REEL_HEIGHT,
+            frameRate: frameRate.rate
+        })
+        if (lookFilters.length) {
+            filterParts.push(...lookFilters)
+            currentVideoLabel = 'looked'
+        }
+
         const addAss = (assPath: string, outputLabel: string) => {
             filterParts.push(
                 `[${currentVideoLabel}]ass=filename='${escapeFilterPath(assPath)}':fontsdir='${escapeFilterPath(fontsDirectory)}'[${outputLabel}]`
@@ -519,6 +536,38 @@ export const decorateInstagramVideo = async (inputPath: string, keyTrailer: stri
             `[withProgress]ass=filename='${escapeFilterPath(templateAssPath)}':fontsdir='${escapeFilterPath(fontsDirectory)}',format=yuv420p[vout]`
         )
 
+        // Звук: фоновая музыка (reelMusic.ts) — третий вход, повторяется, если короче ролика.
+        const music = musicSettings()
+        let musicLog: Record<string, unknown> = {enabled: false}
+        const musicInputArgs: string[] = []
+        let audioArgs = ['-map', '0:a?', '-af', 'loudnorm=I=-14:TP=-1.5:LRA=11']
+
+        if (music.enabled && musicTrackExists(music.path)) {
+            const [voiceLufs, musicLufs] = await Promise.all([
+                measureLoudness(ffmpegPath, inputPath),
+                measureLoudness(ffmpegPath, music.path, {cache: true})
+            ])
+            if (musicLufs !== undefined) {
+                const mix = buildMusicMix({
+                    musicInput: 2,
+                    duration,
+                    speechWindows: options.speechWindows ?? [],
+                    voiceLufs,
+                    musicLufs,
+                    speech: music.speech,
+                    pause: music.pause
+                })
+                filterParts.push(...mix.filters)
+                musicInputArgs.push('-stream_loop', '-1', '-i', music.path)
+                audioArgs = ['-map', '[aout]']
+                musicLog = {enabled: true, track: path.basename(music.path), ...mix.settings}
+            } else {
+                musicLog = {enabled: false, reason: 'не удалось измерить громкость трека'}
+            }
+        } else if (music.enabled) {
+            musicLog = {enabled: false, reason: `нет файла ${music.path}`}
+        }
+
         const filterComplex = filterParts.join(';')
 
         await execFileAsync(
@@ -532,25 +581,26 @@ export const decorateInstagramVideo = async (inputPath: string, keyTrailer: stri
                 '-i', inputPath,
                 '-f', 'lavfi',
                 '-i', `color=c=white:s=${REEL_WIDTH}x${PROGRESS_HEIGHT}:r=${frameRate.rate}:d=${duration.toFixed(3)}`,
+                ...musicInputArgs,
                 '-filter_complex', filterComplex,
                 '-map', '[vout]',
-                '-map', '0:a?',
+                ...audioArgs,
                 '-t', duration.toFixed(3),
                 '-r', frameRate.rate,
                 // Финал: второе кодирование после clean, дальше его пережмёт Instagram.
-                // veryfast CRF 17 с потолком битрейта 25 Мбит/с (encodeSettings.ts).
-                ...getX264Args('final'),
+                // veryfast CRF 17 с потолком битрейта 25 Мбит/с, с эффектами — 5 Мбит/с (encodeSettings.ts).
+                ...getX264Args('final', {grain: lookFilters.length > 0}),
                 '-pix_fmt', 'yuv420p',
                 '-c:a', 'aac',
                 '-b:a', '192k',
                 '-ar', '48000',
-                '-af', 'loudnorm=I=-14:TP=-1.5:LRA=11',
                 '-movflags', '+faststart',
                 '-shortest',
                 outputPath
             ],
             {
-                timeout: 240_000,
+                // Эффекты (reelLook.ts) добавляют ~0,6 с на секунду ролика: запас на ролик до 90 с.
+                timeout: 420_000,
                 maxBuffer: 30 * 1024 * 1024,
                 env: {
                     ...process.env,
@@ -570,6 +620,8 @@ export const decorateInstagramVideo = async (inputPath: string, keyTrailer: stri
             subtitles: Boolean(activeSubtitleAssPath),
             subtitleMode: activeSubtitleAssPath ? 'dynamic-ass' : 'none',
             saveCta: Boolean(ctaAssPath),
+            look: lookFilters.length > 0,
+            music: musicLog,
             durationMs: Date.now() - startedAt
         })
 

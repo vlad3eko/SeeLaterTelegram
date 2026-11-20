@@ -274,7 +274,8 @@ export const finishReel = async ({
             hook,
             {
                 subtitleAssPath,
-                ctaAssPath
+                ctaAssPath,
+                speechWindows
             }
         )
     )
