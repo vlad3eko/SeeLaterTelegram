@@ -64,6 +64,16 @@ export const digestMode = (env: NodeJS.ProcessEnv = process.env): DigestMode => 
 }
 
 const MAX_PER_SECTION = 10
+
+/** Пояснение курсивом в начале раскрытого раздела сводки. */
+const SECTION_NOTES: Record<string, string> = {
+    '🍿 Премьеры': 'Фильмы из ваших сохранённых вышли — уже можно смотреть.',
+    '📺 Новые серии': 'В сохранённых сериалах вышли новые эпизоды.',
+    '📅 Даты': 'Премьеру перенесли или назначили: новая дата — в колонке «Стало».',
+    '▶️ Трейлеры': 'Новые трейлеры и тизеры — ссылка откроет YouTube.',
+    '🖼 Новые постеры': 'Появились новые официальные постеры — раскройте тайтл, чтобы посмотреть.',
+    '📆 Скоро': 'Ближайшие премьеры и серии из ваших сохранённых.'
+}
 const MAX_CARDS = 12
 const VISIBLE_CARDS = 3
 const MAX_POSTERS = 10
@@ -289,9 +299,15 @@ export const buildDigest = (
     html.push(`<b>${escapeHtml(heading)}</b>`, `<i>${escapeHtml(subtitle)}</i>`)
 
     // Каждый раздел — свёрнутый блок «🍿 Премьеры · 2» (решение владельца 21.11): первая сводка
-    // будет большой, а так сообщение остаётся коротким — раскрывают то, что интересно.
+    // будет большой, а так сообщение остаётся коротким — раскрывают то, что интересно. Раскрыли —
+    // сверху курсивом, что это за раздел (SECTION_NOTES).
     const section = (title: string, count: number, inner: any[], htmlLines: string[]) => {
-        blocks.push({type: 'details', summary: [{type: 'bold', text: title}, ` · ${count}`], blocks: inner})
+        const note = SECTION_NOTES[title]
+        blocks.push({
+            type: 'details',
+            summary: [{type: 'bold', text: title}, ` · ${count}`],
+            blocks: [...(note ? [{type: 'paragraph', text: [{type: 'italic', text: note}]}] : []), ...inner]
+        })
         html.push('', `<b>${escapeHtml(title)}</b>`, ...htmlLines)
     }
     const list = (title: string, lines: Line[]) => {

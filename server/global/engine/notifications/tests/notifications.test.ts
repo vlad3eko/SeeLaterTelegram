@@ -230,12 +230,14 @@ test('сводка: разделы, склейка премьеры с пере�
     assert.deepEqual(sections.map((block: any) => [block.summary[0].text, block.summary[1]]),
         [['🍿 Премьеры', ' · 1'], ['📺 Новые серии', ' · 1'], ['📅 Даты', ' · 1'], ['▶️ Трейлеры', ' · 1'], ['🖼 Новые постеры', ' · 2'], ['📆 Скоро', ' · 1']])
     assert.ok(sections.every((block: any) => block.summary[0].type === 'bold' && !block.is_open))
-    assert.equal(sections[0].blocks[0].type, 'list')
-    assert.deepEqual(sections[2].blocks[0].cells[1].map((cell: any) => cell.text), ['Аватар 4', '18.12', '25.12'])
-    assert.deepEqual(sections[5].blocks[0].cells[1].map((cell: any) => cell.text), ['25.12', 'Аватар 4', '34 дня'])
+    // Раскрыли раздел — сверху пояснение курсивом, дальше содержимое.
+    assert.ok(sections.every((block: any) => block.blocks[0].type === 'paragraph' && block.blocks[0].text[0].type === 'italic'))
+    assert.equal(sections[0].blocks[1].type, 'list')
+    assert.deepEqual(sections[2].blocks[1].cells[1].map((cell: any) => cell.text), ['Аватар 4', '18.12', '25.12'])
+    assert.deepEqual(sections[5].blocks[1].cells[1].map((cell: any) => cell.text), ['25.12', 'Аватар 4', '34 дня'])
     assert.equal(blocks.at(-1).type, 'footer')
     // Постеры: внутри раздела — свой свёрнутый блок у каждого тайтла.
-    const details = sections[4].blocks[0]
+    const details = sections[4].blocks[1]
     assert.equal(details.type, 'details')
     assert.deepEqual(details.summary, [{type: 'code', text: 'Зверополис 2'}, ' · 2 постера'])
     assert.equal(details.blocks[0].type, 'collage')
