@@ -1,7 +1,7 @@
 <!doctype html>
 <!--
   Обложка экрана мастера подборок /g (1280×853, снимается Chrome в 2×).
-  Параметры в адресе: #screen=home|root|series|criterion|filter|direction|period|bundles|loading|result|format|people|peopleLife|peopleSearch|birthdays,
+  Параметры в адресе: #screen=home|root|series|criterion|filter|direction|period|bundles|loading|result|format|cartoons|cseries|people|peopleLife|peopleSearch|birthdays,
   posters=… (шесть poster_path TMDB через запятую), seed=… (повторить случайный наклон карточек).
   Рисует scripts/covers/buildCovers.mjs; раз в квартал — GitHub Actions (.github/workflows/collection-covers.yml).
 -->
@@ -121,6 +121,11 @@
     result: {pill: '<b>топ-10</b> с трейлерами', lead: 'Нажмите на тайтл —<br>покажу трейлер и подробности', lines: ['Ваш топ', 'готов!'],
       posters: ['1xYLoNf4Zi3xppZ6JSmQgK1F3HS', 'yvmKPlTIi0xdcFQIFcQKQJcI63W', 'gNBiOPEbEPGPTfTIyGDvNQ50m0V', 'r5PYZGOiIQuGpaZas9TTplNZ5Ox', 'kEDbym5htJgDQNenjUtSJxAHysB', 'n7NR7SH7CyiiF70yN96r3d1jWr0']},
     format: {pill: '<b>аниме</b> и <b>дунхуа</b>', lead: 'Полнометражные фильмы<br>или сериалы с сезонами', lines: ['Фильмы', 'или сериалы?'],
+      posters: ['1xYLoNf4Zi3xppZ6JSmQgK1F3HS', 'yvmKPlTIi0xdcFQIFcQKQJcI63W', 'gNBiOPEbEPGPTfTIyGDvNQ50m0V', 'r5PYZGOiIQuGpaZas9TTplNZ5Ox', 'kEDbym5htJgDQNenjUtSJxAHysB', 'n7NR7SH7CyiiF70yN96r3d1jWr0']},
+    // Разделы «🧸 Мультфильмы» и «🎨 Мультсериалы»: одна обложка на все экраны раздела.
+    cartoons: {pill: '<b>мультфильмы</b> с трейлерами', lead: 'Анимация для всей семьи —<br>по жанрам, годам и периодам', lines: ['Мульт-', 'фильмы'],
+      posters: ['1xYLoNf4Zi3xppZ6JSmQgK1F3HS', 'yvmKPlTIi0xdcFQIFcQKQJcI63W', 'gNBiOPEbEPGPTfTIyGDvNQ50m0V', 'r5PYZGOiIQuGpaZas9TTplNZ5Ox', 'kEDbym5htJgDQNenjUtSJxAHysB', 'n7NR7SH7CyiiF70yN96r3d1jWr0']},
+    cseries: {pill: '<b>мультсериалы</b> с трейлерами', lead: 'Закончились, выходят новые<br>серии или скоро стартуют', lines: ['Мульт-', 'сериалы'],
       posters: ['1xYLoNf4Zi3xppZ6JSmQgK1F3HS', 'yvmKPlTIi0xdcFQIFcQKQJcI63W', 'gNBiOPEbEPGPTfTIyGDvNQ50m0V', 'r5PYZGOiIQuGpaZas9TTplNZ5Ox', 'kEDbym5htJgDQNenjUtSJxAHysB', 'n7NR7SH7CyiiF70yN96r3d1jWr0']},
     // Экраны «🎭 Актёры и режиссёры»: вместо постеров — портреты (profile_path TMDB, тоже 2:3).
     people: {pill: '<b>именинники</b> дня', lead: 'Звёзды кино —<br>и их лучшие фильмы', lines: ['Актёры', 'и режиссёры'],

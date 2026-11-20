@@ -71,6 +71,13 @@ const SCREENS = {
     format: {fresh: false, minVotes: 1000, sources: [
         'discover/tv?with_genres=16&with_original_language=ja&sort_by=vote_count.desc',
         'discover/movie?with_genres=16&with_original_language=ja&sort_by=vote_count.desc']},
+    // Разделы «🧸 Мультфильмы» и «🎨 Мультсериалы» — западная анимация (японская — в «Аниме»).
+    cartoons: {fresh: false, minVotes: 2000, sources: [
+        'discover/movie?with_genres=16&with_original_language=en&sort_by=vote_count.desc',
+        'discover/movie?with_genres=16&with_original_language=en&sort_by=vote_count.desc&page=2']},
+    cseries: {fresh: false, minVotes: 500, sources: [
+        'discover/tv?with_genres=16&with_original_language=en&sort_by=vote_count.desc',
+        'discover/tv?with_genres=16&with_original_language=en&sort_by=vote_count.desc&page=2']},
     // «🎭 Актёры и режиссёры» — портреты людей (profile_path TMDB) вместо постеров.
     // ids — постоянные лица; popular — популярные сейчас актёры (person/popular). Актёры и режиссёры:
     // Нолан, Ди Каприо, Спилберг, Фостер, Тарантино, Питт.

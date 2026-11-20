@@ -155,11 +155,15 @@ const availablePeriods = (state: WizardState) =>
         return Boolean(params && collectionWindow(params))
     })
 
-/** Обложка для экрана: пока собирается подборка — «Собираю топ…». */
+/**
+ * Обложка для экрана: пока собирается подборка — «Собираю топ…»; в разделах «Мультфильмы» и
+ * «Мультсериалы» — своя обложка на всех экранах раздела.
+ */
 const coverScreenFor = (row: WizardRow, options: RenderOptions): CoverScreen | undefined => {
-    const screen = row.state.screen
+    const {screen, group} = row.state
     if (screen === 'result' || screen === 'title') return undefined
-    return options.building ? 'loading' : screen
+    if (options.building) return 'loading'
+    return group === 'cartoons' || group === 'cseries' ? group : screen
 }
 
 /**

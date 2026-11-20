@@ -29,7 +29,7 @@ permissions:
 jobs:
   covers:
     runs-on: ubuntu-latest
-    # 15 экранов × ~1,5 минуты на кадры и сборку MP4 + отправка от двух ботов.
+    # 17 экранов × ~1,5 минуты на кадры и сборку MP4 + отправка от двух ботов.
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
