@@ -1,3 +1,4 @@
+import {adminStatusCommand, adminStatusRefresh} from "#server/bot/actions/admin/status/adminStatus";
 
 import {mainKeyboard} from "#server/bot/consts/buttons/replyKeyboard";
 import {Telegraf} from "telegraf";
@@ -13,7 +14,7 @@ import {commandHelp} from "#server/bot/commands/commandHelp";
 import {commandClear} from "#server/bot/commands/commandClear";
 import {jumpCollections, startCollections} from "#server/bot/actions/collections/collectionsActions";
 import {menuBot} from "#server/bot/handlers/commands/start/menuBot";
-import {LEGACY_MENU_BOT} from "#server/bot/callbacks/routes";
+import {ADMIN_STATUS, LEGACY_MENU_BOT} from "#server/bot/callbacks/routes";
 import {showSimilarList} from "#server/bot/actions/similar/similarActions";
 import {contentTypeToTag} from "~/utils/convert/contentTypeConvert";
 
@@ -148,6 +149,9 @@ export function registerCommands(bot: Telegraf) {
     bot.command('clear', commandClear)
     // Подборки (мастер, server/bot/actions/collections/); прежний генератор — commandContent.ts, не подключён.
     bot.command('g', startCollections)
+    // Панель администратора: что сейчас идёт (Reels, очередь YouTube, связки).
+    bot.command('status', adminStatusCommand)
+    bot.action(ADMIN_STATUS.pattern, adminStatusRefresh)
     // Кнопки menu_bot в коде больше нет: обработчик оставлен для старых сообщений.
     bot.action(LEGACY_MENU_BOT.pattern, menuBot)
 }
