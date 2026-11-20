@@ -67,7 +67,7 @@ const reelsSection = async (supabase: any, now: number): Promise<Section> => {
         supabase.from('reel_processing_jobs')
             .select('status,step,input_payload,media_type,media_id,last_error')
             .gte('updated_at', new Date(now - DAY_MS).toISOString())
-            .or('step.eq.published,step.eq.published_telegram_only,status.eq.failed')
+            .or('step.eq.published,step.eq.published_manual,step.eq.published_telegram_only,status.eq.failed')
             .order('updated_at', {ascending: false}).limit(50)
     ])
     const lines = ['🎬 <b>Reels</b>']
@@ -81,9 +81,12 @@ const reelsSection = async (supabase: any, now: number): Promise<Section> => {
     }
 
     const published = (recent ?? []).filter((job: any) => job.step === 'published').length
+    const manual = (recent ?? []).filter((job: any) => job.step === 'published_manual').length
     // Отменённые администратором — не сбой.
-    const withoutReel = (recent ?? []).filter((job: any) => job.step !== 'published' && job.step !== 'cancelled')
-    if (published || withoutReel.length) lines.push(`<i>За сутки: в Instagram ${published}, без Reel ${withoutReel.length}</i>`)
+    const withoutReel = (recent ?? []).filter((job: any) => !['published', 'published_manual', 'cancelled'].includes(job.step))
+    if (published || manual || withoutReel.length) {
+        lines.push(`<i>За сутки: в Instagram ${published}, в бот для ручной загрузки ${manual}, без Reel ${withoutReel.length}</i>`)
+    }
     const lastFailure = withoutReel.find((job: any) => job.last_error)
     if (lastFailure) {
         lines.push(`<i>Последний сбой: «${escapeHtml(reelTitle(lastFailure))}» — ${escapeHtml(humanReelError(lastFailure.last_error))}</i>`)

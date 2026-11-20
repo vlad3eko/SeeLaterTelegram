@@ -252,7 +252,8 @@ export const finalizeReelPublication = async (
 
         let instagramMediaId = job.instagram_media_id
         let instagramPermalink = job.instagram_permalink
-        // Dev-бот: готовый Reel приходит администратору в чат вместо Instagram (server/global/publishers/reelTarget).
+        // Ручной режим и dev-бот: готовый Reel приходит администратору в чат вместо Instagram (server/global/publishers/reelTarget).
+        const target = reelTarget()
         let previewSent = false
 
         if (job.instagram_publish_r2_url && !instagramMediaId) {
@@ -267,12 +268,13 @@ export const finalizeReelPublication = async (
                 await updateOwnedJob({instagram_caption: instagramCaption})
             }
 
-            if (reelTarget() === 'telegram_preview') {
+            if (target !== 'instagram') {
                 await sendReelPreview(bot.telegram, {
                     chatId: Number(job.admin_telegram_id),
                     videoUrl: job.instagram_publish_r2_url,
                     caption: instagramCaption,
-                    title: media.title || media.name
+                    title: media.title || media.name,
+                    dev: target === 'telegram_preview'
                 })
                 previewSent = true
             } else {
@@ -341,7 +343,7 @@ export const finalizeReelPublication = async (
 
         await updateOwnedJob({
             status: 'published',
-            step: instagramMediaId ? 'published' : previewSent ? 'published_dev_preview' : 'published_telegram_only',
+            step: instagramMediaId ? 'published' : previewSent ? (target === 'telegram_manual' ? 'published_manual' : 'published_dev_preview') : 'published_telegram_only',
 
             // Ссылка на оформленный Reel больше не нужна после публикации.
             instagram_publish_r2_url: null,
@@ -401,7 +403,9 @@ export const finalizeReelPublication = async (
             Number(job.admin_telegram_id),
             instagramMediaId
                 ? 'Опубликовано в Telegram и Instagram'
-                : previewSent
+                : previewSent && target === 'telegram_manual'
+                    ? 'Опубликовано в Telegram. Reel и подпись для Instagram — выше в этом чате.'
+                    : previewSent
                     ? 'Dev: опубликовано в тестовом канале, Reel — выше в этом чате. В Instagram ничего не отправлено.'
                     : `Опубликовано в Telegram. Не удалось подготовить Reel для Instagram.${workerError ? `\nПричина: ${humanReelError(workerError)}` : ''}`
         )
