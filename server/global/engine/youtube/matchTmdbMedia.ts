@@ -133,9 +133,9 @@ export const matchTmdbMedia = async (parsed: ParsedTrailerTitle): Promise<Matche
     }
 }
 
-/** Полная карточка TMDB (ru-RU). */
-export const fetchTmdbMedia = (mediaType: string, mediaId: number) =>
-    tmdbFetch(`${mediaType}/${mediaId}?language=ru-RU`)
+/** Полная карточка TMDB (по умолчанию ru-RU). */
+export const fetchTmdbMedia = (mediaType: string, mediaId: number, query = 'language=ru-RU') =>
+    tmdbFetch(`${mediaType}/${mediaId}?${query}`)
 
 /**
  * Тайтл TMDB, годный для публикации, или причина пропуска. Сбой TMDB — исключение (временный).

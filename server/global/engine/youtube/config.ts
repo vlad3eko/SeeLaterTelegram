@@ -70,13 +70,13 @@ export const EXCLUDED_TMDB_GENRES: Record<number, string> = {
 }
 
 /**
- * Почему тайтл из TMDB не публикуется, или undefined. Проверяется полная карточка (ru-RU),
- * которую очередь и так запрашивает перед публикацией: пост без сюжета или постера пустой.
+ * Почему тайтл из TMDB не публикуется, или undefined. Проверяется полная карточка (ru-RU):
+ * пост без постера пустой. Нет русского сюжета — его допишет Gemini перед публикацией
+ * (russianOverview.ts), без сюжета ролик пропускается уже там.
  */
 export const findUnsuitableMediaReason = (media: Record<string, any>): string | undefined => {
     const genre = (media.genres ?? []).find((item: {id?: number}) => EXCLUDED_TMDB_GENRES[Number(item?.id)])
     if (genre) return `не фильм и не сериал (${EXCLUDED_TMDB_GENRES[Number(genre.id)]})`
-    if (!String(media.overview ?? '').trim()) return 'в TMDB нет описания сюжета'
     if (!media.poster_path) return 'в TMDB нет постера'
     return undefined
 }

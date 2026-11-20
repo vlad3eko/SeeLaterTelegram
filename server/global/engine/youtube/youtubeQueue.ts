@@ -2,6 +2,7 @@ import {getSupabase, dispatchReelJob} from '#server/global/engine/instagram/reel
 import {listChannelVideos, type ChannelVideo} from '#server/global/engine/youtube/channelFeed'
 import {resolveTrailerMedia, type MatchedMedia} from '#server/global/engine/youtube/matchTmdbMedia'
 import {findExcludedTitleReason, youtubeQueueConfig, type WatchedChannel} from '#server/global/engine/youtube/config'
+import {generateRussianOverview, overviewFacts} from '#server/global/engine/youtube/russianOverview'
 import {BOT_ADMINS} from '#server/global/oneLinkApp'
 
 /**
@@ -257,6 +258,24 @@ const dispatchNext = async (supabase: Supabase, config: ReturnType<typeof youtub
         return {videoId: row.video_id, result: 'postponed'}
     }
 
+    // Нет русского сюжета — Gemini ищет его в Google или переводит описание TMDB (как ручное
+    // «📝 Описание»). Сбой Gemini — повтор позже, сюжет неизвестен — пропуск.
+    let overview: string | undefined
+    if (!String(matched.media.overview ?? '').trim()) {
+        try {
+            overview = (await generateRussianOverview(await overviewFacts(matched)))?.overview
+        } catch (overviewError) {
+            await updateRow(supabase, row.id, {
+                ...mediaPatch,
+                status: 'queued',
+                not_before: new Date(Date.now() + BUSY_POSTPONE_MINUTES * 60_000).toISOString(),
+                last_error: `сюжет: ${errorText(overviewError)}`
+            })
+            return {videoId: row.video_id, result: 'retry', message: errorText(overviewError)}
+        }
+        if (!overview) return fail(`«${matched.tmdbTitle}»: сюжета нет ни в TMDB, ни в поиске`, {notify: false})
+    }
+
     try {
         // Те же значения, что у кнопки «Опубликовать» (publishAdminInlineMedia.ts).
         const {CHANEL_LINK, URL_ACTIVE} = await import('#server/bot/bot')
@@ -275,6 +294,7 @@ const dispatchNext = async (supabase: Supabase, config: ReturnType<typeof youtub
                 mediaType: matched.mediaType,
                 contentType: matched.contentType,
                 keyTrailer: row.video_id,
+                ...(overview ? {overview} : {}),
                 currentMedia: {
                     type: 'photo',
                     fileId: `https://image.tmdb.org/t/p/original${poster}`
