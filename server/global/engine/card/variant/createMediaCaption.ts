@@ -52,7 +52,8 @@ export const createMediaCaption = (
     const titleLine = {
         type: 'heading',
         size: 1,
-        text: year ? `${dataCollection.title} · ${year}` : dataCollection.title
+        // Название моноширинным (как у персоны и в списках): по нажатию копируется только оно, без года.
+        text: [{type: 'code', text: dataCollection.title}, ...(year ? [` · ${year}`] : [])]
     }
     const metaLine = {
         type: 'paragraph',
