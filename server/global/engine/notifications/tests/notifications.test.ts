@@ -219,7 +219,9 @@ test('сводка: разделы, склейка премьеры с пере�
         '', '<b>📅 Даты</b>', '• <code>Аватар 4</code> — перенесли: 18.12.2026 → 25.12.2026',
         '', '<b>▶️ Трейлеры</b>', '• <code>Зверополис 2</code> — <a href="https://www.youtube.com/watch?v=BBBBBBBBBBB">🇷🇺 трейлер</a> · ещё 1',
         '', '<b>🖼 Новые постеры</b>', 'Зверополис 2',
-        '', '<b>📆 Скоро</b>', '25.12.2026 · <code>Аватар 4</code> · через 34 дня'
+        '', '<b>📆 Скоро</b>', '25.12.2026 · <code>Аватар 4</code> · через 34 дня',
+        '', '<i>Раз в день по вашим сохранённым · без новостей сводки нет</i>',
+        'Спасибо, что пользуетесь ботом! О его разработке я пишу в канале <a href="https://t.me/Zerno_Kopeica">@Zerno_Kopeica</a> — буду рад, если подпишетесь и поддержите 🙏'
     ].join('\n'))
 
     const blocks = payload.rich.blocks
@@ -236,6 +238,7 @@ test('сводка: разделы, склейка премьеры с пере�
     assert.deepEqual(sections[2].blocks[1].cells[1].map((cell: any) => cell.text), [[{type: 'code', text: 'Аватар 4'}], '18.12.2026', '25.12.2026'])
     assert.deepEqual(sections[5].blocks[1].cells[1].map((cell: any) => cell.text), ['25.12.2026', [{type: 'code', text: 'Аватар 4'}], '34 дня'])
     assert.equal(blocks.at(-1).type, 'footer')
+    assert.deepEqual(blocks.at(-1).text[1], {type: 'url', text: '@Zerno_Kopeica', url: 'https://t.me/Zerno_Kopeica'})
     // Постеры: внутри раздела — свой свёрнутый блок у каждого тайтла.
     const details = sections[4].blocks[1]
     assert.equal(details.type, 'details')

@@ -10,6 +10,7 @@ import {keyboardSearchBot} from "#server/bot/consts/buttons/keyboardBot";
 import {openInlineSearch} from "#server/bot/actions/admin/helpers/openInlineSearch";
 import {ContentType} from "#server/global/engine/search/strategy/enums";
 import {commandStart} from "#server/bot/commands/commandStart";
+import {saveTelegramUser} from "#server/bot/handlers/auth/success/saveTelegramUser";
 import {commandHelp} from "#server/bot/commands/commandHelp";
 import {commandClear} from "#server/bot/commands/commandClear";
 import {jumpCollections, startCollections} from "#server/bot/actions/collections/collectionsActions";
@@ -19,6 +20,9 @@ import {showSimilarList} from "#server/bot/actions/similar/similarActions";
 import {contentTypeToTag} from "~/utils/convert/contentTypeConvert";
 
 const authRequests = new Map()
+
+/** Ссылки из кнопок поста в канале (server/bot/consts/buttons/buttonsBot.ts, ButtonContext 'channel'). */
+const CHANNEL_LINK = /^(search|collection)$|^(media_cast|similar)_/
 
 export function registerCommands(bot: Telegraf) {
 
@@ -96,6 +100,13 @@ export function registerCommands(bot: Telegraf) {
             )
 
             return
+        }
+
+        // Кнопки поста в канале («🔍 Поиск», «📦 Коллекция», «🎭 Актёры», «🔗 Похожее») ведут сюда ссылкой.
+        // Пользоваться ими могут только подписчики — та же проверка, что у /start (и пользователь заносится в базу).
+        if (CHANNEL_LINK.test(payload ?? '')) {
+            await saveTelegramUser(ctx).catch(error => console.error('[START] Save user failed', error))
+            if (!(await isSubscriber(ctx).catch(() => false))) return
         }
 
         if (payload === 'search') {

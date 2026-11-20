@@ -70,7 +70,10 @@ export const saveEvents = async (supabase: Supabase, mediaType: MediaType, tmdbI
     return data?.length ?? 0
 }
 
-/** Тайтлы из favorites, за которыми ещё не следим. */
+/**
+ * Список слежки = сохранённые: новые тайтлы из favorites заносим, а тайтлы, которые больше никто
+ * не хранит, убираем — их незачем проверять в TMDB. Сохранят снова — первая проверка будет без событий.
+ */
 const syncWatchList = async (supabase: Supabase): Promise<number> => {
     const [favorites, watched] = await Promise.all([
         selectAll<{media_type: string, tmdb_id: number, title: string | null, poster_path: string | null}>((from, to) =>
@@ -79,6 +82,11 @@ const syncWatchList = async (supabase: Supabase): Promise<number> => {
             supabase.from('media_watch').select('media_type,tmdb_id').order('tmdb_id').range(from, to))
     ])
     const known = new Set(watched.map(row => `${row.media_type}:${row.tmdb_id}`))
+    const saved = new Set(favorites.map(row => `${row.media_type}:${row.tmdb_id}`))
+    for (const row of watched.filter(item => !saved.has(`${item.media_type}:${item.tmdb_id}`))) {
+        const {error} = await supabase.from('media_watch').delete().eq('media_type', row.media_type).eq('tmdb_id', row.tmdb_id)
+        if (error) throw error
+    }
     const missing = new Map<string, {media_type: string, tmdb_id: number, title: string | null, poster_path: string | null}>()
     for (const row of favorites) {
         const key = `${row.media_type}:${row.tmdb_id}`

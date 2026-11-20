@@ -30,6 +30,7 @@ export type Subscription = {
     tmdb_id: number
     title: string | null
     genres_ids: unknown
+    poster_path?: string | null
     created_at: string
 }
 
@@ -64,21 +65,27 @@ export const digestMode = (env: NodeJS.ProcessEnv = process.env): DigestMode => 
 }
 
 const MAX_PER_SECTION = 10
-
-/** Пояснение курсивом в начале раскрытого раздела сводки. */
-const SECTION_NOTES: Record<string, string> = {
-    '🍿 Премьеры': 'Фильмы из ваших сохранённых вышли — уже можно смотреть.',
-    '📺 Новые серии': 'В сохранённых сериалах вышли новые эпизоды.',
-    '📅 Даты': 'Премьеру перенесли или назначили: новая дата — в колонке «Стало».',
-    '▶️ Трейлеры': 'Новые трейлеры и тизеры — ссылка откроет YouTube.',
-    '🖼 Новые постеры': 'Появились новые официальные постеры — раскройте тайтл, чтобы посмотреть.',
-    '📆 Скоро': 'Ближайшие премьеры и серии из ваших сохранённых.'
-}
 const MAX_CARDS = 12
 const VISIBLE_CARDS = 3
 const MAX_POSTERS = 10
 const MAX_CALENDAR = 4
 const MAX_COVER = 4
+
+/** Разделы сводки: заголовок свёрнутого блока и пояснение курсивом, когда его раскрыли. */
+const SECTIONS = {
+    premieres: {title: '🍿 Премьеры', note: 'Фильмы из ваших сохранённых вышли — уже можно смотреть.'},
+    episodes: {title: '📺 Новые серии', note: 'В сохранённых сериалах вышли новые эпизоды.'},
+    dates: {title: '📅 Даты', note: 'Премьеру перенесли или назначили: новая дата — в колонке «Стало».'},
+    trailers: {title: '▶️ Трейлеры', note: 'Новые трейлеры и тизеры — ссылка откроет YouTube.'},
+    posters: {title: '🖼 Новые постеры', note: 'Появились новые официальные постеры — раскройте тайтл, чтобы посмотреть.'},
+    soon: {title: '📆 Скоро', note: 'Ближайшие премьеры и серии из ваших сохранённых.'}
+} as const
+type SectionKind = keyof typeof SECTIONS
+
+/** Канал владельца о разработке бота — благодарность внизу сводки (решение владельца 21.11). */
+export const DEVELOPER_CHANNEL = {name: '@Zerno_Kopeica', url: 'https://t.me/Zerno_Kopeica'}
+const SCHEDULE_NOTE = 'Раз в день по вашим сохранённым · без новостей сводки нет'
+const THANKS = ['Спасибо, что пользуетесь ботом! О его разработке я пишу в канале ', ' — буду рад, если подпишетесь и поддержите 🙏'] as const
 
 export const mediaKey = (mediaType: string, tmdbId: number | string) => `${mediaType}:${tmdbId}`
 
@@ -200,9 +207,11 @@ const table = (header: string[], rows: (string | any[])[][], striped = false) =>
 export type TitleInfo = {title: string, genres: unknown, poster?: string | null}
 
 /**
- * Сообщение-сводка (Rich Message, решения владельца 21.11): сверху коллаж постеров главных
- * тайтлов, дата и число новостей; разделы — заголовки с отступом и списки; переносы и «Скоро» —
- * таблицы; новые постеры — в свёрнутом блоке; внизу подпись. Запасной HTML — то же текстом.
+ * Сообщение-сводка (Rich Message, решения владельца 21.11): сверху обложка «Ваши новости сегодня»
+ * (или коллаж постеров), заголовок, дата и число новостей; каждый раздел — свёрнутый блок с
+ * пояснением курсивом; переносы и «Скоро» — таблицы (даты полностью, названия моноширинным);
+ * постеры — свёрнутый блок у каждого тайтла; внизу — как часто приходит сводка и благодарность
+ * со ссылкой на канал о разработке. Запасной HTML — то же текстом.
  * Пустой список событий — undefined (сводку не шлём; календарь сам по себе не повод).
  */
 export const buildDigest = (
@@ -306,26 +315,25 @@ export const buildDigest = (
     html.push(`<b>${escapeHtml(heading)}</b>`, `<i>${escapeHtml(subtitle)}</i>`)
 
     // Каждый раздел — свёрнутый блок «🍿 Премьеры · 2» (решение владельца 21.11): первая сводка
-    // будет большой, а так сообщение остаётся коротким — раскрывают то, что интересно. Раскрыли —
-    // сверху курсивом, что это за раздел (SECTION_NOTES).
-    const section = (title: string, count: number, inner: any[], htmlLines: string[]) => {
-        const note = SECTION_NOTES[title]
+    // будет большой, а так сообщение остаётся коротким — раскрывают то, что интересно.
+    const section = (kind: SectionKind, count: number, inner: any[], htmlLines: string[]) => {
+        const {title, note} = SECTIONS[kind]
         blocks.push({
             type: 'details',
             summary: [{type: 'bold', text: title}, ` · ${count}`],
-            blocks: [...(note ? [{type: 'paragraph', text: [{type: 'italic', text: note}]}] : []), ...inner]
+            blocks: [{type: 'paragraph', text: [{type: 'italic', text: note}]}, ...inner]
         })
         html.push('', `<b>${escapeHtml(title)}</b>`, ...htmlLines)
     }
-    const list = (title: string, lines: Line[]) => {
+    const list = (kind: SectionKind, lines: Line[]) => {
         const shown = limited(lines)
-        section(title, lines.length,
+        section(kind, lines.length,
             [{type: 'list', items: shown.map(line => ({blocks: [{type: 'paragraph', text: toRich(line)}]}))}],
             shown.map(line => `• ${toHtml(line)}`))
     }
 
-    if (premieres.length) list('🍿 Премьеры', premieres)
-    if (episodes.length) list('📺 Новые серии', episodes)
+    if (premieres.length) list('premieres', premieres)
+    if (episodes.length) list('episodes', episodes)
     if (dates.length) {
         const shown = dates.slice(0, MAX_PER_SECTION)
         const inner: any[] = [table(['Фильм', 'Было', 'Стало'], shown.map(item => [[{type: 'code', text: item.title}], item.from, item.to]))]
@@ -336,9 +344,9 @@ export const buildDigest = (
             inner.push({type: 'paragraph', text: [`и ещё ${dates.length - MAX_PER_SECTION} — в коллекции`]})
             lines.push(`• и ещё ${dates.length - MAX_PER_SECTION} — в коллекции`)
         }
-        section('📅 Даты', dates.length, inner, lines)
+        section('dates', dates.length, inner, lines)
     }
-    if (trailers.length) list('▶️ Трейлеры', trailers)
+    if (trailers.length) list('trailers', trailers)
 
     if (posterCount) {
         // Внутри раздела у каждого тайтла свой свёрнутый блок «Название · N постера». Всего не больше MAX_POSTERS фото.
@@ -355,18 +363,23 @@ export const buildDigest = (
                 blocks: [photos.length > 1 ? {type: 'collage', blocks: photos} : photos[0]]
             })
         }
-        section('🖼 Новые постеры', posterCount, inner, [posters.map(item => escapeHtml(item.title)).join(', ')])
+        section('posters', posterCount, inner, [posters.map(item => escapeHtml(item.title)).join(', ')])
     }
 
     if (calendar.length) {
         const name = (item: CalendarItem) => [{type: 'code', text: item.title}, ...(item.note ? [` · ${item.note}`] : [])]
-        section('📆 Скоро', calendar.length,
+        section('soon', calendar.length,
             [table(['Дата', 'Название', 'Через'], calendar.map(item => [fullDate(item.date), name(item), daysText(item.days)]), true)],
             calendar.map(item =>
                 `${fullDate(item.date)} · <code>${escapeHtml(item.title)}</code>${item.note ? ` · ${escapeHtml(item.note)}` : ''} · через ${daysText(item.days)}`))
     }
 
-    blocks.push({type: 'footer', text: ['Раз в день по вашим сохранённым · без новостей сводки нет']})
+    // В самом низу — как часто приходит сводка и благодарность владельца со ссылкой на его канал.
+    blocks.push({type: 'divider'})
+    blocks.push({type: 'paragraph', text: [{type: 'italic', text: SCHEDULE_NOTE}]})
+    blocks.push({type: 'footer', text: [THANKS[0], {type: 'url', text: DEVELOPER_CHANNEL.name, url: DEVELOPER_CHANNEL.url}, THANKS[1]]})
+    html.push('', `<i>${SCHEDULE_NOTE}</i>`,
+        `${THANKS[0]}<a href="${DEVELOPER_CHANNEL.url}">${DEVELOPER_CHANNEL.name}</a>${THANKS[1]}`)
 
     const cards: DigestCard[] = []
     for (const {key} of order) {

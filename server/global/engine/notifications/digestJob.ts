@@ -17,7 +17,8 @@ import {
 import {moscowDate, moscowMinutes} from '#server/global/engine/notifications/snapshot'
 
 /**
- * Сводка (этап digest): раз в день, с 10:00 по Москве, одно сообщение на пользователя.
+ * Сводка (этап digest): раз в день одно сообщение на пользователя. Готовится заранее, с 09:30 по
+ * Москве, а в 10:00 таймер первым делом рассылает готовое (server/api/bot/notifications/tick.ts).
  *
  * prepare — от событий к подписчикам: новые события одним запросом → подписчики этих тайтлов
  * одним запросом (favorites) → в памяти каждому его события. TMDB здесь не нужен.
@@ -133,14 +134,17 @@ export const prepareDigests = async (supabase: Supabase, now = new Date(), {forc
     const coverId = await coverFor('digest')
     const cover = coverId ? coverBlock(coverId) : undefined
 
+    const byUser = new Map<number, Subscription[]>()
+    for (const row of allSubscriptions) byUser.set(row.user_id, [...(byUser.get(row.user_id) ?? []), row])
+
     const rows: any[] = []
     for (const userId of recipients) {
-        const mine = allSubscriptions.filter(row => row.user_id === userId)
+        const mine = byUser.get(userId) ?? []
         // Первая сводка — только за последние сутки: пока сводка шла одному администратору (обкатка),
         // события по тайтлам остальных копились, и при включении «all» им не придёт старое.
         const userEvents = eventsForUser(events, mine, lastCutoff.get(userId) ?? new Date(now.getTime() - FIRST_DIGEST_MS).toISOString())
         if (!userEvents.length) continue
-        const titles = new Map(mine.map(row => [mediaKey(row.media_type, row.tmdb_id), {title: row.title ?? '', genres: row.genres_ids, poster: (row as any).poster_path ?? null}]))
+        const titles = new Map(mine.map(row => [mediaKey(row.media_type, row.tmdb_id), {title: row.title ?? '', genres: row.genres_ids, poster: row.poster_path ?? null}]))
         const calendar = upcoming(mine
             .map(row => future.get(mediaKey(row.media_type, row.tmdb_id)))
             .filter((row): row is WatchRow => Boolean(row))
@@ -213,7 +217,12 @@ export const sendDigests = async (supabase: Supabase, now = new Date(), {force =
     for (const delivery of data) {
         if (Date.now() - started > SEND_BUDGET_MS) break
         const chatId = telegramIds.get(Number(delivery.user_id))
-        if (!chatId) continue
+        if (!chatId) {
+            // Без telegram_id отправить нельзя — снимаем с очереди, иначе её брал бы каждый таймер.
+            await supabase.from('digest_deliveries').update({status: 'failed', attempts: MAX_ATTEMPTS, last_error: 'нет telegram_id'}).eq('id', delivery.id)
+            report.failed++
+            continue
+        }
 
         // Захват: статус sending до отправки. Второй вызов эту строку уже не возьмёт.
         const {data: claimed} = await supabase.from('digest_deliveries')
