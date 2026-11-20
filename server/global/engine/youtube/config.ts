@@ -40,7 +40,9 @@ export const EXCLUDED_TITLE_WORDS = [
     'podcast', 'featurette', 'behind the scenes', 'deep dive', 'reaction', 'recap',
     'steelbook', 'blu-ray', 'anniversary', 'collector', 're-release', 'rerelease',
     // Анонс трейлера, а не сам трейлер («Bottoms up! Trailer tomorrow.»)
-    'trailer tomorrow', 'trailer drops', 'trailer coming', 'trailer arrives'
+    'trailer tomorrow', 'trailer drops', 'trailer coming', 'trailer arrives',
+    // Промо-нарезка к уже вышедшему трейлеру («Reba. Frickin. McEntire. Watch the trailer for … now!»)
+    'watch the trailer', 'watch the new trailer'
 ]
 
 /**
@@ -58,12 +60,13 @@ export const findExcludedTitleReason = (title: string): string | undefined => {
 
 /**
  * Жанры TMDB, которые не публикуются (решение владельца 20.11): ток-шоу, реалити, новости —
- * у них есть сезоны и серии, но это не сериалы.
+ * у них есть сезоны и серии, но это не сериалы; документальные фильмы и сериалы (true crime).
  */
 export const EXCLUDED_TMDB_GENRES: Record<number, string> = {
     10767: 'ток-шоу',
     10764: 'реалити-шоу',
-    10763: 'новости'
+    10763: 'новости',
+    99: 'документальный'
 }
 
 /**

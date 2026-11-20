@@ -1,7 +1,7 @@
 import {getSupabase, dispatchReelJob} from '#server/global/engine/instagram/reel/jobs/dispatchReelJob'
 import {listChannelVideos, type ChannelVideo} from '#server/global/engine/youtube/channelFeed'
-import {matchTmdbMedia, parseTrailerTitle} from '#server/global/engine/youtube/matchTmdbMedia'
-import {findExcludedTitleReason, findUnsuitableMediaReason, youtubeQueueConfig, type WatchedChannel} from '#server/global/engine/youtube/config'
+import {resolveTrailerMedia, type MatchedMedia} from '#server/global/engine/youtube/matchTmdbMedia'
+import {findExcludedTitleReason, youtubeQueueConfig, type WatchedChannel} from '#server/global/engine/youtube/config'
 import {BOT_ADMINS} from '#server/global/oneLinkApp'
 
 /**
@@ -29,6 +29,8 @@ type QueueRow = {
     reel_job_id: string | null
     media_id: number | null
     media_type: string | null
+    content_type: string | null
+    tmdb_title: string | null
 }
 
 type Supabase = ReturnType<typeof getSupabase>
@@ -56,6 +58,28 @@ const notifyAdmin = async (text: string) => {
 }
 
 const videoUrl = (videoId: string) => `https://www.youtube.com/watch?v=${videoId}`
+
+const mediaColumns = (matched: Omit<MatchedMedia, 'media'>) => ({
+    media_id: matched.mediaId,
+    media_type: matched.mediaType,
+    content_type: matched.contentType,
+    tmdb_title: matched.tmdbTitle
+})
+
+/**
+ * Поля строки очереди после проверки TMDB: годный тайтл — queued с тайтлом, иначе skipped с
+ * причиной. Сбой TMDB — queued без тайтла: проверка повторится перед публикацией.
+ */
+export const checkTmdb = async (title: string) => {
+    try {
+        const result = await resolveTrailerMedia(title)
+        return result.reason !== undefined
+            ? {status: 'skipped', last_error: result.reason}
+            : {status: 'queued', last_error: null, ...mediaColumns(result.matched)}
+    } catch (error) {
+        return {status: 'queued', last_error: errorText(error)}
+    }
+}
 
 /** 1. Новые ролики каналов → очередь. Первая встреча с каналом: всё, что уже есть, — skipped. */
 const syncChannel = async (supabase: Supabase, channel: WatchedChannel, config: ReturnType<typeof youtubeQueueConfig>) => {
@@ -86,29 +110,32 @@ const syncChannel = async (supabase: Supabase, channel: WatchedChannel, config: 
         return {status: 'queued'}
     }
 
-    // Уже взятые в работу или опубликованные ролики (их строки из очереди удалены).
+    // Уже взятые в работу или опубликованные ролики (их строки из очереди удалены) и уже
+    // записанные в очередь: TMDB проверяется только для новых.
     const videoIds = videos.map(video => video.videoId)
-    const [jobs, posts] = await Promise.all([
+    const [jobs, posts, known] = await Promise.all([
         supabase.from('reel_processing_jobs').select('key_trailer').in('key_trailer', videoIds),
-        supabase.from('published_media_messages').select('key_trailer').in('key_trailer', videoIds)
+        supabase.from('published_media_messages').select('key_trailer').in('key_trailer', videoIds),
+        supabase.from('youtube_publish_queue').select('key_trailer:video_id').in('video_id', videoIds)
     ])
-    if (jobs.error) throw new Error(`[YOUTUBE QUEUE] ${jobs.error.message}`)
-    if (posts.error) throw new Error(`[YOUTUBE QUEUE] ${posts.error.message}`)
-    const taken = new Set([...(jobs.data ?? []), ...(posts.data ?? [])].map(row => String(row.key_trailer)))
+    for (const result of [jobs, posts, known]) {
+        if (result.error) throw new Error(`[YOUTUBE QUEUE] ${result.error.message}`)
+    }
+    const taken = new Set([...(jobs.data ?? []), ...(posts.data ?? []), ...(known.data ?? [])].map(row => String(row.key_trailer)))
 
     // Старые первыми: id в таблице растёт в порядке выхода роликов (у yt-dlp нет даты).
-    const rows = [...videos].reverse().filter(video => !taken.has(video.videoId)).map(video => {
+    const rows = []
+    for (const video of [...videos].reverse().filter(video => !taken.has(video.videoId))) {
         const {status, reason} = classify(video)
-        return {
+        rows.push({
             channel_id: channelId,
             channel_name: channel.name,
             video_id: video.videoId,
             title: video.title,
             video_published_at: video.publishedAt ?? null,
-            status,
-            last_error: reason ?? null
-        }
-    })
+            ...(status === 'queued' ? await checkTmdb(video.title) : {status, last_error: reason ?? null})
+        })
+    }
 
     const {data: inserted, error} = rows.length
         ? await supabase
@@ -174,22 +201,21 @@ const dispatchNext = async (supabase: Supabase, config: ReturnType<typeof youtub
         return {videoId: row.video_id, result: 'failed', message}
     }
 
-    const parsed = parseTrailerTitle(row.title)
-    if (!parsed) return fail('не удалось выделить название фильма', {notify: false})
-
-    let matched
+    // Тайтл найден при постановке — перечитать карточку (могли сменить жанр или убрать сюжет).
+    const known = row.media_id && row.media_type && row.content_type
+        ? {mediaId: Number(row.media_id), mediaType: row.media_type as 'movie' | 'tv', contentType: row.content_type, tmdbTitle: row.tmdb_title || row.title}
+        : undefined
+    let resolved
     try {
-        matched = await matchTmdbMedia(parsed)
+        resolved = await resolveTrailerMedia(row.title, known)
     } catch (matchError) {
         // Сбой TMDB временный: вернуть в очередь.
         await updateRow(supabase, row.id, {status: 'queued', last_error: errorText(matchError)})
         return {videoId: row.video_id, result: 'retry', message: errorText(matchError)}
     }
-    if (!matched) return fail(`в TMDB нет точного совпадения для «${parsed.name}»${parsed.year ? ` (${parsed.year})` : ''}`, {notify: false})
-
-    // Ток-шоу и реалити, тайтлы без сюжета или постера не публикуются.
-    const unsuitable = findUnsuitableMediaReason(matched.media)
-    if (unsuitable) return fail(`«${matched.tmdbTitle}»: ${unsuitable}`, {notify: false})
+    // Ток-шоу, реалити, документалки, тайтлы без сюжета или постера не публикуются.
+    if (resolved.reason !== undefined) return fail(resolved.reason, {notify: false})
+    const {matched} = resolved
 
     // Один фильм часто выходит на нескольких каналах (студия, Disney+, потом дубляж): не чаще
     // раза в YOUTUBE_QUEUE_FILM_COOLDOWN_DAYS.
@@ -209,12 +235,7 @@ const dispatchNext = async (supabase: Supabase, config: ReturnType<typeof youtub
         }
     }
 
-    const mediaPatch = {
-        media_id: matched.mediaId,
-        media_type: matched.mediaType,
-        content_type: matched.contentType,
-        tmdb_title: matched.tmdbTitle
-    }
+    const mediaPatch = mediaColumns(matched)
 
     // Фильм сейчас в работе (вручную или прошлой задачей): не перехватывать, попробовать позже.
     const {data: activeJobs, error: activeError} = await supabase

@@ -1,4 +1,5 @@
 import {normalizeTmdbMedia} from '~/utils/media/normalizeTmdbMedia'
+import {findUnsuitableMediaReason} from '#server/global/engine/youtube/config'
 
 /**
  * Фильм или сериал TMDB по названию ролика вида
@@ -123,14 +124,37 @@ export const matchTmdbMedia = async (parsed: ParsedTrailerTitle): Promise<Matche
     if (!best) return null
 
     const mediaType = best.media_type as 'movie' | 'tv'
-    const media = await tmdbFetch(`${mediaType}/${Number(best.id)}?language=ru-RU`)
-    const contentType = normalizeTmdbMedia(best).content_type
-
     return {
         mediaId: Number(best.id),
         mediaType,
-        contentType,
-        media,
+        contentType: normalizeTmdbMedia(best).content_type,
+        media: await fetchTmdbMedia(mediaType, Number(best.id)),
         tmdbTitle: String(best.title || best.name || parsed.name)
     }
+}
+
+/** Полная карточка TMDB (ru-RU). */
+export const fetchTmdbMedia = (mediaType: string, mediaId: number) =>
+    tmdbFetch(`${mediaType}/${mediaId}?language=ru-RU`)
+
+/**
+ * Тайтл TMDB, годный для публикации, или причина пропуска. Сбой TMDB — исключение (временный).
+ * Очередь проверяет ролик при постановке, чтобы в ней не стояли ток-шоу, реалити и документалки,
+ * и ещё раз перед публикацией (известный тайтл — одним запросом, `known`).
+ */
+export const resolveTrailerMedia = async (
+    title: string,
+    known?: Omit<MatchedMedia, 'media'>
+): Promise<{matched: MatchedMedia, reason?: undefined} | {reason: string}> => {
+    let matched: MatchedMedia | null
+    if (known) {
+        matched = {...known, media: await fetchTmdbMedia(known.mediaType, known.mediaId)}
+    } else {
+        const parsed = parseTrailerTitle(title)
+        if (!parsed) return {reason: 'не удалось выделить название фильма'}
+        matched = await matchTmdbMedia(parsed)
+        if (!matched) return {reason: `в TMDB нет точного совпадения для «${parsed.name}»${parsed.year ? ` (${parsed.year})` : ''}`}
+    }
+    const unsuitable = findUnsuitableMediaReason(matched.media)
+    return unsuitable ? {reason: `«${matched.tmdbTitle}»: ${unsuitable}`} : {matched}
 }
