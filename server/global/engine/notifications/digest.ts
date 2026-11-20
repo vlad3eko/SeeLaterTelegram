@@ -51,6 +51,18 @@ export type DigestPayload = {
     count: number
 }
 
+/**
+ * Кому слать сводку. NOTIFICATIONS_DIGEST: off — никому; admin (по умолчанию: решение владельца 21.11 —
+ * пока фича в разработке, только ему) — BOT_ADMINS; all — всем. В npm run dev — всегда admin.
+ */
+export type DigestMode = 'off' | 'admin' | 'all'
+
+export const digestMode = (env: NodeJS.ProcessEnv = process.env): DigestMode => {
+    if (env.NODE_ENV === 'development') return 'admin'
+    const value = env.NOTIFICATIONS_DIGEST?.trim().toLowerCase()
+    return value === 'off' || value === 'all' ? value : 'admin'
+}
+
 const MAX_PER_SECTION = 5
 const MAX_CARDS = 3
 const MAX_POSTERS = 6

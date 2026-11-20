@@ -3,6 +3,7 @@ import {bot} from '#server/bot/bot'
 import {BOT_ADMINS} from '#server/global/oneLinkApp'
 import {
     buildDigest,
+    digestMode,
     digestKeyboard,
     eventsForUser,
     mediaKey,
@@ -22,8 +23,9 @@ import {moscowDate, moscowMinutes} from '#server/global/engine/notifications/sna
  * send — готовые сводки пачкой; повтор таймера не шлёт дважды (unique user_id + digest_date,
  * статус sending ставится до отправки; неясный исход — unknown, без повтора).
  *
- * NOTIFICATIONS_DIGEST: off — не слать; admin (по умолчанию, обкатка) — только администратору;
- * all — всем. В npm run dev — всегда только администратору.
+ * NOTIFICATIONS_DIGEST: off — не слать; admin (по умолчанию, обкатка — решение владельца 21.11:
+ * пока фича в разработке, сводка только ему, остальным не спамим) — только BOT_ADMINS; all — всем.
+ * В npm run dev — всегда только администратору.
  */
 
 type Supabase = SupabaseClient<any, any, any>
@@ -32,19 +34,12 @@ const DIGEST_START = 10 * 60
 const PREPARE_END = 12 * 60
 const SEND_END = 14 * 60
 const EVENT_LOOKBACK_MS = 14 * 24 * 60 * 60_000
+const FIRST_DIGEST_MS = 24 * 60 * 60_000
 const SEND_BATCH = 200
 const SEND_PAUSE_MS = 40
 const SEND_BUDGET_MS = 200_000
 const MAX_ATTEMPTS = 3
 const CHUNK = 200
-
-export type DigestMode = 'off' | 'admin' | 'all'
-
-export const digestMode = (env: NodeJS.ProcessEnv = process.env): DigestMode => {
-    if (env.NODE_ENV === 'development') return 'admin'
-    const value = env.NOTIFICATIONS_DIGEST?.trim().toLowerCase()
-    return value === 'off' || value === 'all' ? value : 'admin'
-}
 
 const chunks = <T>(items: T[], size = CHUNK) =>
     Array.from({length: Math.ceil(items.length / size)}, (_, index) => items.slice(index * size, index * size + size))
@@ -134,7 +129,9 @@ export const prepareDigests = async (supabase: Supabase, now = new Date(), {forc
     const rows: any[] = []
     for (const userId of recipients) {
         const mine = allSubscriptions.filter(row => row.user_id === userId)
-        const userEvents = eventsForUser(events, mine, lastCutoff.get(userId) ?? null)
+        // Первая сводка — только за последние сутки: пока сводка шла одному администратору (обкатка),
+        // события по тайтлам остальных копились, и при включении «all» им не придёт старое.
+        const userEvents = eventsForUser(events, mine, lastCutoff.get(userId) ?? new Date(now.getTime() - FIRST_DIGEST_MS).toISOString())
         if (!userEvents.length) continue
         const titles = new Map(mine.map(row => [mediaKey(row.media_type, row.tmdb_id), {title: row.title ?? '', genres: row.genres_ids}]))
         const calendar = upcoming(mine

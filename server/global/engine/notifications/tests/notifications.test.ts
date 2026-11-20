@@ -253,3 +253,12 @@ test('таймер сводки открыт снаружи (своя прове
     assert.equal(isInternalOnlyPath('/api/bot/notifications/tick?mode=detect'), false)
     assert.equal(isInternalOnlyPath('/api/bot/notifications/other'), true)
 })
+
+test('сводка по умолчанию только администратору; всем — только с NOTIFICATIONS_DIGEST=all', async () => {
+    const {digestMode} = await import('../digest')
+    assert.equal(digestMode({} as NodeJS.ProcessEnv), 'admin')
+    assert.equal(digestMode({NOTIFICATIONS_DIGEST: 'что-то'} as NodeJS.ProcessEnv), 'admin')
+    assert.equal(digestMode({NOTIFICATIONS_DIGEST: 'all', NODE_ENV: 'development'} as NodeJS.ProcessEnv), 'admin')
+    assert.equal(digestMode({NOTIFICATIONS_DIGEST: 'all'} as NodeJS.ProcessEnv), 'all')
+    assert.equal(digestMode({NOTIFICATIONS_DIGEST: 'off'} as NodeJS.ProcessEnv), 'off')
+})
