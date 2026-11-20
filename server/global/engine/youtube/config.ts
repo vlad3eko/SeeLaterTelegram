@@ -11,6 +11,8 @@
  *   YOUTUBE_QUEUE_ENABLED           off — таймер ничего не делает (аварийный выключатель)
  *   YOUTUBE_QUEUE_DEV_TICK          off — не запускать таймер в npm run dev
  *   YOUTUBE_QUEUE_TICK_MINUTES      период таймера в dev, по умолчанию 10
+ *   YOUTUBE_OVERVIEW_SEARCH         on — русский сюжет Gemini сначала ищет в Google (нужен платный
+ *                                   тариф Gemini: на бесплатном поиск отвечает 429); иначе только перевод
  */
 
 export type WatchedChannel = {
@@ -79,21 +81,21 @@ export const EXCLUDED_COUNTRIES: Record<string, string> = {
  * подходит, если выполнено хоть одно: есть оценки, TMDB считает его популярным, или среди
  * первых пяти актёров есть известный. У новинок оценок нет — их вытягивают актёры: на 20.11
  * The Comeback King (Глен Пауэлл) 3.2, Killing Castro (Аль Пачино) 5.0, а Collect & Praise 1.8,
- * Living the Dream 0.3. Нужен media.credits (append_to_response=credits).
+ * Living the Dream 0.3. cast — актёры TMDB по порядку (append_to_response=credits).
  */
 export const WELL_KNOWN = {votes: 100, popularity: 10, castPopularity: 2}
 
-export const isWellKnown = (media: Record<string, any>) =>
+export const isWellKnown = (media: Record<string, any>, cast: Array<{popularity?: number}> = []) =>
     Number(media.vote_count) >= WELL_KNOWN.votes ||
     Number(media.popularity) >= WELL_KNOWN.popularity ||
-    (media.credits?.cast ?? []).slice(0, 5).some((person: {popularity?: number}) => Number(person.popularity) >= WELL_KNOWN.castPopularity)
+    cast.slice(0, 5).some(person => Number(person.popularity) >= WELL_KNOWN.castPopularity)
 
 /**
  * Почему тайтл из TMDB не публикуется, или undefined. Проверяется полная карточка (ru-RU):
  * пост без постера пустой. Нет русского сюжета — его допишет Gemini перед публикацией
  * (russianOverview.ts), без сюжета ролик пропускается уже там.
  */
-export const findUnsuitableMediaReason = (media: Record<string, any>): string | undefined => {
+export const findUnsuitableMediaReason = (media: Record<string, any>, cast: Array<{popularity?: number}> = []): string | undefined => {
     const genre = (media.genres ?? []).find((item: {id?: number}) => EXCLUDED_TMDB_GENRES[Number(item?.id)])
     if (genre) return `не фильм и не сериал (${EXCLUDED_TMDB_GENRES[Number(genre.id)]})`
     const countries: string[] = media.origin_country?.length
@@ -102,7 +104,7 @@ export const findUnsuitableMediaReason = (media: Record<string, any>): string | 
     const country = countries.find(code => EXCLUDED_COUNTRIES[code])
     if (country) return `страна: ${EXCLUDED_COUNTRIES[country]}`
     if (!media.poster_path) return 'в TMDB нет постера'
-    if (!isWellKnown(media)) return 'малоизвестный: нет ни оценок, ни популярности, ни известных актёров'
+    if (!isWellKnown(media, cast)) return 'малоизвестный: нет ни оценок, ни популярности, ни известных актёров'
     return undefined
 }
 

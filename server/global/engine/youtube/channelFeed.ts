@@ -16,8 +16,13 @@ export type ChannelVideo = {
 /** Сколько последних роликов канала смотреть за один раз. */
 const LATEST_COUNT = 15
 
-const isVideoId = (value: unknown): value is string =>
-    typeof value === 'string' && /^[0-9A-Za-z_-]{11}$/.test(value)
+/** Ролик из ответа источника или ничего (без id или названия) — для flatMap. */
+const toVideo = (videoId: unknown, title: unknown, publishedAt?: string): ChannelVideo[] => {
+    const name = String(title ?? '').trim()
+    return typeof videoId === 'string' && /^[0-9A-Za-z_-]{11}$/.test(videoId) && name
+        ? [{videoId, title: name, ...(publishedAt ? {publishedAt} : {})}]
+        : []
+}
 
 /** YouTube Data API v3: плейлист загрузок канала (UU…), 1 единица квоты за запрос. */
 const fromDataApi = async (channelId: string, apiKey: string): Promise<ChannelVideo[]> => {
@@ -35,13 +40,8 @@ const fromDataApi = async (channelId: string, apiKey: string): Promise<ChannelVi
     }
     const body = await response.json() as {items?: Array<{snippet?: Record<string, any>}>}
 
-    return (body.items ?? [])
-        .map(item => ({
-            videoId: item.snippet?.resourceId?.videoId,
-            title: String(item.snippet?.title ?? '').trim(),
-            publishedAt: item.snippet?.publishedAt
-        }))
-        .filter((video): video is ChannelVideo => isVideoId(video.videoId) && Boolean(video.title))
+    return (body.items ?? []).flatMap(item =>
+        toVideo(item.snippet?.resourceId?.videoId, item.snippet?.title, item.snippet?.publishedAt))
 }
 
 const decodeXml = (value: string) =>
@@ -62,13 +62,11 @@ const fromRss = async (channelId: string): Promise<ChannelVideo[]> => {
     }
     const xml = await response.text()
 
-    return [...xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)]
-        .map(([, entry]) => ({
-            videoId: entry!.match(/<yt:videoId>([^<]+)<\/yt:videoId>/)?.[1],
-            title: decodeXml(entry!.match(/<title>([^<]*)<\/title>/)?.[1] ?? '').trim(),
-            publishedAt: entry!.match(/<published>([^<]+)<\/published>/)?.[1]
-        }))
-        .filter((video): video is ChannelVideo => isVideoId(video.videoId) && Boolean(video.title))
+    return [...xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)].flatMap(([, entry]) => toVideo(
+        entry!.match(/<yt:videoId>([^<]+)<\/yt:videoId>/)?.[1],
+        decodeXml(entry!.match(/<title>([^<]*)<\/title>/)?.[1] ?? ''),
+        entry!.match(/<published>([^<]+)<\/published>/)?.[1]
+    ))
 }
 
 const ytDlpBinary = (): string => {
@@ -98,13 +96,11 @@ const fromYtDlp = async (channelId: string): Promise<ChannelVideo[]> => {
     )
     const playlist = JSON.parse(stdout) as {entries?: Array<Record<string, any>>}
 
-    return (playlist.entries ?? [])
-        .map(entry => ({
-            videoId: entry.id,
-            title: String(entry.title ?? '').trim(),
-            ...(entry.timestamp ? {publishedAt: new Date(Number(entry.timestamp) * 1000).toISOString()} : {})
-        }))
-        .filter((video): video is ChannelVideo => isVideoId(video.videoId) && Boolean(video.title))
+    return (playlist.entries ?? []).flatMap(entry => toVideo(
+        entry.id,
+        entry.title,
+        entry.timestamp ? new Date(Number(entry.timestamp) * 1000).toISOString() : undefined
+    ))
 }
 
 /**

@@ -1,5 +1,5 @@
 import {GoogleGenAI} from '@google/genai'
-import {fetchTmdbMedia, type MatchedMedia} from '#server/global/engine/youtube/matchTmdbMedia'
+import type {MatchedMedia} from '#server/global/engine/youtube/matchTmdbMedia'
 
 /**
  * Русский сюжет для автопубликации, когда в TMDB его ещё нет (решение владельца 20.11) — то же,
@@ -7,9 +7,10 @@ import {fetchTmdbMedia, type MatchedMedia} from '#server/global/engine/youtube/m
  * затем «Редактировать → 📝 Описание». Результат кладётся в session.overview, как ручное описание:
  * его берут и пост в канале, и подпись Reels.
  *
- * Gemini (GEMINI_API_KEY) с поиском Google; если поиск недоступен (на бесплатном уровне — 429)
- * или ничего не нашёл — перевод английского описания TMDB. Год, режиссёр и актёры в запросе —
- * чтобы не перепутать с однофамильцем.
+ * Gemini (GEMINI_API_KEY): перевод английского описания TMDB (оно приходит тем же запросом, что
+ * и карточка). С YOUTUBE_OVERVIEW_SEARCH=on сначала поиск Google — на бесплатном тарифе он
+ * отвечает 429, поэтому по умолчанию выключен и не тратит запрос. Год, режиссёр и актёры в
+ * запросе — чтобы не перепутать с однофамильцем.
  */
 
 const MODELS = ['gemini-3.5-flash-lite', 'gemini-3.8-flash']
@@ -64,22 +65,16 @@ export const cleanOverview = (raw: string): string | undefined => {
     return text.length > 1000 ? `${text.slice(0, 1000).replace(/\s+\S*$/, '')}…` : text
 }
 
-/** Год, режиссёр, актёры и английское описание: один запрос TMDB (en-US + credits). */
-export const overviewFacts = async (matched: MatchedMedia): Promise<OverviewFacts> => {
-    const english = await fetchTmdbMedia(matched.mediaType, matched.mediaId, 'language=en-US&append_to_response=credits')
-    const media = matched.media
-    const crew: Array<{job?: string, name?: string}> = english.credits?.crew ?? []
-    return {
-        title: matched.tmdbTitle,
-        originalTitle: media.original_title || media.original_name || undefined,
-        year: String(media.release_date || media.first_air_date || '').slice(0, 4) || undefined,
-        kind: matched.mediaType === 'tv' ? 'сериал' : 'фильм',
-        director: crew.find(person => person.job === 'Director')?.name ??
-            (english.created_by ?? [])[0]?.name,
-        cast: (english.credits?.cast ?? []).slice(0, 3).map((person: {name?: string}) => person.name).filter(Boolean),
-        englishOverview: String(english.overview ?? '').trim() || undefined
-    }
-}
+/** Год, режиссёр, актёры и английское описание — из той же карточки TMDB, без запроса. */
+export const overviewFacts = ({media, mediaType, tmdbTitle, extras}: MatchedMedia): OverviewFacts => ({
+    title: tmdbTitle,
+    originalTitle: media.original_title || media.original_name || undefined,
+    year: String(media.release_date || media.first_air_date || '').slice(0, 4) || undefined,
+    kind: mediaType === 'tv' ? 'сериал' : 'фильм',
+    director: extras.director,
+    cast: extras.cast.slice(0, 3).map(person => person.name).filter((name): name is string => Boolean(name)),
+    englishOverview: extras.englishOverview
+})
 
 type Interaction = {id?: string, status?: string, output_text?: string}
 
@@ -87,10 +82,15 @@ type Interaction = {id?: string, status?: string, output_text?: string}
  * Русский сюжет или undefined (неизвестен ни поиску, ни TMDB). Исключение — Gemini не ответил
  * (лимит, сбой): очередь попробует позже.
  */
-export const generateRussianOverview = async (facts: OverviewFacts, apiKey = process.env.GEMINI_API_KEY?.trim()) => {
+export const generateRussianOverview = async (
+    facts: OverviewFacts,
+    {apiKey = process.env.GEMINI_API_KEY?.trim(), search: searchEnabled = process.env.YOUTUBE_OVERVIEW_SEARCH?.trim() === 'on'} = {}
+) => {
+    let searchAvailable = searchEnabled
+    // Ни поиска, ни описания TMDB — Gemini спрашивать не о чем.
+    if (!searchAvailable && !facts.englishOverview) return undefined
     if (!apiKey) throw new Error('[YOUTUBE OVERVIEW] GEMINI_API_KEY is missing')
     const ai = new GoogleGenAI({apiKey})
-    let searchAvailable = true
     let lastError: unknown
 
     const ask = async (model: string, search: boolean) => {
@@ -125,7 +125,7 @@ export const generateRussianOverview = async (facts: OverviewFacts, apiKey = pro
             } catch (error) {
                 lastError = error
                 const message = error instanceof Error ? error.message : String(error)
-                // Поиск Google не входит в лимит ключа — дальше только перевод.
+                // Поиск Google не входит в тариф ключа — дальше только перевод.
                 if (search && message.includes('429')) searchAvailable = false
                 console.warn('[YOUTUBE OVERVIEW] Gemini failed', {model, search, message: message.slice(0, 160)})
             }

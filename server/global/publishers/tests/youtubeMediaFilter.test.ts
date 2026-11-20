@@ -28,10 +28,10 @@ test('очередь YouTube: малоизвестное не публикует
     const fresh = {...film, vote_count: 0, popularity: 1.2}
     const unknown = 'малоизвестный: нет ни оценок, ни популярности, ни известных актёров'
     // Collect & Praise (20.11): два актёра, самый известный — 1.8.
-    assert.equal(findUnsuitableMediaReason({...fresh, credits: {cast: [{popularity: 0.9}, {popularity: 1.8}]}}), unknown)
+    assert.equal(findUnsuitableMediaReason(fresh, [{popularity: 0.9}, {popularity: 1.8}]), unknown)
     assert.equal(findUnsuitableMediaReason(fresh), unknown)
     // The Comeback King: Глен Пауэлл — 3.2.
-    assert.equal(findUnsuitableMediaReason({...fresh, credits: {cast: [{popularity: 3.2}]}}), undefined)
+    assert.equal(findUnsuitableMediaReason(fresh, [{popularity: 3.2}]), undefined)
     assert.equal(findUnsuitableMediaReason({...fresh, popularity: 15}), undefined)
     assert.equal(findUnsuitableMediaReason({...fresh, vote_count: 6175}), undefined)
 })

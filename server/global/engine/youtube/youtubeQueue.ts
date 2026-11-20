@@ -21,13 +21,9 @@ import {BOT_ADMINS} from '#server/global/oneLinkApp'
 
 type QueueRow = {
     id: number
-    channel_id: string
     video_id: string
     title: string
-    video_published_at: string | null
-    status: string
     attempts: number
-    reel_job_id: string | null
     media_id: number | null
     media_type: string | null
     content_type: string | null
@@ -60,7 +56,7 @@ const notifyAdmin = async (text: string) => {
 
 const videoUrl = (videoId: string) => `https://www.youtube.com/watch?v=${videoId}`
 
-const mediaColumns = (matched: Omit<MatchedMedia, 'media'>) => ({
+const mediaColumns = (matched: Pick<MatchedMedia, 'mediaId' | 'mediaType' | 'contentType' | 'tmdbTitle'>) => ({
     media_id: matched.mediaId,
     media_type: matched.mediaType,
     content_type: matched.contentType,
@@ -87,13 +83,31 @@ const syncChannel = async (supabase: Supabase, channel: WatchedChannel, config: 
     const channelId = channel.id
     const {videos, source} = await listChannelVideos(channelId, {apiKey: config.apiKey})
 
-    const {count, error: countError} = await supabase
-        .from('youtube_publish_queue')
-        .select('id', {count: 'exact', head: true})
-        .eq('channel_id', channelId)
-    if (countError) throw new Error(`[YOUTUBE QUEUE] ${countError.message}`)
+    // Уже взятые в работу или опубликованные ролики (их строки из очереди удалены) и уже
+    // записанные в очередь: TMDB проверяется только для новых.
+    const videoIds = videos.map(video => video.videoId)
+    const [jobs, posts, known] = await Promise.all([
+        supabase.from('reel_processing_jobs').select('key_trailer').in('key_trailer', videoIds),
+        supabase.from('published_media_messages').select('key_trailer').in('key_trailer', videoIds),
+        supabase.from('youtube_publish_queue').select('key_trailer:video_id').in('video_id', videoIds)
+    ])
+    for (const result of [jobs, posts, known]) {
+        if (result.error) throw new Error(`[YOUTUBE QUEUE] ${result.error.message}`)
+    }
+    const taken = new Set([...(jobs.data ?? []), ...(posts.data ?? []), ...(known.data ?? [])].map(row => String(row.key_trailer)))
 
-    const baseline = (count ?? 0) === 0
+    // Первая встреча с каналом (в очереди ни одной его строки): считается, только если ни один
+    // ролик ленты ещё не встречался — иначе это лишний запрос в каждом тике.
+    let baseline = false
+    if (!taken.size) {
+        const {count, error: countError} = await supabase
+            .from('youtube_publish_queue')
+            .select('id', {count: 'exact', head: true})
+            .eq('channel_id', channelId)
+        if (countError) throw new Error(`[YOUTUBE QUEUE] ${countError.message}`)
+        baseline = (count ?? 0) === 0
+    }
+
     const maxAgeMs = config.maxAgeHours * 60 * 60 * 1000
     const now = Date.now()
 
@@ -110,19 +124,6 @@ const syncChannel = async (supabase: Supabase, channel: WatchedChannel, config: 
         }
         return {status: 'queued'}
     }
-
-    // Уже взятые в работу или опубликованные ролики (их строки из очереди удалены) и уже
-    // записанные в очередь: TMDB проверяется только для новых.
-    const videoIds = videos.map(video => video.videoId)
-    const [jobs, posts, known] = await Promise.all([
-        supabase.from('reel_processing_jobs').select('key_trailer').in('key_trailer', videoIds),
-        supabase.from('published_media_messages').select('key_trailer').in('key_trailer', videoIds),
-        supabase.from('youtube_publish_queue').select('key_trailer:video_id').in('video_id', videoIds)
-    ])
-    for (const result of [jobs, posts, known]) {
-        if (result.error) throw new Error(`[YOUTUBE QUEUE] ${result.error.message}`)
-    }
-    const taken = new Set([...(jobs.data ?? []), ...(posts.data ?? []), ...(known.data ?? [])].map(row => String(row.key_trailer)))
 
     // Старые первыми: id в таблице растёт в порядке выхода роликов (у yt-dlp нет даты).
     const rows = []
@@ -151,15 +152,6 @@ const syncChannel = async (supabase: Supabase, channel: WatchedChannel, config: 
     console.log('[YOUTUBE QUEUE SYNC]', {channel: channel.name, source, seen: videos.length, inserted: inserted?.length ?? 0, queued: queued.length, baseline})
 }
 
-/** Строки первой версии (dispatched/published): ролик уже в reel_processing_jobs, из очереди убрать. */
-const removeLegacyRows = async (supabase: Supabase) => {
-    const {error} = await supabase
-        .from('youtube_publish_queue')
-        .delete()
-        .in('status', ['dispatched', 'published'])
-    if (error) throw new Error(`[YOUTUBE QUEUE] ${error.message}`)
-}
-
 const updateRow = async (supabase: Supabase, id: number, patch: Record<string, unknown>) => {
     const {error} = await supabase
         .from('youtube_publish_queue')
@@ -170,20 +162,8 @@ const updateRow = async (supabase: Supabase, id: number, patch: Record<string, u
 
 /** 2. Следующий ролик очереди → задача Reel (если подошёл интервал), строка удаляется. */
 const dispatchNext = async (supabase: Supabase, config: ReturnType<typeof youtubeQueueConfig>) => {
-    // Интервал от последней задачи Reel из очереди (то же условие есть в claim_youtube_queue_item;
-    // здесь — на случай старой версии функции в базе).
-    const {data: lastJob, error: lastError} = await supabase
-        .from('reel_processing_jobs')
-        .select('created_at')
-        .gte('source_update_id', QUEUE_SOURCE_UPDATE_OFFSET)
-        // Только задачи, для которых Cloud Run действительно запущен: неудачный запуск не тратит интервал.
-        .not('worker_execution_name', 'is', null)
-        .order('created_at', {ascending: false})
-        .limit(1)
-        .maybeSingle()
-    if (lastError) throw new Error(`[YOUTUBE QUEUE] ${lastError.message}`)
-    if (lastJob && Date.now() - Date.parse(lastJob.created_at) < config.intervalMinutes * 60_000) return null
-
+    // Интервал от прошлой задачи Reel (с запущенным воркером) и блокировку от двух таймеров
+    // проверяет сама функция базы: не подошёл интервал — ничего не вернёт.
     const {data, error} = await supabase.rpc('claim_youtube_queue_item', {
         p_interval_minutes: config.intervalMinutes,
         // Ролики этих каналов (русские трейлеры) выдаются первыми.
@@ -214,7 +194,7 @@ const dispatchNext = async (supabase: Supabase, config: ReturnType<typeof youtub
         await updateRow(supabase, row.id, {status: 'queued', last_error: errorText(matchError)})
         return {videoId: row.video_id, result: 'retry', message: errorText(matchError)}
     }
-    // Ток-шоу, реалити, документалки, тайтлы без сюжета или постера не публикуются.
+    // Ток-шоу, реалити, документалки, Индонезия, малоизвестное, без постера — не публикуются.
     if (resolved.reason !== undefined) return fail(resolved.reason, {notify: false})
     const {matched} = resolved
 
@@ -263,7 +243,7 @@ const dispatchNext = async (supabase: Supabase, config: ReturnType<typeof youtub
     let overview: string | undefined
     if (!String(matched.media.overview ?? '').trim()) {
         try {
-            overview = (await generateRussianOverview(await overviewFacts(matched)))?.overview
+            overview = (await generateRussianOverview(overviewFacts(matched)))?.overview
         } catch (overviewError) {
             await updateRow(supabase, row.id, {
                 ...mediaPatch,
@@ -338,13 +318,6 @@ export const processYoutubeQueue = async () => {
 
     const supabase = getSupabase()
     const errors: string[] = []
-
-    try {
-        await removeLegacyRows(supabase)
-    } catch (error) {
-        errors.push(errorText(error))
-        console.error('[YOUTUBE QUEUE CLEANUP ERROR]', errorText(error))
-    }
 
     // Каналы по четыре одновременно: с yt-dlp каждый занимает несколько секунд.
     const pending = [...config.channels]

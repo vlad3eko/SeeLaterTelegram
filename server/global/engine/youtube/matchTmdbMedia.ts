@@ -72,6 +72,12 @@ export type MatchedMedia = {
     /** Полный объект TMDB (как у /api/bot/getMediaBot), для карточки и подписи. */
     media: Record<string, any>
     tmdbTitle: string
+    /** Из того же запроса, что и media, но не часть карточки. */
+    extras: {
+        cast: Array<{name?: string, popularity?: number}>
+        director?: string
+        englishOverview?: string
+    }
 }
 
 const tmdbFetch = async (pathAndQuery: string) => {
@@ -124,21 +130,34 @@ export const matchTmdbMedia = async (parsed: ParsedTrailerTitle): Promise<Matche
     if (!best) return null
 
     const mediaType = best.media_type as 'movie' | 'tv'
-    return {
+    return withCard({
         mediaId: Number(best.id),
         mediaType,
         contentType: normalizeTmdbMedia(best).content_type,
-        media: await fetchTmdbMedia(mediaType, Number(best.id), WITH_CREDITS),
         tmdbTitle: String(best.title || best.name || parsed.name)
-    }
+    })
 }
 
-/** Карточка для проверки очереди: актёры — для порога известности (WELL_KNOWN). */
-const WITH_CREDITS = 'language=ru-RU&append_to_response=credits'
-
-/** Полная карточка TMDB (по умолчанию ru-RU). */
-export const fetchTmdbMedia = (mediaType: string, mediaId: number, query = 'language=ru-RU') =>
-    tmdbFetch(`${mediaType}/${mediaId}?${query}`)
+/**
+ * Карточка ru-RU одним запросом вместе с тем, что нужно очереди: актёры (порог известности
+ * WELL_KNOWN, режиссёр для Gemini) и английское описание (перевод, если русского нет). Они
+ * отделяются от карточки: в сессию Reel она идёт без них.
+ */
+const withCard = async (base: Omit<MatchedMedia, 'media' | 'extras'>): Promise<MatchedMedia> => {
+    const {credits, translations, ...media} = await tmdbFetch(`${base.mediaType}/${base.mediaId}?language=ru-RU&append_to_response=credits,translations`)
+    const english = (translations?.translations ?? [])
+        .find((item: {iso_639_1?: string, iso_3166_1?: string}) => item.iso_639_1 === 'en' && item.iso_3166_1 === 'US') ??
+        (translations?.translations ?? []).find((item: {iso_639_1?: string}) => item.iso_639_1 === 'en')
+    return {
+        ...base,
+        media,
+        extras: {
+            cast: credits?.cast ?? [],
+            director: (credits?.crew ?? []).find((person: {job?: string}) => person.job === 'Director')?.name ?? media.created_by?.[0]?.name,
+            englishOverview: String(english?.data?.overview ?? '').trim() || undefined
+        }
+    }
+}
 
 /**
  * Тайтл TMDB, годный для публикации, или причина пропуска. Сбой TMDB — исключение (временный).
@@ -147,19 +166,17 @@ export const fetchTmdbMedia = (mediaType: string, mediaId: number, query = 'lang
  */
 export const resolveTrailerMedia = async (
     title: string,
-    known?: Omit<MatchedMedia, 'media'>
+    known?: Omit<MatchedMedia, 'media' | 'extras'>
 ): Promise<{matched: MatchedMedia, reason?: undefined} | {reason: string}> => {
     let matched: MatchedMedia | null
     if (known) {
-        matched = {...known, media: await fetchTmdbMedia(known.mediaType, known.mediaId, WITH_CREDITS)}
+        matched = await withCard(known)
     } else {
         const parsed = parseTrailerTitle(title)
         if (!parsed) return {reason: 'не удалось выделить название фильма'}
         matched = await matchTmdbMedia(parsed)
         if (!matched) return {reason: `в TMDB нет точного совпадения для «${parsed.name}»${parsed.year ? ` (${parsed.year})` : ''}`}
     }
-    const unsuitable = findUnsuitableMediaReason(matched.media)
-    // Актёры нужны только для проверки известности: в сессию Reel карточка идёт без них.
-    const {credits: _credits, ...media} = matched.media
-    return unsuitable ? {reason: `«${matched.tmdbTitle}»: ${unsuitable}`} : {matched: {...matched, media}}
+    const unsuitable = findUnsuitableMediaReason(matched.media, matched.extras.cast)
+    return unsuitable ? {reason: `«${matched.tmdbTitle}»: ${unsuitable}`} : {matched}
 }
