@@ -279,12 +279,22 @@ export const SIMILAR_CARD = defineCallback<SimilarRef & {from?: SimilarRef}>({
     })
 })
 
-/** «🎬 Название» в сводке обновлений коллекции: карточка новым сообщением, сводка остаётся. */
-export const NOTIFY_CARD = defineCallback<SimilarRef>({
+/**
+ * Сводка обновлений коллекции: «🎬 Название» — карточка в этом же сообщении, «◀️ К сводке» —
+ * сводка обратно (готовое сообщение лежит в digest_deliveries под этим номером).
+ */
+export const NOTIFY_CARD = defineCallback<SimilarRef & {deliveryId: number}>({
     id: 'notify_card',
-    pattern: /^ntf:c:([mt]):(\d+):([A-Za-z]+)$/,
-    encode: ({mediaType, mediaId, contentType}) => `ntf:c:${shortType(mediaType)}:${mediaId}:${contentType}`,
-    decode: match => ({mediaType: longType(match[1]), mediaId: Number(match[2]), contentType: match[3] as ContentType})
+    pattern: /^ntf:c:(\d+):([mt]):(\d+):([A-Za-z]+)$/,
+    encode: ({deliveryId, mediaType, mediaId, contentType}) => `ntf:c:${deliveryId}:${shortType(mediaType)}:${mediaId}:${contentType}`,
+    decode: match => ({deliveryId: Number(match[1]), mediaType: longType(match[2]), mediaId: Number(match[3]), contentType: match[4] as ContentType})
+})
+
+export const NOTIFY_BACK = defineCallback<{deliveryId: number}>({
+    id: 'notify_back',
+    pattern: /^ntf:b:(\d+)$/,
+    encode: ({deliveryId}) => `ntf:b:${deliveryId}`,
+    decode: match => ({deliveryId: Number(match[1])})
 })
 
 /**

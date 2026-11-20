@@ -76,7 +76,7 @@ export const prepareDigests = async (supabase: Supabase, now = new Date(), {forc
     const subscribers: Subscription[] = []
     for (const part of chunks(ids)) {
         const {data, error} = await supabase.from('favorites')
-            .select('user_id,media_type,tmdb_id,title,genres_ids,created_at').in('tmdb_id', part)
+            .select('user_id,media_type,tmdb_id,title,genres_ids,poster_path,created_at').in('tmdb_id', part)
         if (error) throw error
         subscribers.push(...((data ?? []) as Subscription[]).filter(row => eventKeys.has(mediaKey(row.media_type, row.tmdb_id))))
     }
@@ -115,7 +115,7 @@ export const prepareDigests = async (supabase: Supabase, now = new Date(), {forc
     const allSubscriptions: Subscription[] = []
     for (const part of chunks(recipients)) {
         const {data, error} = await supabase.from('favorites')
-            .select('user_id,media_type,tmdb_id,title,genres_ids,created_at').in('user_id', part)
+            .select('user_id,media_type,tmdb_id,title,genres_ids,poster_path,created_at').in('user_id', part)
         if (error) throw error
         allSubscriptions.push(...((data ?? []) as Subscription[]))
     }
@@ -133,7 +133,7 @@ export const prepareDigests = async (supabase: Supabase, now = new Date(), {forc
         // события по тайтлам остальных копились, и при включении «all» им не придёт старое.
         const userEvents = eventsForUser(events, mine, lastCutoff.get(userId) ?? new Date(now.getTime() - FIRST_DIGEST_MS).toISOString())
         if (!userEvents.length) continue
-        const titles = new Map(mine.map(row => [mediaKey(row.media_type, row.tmdb_id), {title: row.title ?? '', genres: row.genres_ids}]))
+        const titles = new Map(mine.map(row => [mediaKey(row.media_type, row.tmdb_id), {title: row.title ?? '', genres: row.genres_ids, poster: (row as any).poster_path ?? null}]))
         const calendar = upcoming(mine
             .map(row => future.get(mediaKey(row.media_type, row.tmdb_id)))
             .filter((row): row is WatchRow => Boolean(row))
@@ -159,8 +159,8 @@ const callApi = (method: string, payload: Record<string, unknown>) =>
         .call(bot.telegram, method, payload)
 
 /** Rich Message; Telegram не принял разметку (400) — тот же текст обычным HTML без фото. */
-const sendDigest = async (chatId: number, payload: DigestPayload) => {
-    const reply_markup = digestKeyboard(payload.cards)
+const sendDigest = async (chatId: number, payload: DigestPayload, deliveryId: number) => {
+    const reply_markup = digestKeyboard(payload.cards, deliveryId)
     try {
         return await callApi('sendRichMessage', {chat_id: chatId, rich_message: payload.rich, reply_markup})
     } catch (error: any) {
@@ -210,12 +210,12 @@ export const sendDigests = async (supabase: Supabase, now = new Date(), {force =
         try {
             let message: any
             try {
-                message = await sendDigest(chatId, delivery.payload as DigestPayload)
+                message = await sendDigest(chatId, delivery.payload as DigestPayload, Number(delivery.id))
             } catch (error: any) {
                 const retryAfter = Number(error?.response?.parameters?.retry_after)
                 if (errorCode(error) !== 429 || !(retryAfter <= 30)) throw error
                 await sleep(retryAfter * 1000)
-                message = await sendDigest(chatId, delivery.payload as DigestPayload)
+                message = await sendDigest(chatId, delivery.payload as DigestPayload, Number(delivery.id))
             }
             await finish({status: 'sent', sent_at: new Date().toISOString(), telegram_message_id: message?.message_id ?? null, last_error: null})
             report.sent++

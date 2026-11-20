@@ -11,7 +11,7 @@ import {
     type Snapshot
 } from '../snapshot'
 import {buildDigest, contentTypeOf, digestKeyboard, episodesText, eventsForUser, upcoming, type EventRow} from '../digest'
-import {NOTIFY_CARD} from '../../../../bot/callbacks/routes'
+import {NOTIFY_BACK, NOTIFY_CARD} from '../../../../bot/callbacks/routes'
 
 const now = new Date('2026-11-21T07:00:00Z') // 10:00 МСК
 const DAY = 24 * 60 * 60_000
@@ -190,9 +190,9 @@ test('события подписчику: только после сохран�
 })
 
 test('сводка: разделы, склейка премьеры с переносом, постеры в свёрнутом блоке, кнопки', () => {
-    const titles = new Map([
-        ['movie:1', {title: 'Дюна 3', genres: [878]}],
-        ['tv:2', {title: 'Разделение', genres: [18]}],
+    const titles = new Map<string, {title: string, genres: unknown, poster?: string}>([
+        ['movie:1', {title: 'Дюна 3', genres: [878], poster: '/dune.jpg'}],
+        ['tv:2', {title: 'Разделение', genres: [18], poster: '/sev.jpg'}],
         ['movie:3', {title: 'Аватар 4', genres: [12]}],
         ['movie:4', {title: 'Зверополис 2', genres: [16]}]
     ])
@@ -213,25 +213,39 @@ test('сводка: разделы, склейка премьеры с пере�
     assert.ok(payload)
     assert.equal(payload.count, 5)
     assert.equal(payload.html, [
-        '<b>🎬 Обновления вашей коллекции · 5</b>',
+        '<b>🎬 Обновления коллекции</b>', '<i>Суббота, 21 ноября · 5 новостей</i>',
         '', '<b>🍿 Премьеры</b>', '• <code>Дюна 3</code> — премьера сегодня (перенесли с 25.12)',
         '', '<b>📺 Новые серии</b>', '• <code>Разделение</code> — 2 сезон, 5 серия',
         '', '<b>📅 Даты</b>', '• <code>Аватар 4</code> — перенесли: 18.12 → 25.12',
-        '', '<b>▶️ Трейлеры</b>', '• <code>Зверополис 2</code> — <a href="https://www.youtube.com/watch?v=BBBBBBBBBBB">🇷🇺 трейлер</a> · ещё 1',
+        '', '<b>▶️ Трейлеры</b>', '• <code>Зверополис 2</code> — <a href="https://www.youtube.com/watch?v=BBBBBBBBBBB">▶ 🇷🇺 трейлер</a> · ещё 1',
         '', '🖼 Новые постеры: 2 — Зверополис 2',
-        '', '<b>📆 Скоро</b>', '25.12 · <code>Аватар 4</code> · через 34 дня'
+        '', '<b>📆 Скоро</b>', '25.12 · <code>Аватар 4</code> — премьера · через 34 дня'
     ].join('\n'))
-    const details = payload.rich.blocks.find((block: any) => block.type === 'details')
-    assert.equal(details.summary, '🖼 Новые постеры · 2')
+
+    const blocks = payload.rich.blocks
+    // Обложка — коллаж постеров главных тайтлов; разделы — заголовки (отступ сверху) и списки.
+    assert.equal(blocks[0].type, 'collage')
+    assert.equal(blocks[0].blocks[0].photo.media, 'https://image.tmdb.org/t/p/w342/dune.jpg')
+    assert.deepEqual(blocks.filter((block: any) => block.type === 'heading' && block.size === 3).map((block: any) => block.text[0]),
+        ['🍿 Премьеры', '📺 Новые серии', '📅 Даты', '▶️ Трейлеры', '🖼 Постеры', '📆 Скоро'])
+    assert.equal(blocks.filter((block: any) => block.type === 'list').length, 3)
+    const tables = blocks.filter((block: any) => block.type === 'table')
+    assert.deepEqual(tables[0].cells[1].map((cell: any) => cell.text), ['Аватар 4', '18.12', '25.12'])
+    assert.deepEqual(tables[1].cells[1].map((cell: any) => cell.text), ['25.12', 'Аватар 4 — премьера', '34 дня'])
+    assert.equal(blocks.at(-1).type, 'footer')
+    const details = blocks.find((block: any) => block.type === 'details')
+    assert.match(details.summary, /^Новые постеры · 2/)
     assert.equal(details.blocks[1].type, 'collage')
     assert.equal(details.blocks[1].blocks[0].photo.media, 'https://image.tmdb.org/t/p/w500/p1.jpg')
     assert.deepEqual(payload.cards.map(card => [card.title, card.contentType]),
         [['Дюна 3', 'movie'], ['Разделение', 'series'], ['Аватар 4', 'movie']])
 
-    const keyboard = digestKeyboard(payload.cards)
+    const keyboard = digestKeyboard(payload.cards, 42)
     assert.equal(keyboard.inline_keyboard.length, 4)
     const data = (keyboard.inline_keyboard[1]![0] as any).callback_data
-    assert.deepEqual(NOTIFY_CARD.decode(data.match(NOTIFY_CARD.pattern)!), {mediaType: 'tv', mediaId: 2, contentType: 'series'})
+    assert.ok(data.length <= 64)
+    assert.deepEqual(NOTIFY_CARD.decode(data.match(NOTIFY_CARD.pattern)!), {deliveryId: 42, mediaType: 'tv', mediaId: 2, contentType: 'series'})
+    assert.deepEqual(NOTIFY_BACK.decode(NOTIFY_BACK.encode({deliveryId: 42}).match(NOTIFY_BACK.pattern)!), {deliveryId: 42})
     assert.equal(contentTypeOf('movie', [16, 35]), 'cartoon')
 
     assert.equal(buildDigest({events: [], titles, calendar: [], today: '2026-11-21'}), undefined)

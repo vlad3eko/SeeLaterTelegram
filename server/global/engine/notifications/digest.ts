@@ -67,7 +67,7 @@ const MAX_PER_SECTION = 5
 const MAX_CARDS = 3
 const MAX_POSTERS = 6
 const MAX_CALENDAR = 4
-const POSTER_URL = 'https://image.tmdb.org/t/p/w500'
+const MAX_COVER = 4
 
 export const mediaKey = (mediaType: string, tmdbId: number | string) => `${mediaType}:${tmdbId}`
 
@@ -136,15 +136,17 @@ const toHtml = (line: Line) => line.map(piece =>
             : 'bold' in piece ? `<b>${escapeHtml(piece.bold)}</b>`
                 : `<a href="${escapeHtml(piece.url)}">${escapeHtml(piece.link)}</a>`).join('')
 
-type Section = {title: string, lines: Line[]}
-
 const limited = (lines: Line[]): Line[] =>
     lines.length > MAX_PER_SECTION
         ? [...lines.slice(0, MAX_PER_SECTION), [`и ещё ${lines.length - MAX_PER_SECTION} — в коллекции`]]
         : lines
 
+export type CalendarItem = {date: string, title: string, note: string, days: number}
+
+const daysText = (days: number) => `${days} ${plural(days, 'день', 'дня', 'дней')}`
+
 /** Ближайшие даты из сохранённых: фильмы и следующие серии, до 4. */
-export const upcoming = (watch: WatchRow[], today: string): Line[] =>
+export const upcoming = (watch: WatchRow[], today: string): CalendarItem[] =>
     watch
         .map(row => {
             const date = row.media_type === 'movie' ? row.release_date : row.next_episode_air_date
@@ -153,31 +155,48 @@ export const upcoming = (watch: WatchRow[], today: string): Line[] =>
         .filter((item): item is {row: WatchRow, date: string} => Boolean(item))
         .sort((a, b) => a.date.localeCompare(b.date))
         .slice(0, MAX_CALENDAR)
-        .map(({row, date}) => {
-            const days = daysBetween(today, date)
-            return [
-                `${shortDate(date, today)} · `,
-                {code: row.title ?? 'Без названия'},
-                row.media_type === 'tv' && row.next_episode ? ` — ${row.next_episode}` : '',
-                ` · через ${days} ${plural(days, 'день', 'дня', 'дней')}`
-            ]
-        })
+        .map(({row, date}) => ({
+            date,
+            title: row.title ?? 'Без названия',
+            note: row.media_type === 'tv' && row.next_episode ? row.next_episode : 'премьера',
+            days: daysBetween(today, date)
+        }))
+
+/** «Суббота, 21 ноября». */
+const longDate = (date: string) => {
+    const text = new Intl.DateTimeFormat('ru-RU', {weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC'})
+        .format(new Date(`${date}T12:00:00Z`))
+    return text.charAt(0).toUpperCase() + text.slice(1)
+}
+
+const photo = (path: string, size = 'w500') => ({type: 'photo', photo: {type: 'photo', media: `https://image.tmdb.org/t/p/${size}${path}`}})
+
+const table = (header: string[], rows: string[][], striped = false) => ({
+    type: 'table',
+    is_compact: true,
+    ...(striped ? {is_striped: true} : {is_bordered: true}),
+    cells: [header.map(text => ({text, is_header: true})), ...rows.map(row => row.map(text => ({text})))]
+})
+
+export type TitleInfo = {title: string, genres: unknown, poster?: string | null}
 
 /**
- * Сообщение-сводка. titles — название и жанры по тайтлу (из favorites пользователя).
+ * Сообщение-сводка (Rich Message, решения владельца 21.11): сверху коллаж постеров главных
+ * тайтлов, дата и число новостей; разделы — заголовки с отступом и списки; переносы и «Скоро» —
+ * таблицы; новые постеры — в свёрнутом блоке; внизу подпись. Запасной HTML — то же текстом.
  * Пустой список событий — undefined (сводку не шлём; календарь сам по себе не повод).
  */
 export const buildDigest = (
     {events, titles, calendar, today}: {
         events: EventRow[]
-        titles: Map<string, {title: string, genres: unknown}>
-        calendar: Line[]
+        titles: Map<string, TitleInfo>
+        calendar: CalendarItem[]
         today: string
     }
 ): DigestPayload | undefined => {
     if (!events.length) return undefined
 
-    const titleOf = (event: EventRow) => titles.get(mediaKey(event.media_type, event.tmdb_id))?.title || 'Без названия'
+    const titleOf = (key: string) => titles.get(key)?.title || 'Без названия'
     const byMedia = new Map<string, EventRow[]>()
     for (const event of [...events].sort((a, b) => a.id - b.id)) {
         const key = mediaKey(event.media_type, event.tmdb_id)
@@ -186,14 +205,13 @@ export const buildDigest = (
 
     const premieres: Line[] = []
     const episodes: Line[] = []
-    const dates: Line[] = []
+    const dates: {title: string, from: string, to: string}[] = []
     const trailers: Line[] = []
     const posters: {title: string, paths: string[]}[] = []
-    const order: {section: number, key: string, event: EventRow}[] = []
+    const order: {section: number, key: string}[] = []
 
     for (const [key, list] of byMedia) {
-        const first = list[0]!
-        const title = titleOf(first)
+        const title = titleOf(key)
         const premiere = list.filter(event => event.event_type === 'movie_premiere').at(-1)
         const changes = list.filter(event => event.event_type === 'release_date_changed')
         const sets = list.filter(event => event.event_type === 'release_date_set')
@@ -201,69 +219,95 @@ export const buildDigest = (
         if (premiere) {
             const date = premiere.event_date ?? today
             const moved = changes.find(event => event.payload?.to === date)
-            premieres.push(['• ', {code: title}, ' — ',
+            premieres.push([{code: title}, ' — ',
                 date === today ? 'премьера сегодня' : `вышел ${shortDate(date, today)}`,
                 moved ? ` (перенесли с ${shortDate(String(moved.payload.from), today)})` : ''])
-            order.push({section: 0, key, event: premiere})
+            order.push({section: 0, key})
         }
 
         for (const event of list.filter(item => item.event_type === 'tv_episodes')) {
-            episodes.push(['• ', {code: title}, ` — ${episodesText(event.payload ?? {})}`])
-            order.push({section: 1, key, event})
+            episodes.push([{code: title}, ` — ${episodesText(event.payload ?? {})}`])
+            order.push({section: 1, key})
         }
 
         const premiereDate = premiere?.event_date
         const lastChange = changes.filter(event => event.payload?.to !== premiereDate).at(-1)
         if (lastChange) {
             // Несколько переносов за день — один пункт: с самой первой даты на последнюю.
-            const from = String(changes[0]!.payload.from)
-            dates.push(['• ', {code: title}, ` — перенесли: ${shortDate(from, today)} → ${shortDate(String(lastChange.payload.to), today)}`])
-            order.push({section: 2, key, event: lastChange})
+            dates.push({title, from: shortDate(String(changes[0]!.payload.from), today), to: shortDate(String(lastChange.payload.to), today)})
+            order.push({section: 2, key})
         } else if (!premiere && sets.length) {
-            dates.push(['• ', {code: title}, ` — назначили дату: ${shortDate(String(sets.at(-1)!.payload.date), today)}`])
-            order.push({section: 2, key, event: sets.at(-1)!})
+            dates.push({title, from: '—', to: shortDate(String(sets.at(-1)!.payload.date), today)})
+            order.push({section: 2, key})
         }
 
         const videos = list.filter(event => event.event_type === 'trailer_added')
         if (videos.length) {
             const rank = (event: EventRow) => (event.payload?.russian ? 0 : 4) + (event.payload?.teaser ? 2 : 0)
             const best = [...videos].sort((a, b) => rank(a) - rank(b) || b.id - a.id)[0]!
-            const label = `${best.payload?.russian ? '🇷🇺 ' : ''}${best.payload?.teaser ? 'тизер' : 'трейлер'}`
-            trailers.push(['• ', {code: title}, ' — ',
+            const label = `▶ ${best.payload?.russian ? '🇷🇺 ' : ''}${best.payload?.teaser ? 'тизер' : 'трейлер'}`
+            trailers.push([{code: title}, ' — ',
                 {link: label, url: `https://www.youtube.com/watch?v=${best.payload?.key}`},
                 videos.length > 1 ? ` · ещё ${videos.length - 1}` : ''])
-            order.push({section: 3, key, event: best})
+            order.push({section: 3, key})
         }
 
         const images = list.filter(event => event.event_type === 'posters_added')
             .flatMap(event => (event.payload?.paths ?? []) as string[])
         if (images.length) {
             posters.push({title, paths: [...new Set(images)]})
-            order.push({section: 4, key, event: list.find(item => item.event_type === 'posters_added')!})
+            order.push({section: 4, key})
         }
     }
 
-    const sections: Section[] = [
-        {title: '🍿 Премьеры', lines: premieres},
-        {title: '📺 Новые серии', lines: episodes},
-        {title: '📅 Даты', lines: dates},
-        {title: '▶️ Трейлеры', lines: trailers}
-    ].filter(section => section.lines.length)
-
-    const posterCount = posters.reduce((sum, item) => sum + item.paths.length, 0)
     const count = premieres.length + episodes.length + dates.length + trailers.length + posters.length
     if (!count) return undefined
+    order.sort((a, b) => a.section - b.section)
+    const posterCount = posters.reduce((sum, item) => sum + item.paths.length, 0)
 
-    const heading = `🎬 Обновления вашей коллекции · ${count}`
-    const blocks: any[] = [{type: 'heading', size: 1, text: [heading]}]
-    const html: string[] = [`<b>${escapeHtml(heading)}</b>`]
+    const blocks: any[] = []
+    const html: string[] = []
 
-    for (const section of sections) {
-        const lines = limited(section.lines)
-        blocks.push({type: 'paragraph', text: [{type: 'bold', text: section.title}]})
-        blocks.push(...lines.map(line => ({type: 'paragraph', text: toRich(line)})))
-        html.push('', `<b>${escapeHtml(section.title)}</b>`, ...lines.map(toHtml))
+    // Обложка: постеры главных тайтлов (премьеры и серии первыми), до 4.
+    const cover = [...new Set(order.map(item => item.key))]
+        .map(key => titles.get(key)?.poster)
+        .filter((path): path is string => Boolean(path))
+        .slice(0, MAX_COVER)
+    if (cover.length === 1) blocks.push(photo(cover[0]!, 'w780'))
+    else if (cover.length > 1) blocks.push({type: 'collage', blocks: cover.map(path => photo(path, 'w342'))})
+
+    const heading = '🎬 Обновления коллекции'
+    const subtitle = `${longDate(today)} · ${count} ${plural(count, 'новость', 'новости', 'новостей')}`
+    blocks.push({type: 'heading', size: 1, text: [heading]})
+    blocks.push({type: 'paragraph', text: [{type: 'italic', text: subtitle}]})
+    html.push(`<b>${escapeHtml(heading)}</b>`, `<i>${escapeHtml(subtitle)}</i>`)
+
+    const section = (title: string) => {
+        // Заголовок раздела — свой отступ сверху, разделы не слипаются.
+        blocks.push({type: 'heading', size: 3, text: [title]})
+        html.push('', `<b>${escapeHtml(title)}</b>`)
     }
+    const list = (lines: Line[]) => {
+        const shown = limited(lines)
+        blocks.push({type: 'list', items: shown.map(line => ({blocks: [{type: 'paragraph', text: toRich(line)}]}))})
+        html.push(...shown.map(line => `• ${toHtml(line)}`))
+    }
+
+    if (premieres.length) { section('🍿 Премьеры'); list(premieres) }
+    if (episodes.length) { section('📺 Новые серии'); list(episodes) }
+    if (dates.length) {
+        section('📅 Даты')
+        const shown = dates.slice(0, MAX_PER_SECTION)
+        blocks.push(table(['Фильм', 'Было', 'Стало'], shown.map(item => [item.title, item.from, item.to])))
+        html.push(...shown.map(item => item.from === '—'
+            ? `• <code>${escapeHtml(item.title)}</code> — назначили дату: ${item.to}`
+            : `• <code>${escapeHtml(item.title)}</code> — перенесли: ${item.from} → ${item.to}`))
+        if (dates.length > MAX_PER_SECTION) {
+            blocks.push({type: 'paragraph', text: [`и ещё ${dates.length - MAX_PER_SECTION} — в коллекции`]})
+            html.push(`• и ещё ${dates.length - MAX_PER_SECTION} — в коллекции`)
+        }
+    }
+    if (trailers.length) { section('▶️ Трейлеры'); list(trailers) }
 
     if (posterCount) {
         // Свёрнутый блок с фото (решение владельца): раскрыл — посмотрел. Не больше 6 фото.
@@ -273,23 +317,27 @@ export const buildDigest = (
             if (left <= 0) break
             const paths = item.paths.slice(0, left)
             left -= paths.length
-            const photos = paths.map(path => ({type: 'photo', photo: {type: 'photo', media: `${POSTER_URL}${path}`}}))
+            const photos = paths.map(path => photo(path))
             inner.push({type: 'paragraph', text: [{type: 'code', text: item.title}]})
             inner.push(photos.length > 1 ? {type: 'collage', blocks: photos} : photos[0])
         }
-        blocks.push({type: 'details', summary: `🖼 Новые постеры · ${posterCount}`, blocks: inner})
+        blocks.push({type: 'heading', size: 3, text: ['🖼 Постеры']})
+        blocks.push({type: 'details', summary: `Новые постеры · ${posterCount} — нажмите, чтобы посмотреть`, blocks: inner})
         html.push('', `🖼 Новые постеры: ${posterCount} — ${posters.map(item => escapeHtml(item.title)).join(', ')}`)
     }
 
     if (calendar.length) {
-        blocks.push({type: 'divider'})
-        blocks.push({type: 'paragraph', text: [{type: 'bold', text: '📆 Скоро'}]})
-        blocks.push(...calendar.map(line => ({type: 'paragraph', text: toRich(line)})))
-        html.push('', '<b>📆 Скоро</b>', ...calendar.map(toHtml))
+        section('📆 Скоро')
+        blocks.push(table(['Дата', 'Что', 'Через'],
+            calendar.map(item => [shortDate(item.date, today), `${item.title} — ${item.note}`, daysText(item.days)]), true))
+        html.push(...calendar.map(item =>
+            `${shortDate(item.date, today)} · <code>${escapeHtml(item.title)}</code> — ${escapeHtml(item.note)} · через ${daysText(item.days)}`))
     }
 
+    blocks.push({type: 'footer', text: ['Раз в день по вашим сохранённым · без новостей сводки нет']})
+
     const cards: DigestCard[] = []
-    for (const {key} of order.sort((a, b) => a.section - b.section)) {
+    for (const {key} of order) {
         if (cards.length >= MAX_CARDS) break
         if (cards.some(card => mediaKey(card.mediaType, card.tmdbId) === key)) continue
         const [mediaType, id] = key.split(':') as [MediaType, string]
@@ -302,10 +350,14 @@ export const buildDigest = (
 
 const shortTitle = (title: string, max = 22) => title.length > max ? `${title.slice(0, max - 1)}…` : title
 
-/** Кнопки сводки: «🎬 Название» на главные события (новым сообщением) и «📦 Коллекция». */
-export const digestKeyboard = (cards: DigestCard[]) => ({
+/**
+ * Кнопки сводки: «🎬 Название» на главные события — карточка в этом же сообщении, под ней
+ * «◀️ К сводке» (решение владельца 21.11); «📦 Коллекция».
+ */
+export const digestKeyboard = (cards: DigestCard[], deliveryId: number) => ({
     inline_keyboard: [
         ...cards.map(card => [Markup.button.callback(`🎬 ${shortTitle(card.title)}`, NOTIFY_CARD.encode({
+            deliveryId,
             mediaType: card.mediaType,
             mediaId: card.tmdbId,
             contentType: card.contentType
