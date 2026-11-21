@@ -259,6 +259,18 @@ test('сводка: разделы, склейка премьеры с пере�
     assert.equal(buildDigest({events: [], titles, calendar: [], today: '2026-11-21'}), undefined)
 })
 
+test('сводка: постер, загруженный один раз, — по file_id; не загрузился — ссылка TMDB', () => {
+    const titles = new Map([['movie:4', {title: 'Зверополис 2', genres: []}]])
+    const payload = buildDigest({
+        today: '2026-11-21', titles, calendar: [],
+        events: [event(1, {tmdb_id: 4, event_type: 'posters_added', payload: {paths: ['/p1.jpg', '/p2.jpg']}})],
+        posterFiles: new Map([['/p1.jpg', 'AgACAgFILE']])
+    })!
+    const posters = payload.rich.blocks.find((block: any) => block.type === 'details').blocks[1]
+    assert.deepEqual(posters.blocks[0].blocks.map((block: any) => block.photo.media),
+        ['AgACAgFILE', 'https://image.tmdb.org/t/p/w500/p2.jpg'])
+})
+
 test('сводка: больше 10 в разделе — «и ещё N»; больше 3 тайтлов — кнопка «Ещё»', () => {
     const titles = new Map(Array.from({length: 12}, (_, index) => [`movie:${index + 1}`, {title: `Фильм ${index + 1}`, genres: []}]))
     const payload = buildDigest({

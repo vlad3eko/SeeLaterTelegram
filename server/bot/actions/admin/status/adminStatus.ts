@@ -262,7 +262,7 @@ const usersSection = async (supabase: any, now: number): Promise<Section> => {
     lines.push(`<i>Всего ${total.count ?? 0}, подписаны на канал ${subscribers.count ?? 0}</i>`)
     lines.push(`💾 Сохранили фильмов: ${saved.count ?? 0}`)
 
-    const statuses = (deliveries.data ?? []).map((row: any) => row.status as string)
+    const statuses: string[] = (deliveries.data ?? []).map((row: any) => String(row.status))
     const count = (...names: string[]) => statuses.filter(status => names.includes(status)).length
     const mode = ({all: 'всем', admin: 'только администратору', off: 'выключена'} as const)[digestMode()]
     if (!statuses.length) {

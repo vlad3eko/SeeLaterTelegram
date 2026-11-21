@@ -393,7 +393,7 @@ create index favorites_media on favorites (media_type, tmdb_id);
 ### Сделано (21.11, код в master, не выкачен)
 - SQL: `database/migrations/notifications.sql` (3 таблицы, колонки `users`, индекс `favorites`).
 - `server/global/engine/notifications/`: `snapshot.ts` (сравнение со снимком, события, частота проверки), `detect.ts` (TMDB без кэша — `tmdbFetch`, YouTube-очередь и `reel_processing_jobs`, премьеры), `digest.ts` (события → подписчикам, текст Rich и HTML, кнопки), `digestJob.ts` (prepare/send, статусы, 403/429/unknown).
-- Эндпоинт `server/api/bot/notifications/tick.ts`: `?mode=auto` (detect каждый раз; сводки готовятся с 09:30, в 10:00 готовые уходят первыми, до проверки тайтлов; подготовка до 12:00, отправка до 14:00), `?mode=detect|digest`, `&force=1`.
+- Эндпоинт `server/api/bot/notifications/tick.ts`: `?mode=auto` (detect каждый раз; очередь `digest_deliveries` готовится с 09:00 частями, в 10:00 рассылается первой, до проверки тайтлов; общий лимит запуска 230 с — не успели, запуск сам вызывает себя `mode=digest&hop=N` и продолжает ту же очередь; новые постеры грузятся в канал-хранилище один раз на всех — в сводках file_id), `?mode=detect|digest`, `&force=1`.
 - Backfill отдельным скриптом не нужен: первый detect сам заносит тайтлы из `favorites` и делает baseline (до 50 тайтлов за вызов).
 - «Сохранить» (`createFavorite`) ставит тайтл под слежение; ошибка не ломает сохранение.
 - Вид (решения владельца 21.11): обложка «Ваши новости сегодня» (экран `digest` в `scripts/covers`), разделы — свёрнутые блоки с пояснением курсивом, даты в таблицах полностью, названия моноширинным, постеры — блок у каждого тайтла, внизу благодарность и ссылка на @Zerno_Kopeica.

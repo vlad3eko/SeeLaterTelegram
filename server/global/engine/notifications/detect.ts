@@ -223,7 +223,8 @@ export type DetectReport = {
     skipped?: string
 }
 
-export const detectUpdates = async (supabase: Supabase, now = new Date()): Promise<DetectReport> => {
+/** deadline — общий лимит запуска таймера (tick.ts): проверка тайтлов не съедает время рассылки. */
+export const detectUpdates = async (supabase: Supabase, now = new Date(), {deadline = Infinity} = {}): Promise<DetectReport> => {
     const started = Date.now()
     const report: DetectReport = {added: 0, checked: 0, baselines: 0, events: 0, errors: 0}
 
@@ -244,7 +245,7 @@ export const detectUpdates = async (supabase: Supabase, now = new Date()): Promi
     if (error) throw error
 
     await mapLimit((due ?? []) as WatchRow[], PARALLEL, async row => {
-        if (Date.now() - started > TIME_BUDGET_MS) return
+        if (Date.now() - started > TIME_BUDGET_MS || Date.now() > deadline) return
         try {
             const {created, baseline} = await checkTitle(supabase, row, now)
             report.checked++

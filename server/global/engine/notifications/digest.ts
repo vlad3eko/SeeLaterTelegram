@@ -194,7 +194,10 @@ const longDate = (date: string) => {
     return text.charAt(0).toUpperCase() + text.slice(1)
 }
 
-const photo = (path: string, size = 'w500') => ({type: 'photo', photo: {type: 'photo', media: `https://image.tmdb.org/t/p/${size}${path}`}})
+/** Картинка TMDB по пути; w500 — размер постеров сводки (тот же грузится в канал-хранилище, digestJob). */
+export const posterUrl = (path: string, size = 'w500') => `https://image.tmdb.org/t/p/${size}${path}`
+
+const photo = (path: string, size = 'w500') => ({type: 'photo', photo: {type: 'photo', media: posterUrl(path, size)}})
 
 /** Ячейка — строка или RichText (название тайтла моноширинным). */
 const table = (header: string[], rows: (string | any[])[][], striped = false) => ({
@@ -215,13 +218,15 @@ export type TitleInfo = {title: string, genres: unknown, poster?: string | null}
  * Пустой список событий — undefined (сводку не шлём; календарь сам по себе не повод).
  */
 export const buildDigest = (
-    {events, titles, calendar, today, cover: coverMedia}: {
+    {events, titles, calendar, today, cover: coverMedia, posterFiles}: {
         events: EventRow[]
         titles: Map<string, TitleInfo>
         calendar: CalendarItem[]
         today: string
         /** Готовый блок обложки «Ваши новости сегодня» (scripts/covers, экран digest); нет — коллаж постеров. */
         cover?: Record<string, unknown>
+        /** Постер → file_id в канале-хранилище: загружен один раз на всех (digestJob); нет — ссылка TMDB. */
+        posterFiles?: Map<string, string>
     }
 ): DigestPayload | undefined => {
     if (!events.length) return undefined
@@ -356,7 +361,10 @@ export const buildDigest = (
             if (left <= 0) break
             const paths = item.paths.slice(0, left)
             left -= paths.length
-            const photos = paths.map(path => photo(path))
+            const photos = paths.map(path => {
+                const fileId = posterFiles?.get(path)
+                return fileId ? {type: 'photo', photo: {type: 'photo', media: fileId}} : photo(path)
+            })
             inner.push({
                 type: 'details',
                 summary: [{type: 'code', text: item.title}, ` · ${item.paths.length} ${plural(item.paths.length, 'постер', 'постера', 'постеров')}`],
