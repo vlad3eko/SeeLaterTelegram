@@ -38,14 +38,28 @@ const authStore = useAuthStore()
 const userStore = useUserStore()
 const {data, isAuth} = storeToRefs(userStore)
 
-const {data: medias, pending} = await useAsyncData(
+// useRequestFetch: при отрисовке на сервере передаёт cookie сессии браузера — без неё
+// /api/:media не знает, кто вошёл, и отдаёт пустой список.
+const requestFetch = useRequestFetch()
+
+type FavoritesPage = { results: any[], total_pages?: number }
+
+// Сервер отдаёт избранное вошедшего пользователя страницами по 50 (поле results): собираем все.
+const loadFavorites = async () => {
+  const all: any[] = []
+  for (let page = 1; page <= 20; page++) {
+    const response = await requestFetch<FavoritesPage>('/api/:media', {
+      query: {page, limit: 50, sortBy: sortBy.value}
+    })
+    all.push(...(response?.results ?? []))
+    if (!response?.total_pages || page >= response.total_pages) break
+  }
+  return all
+}
+
+const {data: favoritesData, pending} = await useAsyncData(
     'movies-bookmarks',
-    () => $fetch('/api/:media', {
-        query: {
-          userId: data?.value?.id,
-          sortBy: sortBy.value,
-        }
-      }),
+    loadFavorites,
     {
       watch: [
         sortBy,
@@ -54,15 +68,7 @@ const {data: medias, pending} = await useAsyncData(
     }
 )
 
-// TODO доделать функцию авторизации
-
-const favorites = computed(() =>
-
-    medias?.value?.data?.filter(
-        item =>
-            item.user_id === data?.value?.id
-    ) ?? []
-)
+const favorites = computed(() => favoritesData.value ?? [])
 
 </script>
 

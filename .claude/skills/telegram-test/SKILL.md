@@ -26,7 +26,7 @@ npx tsx --tsconfig tsconfig.reel-dryrun.json --test server/global/engine/notific
 {"extends": "<абсолютный путь>/tsconfig.reel-dryrun.json", "compilerOptions": {"noEmit": true}, "include": ["<абсолютные пути изменённых .ts>"]}
 ```
 
-`node_modules/.bin/tsc -p <этот файл>`. Ошибки про Nitro-авто-импорты (`defineEventHandler`, `getQuery`,
+`node_modules/.bin/tsc -p <этот файл>` (в worktree своих `node_modules` нет: `../../../node_modules/.bin/tsc`, в tsconfig добавить `"typeRoots": ["<основной checkout>/node_modules/@types"]`; tsc, который не запустился, — не «0 ошибок»). Ошибки про Nitro-авто-импорты (`defineEventHandler`, `getQuery`,
 `readBody`, `createError`, `useRuntimeConfig`) и про `.vue` — шум, их не считать. Ошибки в файлах, которых
 правка не касалась, упомянуть отдельно как старые.
 

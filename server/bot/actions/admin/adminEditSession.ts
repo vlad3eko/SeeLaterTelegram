@@ -51,6 +51,8 @@ export type AdminEditSession = {
     currentMedia: {
         type: 'photo' | 'video'
         fileId: string
+        /** Своё фото или видео администратора: в посте канала важнее трейлера. */
+        custom?: boolean
     }
 }
 
@@ -82,6 +84,8 @@ export type AdminEditSessionUpdate = {
     currentMedia?: {
         type: 'photo' | 'video'
         fileId: string
+        /** Своё фото или видео администратора: в посте канала важнее трейлера. */
+        custom?: boolean
     }
 }
 
