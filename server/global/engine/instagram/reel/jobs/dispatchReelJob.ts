@@ -12,10 +12,14 @@ type ReelSessionSnapshot = {
     contentType: string
     keyTrailer: string
     comment?: string
+    /** Причина автопубликации (youtube/publicationReason.ts): в посте канала на месте комментария. */
+    reason?: string
     overview?: string
-    currentMedia: {
+    /** custom — картинку или видео прислал администратор: она важнее трейлера в посте. */
+    currentMedia?: {
         type: 'photo' | 'video'
         fileId: string
+        custom?: boolean
     }
     inlineMessageId?: string
     publishStartedAt?: number
@@ -379,8 +383,9 @@ export const dispatchReelJob = async ({
             contentType: session.contentType,
             keyTrailer: session.keyTrailer,
             comment: session.comment ?? null,
+            reason: session.reason ?? null,
             overview: session.overview ?? null,
-            currentMedia: session.currentMedia,
+            currentMedia: session.currentMedia ?? null,
             inlineMessageId: session.inlineMessageId ?? null,
             publishStartedAt: session.publishStartedAt ?? null,
             isRichTypeCard: session.isRichTypeCard

@@ -14,6 +14,9 @@ import {deleteReelTempFiles} from "#server/global/engine/instagram/reel/jobs/ree
 import {deleteOldMessagesSession} from "#server/bot/services/session/deleteOldMessagesSession";
 import {resetAdminPublishLock} from "#server/global/engine/instagram/reel/jobs/adminPublishLock";
 import {humanReelError} from "#server/global/engine/instagram/reel/jobs/reelProgress";
+import {Input} from "telegraf";
+import {reelR2Paths} from "#server/global/engine/instagram/reel/pipeline/reelWorkspace";
+import {cardVideoCacheKey, setTelegramMediaCache} from "#server/global/engine/card/construct/getTelegramMediaCache";
 
 type TelegramRichMessageResponse = {
     message_id?: number
@@ -90,6 +93,37 @@ const sendAdminNotice = async (adminTelegramId: number, message: string): Promis
 
 
 
+
+/**
+ * Трейлер для шапки поста: воркер положил его в R2 (pipeline/cardVideo.ts). Загружаем потоком в
+ * канал-хранилище один раз, file_id запоминаем для тайтла — карточки в боте берут его же
+ * (resolveCardStrategies). Файл в R2 удаляется. Нет файла или сбой — undefined, пост с картинкой.
+ */
+const uploadCardVideo = async (mediaId: number, mediaType: string, keyTrailer: string): Promise<string | undefined> => {
+    const storageChat = process.env.TELEGRAM_MEDIA_STORAGE_CHAT_ID
+    if (!storageChat || !keyTrailer) return undefined
+    const key = reelR2Paths({id: mediaId, type: mediaType}, keyTrailer).cardVideo
+    try {
+        const {existsInCloudflareR2, getCloudflareR2Url, deleteFromCloudflareR2} =
+            await import("#server/global/engine/instagram/reel/utils/storageCloudflareR2")
+        if (!(await existsInCloudflareR2(key))) return undefined
+        try {
+            const sent = await bot.telegram.sendVideo(
+                storageChat,
+                Input.fromURLStream(getCloudflareR2Url(key), 'trailer.mp4'),
+                {supports_streaming: true, disable_notification: true}
+            )
+            const fileId = sent.video?.file_id
+            if (fileId) await setTelegramMediaCache(cardVideoCacheKey(mediaType, mediaId), fileId)
+            return fileId
+        } finally {
+            await deleteFromCloudflareR2(key).catch(error => console.error('[CARD VIDEO R2 DELETE ERROR]', {key, error}))
+        }
+    } catch (error: any) {
+        console.error('[CARD VIDEO UPLOAD ERROR]', {key, error: error?.response?.description || error?.message || error})
+        return undefined
+    }
+}
 
 export const finalizeReelPublication = async (
     supabase: SupabaseClient,
@@ -175,12 +209,11 @@ export const finalizeReelPublication = async (
     const mediaType = job.media_type
     const contentType = job.content_type
     const isRichTypeCard = session.isRichTypeCard === true
-    const currentMedia = session.currentMedia?.fileId
-        ? session.currentMedia
-        : {
-            type: 'photo' as const,
-            fileId: `https://image.tmdb.org/t/p/original${media.poster_path || media.backdrop_path}`
-        }
+    // Шапка поста (решение владельца 22.11): своё фото или видео администратора, иначе видео
+    // трейлера от воркера, иначе карточка сама берёт широкий кадр, затем постер.
+    const customMedia = session.currentMedia?.fileId && session.currentMedia.custom === true
+        ? {type: session.currentMedia.type === 'video' ? 'video' as const : 'photo' as const, fileId: String(session.currentMedia.fileId)}
+        : undefined
 
     try {
         if (!mediaId || !mediaType || !contentType) {
@@ -191,15 +224,17 @@ export const finalizeReelPublication = async (
 
         if (!channelMessageId) {
             const saveCount = await getMediaSaveCount(mediaId)
+            const cardVideo = customMedia ? undefined : await uploadCardVideo(mediaId, mediaType, job.key_trailer)
             const {caption} = await constructRichCard(undefined, {
                 id: mediaId,
                 type: mediaType,
                 status: 'ready',
                 contentType: contentType as ContentType,
-                addComment: session.comment ?? undefined,
+                // Комментарий администратора; у автопубликации — что стало поводом (youtube/publicationReason.ts).
+                addComment: session.comment || session.reason || undefined,
                 addOverview: session.overview ?? undefined,
                 keyTrailer: job.key_trailer,
-                mediaOverride: currentMedia
+                mediaOverride: customMedia ?? (cardVideo ? {type: 'video', fileId: cardVideo} : undefined)
             })
 
             const replyMarkup = keyboardSendMediaCardInline(

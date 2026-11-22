@@ -6,6 +6,8 @@ import {findRussianTrailer} from '#server/global/engine/youtube/russianTrailer'
 import {generateRussianOverview, overviewFacts} from '#server/global/engine/youtube/russianOverview'
 import {currentSlot} from '#server/global/engine/youtube/schedule'
 import {BOT_ADMINS} from '#server/global/oneLinkApp'
+import {publicationReason} from '#server/global/engine/youtube/publicationReason'
+import {moscowDate} from '#server/global/engine/notifications/snapshot'
 
 /**
  * Автопубликация трейлеров с YouTube через очередь (таблица youtube_publish_queue,
@@ -325,7 +327,6 @@ const dispatchNext = async (supabase: Supabase, config: ReturnType<typeof youtub
         // Те же значения, что у кнопки «Опубликовать» (publishAdminInlineMedia.ts).
         const {CHANEL_LINK, URL_ACTIVE} = await import('#server/bot/bot')
         const media = matched.media
-        const poster = media.poster_path || media.backdrop_path
 
         const result = await dispatchReelJob({
             adminTelegramId: Number(BOT_ADMINS[0]),
@@ -340,10 +341,15 @@ const dispatchNext = async (supabase: Supabase, config: ReturnType<typeof youtub
                 contentType: matched.contentType,
                 keyTrailer,
                 ...(overview ? {overview} : {}),
-                currentMedia: {
-                    type: 'photo',
-                    fileId: `https://image.tmdb.org/t/p/original${poster}`
-                },
+                // Что стало поводом публикации — в посте на месте комментария (решение владельца 22.11).
+                reason: publicationReason({
+                    videoTitle: russian?.title ?? row.title,
+                    media,
+                    mediaType: matched.mediaType,
+                    contentType: matched.contentType,
+                    today: moscowDate(new Date())
+                }),
+                // Картинки не задаём: в посте — видео трейлера от воркера, без него широкий кадр, затем постер.
                 isRichTypeCard: false,
                 videoType: 'trailer'
             }

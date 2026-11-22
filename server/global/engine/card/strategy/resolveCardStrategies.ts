@@ -12,6 +12,7 @@ import {
 } from "#server/bot/consts/buttons/keyboardBot";
 import type {queryCTX, queryRichCard, RichCardMode} from "#server/global/engine/card/enum/types";
 import {createPersonCaption} from "#server/global/engine/card/variant/createPersonCaption";
+import {cardVideoCacheKey, getTelegramMediaCache} from "#server/global/engine/card/construct/getTelegramMediaCache";
 
 const mediaCardStrategy = {
 
@@ -23,6 +24,10 @@ const mediaCardStrategy = {
         addOverview: query.addOverview,
         keyTrailer: query.keyTrailer || data.keyTrailer,
         mediaOverride: query.mediaOverride,
+        // Видео трейлера, загруженное при публикации в канал; сбой кэша — карточка с картинкой.
+        cardVideo: mode === 'item' && !query.mediaOverride
+            ? await getTelegramMediaCache(cardVideoCacheKey(query.type, query.id)).catch(() => null)
+            : null,
 
         images: await getTelegramMediaImages(
             ctx?.ctx,

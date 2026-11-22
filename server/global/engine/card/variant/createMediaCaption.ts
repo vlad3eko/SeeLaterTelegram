@@ -28,6 +28,22 @@ const divider = {type: 'divider'}
 
 const photo = (media: string) => ({type: 'photo', photo: {type: 'photo', media}})
 
+/** Сезоны сериала: название, серий, рейтинг, дата выхода. */
+const seasonsTable = (seasons: any[]) => ({
+    type: 'table',
+    is_bordered: true,
+    is_compact: true,
+    cells: [
+        ['Сезон', 'Серий', 'Рейтинг', 'Дата'].map(text => ({text, is_header: true})),
+        ...seasons.map((season: any) => [
+            {text: String(season.name)},
+            {text: String(season.episode_count || 0)},
+            {text: String(season.vote_average || '—')},
+            {text: dateConvert(season.air_date) || '—'}
+        ])
+    ]
+})
+
 /**
  * Карточка фильма или сериала (вариант «Компактная», решение владельца 20.11): сверху широкий
  * кадр (backdrop TMDB, вертикального постера нет), «Название · год», одна строка «⭐ рейтинг ·
@@ -44,8 +60,9 @@ export const createMediaCaption = (
     const dataCollection = dataCollectionMediaCard(data)
     const {media, images} = data
 
-    // images.poster: [постер, широкий кадр] (resolveCardStrategies, режим item).
-    const wideImage = images?.poster?.[1] || undefined
+    // images.poster: [постер, широкий кадр] (resolveCardStrategies, режим item). Шапка карточки
+    // (решение владельца 22.11): видео трейлера, без него широкий кадр, без него постер.
+    const wideImage = images?.poster?.[1] || images?.poster?.[0] || undefined
     const year = dataCollection.date !== '-' ? dataCollection.date : ''
     // Жанры хэштегами (#драма • #история), как на прежних постах: по ним ищут в канале.
     const tags = media.genres?.length ? genresConvert(media.genres) : ''
@@ -79,10 +96,13 @@ export const createMediaCaption = (
         }
     }
 
-    const hero = data.mediaOverride
-        ? data.mediaOverride.type === 'video'
-            ? {type: 'video', video: {type: 'video', media: data.mediaOverride.fileId}}
-            : photo(data.mediaOverride.fileId)
+    // Видео трейлера — file_id из telegram_media_cache: его загружает финализатор при публикации
+    // в канал (finalizeReelPublication), дальше карточки этого тайтла в боте показывают его же.
+    const heroMedia = data.mediaOverride ?? (data.cardVideo ? {type: 'video' as const, fileId: data.cardVideo} : undefined)
+    const hero = heroMedia
+        ? heroMedia.type === 'video'
+            ? {type: 'video', video: {type: 'video', media: heroMedia.fileId}}
+            : photo(heroMedia.fileId)
         : wideImage
             ? photo(wideImage)
             : undefined
@@ -104,9 +124,16 @@ export const createMediaCaption = (
             ? [{type: 'paragraph', text: [{type: 'code', text: String(data.addComment)}]}]
             : []),
 
-        // Сюжет — открытой цитатой, как на прежних постах (решение владельца 21.11).
+        // Сюжет — открытой цитатой, как на прежних постах (решение владельца 21.11); у сериалов
+        // в той же цитате сразу под сюжетом — таблица сезонов (22.11).
         divider,
-        quote({type: 'pullquote', text: dataCollection.overview}),
+        {
+            type: 'blockquote',
+            blocks: [
+                {type: 'pullquote', text: dataCollection.overview},
+                ...(media.seasons?.length ? [seasonsTable(media.seasons)] : [])
+            ]
+        },
 
         ...(cast.length
             ? [divider, {
@@ -152,22 +179,6 @@ export const createMediaCaption = (
                     : []),
                 ...(tags ? [{type: 'paragraph', text: `Жанр: ${tags}`}] : []),
                 {type: 'paragraph', text: [{type: 'bold', text: `Тип: ${typeTag}`}]},
-                ...(media.seasons?.length
-                    ? [{
-                        type: 'table',
-                        is_bordered: true,
-                        is_compact: true,
-                        cells: [
-                            ['Сезон', 'Серий', 'Рейтинг', 'Дата'].map(text => ({text, is_header: true})),
-                            ...media.seasons.map((season: any) => [
-                                {text: String(season.name)},
-                                {text: String(season.episode_count || 0)},
-                                {text: String(season.vote_average || '—')},
-                                {text: dateConvert(season.air_date) || '—'}
-                            ])
-                        ]
-                    }]
-                    : []),
                 divider,
                 dataCollection.hasTrailer
                     ? {

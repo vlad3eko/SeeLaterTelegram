@@ -40,6 +40,8 @@ export type CardData = {
         type: 'photo' | 'video'
         fileId: string
     },
+    /** file_id видео трейлера тайтла (telegram_media_cache, ключ cardVideoCacheKey): шапка карточки. */
+    cardVideo?: string | null,
     images?: {
         poster: (string | null)[],
         postersList: ({

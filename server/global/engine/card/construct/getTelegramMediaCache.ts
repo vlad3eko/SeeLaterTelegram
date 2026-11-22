@@ -14,6 +14,10 @@ const cachePrefix =
         ? 'dev'
         : 'prod'
 
+/** Видео трейлера тайтла для шапки карточки (загружает finalizeReelPublication). */
+export const cardVideoCacheKey = (mediaType: string, mediaId: number | string) =>
+    `card_video_${mediaType}_${mediaId}`
+
 const cacheKey = (key: string) =>
     `${cachePrefix}_${key}`
 

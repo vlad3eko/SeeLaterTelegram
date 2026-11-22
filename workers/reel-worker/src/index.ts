@@ -15,6 +15,7 @@ import {prepareClipFragments} from "../../../server/global/engine/instagram/reel
 import type {ClipFragment} from "../../../server/global/engine/instagram/reel/fragments/types";
 import type {HookFacts} from "../../../server/global/engine/instagram/reel/utils/hookFacts";
 import {isTrailerDeliveryRun, runTrailerDelivery} from "./trailerDelivery";
+import {prepareCardVideo} from "../../../server/global/engine/instagram/reel/pipeline/cardVideo";
 import {setReelStepListener} from "../../../server/global/engine/instagram/reel/pipeline/reelWorkspace";
 import {
     createReelProgress,
@@ -568,6 +569,12 @@ const main = async (): Promise<void> => {
         const chosenHook = phase === 'finish' && typeof input.chosenHook === 'string'
             ? input.chosenHook.trim()
             : ''
+
+        // Трейлер для шапки поста в канале — до Reel: пост получит видео, даже если Reel не соберётся.
+        // У нарезки ролик длинный, в посте — картинка.
+        if (input.videoType !== 'clip') {
+            await prepareCardVideo(content, keyTrailer)
+        }
 
         const prepared = phase === 'finish'
             ? await finishReelPhase({

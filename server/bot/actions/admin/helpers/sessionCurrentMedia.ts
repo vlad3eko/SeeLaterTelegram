@@ -21,7 +21,8 @@ export const sessionCurrentMedia = async (
         return
     }
 
-    session.currentMedia = newMedia
+    // Своё фото или видео администратора важнее трейлера в посте канала (finalizeReelPublication).
+    session.currentMedia = {...newMedia, custom: true}
 
     try {
         await engineAdminEditCard(ctx, session, {
