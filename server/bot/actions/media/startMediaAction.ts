@@ -16,7 +16,7 @@ export const startMediaAction = async (ctx: any, payload: string) => {
 
     if (parsed.action === 'unsave') {
         const {success} = await internalFetch<{success: boolean}>('/api/bot/deleteMediaBot', {
-            method: 'POST', body: {telegram_id: telegramId, tmdb_id: parsed.mediaId}
+            method: 'POST', body: {telegram_id: telegramId, tmdb_id: parsed.mediaId, media_type: parsed.mediaType}
         })
         await ctx.reply(success ? NOTIFICATION_MESSAGE.CbQ.SuccessDelete : NOTIFICATION_MESSAGE.CbQ.ErrorDoesNotExist)
         return
@@ -29,6 +29,6 @@ export const startMediaAction = async (ctx: any, payload: string) => {
     if (outcome === 'saved') {
         await sendNotificationTelegramMessage(telegramId, NOTIFICATION_MESSAGE.SuccessSaved, {mediaId: parsed.mediaId, mediaType: parsed.mediaType})
     } else {
-        await ctx.reply('✅ Уже в вашей коллекции — напомним, когда выйдет.')
+        await ctx.reply(parsed.mediaType === 'tv' ? '✅ Уже в вашей коллекции — напомним о новых сериях.' : '✅ Уже в вашей коллекции — напомним, когда выйдет.')
     }
 }

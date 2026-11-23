@@ -16,7 +16,7 @@ export async function createFavorite(
                 genres_ids: payload.genresIds,
             },
             {
-                onConflict: 'user_id,tmdb_id',
+                onConflict: 'user_id,tmdb_id,media_type',
                 ignoreDuplicates: true
             })
         .select()

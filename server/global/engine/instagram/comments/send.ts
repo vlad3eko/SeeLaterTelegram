@@ -1,4 +1,4 @@
-import {graphFailureText, replyToComment, sendPrivateReply} from '#server/global/engine/instagram/comments/graph'
+import {graphFailureText, replyToComment, sendPrivateReply, type GraphErrorKind} from '#server/global/engine/instagram/comments/graph'
 import {
     alreadySavedDirectText, linkCommentReply, linkDirectText, savedCommentReply, savedDirectText, type IgMediaType
 } from '#server/global/engine/instagram/comments/messages'
@@ -11,7 +11,8 @@ import {NOTIFICATION_MESSAGE, sendNotificationTelegramMessage} from '#server/glo
  * Ответы на комментарии из очереди (status queued). Запись захватывается (queued → sending) до
  * запроса к Meta — второй тик её не возьмёт. Исход:
  *   sent — Direct со ссылкой ушёл; auto_saved / already_saved — Instagram уже привязан, сохранили сразу;
- *   queued — лимит Meta, повтор в следующем тике; send_failed — Meta отказала, не повторяем;
+ *   queued — лимит Meta или ошибка токена/прав (общая для всех — запись ждёт, админ получает предупреждение),
+ *     повтор в следующем тике; send_failed — Meta отказала по этому комментарию, не повторяем;
  *   send_unknown — таймаут/5xx: сообщение могло уйти, второй раз не шлём.
  */
 const MAX_PER_TICK = 20
@@ -29,16 +30,30 @@ const publicReply = async (commentId: string, text: string) => {
     if (!result.ok) console.warn('[IG SEND] ответ под комментарием не опубликован', graphFailureText(result))
 }
 
-/** Instagram уже привязан и человек подписан на канал — сохраняем без ссылки. */
-const trySaveLinked = async (supabase: any, telegram: any, lead: Lead, campaign: Campaign): Promise<boolean> => {
-    if (!lead.commenter_id) return false
-    const {data: user} = await supabase.from('users').select('id,telegram_id').eq('instagram_id', lead.commenter_id).maybeSingle()
-    if (!user?.telegram_id || !(await isChannelMember(telegram, Number(user.telegram_id)))) return false
+/** Ошибки, после которых запись возвращается в очередь и проход прерывается: лимит, токен, права. */
+const RETRY_KINDS = new Set(['rate', 'token', 'config'])
+
+type LinkedOutcome = {done: true} | {done: false} | {retry: GraphErrorKind, text: string}
+
+/**
+ * Instagram уже привязан, человек подписан и не блокировал бота — сохраняем без ссылки.
+ * Заблокировавшему бота подтверждение в Telegram не дойдёт — ему уходит обычная ссылка: «Старт» снимет блокировку.
+ * Лимит или ошибка прав на Direct — запись вернётся в очередь; фильм уже сохранён, повтор ответит «уже в коллекции».
+ */
+const trySaveLinked = async (supabase: any, telegram: any, lead: Lead, campaign: Campaign): Promise<LinkedOutcome> => {
+    if (!lead.commenter_id) return {done: false}
+    const {data: user} = await supabase.from('users').select('id,telegram_id,bot_blocked_at').eq('instagram_id', lead.commenter_id).maybeSingle()
+    if (!user?.telegram_id || user.bot_blocked_at || !(await isChannelMember(telegram, Number(user.telegram_id)))) return {done: false}
 
     const outcome = await saveTitleForUser(supabase, {userId: user.id, mediaId: campaign.media_id, mediaType: campaign.media_type})
     const direct = await sendPrivateReply(lead.comment_id, outcome === 'saved'
         ? savedDirectText({title: campaign.title, mediaType: campaign.media_type})
         : alreadySavedDirectText({title: campaign.title, mediaType: campaign.media_type}))
+    if (!direct.ok && RETRY_KINDS.has(direct.kind)) {
+        await update(supabase, lead.id, {status: 'queued', error_category: direct.kind})
+        if (outcome === 'saved') await notifySaved(user.telegram_id, campaign)
+        return {retry: direct.kind, text: graphFailureText(direct)}
+    }
     if (!direct.ok) console.warn('[IG SEND] Direct о сохранении не ушёл', graphFailureText(direct))
     await update(supabase, lead.id, {
         status: outcome === 'saved' ? 'auto_saved' : 'already_saved',
@@ -46,16 +61,17 @@ const trySaveLinked = async (supabase: any, telegram: any, lead: Lead, campaign:
         completed_at: new Date().toISOString(), error_category: direct.ok ? null : direct.kind
     })
     if (direct.ok) await publicReply(lead.comment_id, savedCommentReply())
-    if (outcome === 'saved') {
-        await sendNotificationTelegramMessage(Number(user.telegram_id), `${NOTIFICATION_MESSAGE.SuccessSaved} из Instagram`, {
-            mediaId: campaign.media_id, mediaType: campaign.media_type
-        })
-    }
-    return true
+    if (outcome === 'saved') await notifySaved(user.telegram_id, campaign)
+    return {done: true}
 }
 
+const notifySaved = (telegramId: number | string, campaign: Campaign) =>
+    sendNotificationTelegramMessage(Number(telegramId), `${NOTIFICATION_MESSAGE.SuccessSaved} из Instagram`, {
+        mediaId: campaign.media_id, mediaType: campaign.media_type
+    })
+
 export const sendQueued = async (supabase: any, telegram: any, now: Date, {deadline}: {deadline: number}) => {
-    const result = {sent: 0, autoSaved: 0, failed: 0, unknown: 0, expired: 0, rateLimited: false}
+    const result = {sent: 0, autoSaved: 0, failed: 0, unknown: 0, expired: 0, rateLimited: false, accountError: null as string | null}
     // Тик оборвался между захватом и ответом Meta: сообщение могло уйти — не повторяем, отмечаем.
     await supabase.from('instagram_comment_leads').update({status: 'send_unknown', error_category: 'interrupted', updated_at: now.toISOString()})
         .eq('status', 'sending').lt('updated_at', new Date(now.getTime() - 10 * 60_000).toISOString())
@@ -92,7 +108,14 @@ export const sendQueued = async (supabase: any, telegram: any, now: Date, {deadl
         }
 
         try {
-            if (await trySaveLinked(supabase, telegram, lead, campaign)) {
+            const linked = await trySaveLinked(supabase, telegram, lead, campaign)
+            if ('retry' in linked) {
+                if (linked.retry === 'rate') result.rateLimited = true
+                else result.accountError = linked.text
+                console.warn('[IG SEND] Direct о сохранении отложен', linked.text)
+                break
+            }
+            if (linked.done) {
                 result.autoSaved++
                 continue
             }
@@ -109,10 +132,11 @@ export const sendQueued = async (supabase: any, telegram: any, now: Date, {deadl
             await update(supabase, lead.id, {status: 'sent', sent_at: new Date().toISOString(), error_category: null})
             await publicReply(lead.comment_id, linkCommentReply(campaign.media_type))
             result.sent++
-        } else if (direct.kind === 'rate') {
-            await update(supabase, lead.id, {status: 'queued', token_hash: null, token_expires_at: null, error_category: 'rate'})
-            result.rateLimited = true
-            console.warn('[IG SEND] лимит Meta — пауза до следующего тика', graphFailureText(direct))
+        } else if (RETRY_KINDS.has(direct.kind)) {
+            await update(supabase, lead.id, {status: 'queued', token_hash: null, token_expires_at: null, error_category: direct.kind})
+            if (direct.kind === 'rate') result.rateLimited = true
+            else result.accountError = graphFailureText(direct)
+            console.warn('[IG SEND] пауза до следующего тика', graphFailureText(direct))
             break
         } else if (direct.kind === 'unknown') {
             await update(supabase, lead.id, {status: 'send_unknown', error_category: 'unknown'})

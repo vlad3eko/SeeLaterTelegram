@@ -28,18 +28,22 @@ const reachableUser = async (telegramId: number): Promise<boolean> => {
 /** Колонки users.pending_actions ещё нет (миграция не применена) — бот работает без запоминания. */
 const isMissingColumn = (error: any) => error?.code === '42703' || error?.code === 'PGRST204'
 
-/** Запомнить действие в users.pending_actions (строка users уже есть: saveTelegramUser / человек в боте). */
-export const rememberAction = async (telegramId: number, payload: string) => {
-    if (!isActionPayload(payload)) return
+/**
+ * Запомнить действие в users.pending_actions (строка users уже есть: saveTelegramUser / человек в боте).
+ * true — запомнено: обещать «выполнится само» можно только тогда.
+ */
+export const rememberAction = async (telegramId: number, payload: string): Promise<boolean> => {
+    if (!isActionPayload(payload)) return false
     const supabase = getSupabase() as any
     const {data, error} = await supabase.from('users').select('pending_actions').eq('telegram_id', telegramId).maybeSingle()
     if (error || !data) {
         if (error && !isMissingColumn(error)) console.warn('[ACCESS] действие не запомнено', error.message)
-        return
+        return false
     }
     const {error: writeError} = await supabase.from('users')
         .update({pending_actions: addPending(data.pending_actions, payload, Date.now())}).eq('telegram_id', telegramId)
     if (writeError) console.warn('[ACCESS] действие не запомнено', writeError.message)
+    return !writeError
 }
 
 /**
@@ -53,9 +57,11 @@ export const gateCallback = async (ctx: any, payload: string): Promise<boolean> 
 
     const inBotChat = ctx.chat?.type === 'private' && !ctx.inlineMessageId
     if (inBotChat && reachable) {
-        await rememberAction(telegramId, payload)
+        const remembered = await rememberAction(telegramId, payload)
         await failedChannelSubscriber(ctx)
-        await ctx.answerCbQuery('Подпишитесь на каналы — и действие выполнится само').catch(() => undefined)
+        await ctx.answerCbQuery(remembered
+            ? 'Подпишитесь на каналы — и действие выполнится само'
+            : 'Подпишитесь на каналы, затем нажмите кнопку ещё раз').catch(() => undefined)
         return false
     }
     await ctx.answerCbQuery(undefined, {url: botStartLink(ctx, payload)}).catch(async (error: any) => {

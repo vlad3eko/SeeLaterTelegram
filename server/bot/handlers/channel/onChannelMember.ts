@@ -38,7 +38,14 @@ export const onChannelMember = async (ctx: any) => {
     }
 
     // Канал из апдейта точно подписан — не перепроверяем его (getChatMember может отстать).
-    const missing = (await missingChannels(ctx.telegram, user.id)).filter(item => item !== channel)
+    const missingNow = async () => (await missingChannels(ctx.telegram, user.id)).filter(item => item !== channel)
+    let missing = await missingNow()
+    // Подписался на оба подряд: апдейты идут параллельно, getChatMember второго канала может ещё не знать о
+    // подписке — иначе оба апдейта сказали бы «остался ещё один», и отложенные действия не выполнил бы никто.
+    if (missing.length) {
+        await new Promise(resolve => setTimeout(resolve, 1500))
+        missing = await missingNow()
+    }
     const handled = await continueInstagramAfterSubscribe(ctx.telegram, user.id, missing)
         .catch(error => {
             console.error('[CHANNEL MEMBER] Instagram', error?.message ?? error)

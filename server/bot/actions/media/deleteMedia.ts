@@ -20,13 +20,15 @@ export const deleteMedia = async (ctx: any) => {
         method: 'POST',
         body: {
             telegram_id: telegramId,
-            tmdb_id: mediaId
+            tmdb_id: mediaId,
+            media_type: mediaType
         }
     })
 
+    // На нажатие отвечают один раз: второй answerCbQuery Telegram отвергает.
     if (!success)
-        await ctx.answerCbQuery(NOTIFICATION_MESSAGE.CbQ.ErrorDoesNotExist)
+        return ctx.answerCbQuery(NOTIFICATION_MESSAGE.CbQ.ErrorDoesNotExist).catch(() => undefined)
 
-    await ctx.answerCbQuery(NOTIFICATION_MESSAGE.CbQ.SuccessDelete)
+    await ctx.answerCbQuery(NOTIFICATION_MESSAGE.CbQ.SuccessDelete).catch(() => undefined)
 
 }

@@ -49,12 +49,25 @@ export const rankCandidates = (reel: {caption?: string | null, timestamp: string
     return result
 }
 
-/** Когда опрашивать снова: 5 минут первые 3 дня, 30 минут до 7 дней; дальше кампания закрыта (null). */
+/**
+ * Сколько опрашивать Reel. Окно Private Reply (7 дней) считается от КОММЕНТАРИЯ, а Reels смотрят неделями —
+ * поэтому опрос дольше окна; комментарий старше 7 дней на момент чтения всё равно станет expired.
+ */
+export const POLL_MS = 30 * DAY
+
+/** Когда опрашивать снова: 5 минут первые 3 дня, 30 минут до 7 дней, 2 часа до 30 дней; дальше кампания закрыта (null). */
 export const nextPollAt = (publishedAt: string | null, now: Date): Date | null => {
     const age = now.getTime() - (publishedAt ? Date.parse(publishedAt) : now.getTime())
-    if (age >= REPLY_WINDOW_MS) return null
-    return new Date(now.getTime() + (age < 3 * DAY ? 5 * 60_000 : 30 * 60_000))
+    if (age >= POLL_MS) return null
+    return new Date(now.getTime() + (age < 3 * DAY ? 5 * 60_000 : age < REPLY_WINDOW_MS ? 30 * 60_000 : 2 * HOUR))
 }
+
+/**
+ * Статусы записи, при которых человеку ответ под этим Reel уже ушёл или уходит. Следующий его комментарий
+ * с ключом — duplicate. Остальные (send_failed, expired, logged, duplicate) ответа не дали — новый комментарий
+ * получает свой ответ (решение владельца 23.11: повторно отвечаем, если прежний ответ не ушёл).
+ */
+export const REPLIED_STATUSES = ['queued', 'sending', 'sent', 'send_unknown', 'started', 'saved', 'already_saved', 'auto_saved'] as const
 
 /** До какого времени листать комментарии: последний увиденный минус перекрытие, иначе публикация Reel. */
 export const commentsCutoff = (lastSeenAt: string | null, publishedAt: string | null, now: Date): number => {
@@ -62,14 +75,16 @@ export const commentsCutoff = (lastSeenAt: string | null, publishedAt: string | 
     return publishedAt ? Date.parse(publishedAt) - OVERLAP_MS : now.getTime() - REPLY_WINDOW_MS
 }
 
-export type LeadDraft = {comment_id: string, commenter_id: string | null, commented_at: string, status: 'queued' | 'duplicate' | 'expired'}
+export type LeadDraft = {comment_id: string, commenter_id: string | null, commented_at: string, status: 'queued' | 'logged' | 'duplicate' | 'expired'}
 
 /**
  * Комментарии → новые записи. Без ключевого слова и свои — пропускаются (в базу не пишем).
- * Один ответ на человека под Reel: следующий его комментарий с ключом — duplicate.
- * Старше 7 дней — expired (Meta уже не примет ответ).
+ * Один ответ на человека под Reel: следующий его комментарий с ключом — duplicate (knownCommenters — только
+ * те, кому ответ ушёл, см. REPLIED_STATUSES). Старше 7 дней — expired (Meta уже не примет ответ).
+ * Режим log: вместо queued — logged (только для просмотра; после включения send ответ получат лишь новые
+ * комментарии, а не все за прошедшие дни — решение владельца 23.11).
  */
-export const draftLeads = (comments: IgComment[], {account, knownCommenters, now, keywords}: {account: string, knownCommenters: Set<string>, now: Date, keywords?: readonly string[]}): LeadDraft[] => {
+export const draftLeads = (comments: IgComment[], {account, knownCommenters, now, keywords, mode = 'send'}: {account: string, knownCommenters: Set<string>, now: Date, keywords?: readonly string[], mode?: 'log' | 'send'}): LeadDraft[] => {
     const commenters = new Set(knownCommenters)
     const drafts: LeadDraft[] = []
     const chronological = [...comments].sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp))
@@ -79,8 +94,9 @@ export const draftLeads = (comments: IgComment[], {account, knownCommenters, now
         const base = {comment_id: comment.id, commenter_id: commenter, commented_at: new Date(comment.timestamp).toISOString()}
         if (now.getTime() - Date.parse(comment.timestamp) >= REPLY_WINDOW_MS) drafts.push({...base, status: 'expired'})
         else if (commenter && commenters.has(commenter)) drafts.push({...base, status: 'duplicate'})
+        else if (mode === 'log') drafts.push({...base, status: 'logged'})
         else drafts.push({...base, status: 'queued'})
-        if (commenter) commenters.add(commenter)
+        if (commenter && mode === 'send') commenters.add(commenter)
     }
     return drafts
 }

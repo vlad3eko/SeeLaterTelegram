@@ -16,7 +16,8 @@ import {commandClear} from "#server/bot/commands/commandClear";
 import {jumpCollections, startCollections} from "#server/bot/actions/collections/collectionsActions";
 import {menuBot} from "#server/bot/handlers/commands/start/menuBot";
 import {ADMIN_STATUS, ADMIN_STATUS_QUEUE_CANCEL, ADMIN_STATUS_REEL_CANCEL, BUNDLE_LIST, IG_CAMPAIGN, IG_SAVE, LEGACY_MENU_BOT} from "#server/bot/callbacks/routes";
-import {instagramCampaignAction, instagramSaveAction, startFromInstagram} from "#server/bot/actions/instagram/instagramSave";
+import {instagramCampaignAction, instagramOffCommand, instagramSaveAction, startFromInstagram} from "#server/bot/actions/instagram/instagramSave";
+import {getSupabase} from "#server/global/engine/instagram/reel/jobs/dispatchReelJob";
 import {isIgPayload} from "#server/global/engine/instagram/comments/token";
 import {bundleListAction} from "#server/bot/actions/admin/bundleListAction";
 import {showSimilarList} from "#server/bot/actions/similar/similarActions";
@@ -47,10 +48,17 @@ export function registerCommands(bot: Telegraf) {
 
         // Действия из кнопок (пост в канале, карточки): нужна подписка на оба канала. Без неё действие
         // запоминается на 24 часа и выполнится само после подписки (server/bot/handlers/channel/pendingActions.ts).
-        if (isActionPayload(ctx.startPayload)) {
-            if (!(await ensureAccessOnStart(ctx, ctx.startPayload))) return
-            if (parseMediaAction(ctx.startPayload)) {
-                await startMediaAction(ctx, ctx.startPayload).catch(async error => {
+        // Повтор /start <действие> после подписки (pendingActions.replayStart) — человек ничего не отправлял,
+        // главное меню ему не шлём: только результат действия.
+        const replay = Boolean(ctx.message?.kinomanov_replay)
+        // Ветки действий ниже выбираются только по проверенному payload (ACTION_PAYLOAD): иначе ссылка
+        // вроде media_cast_x-y прошла бы мимо проверки подписки, но попала бы в ветку media_cast_.
+        const action = isActionPayload(ctx.startPayload) ? ctx.startPayload : null
+        if (action) {
+            if (!(await ensureAccessOnStart(ctx, action))) return
+            if (parseMediaAction(action)) {
+                if (!replay) await ctx.reply('Открыто главное меню', mainKeyboard).catch(() => undefined)
+                await startMediaAction(ctx, action).catch(async error => {
                     console.error('[START] действие с тайтлом', error?.message ?? error)
                     await ctx.reply('Не получилось — попробуйте нажать кнопку ещё раз чуть позже.').catch(() => undefined)
                 })
@@ -58,23 +66,22 @@ export function registerCommands(bot: Telegraf) {
             }
         }
 
-        const text =
-            ctx.message.text
-
         const payload =
             ctx.startPayload
 
-        const menu = await ctx.reply('Открыто главное меню', mainKeyboard)
-        await addMessageSession(
-            ctx.from.id,
-            SessionMessageType.SearchInline,
-            {
-                messageId:
-                menu.message_id
-            }
-        )
+        if (!replay) {
+            const menu = await ctx.reply('Открыто главное меню', mainKeyboard)
+            await addMessageSession(
+                ctx.from.id,
+                SessionMessageType.SearchInline,
+                {
+                    messageId:
+                    menu.message_id
+                }
+            )
+        }
 
-        if (text.includes('inline_settings') || payload === 'inline_settings') {
+        if (action === 'inline_settings') {
 
             const messageStart =
                 ctx.message.message_id
@@ -125,20 +132,20 @@ export function registerCommands(bot: Telegraf) {
         // Кнопки поста в канале («🔍 Поиск», «📦 Коллекция», «🎭 Актёры», «🔗 Похожее») ведут сюда ссылкой;
         // подписка уже проверена выше (isActionPayload → ensureAccessOnStart).
 
-        if (payload === 'search') {
+        if (action === 'search') {
             await openInlineSearch(ctx, '')
             return
         }
 
 
-        if (payload === 'collection') {
+        if (action === 'collection') {
             await openInlineSearch(ctx, '#collection')
             return
         }
 
-        if (payload.startsWith('media_cast_')) {
+        if (action?.startsWith('media_cast_')) {
 
-            const [, , contentType, mediaId] = payload.split('_')
+            const [, , contentType, mediaId] = action.split('_')
             const type = contentTypeToTag[contentType as ContentType]
 
             await openInlineSearch(ctx,`#${type} ${mediaId} #cast`)
@@ -146,8 +153,8 @@ export function registerCommands(bot: Telegraf) {
         }
 
         // «🔗 Похожее» из канала: список похожих новым сообщением в боте.
-        if (payload?.startsWith('similar_')) {
-            const [, mediaType, mediaId, contentType] = payload.split('_')
+        if (action?.startsWith('similar_')) {
+            const [, mediaType, mediaId, contentType] = action.split('_')
             if ((mediaType === 'movie' || mediaType === 'tv') && Number(mediaId)) {
                 await showSimilarList(ctx, {mediaType, mediaId: Number(mediaId), contentType: contentType as ContentType})
                     .catch(error => console.error('[SIMILAR] Start failed', error))
@@ -160,6 +167,11 @@ export function registerCommands(bot: Telegraf) {
 
         if (!message)
             return
+
+        // Человек снова нажал «Старт» — сводки по сохранённым опять доставляются (сброс отметки «заблокировал бота»).
+        await (getSupabase() as any).from('users').update({bot_blocked_at: null}).eq('telegram_id', ctx.from.id)
+            .not('bot_blocked_at', 'is', null)
+            .then(({error}: any) => error && console.warn('[START] bot_blocked_at не сброшен', error.message))
 
         await commandStart(ctx, authRequests)
 
@@ -178,6 +190,8 @@ export function registerCommands(bot: Telegraf) {
     bot.command('g', startCollections)
     // Панель администратора: что сейчас идёт (Reels, очередь YouTube, связки).
     bot.command('status', adminStatusCommand)
+    // Отвязать Instagram от этого Telegram (автосохранение из комментариев «СОХРАНИТЬ»).
+    bot.command('instagram_off', instagramOffCommand)
     bot.action(ADMIN_STATUS.pattern, adminStatusRefresh)
     bot.action(ADMIN_STATUS_QUEUE_CANCEL.pattern, adminStatusQueueCancel)
     bot.action(ADMIN_STATUS_REEL_CANCEL.pattern, adminStatusReelCancel)

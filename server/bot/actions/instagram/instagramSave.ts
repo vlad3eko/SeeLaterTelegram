@@ -8,9 +8,11 @@ import {channelLines, missingChannels} from '#server/bot/handlers/channel/requir
 import {getSupabase} from '#server/global/engine/instagram/reel/jobs/dispatchReelJob'
 import {decideCampaign} from '#server/global/engine/instagram/comments/campaigns'
 import {
-    TELEGRAM_EXPIRED_TEXT, TELEGRAM_FOREIGN_TEXT, TELEGRAM_LINKED_TEXT, TELEGRAM_ONE_MORE_TEXT, TELEGRAM_SUBSCRIBE_TEXT, shortTitle
+    TELEGRAM_EXPIRED_TEXT, TELEGRAM_FOREIGN_TEXT, TELEGRAM_KEPT_TEXT, TELEGRAM_LINKED_ELSEWHERE_TEXT, TELEGRAM_LINKED_TEXT,
+    TELEGRAM_NOT_LINKED_TEXT, TELEGRAM_ONE_MORE_TEXT, TELEGRAM_SAVE_FAILED_TEXT, TELEGRAM_SUBSCRIBE_TEXT, TELEGRAM_UNLINKED_TEXT,
+    telegramAlreadySavedText, type IgMediaType
 } from '#server/global/engine/instagram/comments/messages'
-import {linkInstagram, saveTitleForUser, userByTelegramId} from '#server/global/engine/instagram/comments/save'
+import {linkInstagram, saveTitleForUser, unlinkInstagram, userByTelegramId, type LinkOutcome} from '#server/global/engine/instagram/comments/save'
 import {hashLeadToken, parseIgPayload} from '#server/global/engine/instagram/comments/token'
 import {isMissingTable} from '#server/global/engine/collections/trailers'
 import {NOTIFICATION_MESSAGE, sendNotificationTelegramMessage} from '#server/global/notifications/sendNotificationMessage'
@@ -18,10 +20,10 @@ import type {RequiredChannel} from '#server/global/oneLinkApp'
 
 /**
  * Переход из Instagram: `/start ig_<токен>` (ссылка из Direct после комментария «СОХРАНИТЬ»).
- * Токен находит запись комментария → привязываем Instagram к этому Telegram → при подписке на оба
- * обязательных канала сохраняем фильм штатным путём (favorites + уведомления), иначе просим
- * подписаться (решение владельца 23.11). После подписки фильм сохраняется сам — по update
- * chat_member (continueInstagramAfterSubscribe); «Проверить и сохранить» — запасная кнопка.
+ * Токен находит запись комментария → при первом переходе привязываем Instagram к этому Telegram → при
+ * подписке на оба обязательных канала сохраняем тайтл штатным путём (favorites + уведомления), иначе
+ * просим подписаться (решение владельца 23.11). После подписки тайтл сохраняется сам — по update
+ * chat_member или «Проверить подписку» (continueInstagramAfterSubscribe); «Проверить и сохранить» — запасная кнопка.
  */
 type LeadRow = {
     id: string
@@ -29,21 +31,25 @@ type LeadRow = {
     commenter_id: string | null
     telegram_id: number | null
     token_expires_at: string | null
-    campaign: {media_id: number, media_type: 'movie' | 'tv', title: string | null} | null
+    completed_at: string | null
+    campaign: {media_id: number, media_type: IgMediaType, title: string | null} | null
 }
 
-const LEAD_FIELDS = 'id,status,commenter_id,telegram_id,token_expires_at,campaign:instagram_campaigns(media_id,media_type,title)'
+const LEAD_FIELDS = 'id,status,commenter_id,telegram_id,token_expires_at,completed_at,campaign:instagram_campaigns(media_id,media_type,title)'
 const DONE = new Set(['saved', 'already_saved', 'auto_saved'])
 const OPEN = new Set(['sent', 'send_unknown', 'started', ...DONE])
+/** Захват сохранения старше этого — оборвавшийся запуск: следующий /start по ссылке его снимает. */
+const CLAIM_STALE_MS = 5 * 60_000
 
 /**
  * Захват ждущей записи (started, completed_at пуст): событие подписки и кнопка не сохранят дважды.
  * finishSave ставит итоговый статус; при ошибке захват снимается (releaseLead).
  */
 const claimLead = async (supabase: any, leadId: string): Promise<boolean> => {
-    const {data} = await supabase.from('instagram_comment_leads')
+    const {data, error} = await supabase.from('instagram_comment_leads')
         .update({completed_at: new Date().toISOString(), updated_at: new Date().toISOString()})
         .eq('id', leadId).eq('status', 'started').is('completed_at', null).select('id')
+    if (error) throw error
     return Boolean(data?.length)
 }
 
@@ -55,18 +61,19 @@ const finishSave = async (telegram: any, telegramId: number, supabase: any, lead
     const user = await userByTelegramId(supabase, telegramId)
     if (!user) throw new Error('пользователь не найден после saveTelegramUser')
     const outcome = await saveTitleForUser(supabase, {userId: user.id, mediaId: campaign.media_id, mediaType: campaign.media_type})
-    await supabase.from('instagram_comment_leads').update({
+    const {error} = await supabase.from('instagram_comment_leads').update({
         status: outcome, completed_at: new Date().toISOString(), updated_at: new Date().toISOString()
     }).eq('id', lead.id)
+    if (error) console.warn('[IG START] итог записи не сохранён', error.message)
     if (outcome === 'saved') {
         await sendNotificationTelegramMessage(telegramId, NOTIFICATION_MESSAGE.SuccessSaved, {mediaId: campaign.media_id, mediaType: campaign.media_type})
     } else {
-        await telegram.sendMessage(telegramId, `«${shortTitle(campaign.title)}» уже есть в вашей коллекции — напомним, когда выйдет.`)
+        await telegram.sendMessage(telegramId, telegramAlreadySavedText(campaign.title, campaign.media_type))
     }
     return outcome
 }
 
-/** Захват + сохранение; null — запись уже сохраняется или сохранена другим путём. */
+/** Захват + сохранение; null — запись уже сохраняется (другим путём прямо сейчас) или сохранена. */
 const claimAndSave = async (telegram: any, telegramId: number, supabase: any, lead: LeadRow) => {
     if (!(await claimLead(supabase, lead.id))) return null
     try {
@@ -83,6 +90,27 @@ const subscribeKeyboard = (leadId: string, missing: readonly RequiredChannel[]) 
     [Markup.button.callback('Проверить и сохранить', IG_SAVE.encode({leadId}))]
 ])
 
+const retryKeyboard = (leadId: string) => Markup.inlineKeyboard([[Markup.button.callback('Попробовать ещё раз', IG_SAVE.encode({leadId}))]])
+
+const LINK_TEXT: Partial<Record<LinkOutcome, string>> = {
+    linked: TELEGRAM_LINKED_TEXT,
+    elsewhere: TELEGRAM_LINKED_ELSEWHERE_TEXT,
+    kept: TELEGRAM_KEPT_TEXT
+}
+
+/** Сохранить и при ошибке не оставить человека без ответа: «не получилось» с кнопкой повтора. */
+const saveOrOfferRetry = async (telegram: any, telegramId: number, supabase: any, lead: LeadRow) => {
+    try {
+        const outcome = await claimAndSave(telegram, telegramId, supabase, lead)
+        if (!outcome) await telegram.sendMessage(telegramId, '⏳ Уже сохраняем — загляните в коллекцию через минуту.')
+        return outcome
+    } catch (error: any) {
+        console.error('[IG START] сохранение не удалось', error?.message ?? error)
+        await telegram.sendMessage(telegramId, TELEGRAM_SAVE_FAILED_TEXT(lead.campaign!.title), retryKeyboard(lead.id))
+        return null
+    }
+}
+
 export const startFromInstagram = async (ctx: any, payload: string) => {
     const token = parseIgPayload(payload)
     const supabase = getSupabase() as any
@@ -98,48 +126,63 @@ export const startFromInstagram = async (ctx: any, payload: string) => {
     if (lead!.telegram_id && Number(lead!.telegram_id) !== ctx.from.id) return ctx.reply(TELEGRAM_FOREIGN_TEXT, mainKeyboard)
 
     await saveTelegramUser(ctx)
-    const {data: claimed} = await supabase.from('instagram_comment_leads')
-        .update({
-            telegram_id: ctx.from.id, updated_at: new Date().toISOString(),
-            ...(DONE.has(lead!.status) ? {} : {status: 'started', started_at: new Date().toISOString(), completed_at: null})
-        })
+    const now = new Date().toISOString()
+    // Уже started: идущий захват сохранения (completed_at свежий) не трогаем — иначе повторный «Старт» дал бы второе сохранение.
+    const staleClaim = lead!.completed_at !== null && Date.parse(lead!.completed_at) < Date.now() - CLAIM_STALE_MS
+    const statusFields = DONE.has(lead!.status) ? {}
+        : lead!.status === 'started' ? (staleClaim ? {completed_at: null} : {})
+            : {status: 'started', started_at: now, completed_at: null}
+    const {data: claimed, error: claimError} = await supabase.from('instagram_comment_leads')
+        .update({telegram_id: ctx.from.id, updated_at: now, ...statusFields})
         .eq('id', lead!.id).or(`telegram_id.is.null,telegram_id.eq.${ctx.from.id}`).select('id')
+    if (claimError) throw claimError
     if (!claimed?.length) return ctx.reply(TELEGRAM_FOREIGN_TEXT, mainKeyboard)
 
     const linked = await linkInstagram(supabase, {telegramId: ctx.from.id, instagramId: lead!.commenter_id})
-    await ctx.reply(linked ? TELEGRAM_LINKED_TEXT : 'Открыто главное меню', mainKeyboard)
+    await ctx.reply(LINK_TEXT[linked] ?? 'Открыто главное меню', mainKeyboard)
 
-    if (DONE.has(lead!.status)) return ctx.reply(`«${shortTitle(lead!.campaign!.title)}» уже в вашей коллекции.`)
     const missing = await missingChannels(ctx.telegram, ctx.from.id)
+    // saveTelegramUser пишет subscriber: false — ставим настоящее значение, как обычный /start.
+    await supabase.from('users').update({subscriber: !missing.length}).eq('telegram_id', ctx.from.id)
+
+    const campaign = lead!.campaign!
+    if (DONE.has(lead!.status)) return ctx.reply(telegramAlreadySavedText(campaign.title, campaign.media_type))
     if (missing.length) {
-        return ctx.reply(TELEGRAM_SUBSCRIBE_TEXT(lead!.campaign!.title, channelLines(missing)), subscribeKeyboard(lead!.id, missing))
+        return ctx.reply(TELEGRAM_SUBSCRIBE_TEXT(campaign.title, channelLines(missing)), subscribeKeyboard(lead!.id, missing))
     }
-    await claimAndSave(ctx.telegram, ctx.from.id, supabase, lead!)
+    await saveOrOfferRetry(ctx.telegram, ctx.from.id, supabase, lead!)
 }
 
-/** «Проверить и сохранить» под просьбой подписаться (запасной путь, если chat_member не дошёл). */
+/** «Проверить и сохранить» / «Попробовать ещё раз» (запасной путь, если chat_member не дошёл или сохранение упало). */
 export const instagramSaveAction = async (ctx: any) => {
-    const {leadId} = IG_SAVE.parse(ctx)
-    const supabase = getSupabase() as any
-    const {data: lead} = await supabase.from('instagram_comment_leads').select(LEAD_FIELDS).eq('id', leadId).maybeSingle() as {data: LeadRow | null}
-    if (!lead?.campaign || Number(lead.telegram_id) !== ctx.from.id) return ctx.answerCbQuery('Ссылка устарела').catch(() => undefined)
-    if (DONE.has(lead.status)) {
+    try {
+        const {leadId} = IG_SAVE.parse(ctx)
+        const supabase = getSupabase() as any
+        const {data: lead, error} = await supabase.from('instagram_comment_leads').select(LEAD_FIELDS).eq('id', leadId).maybeSingle() as {data: LeadRow | null, error: any}
+        if (error) throw error
+        if (!lead?.campaign || Number(lead.telegram_id) !== ctx.from.id) return await ctx.answerCbQuery('Ссылка устарела').catch(() => undefined)
+        if (DONE.has(lead.status)) {
+            await ctx.editMessageReplyMarkup(undefined).catch(() => undefined)
+            return await ctx.answerCbQuery('✅ Уже в вашей коллекции').catch(() => undefined)
+        }
+        const missing = await missingChannels(ctx.telegram, ctx.from.id)
+        if (missing.length) {
+            return await ctx.answerCbQuery(`❌ Нет подписки: ${missing.map(channel => channel.title).join(', ')}`).catch(() => undefined)
+        }
+        const outcome = await claimAndSave(ctx.telegram, ctx.from.id, supabase, lead)
+        if (!outcome) return await ctx.answerCbQuery('⏳ Уже сохраняем — загляните в коллекцию через минуту').catch(() => undefined)
         await ctx.editMessageReplyMarkup(undefined).catch(() => undefined)
-        return ctx.answerCbQuery('✅ Уже в вашей коллекции').catch(() => undefined)
+        await ctx.answerCbQuery(outcome === 'saved' ? NOTIFICATION_MESSAGE.CbQ.SuccessSaved : '✅ Уже в вашей коллекции').catch(() => undefined)
+    } catch (error: any) {
+        console.error('[IG SAVE] сохранение не удалось', error?.message ?? error)
+        await ctx.answerCbQuery('Не получилось сохранить — попробуйте ещё раз через минуту', {show_alert: true}).catch(() => undefined)
     }
-    const missing = await missingChannels(ctx.telegram, ctx.from.id)
-    if (missing.length) {
-        return ctx.answerCbQuery(`❌ Нет подписки: ${missing.map(channel => channel.title).join(', ')}`).catch(() => undefined)
-    }
-    const outcome = await claimAndSave(ctx.telegram, ctx.from.id, supabase, lead)
-    await ctx.editMessageReplyMarkup(undefined).catch(() => undefined)
-    await ctx.answerCbQuery(outcome === 'saved' ? NOTIFICATION_MESSAGE.CbQ.SuccessSaved : '✅ Уже в вашей коллекции').catch(() => undefined)
 }
 
 /**
- * Человек подписался на обязательный канал (update chat_member): ждущие подписки переходы из
- * Instagram (status started) сохраняются сами; если остался второй канал — напоминаем о нём.
- * true — человеку уже написали (общий обработчик подписки молчит).
+ * Человек подписался на обязательный канал (update chat_member) или нажал «Проверить подписку»: ждущие
+ * подписки переходы из Instagram (status started) сохраняются сами; если остался второй канал — напоминаем о нём.
+ * true — человеку действительно написали (общий обработчик подписки тогда молчит).
  */
 export const continueInstagramAfterSubscribe = async (telegram: any, telegramId: number, missing: readonly RequiredChannel[]): Promise<boolean> => {
     const supabase = getSupabase() as any
@@ -152,15 +195,32 @@ export const continueInstagramAfterSubscribe = async (telegram: any, telegramId:
     }
     const leads = ((data ?? []) as LeadRow[]).filter(lead => lead.campaign)
     if (!leads.length) return false
-    if (missing.length) {
-        await telegram.sendMessage(telegramId, TELEGRAM_ONE_MORE_TEXT(channelLines(missing)), subscribeKeyboard(leads[0]!.id, missing))
-        return true
+    try {
+        if (missing.length) {
+            await telegram.sendMessage(telegramId, TELEGRAM_ONE_MORE_TEXT(channelLines(missing)), subscribeKeyboard(leads[0]!.id, missing))
+            return true
+        }
+        let told = false
+        for (const lead of leads) {
+            await saveOrOfferRetry(telegram, telegramId, supabase, lead)
+            told = true
+        }
+        return told
+    } catch (error: any) {
+        console.warn('[IG SUBSCRIBE] сообщение не отправлено', error?.response?.description ?? error?.message ?? error)
+        return false
     }
-    for (const lead of leads) {
-        await claimAndSave(telegram, telegramId, supabase, lead)
-            .catch(error => console.error('[IG SUBSCRIBE] сохранение не удалось', error?.message ?? error))
+}
+
+/** /instagram_off — отвязать Instagram: автосохранение из комментариев больше не идёт в этот Telegram. */
+export const instagramOffCommand = async (ctx: any) => {
+    try {
+        const unlinked = await unlinkInstagram(getSupabase(), ctx.from.id)
+        await ctx.reply(unlinked ? TELEGRAM_UNLINKED_TEXT : TELEGRAM_NOT_LINKED_TEXT)
+    } catch (error: any) {
+        console.error('[IG OFF]', error?.message ?? error)
+        await ctx.reply('Не получилось отвязать Instagram — попробуйте позже.').catch(() => undefined)
     }
-    return true
 }
 
 /** Кнопки администратора под «Новый Reel в Instagram». */

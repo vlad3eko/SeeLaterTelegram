@@ -17,7 +17,8 @@ export default defineEventHandler(async (event) => {
     const { error, count } = await deleteFavorite(
         supabase,
         user.id,
-        body.tmdb_id
+        body.tmdb_id,
+        body.media_type
     )
 
     const isSuccess = !error && (count !== null && count > 0);
