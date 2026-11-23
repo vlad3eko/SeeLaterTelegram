@@ -1,6 +1,8 @@
 // Сценарий «Сохрани»: как сохранить фильм из Reels комментарием «СОХРАНИТЬ» (актуальное в профиле + Reel).
-// Образец для новых сценариев — справка: .claude/skills/promo-stories/SKILL.md. Сборка:
-//   node scripts/promo/buildPromo.mjs --scenario save
+// Образец для новых сценариев — справка: .claude/skills/promo-stories/SKILL.md. Один сценарий — оба формата:
+// вертикаль (истории, Reel) и горизонталь (как GIF /g). Наклейки пометок nx/ny — для вертикали; в горизонтали они
+// сами встают слева от телефона (своё место — mark.h = {nx, ny, side}). Сборка:
+//   node scripts/promo/buildPromo.mjs --scenario save [--format vertical|horizontal]
 window.PROMO = {
   // Фильм для примера: явные title/poster/backdrop (пути TMDB). С {media, id} сборка подтянет их сама.
   films: {main: {title: 'Дюна: Часть третья', poster: 'zbMASwT2PKpudXBRc2LExAQHASw', backdrop: 'i5E9H7Ik0u61ylDDTbmUpTL3Yw'}},
@@ -9,18 +11,10 @@ window.PROMO = {
   reel: ['cover', 'comment', 'direct', 'telegram', 'end'],
   slides: () => ({
   cover: {dur: 6.5, html: `${bg(.5, .35, .38)}
-    <div class="scene" data-posters="cover"></div>
-    ${brand}
-    <div class="pill" style="left:30px;top:160px" data-in=".1"><b>Reels</b> → Telegram</div>
-    <div class="title" data-title="Сохрани|фильм" data-size="96" style="left:26px;top:206px" data-in=".25"></div>
-    <div class="lead" style="left:32px;top:432px;width:300px" data-in=".55">Увидели фильм в нашем Reels?<br>Напишите <b class="grad">«СОХРАНИТЬ»</b><br>в комментариях — бот в Telegram<br>добавит его в коллекцию</div>
-    <div class="steps" style="left:28px;top:556px">
-      <div class="step ok" data-in="1.1"><i>✓</i><span>Фильм <b>не потеряется</b></span></div>
-      <div class="step ok" data-in="1.45"><i>✓</i><span><b>Напомню</b>, когда выйдет</span></div>
-      <div class="step ok" data-in="1.8"><i>✓</i><span>Новые <b>серии и трейлеры</b></span></div>
-      <div class="step ok" data-in="2.15"><i>✓</i><span><b>Бесплатно</b>, за 10 секунд</span></div>
-    </div>
-    <div class="cta" style="left:28px;top:800px" data-in="2.7" data-pulse="1">Как это работает — 3 шага →</div>`},
+    ${cover({pill: '<b>Reels</b> → Telegram', title: 'Сохрани|фильм', size: 96,
+      lead: 'Увидели фильм в нашем Reels?<br>Напишите <b class="grad">«СОХРАНИТЬ»</b><br>в комментариях — бот в Telegram<br>добавит его в коллекцию',
+      checks: ['Фильм <b>не потеряется</b>', '<b>Напомню</b>, когда выйдет', 'Новые <b>серии и трейлеры</b>', '<b>Бесплатно</b>, за 10 секунд'],
+      cta: 'Как это работает — 3 шага →'})}`},
 
   comment: {dur: 8.5, html: `${bg(.45, .32, .36)}
     ${stepHead(1, 3, 'Reels', 'Напишите|«СОХРАНИТЬ»')}
@@ -105,12 +99,8 @@ window.PROMO = {
     ]},
 
   end: {dur: 4.5, html: `${bg(.5, .35, .38)}
-    <div class="scene" data-posters="cover"></div>
-    ${brand}
-    <div class="pill" style="left:30px;top:160px" data-in=".1">под любым нашим <b>Reels</b></div>
-    <div class="title" data-title="Напишите|СОХРАНИТЬ" data-size="70" style="left:26px;top:206px" data-in=".25"></div>
-    <div class="lead" style="left:32px;top:420px;width:290px" data-in=".55">Остальное сделает бот:<br>сохранит фильм в коллекцию<br>и <b>напомнит о премьере</b></div>
-    <div class="cta" style="left:28px;top:800px" data-in="1.1" data-pulse="1">Пишите «СОХРАНИТЬ» 🎬</div>`},
+    ${cover({pill: 'под любым нашим <b>Reels</b>', title: 'Напишите|СОХРАНИТЬ', size: 70,
+      lead: 'Остальное сделает бот:<br>сохранит фильм в коллекцию<br>и <b>напомнит о премьере</b>', cta: 'Пишите «СОХРАНИТЬ» 🎬'})}`},
 
   icon: {dur: 1, icon: true, html: `${bg(.55, .4, .4)}
     <div style="position:absolute;inset:0;display:grid;place-items:center">

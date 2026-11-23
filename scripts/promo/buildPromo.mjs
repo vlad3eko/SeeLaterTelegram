@@ -1,12 +1,18 @@
-// Промо-истории Instagram и Reels из сценария scripts/promo/scenarios/<имя>.js на движке scripts/promo/engine.html.
+// Промо-ролики из сценария scripts/promo/scenarios/<имя>.js на движке scripts/promo/engine.html — в двух форматах
+// из одного сценария: vertical (истории и Reels Instagram) и horizontal (как анимированные обложки /g, GIF в Telegram).
 //
-//   node scripts/promo/buildPromo.mjs --scenario save                    истории + Reel + значок
+//   node scripts/promo/buildPromo.mjs --scenario save                    оба формата: видео + значок
+//   node scripts/promo/buildPromo.mjs --scenario save --format horizontal   один формат (vertical|horizontal|both)
 //   node scripts/promo/buildPromo.mjs --scenario save --sheet            лист проверки: один PNG со всеми ключевыми кадрами
 //   node scripts/promo/buildPromo.mjs --scenario save --preview comment:3,reel:20   отдельные кадры в PNG
 //   ... --only comment,reel   только эти (ключи слайдов, reel, icon);  --jobs 3   сколько Chrome параллельно
 //
-// Результат — promo-out/<сценарий>/: story-<n>-<ключ>.mp4 (по PROMO.stories), reel.mp4 (PROMO.reel),
-// highlight-icon.png (слайд icon), sheet.png, preview-*.png. Видео 1080×1920, 30 к/с, H.264 + тихая дорожка AAC.
+// Результат — promo-out/<сценарий>/:
+//   вертикаль: story-<n>-<ключ>.mp4 (PROMO.stories), reel.mp4 (PROMO.reel), highlight-icon.png (слайд icon), sheet.png —
+//     1080×1920, 30 к/с, H.264 + тихая дорожка AAC (Instagram так принимает надёжнее);
+//   горизонталь: horizontal/slide-<n>-<ключ>.mp4, horizontal/full.mp4 (те же списки), sheet-horizontal.png —
+//     1920×1280, 30 к/с, без звука (Telegram показывает как GIF, как обложки /g).
+//   В --only имя reel значит и полный ролик горизонтали.
 // Фильмы сценария с {media, id} дополняются из TMDB через публичный роут сайта /api/tmdb/media (ключей не нужно).
 // Как обложки /g (scripts/covers/buildCovers.mjs): Chrome без окна по DevTools, ffmpeg; новых зависимостей нет.
 // Справка по сценариям — .claude/skills/promo-stories/SKILL.md.
@@ -31,6 +37,13 @@ if (!SCENARIO || !existsSync(path.join(here, 'scenarios', `${SCENARIO}.js`))) {
     process.exit(1)
 }
 const OUT = path.resolve(option('out', 'promo-out'), SCENARIO)
+const FORMATS = {
+    vertical: {w: 540, h: 960, dir: OUT, story: (n, key) => `story-${n}-${key}.mp4`, full: 'reel.mp4', audio: true, sheet: 'sheet.png', tile: [270, 480, 6]},
+    horizontal: {w: 960, h: 640, dir: path.join(OUT, 'horizontal'), story: (n, key) => `slide-${n}-${key}.mp4`, full: 'full.mp4', audio: false, sheet: 'sheet-horizontal.png', tile: [480, 320, 4]}
+}
+const formatOption = option('format', 'both')
+if (!['both', ...Object.keys(FORMATS)].includes(formatOption)) { console.error('[PROMO] --format vertical|horizontal|both'); process.exit(1) }
+const FORMAT_LIST = formatOption === 'both' ? Object.keys(FORMATS) : [formatOption]
 const PREVIEW = option('preview', '')
 const JOBS = Math.max(1, Number(option('jobs', 3)))
 const SITE = process.env.PROMO_SITE || 'https://kinomanov.net'
@@ -52,7 +65,8 @@ const findFfmpeg = () => {
 // Одна вкладка Chrome (свой профиль) на слайд: открыть движок, дождаться шрифтов, картинок и пометок.
 let resolved = {films: {}, posters: []}
 let pageNo = 0
-const openPage = async (slide, width, height) => {
+const openPage = async (slide, format = 'vertical') => {
+    const {w: width, h: height} = slide === 'icon' ? {w: 540, h: 540} : FORMATS[format]
     const port = 9300 + Math.floor(Math.random() * 600)
     const profile = path.join(OUT, `chrome-profile-${pageNo++}`)
     const browser = spawn(findChrome(), ['--headless=new', '--hide-scrollbars', '--allow-file-access-from-files', `--remote-debugging-port=${port}`,
@@ -81,7 +95,7 @@ const openPage = async (slide, width, height) => {
     await send('Emulation.setDeviceMetricsOverride', {width, height, deviceScaleFactor: SCALE, mobile: false})
     await send('Page.enable')
     await send('Page.addScriptToEvaluateOnNewDocument', {source: `window.PROMO_RESOLVED = ${JSON.stringify(resolved)}`})
-    await send('Page.navigate', {url: `${pathToFileURL(ENGINE).href}#scenario=${SCENARIO}&slide=${slide}`})
+    await send('Page.navigate', {url: `${pathToFileURL(ENGINE).href}#scenario=${SCENARIO}&slide=${slide}&format=${format}`})
     let ready = false
     for (let i = 0; i < 120 && !ready; i++) {
         await sleep(300)
@@ -119,44 +133,46 @@ const resolveFilms = async meta => {
     resolved.posters = await Promise.all(meta.coverPosters.map(async item => typeof item === 'object' && item ? (await tmdb(item.media, item.id)).poster : null))
 }
 
-const storyName = (meta, slide) => `story-${meta.stories.indexOf(slide) + 1}-${slide}.mp4`
-
-const renderVideo = async (meta, slide) => {
-    const page = await openPage(slide, 540, 960)
-    const framesDir = path.join(OUT, 'frames', slide)
+const renderVideo = async (meta, slide, format) => {
+    const F = FORMATS[format]
+    const page = await openPage(slide, format)
+    const framesDir = path.join(OUT, 'frames', `${format}-${slide}`)
     await mkdir(framesDir, {recursive: true})
     try {
         const duration = slide === 'reel' ? await page.evaluate('window.REEL_DURATION') : meta.durations[slide]
         const frames = Math.round(duration * FPS)
         for (let f = 0; f < frames; f++) {
             await page.shot(f / FPS, path.join(framesDir, `f${String(f).padStart(4, '0')}.jpg`))
-            if (f % 90 === 0) console.log(`[PROMO] ${slide}: ${f}/${frames}`)
+            if (f % 90 === 0) console.log(`[PROMO] ${format} ${slide}: ${f}/${frames}`)
         }
     } finally { await page.close() }
-    const video = path.join(OUT, slide === 'reel' ? 'reel.mp4' : storyName(meta, slide))
-    // H.264 + тихая дорожка AAC: Instagram надёжнее принимает видео со звуковой дорожкой.
-    await run(findFfmpeg(), ['-y', '-loglevel', 'error', '-framerate', String(FPS), '-i', path.join(framesDir, 'f%04d.jpg'),
-        '-f', 'lavfi', '-i', 'anullsrc=channel_layout=stereo:sample_rate=44100', '-shortest',
-        '-vf', 'format=yuv420p', '-c:v', 'libx264', '-preset', 'slow', '-crf', '17', '-c:a', 'aac', '-b:a', '64k', '-movflags', '+faststart', video],
+    await mkdir(F.dir, {recursive: true})
+    const video = path.join(F.dir, slide === 'reel' ? F.full : F.story(meta.stories.indexOf(slide) + 1, slide))
+    // Вертикаль — с тихой дорожкой AAC (Instagram); горизонталь — без звука (Telegram покажет как GIF).
+    const audioIn = F.audio ? ['-f', 'lavfi', '-i', 'anullsrc=channel_layout=stereo:sample_rate=44100', '-shortest'] : []
+    await run(findFfmpeg(), ['-y', '-loglevel', 'error', '-framerate', String(FPS), '-i', path.join(framesDir, 'f%04d.jpg'), ...audioIn,
+        '-vf', 'format=yuv420p', '-c:v', 'libx264', '-preset', 'slow', '-crf', '17',
+        ...(F.audio ? ['-c:a', 'aac', '-b:a', '64k'] : ['-an']), '-movflags', '+faststart', video],
         {timeout: 600_000})
     await rm(framesDir, {recursive: true, force: true})
     console.log(`[PROMO] готово: ${path.relative(process.cwd(), video)}`)
 }
 
 const renderIcon = async () => {
-    const page = await openPage('icon', 540, 540)
+    const page = await openPage('icon')
     try { await page.shot(0, path.join(OUT, 'highlight-icon.png'), 'png') } finally { await page.close() }
     console.log(`[PROMO] готово: ${path.relative(process.cwd(), path.join(OUT, 'highlight-icon.png'))}`)
 }
 
 // Лист проверки: на каждый слайд — кадры, где каждая пометка уже нарисована, и последний кадр; всё в одном PNG
 // (270×480 на кадр, 6 в ряд). Подписи кадров печатаются в консоль по порядку.
-const renderSheet = async (meta, slides) => {
-    const dir = path.join(OUT, 'sheet-frames')
+const renderSheet = async (meta, slides, format) => {
+    const F = FORMATS[format]
+    const dir = path.join(OUT, `sheet-frames-${format}`)
     await mkdir(dir, {recursive: true})
     const labels = []
     for (const slide of slides) {
-        const page = await openPage(slide, 540, 960)
+        const page = await openPage(slide, format)
         try {
             for (const t of meta.checks[slide]) {
                 await page.shot(t, path.join(dir, `s${String(labels.length).padStart(3, '0')}.jpg`), 'jpeg', .5)
@@ -164,11 +180,12 @@ const renderSheet = async (meta, slides) => {
             }
         } finally { await page.close() }
     }
-    const cols = Math.min(6, labels.length), rows = Math.ceil(labels.length / cols)
+    const [tw, th, maxCols] = F.tile
+    const cols = Math.min(maxCols, labels.length), rows = Math.ceil(labels.length / cols)
     await run(findFfmpeg(), ['-y', '-loglevel', 'error', '-framerate', '1', '-i', path.join(dir, 's%03d.jpg'),
-        '-vf', `scale=270:480,tile=${cols}x${rows}:padding=6:color=white`, '-frames:v', '1', path.join(OUT, 'sheet.png')])
+        '-vf', `scale=${tw}:${th},tile=${cols}x${rows}:padding=6:color=white`, '-frames:v', '1', path.join(OUT, F.sheet)])
     await rm(dir, {recursive: true, force: true})
-    console.log(`[PROMO] лист проверки: ${path.relative(process.cwd(), path.join(OUT, 'sheet.png'))}`)
+    console.log(`[PROMO] лист проверки (${format}): ${path.relative(process.cwd(), path.join(OUT, F.sheet))}`)
     labels.forEach((label, i) => console.log(`  ${i + 1}. ${label}`))
 }
 
@@ -183,27 +200,34 @@ const pool = async (tasks, limit) => {
 }
 
 await mkdir(OUT, {recursive: true})
-const metaPage = await openPage('meta', 540, 960)
+const metaPage = await openPage('meta')
 const meta = await metaPage.evaluate('window.promoMeta')
 await metaPage.close()
 await resolveFilms(meta)
 
 const slideKeys = Object.keys(meta.durations).filter(key => key !== 'icon')
 if (PREVIEW) {
-    for (const item of PREVIEW.split(',')) {
+    for (const format of FORMAT_LIST) for (const item of PREVIEW.split(',')) {
         const [slide, t] = item.split(':')
-        const page = await openPage(slide, 540, slide === 'icon' ? 540 : 960)
-        try { await page.shot(Number(t || 0), path.join(OUT, `preview-${slide}-${t || 0}.png`), 'png', .5) } finally { await page.close() }
-        console.log(`[PROMO] кадр: ${path.relative(process.cwd(), path.join(OUT, `preview-${slide}-${t || 0}.png`))}`)
+        if (slide === 'icon' && format !== 'vertical') continue
+        const file = path.join(OUT, `preview-${format === 'vertical' ? '' : 'h-'}${slide}-${t || 0}.png`)
+        const page = await openPage(slide, format)
+        try { await page.shot(Number(t || 0), file, 'png', .5) } finally { await page.close() }
+        console.log(`[PROMO] кадр: ${path.relative(process.cwd(), file)}`)
     }
 } else if (flag('sheet')) {
     const only = option('only', '')
-    await renderSheet(meta, only ? only.split(',').filter(key => slideKeys.includes(key)) : slideKeys)
+    for (const format of FORMAT_LIST) await renderSheet(meta, only ? only.split(',').filter(key => slideKeys.includes(key)) : slideKeys, format)
 } else {
     const defaults = [...meta.stories, ...(meta.reel.length ? ['reel'] : []), ...(meta.icon ? ['icon'] : [])]
     const only = option('only', '') ? option('only', '').split(',') : defaults
-    // Reel самый длинный — запускаем первым.
-    const ordered = [...only].sort((a, b) => (b === 'reel') - (a === 'reel'))
-    await pool(ordered.map(slide => slide === 'icon' ? renderIcon : () => renderVideo(meta, slide)), JOBS)
+    const tasks = []
+    for (const format of FORMAT_LIST) for (const slide of only) {
+        if (slide === 'icon') { if (format === 'vertical') tasks.push({slide, run: renderIcon}) }
+        else tasks.push({slide, run: () => renderVideo(meta, slide, format)})
+    }
+    // Полные ролики самые длинные — запускаем первыми.
+    tasks.sort((a, b) => (b.slide === 'reel') - (a.slide === 'reel'))
+    await pool(tasks.map(task => task.run), JOBS)
 }
 await rm(path.join(OUT, 'frames'), {recursive: true, force: true}).catch(() => undefined)
