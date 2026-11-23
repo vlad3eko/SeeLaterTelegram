@@ -40,7 +40,7 @@ export const DEFAULT_TRANSLATE_REQUEST_TIMEOUT_MS = 25 * 1000;
  */
 export const DEFAULT_VERIFY_REQUEST_TIMEOUT_MS = 30 * 1000;
 /** Time kept back for the translation while the optional steps before it run. */
-export const DEFAULT_TRANSLATE_RESERVE_MS = 150 * 1000;
+export const DEFAULT_TRANSLATE_RESERVE_MS = 240 * 1000;
 
 const readMs = (raw: string | undefined, fallback: number, min: number, max: number): number => {
     if (raw === undefined || raw.trim() === '') return fallback;

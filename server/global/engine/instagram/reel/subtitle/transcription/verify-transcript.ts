@@ -563,6 +563,12 @@ export type VerifyOptions = {
     readAudio?: () => Promise<InlineAudio>;
     /** Tests: replaces the Gemini request. */
     ask?: (model: string, contents: unknown) => Promise<string>;
+    /**
+     * A translation follows: one attempt on the main model only, so the check does
+     * not use up the quota the translation needs (23.11: the check's retries drained
+     * gemini-3.8-flash and the translation then got 429 on it).
+     */
+    singleAttempt?: boolean;
 };
 
 export async function verifyTranscript(
@@ -629,11 +635,12 @@ export async function verifyTranscript(
     let usedModel: string | undefined;
 
     // Parsing is part of the attempt: broken JSON is repeated like an outage.
-    const issues = await generateWithFallback(verifyModels(), async model => {
+    const models = options.singleAttempt ? verifyModels().slice(0, 1) : verifyModels();
+    const issues = await generateWithFallback(models, async model => {
         usedModel = model;
 
         return parseVerifyReply(await asker(model, contents), sentences.length);
-    }, { label: 'Transcript check' });
+    }, { label: 'Transcript check', ...(options.singleAttempt ? { delaysMs: [] } : {}) });
 
     const outcome = applyVerification(words, issues, options.envelope);
     const summary: VerifySummary = {

@@ -1,7 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
 
 import type { WhisperTranscript, WordTiming } from '../types.js';
-import { isBudgetExceeded, requestTimeoutMs, translateRequestTimeoutMs, withinBudget } from '../utils/budget.js';
+import { isBudgetExceeded, remainingBudgetMs, requestTimeoutMs, translateRequestTimeoutMs, withinBudget } from '../utils/budget.js';
 import { isRateLimitError } from '../utils/rate-limit.js';
 import { assertLanguageCode, stripControlCharacters } from '../utils/safe-input.js';
 
@@ -53,10 +53,24 @@ import { assertLanguageCode, stripControlCharacters } from '../utils/safe-input.
  */
 
 const DEFAULT_TRANSLATE_MODEL = 'gemini-3.8-flash';
-/** A model the project already uses for reels (hooks), so the same key works. */
-const DEFAULT_FALLBACK_TRANSLATE_MODELS = ['gemini-3.5-flash-lite'];
+/**
+ * Models tried after the main one. Each has its own quota and capacity: on 23.11
+ * two reels went out untranslated when the main model had used up its quota (429)
+ * and the only fallback was overloaded (503) at the same time.
+ */
+const DEFAULT_FALLBACK_TRANSLATE_MODELS = ['gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-3.7-flash', 'gemini-2.5-flash'];
 /** Pauses between the rounds of the chain (so up to three attempts on each model). */
 const RETRY_DELAYS_MS = [1_000, 3_000];
+/**
+ * The translation is not optional (without it the captions are in the wrong
+ * language), so it waits much longer than the checks: an outage of a few
+ * minutes is outlasted, within the subtitle time budget.
+ */
+export const TRANSLATE_RETRY_DELAYS_MS = [5_000, 15_000, 30_000, 60_000];
+/** A pause asked for by the API (429 "retry in N s") is followed, but not beyond this. */
+const MAX_RETRY_HINT_MS = 60_000;
+/** A pause is not started when less than this would be left of the budget after it. */
+const BUDGET_AFTER_PAUSE_MS = 20_000;
 /** Chain entries of another provider carry this prefix (`external:<model>`). */
 const EXTERNAL_PREFIX = 'external:';
 const DEFAULT_EXTERNAL_URL = 'https://api.openai.com/v1/chat/completions';
@@ -127,6 +141,24 @@ export function dominantLanguage(words: WordTiming[]): string | undefined {
     }
 
     return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+}
+
+/**
+ * Pure: the language for the Whisper timing pass — the language that is really
+ * spoken, not the subtitle language. Whisper forced to `ru` on English speech
+ * writes other words, so almost none match the transcript and the timing stays
+ * Gemini's own, which drifts (23.11: 2 of 49 words matched). The label most words
+ * carry wins; without labels, letters of another script mean `auto`.
+ */
+export function whisperTimingLanguage(words: WordTiming[], target: string): string {
+    const labelled = dominantLanguage(words);
+
+    if (labelled && /^[a-z]{2,3}$/u.test(labelled)) return labelled;
+
+    const script = dominantScript(words);
+    const targetBase = baseLanguage(target) ?? 'ru';
+
+    return script && script !== scriptOfLanguage(targetBase) ? 'auto' : target;
 }
 
 /** Pure: REEL_SUBTITLE_TRANSLATE_MIN_WORDS, a whole number from 1 (default 3). */
@@ -300,6 +332,31 @@ export function acceptTranslation(source: string, translated: string, target?: s
     return text;
 }
 
+/**
+ * Foreign speech that needed a translation did not get one (every model failed
+ * through all rounds). The reel must not go out with captions in the wrong
+ * language: the subtitle step fails with this reason instead.
+ */
+export class TranslationUnavailableError extends Error {
+    constructor(message: string) {
+        super(message);
+        this.name = 'TranslationUnavailableError';
+    }
+}
+
+/** Pure: the pause the API asked for ("retryDelay": "37s", "retry in 12.5s"), in ms, or undefined. */
+export function retryHintMs(error: unknown): number | undefined {
+    const message = error instanceof Error ? error.message : String(error);
+    const match = /"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"/u.exec(message)
+        ?? /retry in (\d+(?:\.\d+)?)\s*s/iu.exec(message);
+
+    if (!match) return undefined;
+
+    const ms = Math.round(Number(match[1]) * 1000);
+
+    return Number.isFinite(ms) && ms > 0 ? Math.min(ms, MAX_RETRY_HINT_MS) : undefined;
+}
+
 /** The answer parsed, but not one of its lines is a usable translation: worth asking again. */
 export class UnusableTranslationError extends Error {
     constructor(message: string) {
@@ -427,6 +484,8 @@ export async function generateWithFallback<T>(
         wait?: (ms: number) => Promise<void>;
         label?: string;
         skipModel?: (model: string, error: unknown) => boolean;
+        /** Follow the pause the API asks for (429), up to a minute. */
+        followRetryHints?: boolean;
     } = {},
 ): Promise<T> {
     const delays = options.delaysMs ?? RETRY_DELAYS_MS;
@@ -437,6 +496,7 @@ export async function generateWithFallback<T>(
 
     for (let round = 0; round <= delays.length; round += 1) {
         let tried = 0;
+        let hintMs = 0;
 
         for (const [modelIndex, model] of models.entries()) {
             if (dropped.has(model)) continue;
@@ -469,6 +529,7 @@ export async function generateWithFallback<T>(
                 if (!outage && !modelAtFault) throw error;
 
                 if (modelAtFault) dropped.add(model);
+                if (options.followRetryHints) hintMs = Math.max(hintMs, retryHintMs(error) ?? 0);
 
                 console.warn(`[SUBTITLE] ${label} request failed`, {
                     model,
@@ -483,7 +544,14 @@ export async function generateWithFallback<T>(
 
         if (tried === 0 || delay === undefined) break;
 
-        await wait(delay);
+        const pause = Math.max(delay, hintMs);
+        const left = remainingBudgetMs();
+
+        // A pause that would leave no time for the next round is not worth waiting.
+        if (Number.isFinite(left) && left < pause + BUDGET_AFTER_PAUSE_MS) break;
+
+        console.info(`[SUBTITLE] ${label}: waiting before the next round`, { round: round + 1, pauseMs: pause });
+        await wait(pause);
     }
 
     throw lastError;
@@ -629,7 +697,11 @@ async function requestTranslations(
             );
         },
         // A wrong key or request for the other provider must not stop the Gemini models.
-        { skipModel: model => model.startsWith(EXTERNAL_PREFIX) },
+        {
+            skipModel: model => model.startsWith(EXTERNAL_PREFIX),
+            delaysMs: TRANSLATE_RETRY_DELAYS_MS,
+            followRetryHints: true,
+        },
     );
 }
 

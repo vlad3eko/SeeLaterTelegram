@@ -222,6 +222,10 @@ export const finishReel = async ({
             }
 
         } catch (error) {
+            // Иностранная речь без перевода: ролик с субтитрами не на том языке не выпускаем —
+            // задача падает с причиной, администратор пересобирает её позже.
+            if ((error as Error | undefined)?.name === 'TranslationUnavailableError') throw error
+
             // Субтитры необязательны: ошибка распознавания не останавливает Reel.
             subtitleAssPath = undefined
 

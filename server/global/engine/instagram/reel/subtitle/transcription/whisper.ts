@@ -14,7 +14,12 @@ import {
 import { retimeWordsByReference } from './retime-words.js';
 import { readVoiceEnvelope, snapWordsToVoice, type SpeechRange } from './voice-snap.js';
 import { analyseSpeakers } from './speaker-analysis.js';
-import { needsTranslation, translateForeignSpeech } from './translate-foreign.js';
+import {
+    needsTranslation,
+    translateForeignSpeech,
+    TranslationUnavailableError,
+    whisperTimingLanguage,
+} from './translate-foreign.js';
 import { fillUncoveredSpeech, transcribeRanges } from './coverage-pass.js';
 import { maxVerifyClips, planClips, verifyMode, verifyTranscript } from './verify-transcript.js';
 import { assertLanguageCode } from '../utils/safe-input.js';
@@ -207,7 +212,8 @@ export async function transcribeInstagramTranscript(
             process.env.REEL_SUBTITLE_TRANSCRIPTION_FALLBACK ?? 'none'
         ).trim().toLowerCase();
 
-        if (fallback !== 'whisper') {
+        // Raw Whisper has no translation: falling back would put the untranslated text back.
+        if (fallback !== 'whisper' || error instanceof TranslationUnavailableError) {
             throw error;
         }
 
@@ -357,13 +363,30 @@ async function translateForeign(
 
         return translated;
     } catch (error) {
-        console.warn(
-            '[SUBTITLE] Translation failed; foreign lines stay as transcribed.',
-            error instanceof Error ? error.message : String(error),
-        );
+        const reason = error instanceof Error ? error.message : String(error);
+
+        // Mostly foreign speech without a translation would put captions in the wrong
+        // language on the reel (23.11: two reels with English captions). The step fails
+        // with the reason instead; a stray foreign line in a Russian clip may stay.
+        if (needsTranslation(transcript.words, options.language ?? 'ru')) {
+            throw new TranslationUnavailableError(
+                `[SUBTITLE] Перевод не получен: ${translationFailureReason(reason)}`,
+            );
+        }
+
+        console.warn('[SUBTITLE] Translation failed; foreign lines stay as transcribed.', reason);
 
         return transcript;
     }
+}
+
+/** Pure: a short reason for the admin ("Gemini 429 — квота", "Gemini 503 — перегружена"). */
+export function translationFailureReason(message: string): string {
+    if (/\b429\b|RESOURCE_EXHAUSTED|quota/iu.test(message)) return 'Gemini 429 — исчерпана квота';
+    if (/\b503\b|UNAVAILABLE|high demand|overloaded/iu.test(message)) return 'Gemini 503 — модели перегружены';
+    if (/budget/iu.test(message)) return 'не хватило времени шага субтитров';
+
+    return message.slice(0, 160);
 }
 
 /**
@@ -459,6 +482,7 @@ async function verifySpeech(
             context: options.context,
             envelope,
             mode,
+            singleAttempt: needsTranslation(transcript.words, options.language ?? 'ru'),
         });
 
         console.info('[SUBTITLE] Transcript check', summary);
@@ -572,8 +596,10 @@ async function retimeGeminiWithWhisper(
     }
 
     try {
+        const language = whisperTimingLanguage(transcript.words, options.language ?? 'ru');
         const whisperTranscript = await transcribeWithWhisper({
             ...options,
+            language,
             outputPath: options.outputPath.replace(/(\.ndjson)?$/u, '.whisper-timing.ndjson'),
         });
 
