@@ -8,6 +8,10 @@ alter table users add column if not exists instagram_id text;
 alter table users add column if not exists instagram_linked_at timestamptz;
 create unique index if not exists users_instagram_id on users (instagram_id) where instagram_id is not null;
 
+-- Отложенные действия бота (server/bot/handlers/channel/pendingActions.ts): кнопки, нажатые без подписки на
+-- обязательные каналы, — [{payload, at}], до 10 штук на 24 часа; выполняются сами после подписки.
+alter table users add column if not exists pending_actions jsonb not null default '[]'::jsonb;
+
 -- Reel ↔ фильм. Reels выкладываются вручную, поэтому таймер находит новый Reel сам, а фильм
 -- подтверждает администратор кнопкой (candidates — варианты из reel_processing_jobs).
 create table if not exists instagram_campaigns (
@@ -63,4 +67,4 @@ alter table instagram_comment_leads enable row level security;
 
 -- Откат:
 -- drop table instagram_comment_leads; drop table instagram_campaigns;
--- drop index users_instagram_id; alter table users drop column instagram_id, drop column instagram_linked_at;
+-- drop index users_instagram_id; alter table users drop column instagram_id, drop column instagram_linked_at, drop column pending_actions;

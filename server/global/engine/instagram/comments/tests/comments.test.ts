@@ -160,3 +160,19 @@ test('отложенные действия: какие ссылки /start за
     assert.equal(botStartLink({botInfo: {username: 'test_bot'}}, 'save_movie_1'), 'https://t.me/test_bot?start=save_movie_1')
     assert.equal(botStartLink({}, 'search'), 'https://t.me/kinomanovNet_bot?start=search')
 })
+
+test('отложенные действия в users.pending_actions: повтор в конец, 24 часа, не больше 10', async () => {
+    const {addPending, livePending} = await import('#server/bot/handlers/channel/actionPayload')
+    const now = NOW.getTime()
+    let list = addPending(null, 'save_movie_1', now - 60_000)
+    list = addPending(list, 'search', now - 30_000)
+    list = addPending(list, 'save_movie_1', now)
+    assert.deepEqual(list.map(item => item.payload), ['search', 'save_movie_1'])
+    const old = [{payload: 'save_movie_9', at: at(25 * 60)}, {payload: 'bad payload', at: at(1)}, ...list]
+    assert.deepEqual(livePending(old, now).map(item => item.payload), ['search', 'save_movie_1'])
+    let many: any = []
+    for (let id = 1; id <= 12; id++) many = addPending(many, `save_movie_${id}`, now)
+    assert.equal(many.length, 10)
+    assert.equal(many[0].payload, 'save_movie_3')
+    assert.deepEqual(livePending('not an array', now), [])
+})

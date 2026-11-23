@@ -1,11 +1,10 @@
 import {getSupabase} from '#server/global/engine/instagram/reel/jobs/dispatchReelJob'
-import {isMissingTable} from '#server/global/engine/collections/trailers'
 import {saveTelegramUser} from '#server/bot/handlers/auth/success/saveTelegramUser'
 import {failedChannelSubscriber} from '#server/bot/handlers/auth/fail/failedChannelSubscriber'
 import {missingChannels} from '#server/bot/handlers/channel/requiredChannels'
-import {botStartLink, isActionPayload, MAX_PENDING, PENDING_TTL_MS} from '#server/bot/handlers/channel/actionPayload'
+import {addPending, botStartLink, isActionPayload, livePending} from '#server/bot/handlers/channel/actionPayload'
 
-export {ACTION_PAYLOAD, PENDING_TTL_MS, MAX_PENDING, isActionPayload, mediaActionPayload, parseMediaAction, botStartLink} from '#server/bot/handlers/channel/actionPayload'
+export {ACTION_PAYLOAD, PENDING_TTL_MS, MAX_PENDING, isActionPayload, mediaActionPayload, parseMediaAction, botStartLink, addPending, livePending} from '#server/bot/handlers/channel/actionPayload'
 
 /**
  * Доступ к действиям бота и отложенные действия (решение владельца 23.11).
@@ -13,7 +12,7 @@ export {ACTION_PAYLOAD, PENDING_TTL_MS, MAX_PENDING, isActionPayload, mediaActio
  * Действие разрешено, если человек подписан на оба обязательных канала И запускал бота (есть в users,
  * сводки ему доставляются). Иначе:
  *   - кнопка под постом / в чужом чате → ответ на нажатие открывает бота ссылкой ?start=<действие>;
- *   - в боте /start <действие> без подписки → действие запоминается на 24 часа (bot_pending_actions)
+ *   - в боте /start <действие> без подписки → действие запоминается на 24 часа (users.pending_actions)
  *     и бот просит подписаться;
  *   - человек подписался (update chat_member или «Проверить подписку») → все запомненные действия
  *     выполняются по порядку: бот «повторяет» /start <действие> от имени человека.
@@ -26,14 +25,21 @@ const reachableUser = async (telegramId: number): Promise<boolean> => {
     return Boolean(data && !data.bot_blocked_at)
 }
 
+/** Колонки users.pending_actions ещё нет (миграция не применена) — бот работает без запоминания. */
+const isMissingColumn = (error: any) => error?.code === '42703' || error?.code === 'PGRST204'
+
+/** Запомнить действие в users.pending_actions (строка users уже есть: saveTelegramUser / человек в боте). */
 export const rememberAction = async (telegramId: number, payload: string) => {
     if (!isActionPayload(payload)) return
-    const now = Date.now()
-    const {error} = await (getSupabase() as any).from('bot_pending_actions').upsert({
-        telegram_id: telegramId, payload, created_at: new Date(now).toISOString(),
-        expires_at: new Date(now + PENDING_TTL_MS).toISOString(), done_at: null
-    }, {onConflict: 'telegram_id,payload'})
-    if (error && !isMissingTable(error)) console.warn('[ACCESS] действие не запомнено', error.message)
+    const supabase = getSupabase() as any
+    const {data, error} = await supabase.from('users').select('pending_actions').eq('telegram_id', telegramId).maybeSingle()
+    if (error || !data) {
+        if (error && !isMissingColumn(error)) console.warn('[ACCESS] действие не запомнено', error.message)
+        return
+    }
+    const {error: writeError} = await supabase.from('users')
+        .update({pending_actions: addPending(data.pending_actions, payload, Date.now())}).eq('telegram_id', telegramId)
+    if (writeError) console.warn('[ACCESS] действие не запомнено', writeError.message)
 }
 
 /**
@@ -102,21 +108,23 @@ export const setStartReplay = (bot: any) => {
 export const runPendingActions = async (user: {id: number, first_name?: string, username?: string}): Promise<number> => {
     if (!replayStart) return 0
     const supabase = getSupabase() as any
-    const {data, error} = await supabase.from('bot_pending_actions').select('id,payload')
-        .eq('telegram_id', user.id).is('done_at', null).gt('expires_at', new Date().toISOString())
-        .order('created_at', {ascending: true}).limit(MAX_PENDING)
+    const {data, error} = await supabase.from('users').select('pending_actions').eq('telegram_id', user.id).maybeSingle()
     if (error) {
-        if (!isMissingTable(error)) console.warn('[ACCESS] отложенные действия', error.message)
+        if (!isMissingColumn(error)) console.warn('[ACCESS] отложенные действия', error.message)
         return 0
     }
-    let done = 0
-    for (const row of data ?? []) {
-        // Захват: событие подписки и «Проверить подписку» не выполнят действие дважды.
-        const {data: claimed} = await supabase.from('bot_pending_actions')
-            .update({done_at: new Date().toISOString()}).eq('id', row.id).is('done_at', null).select('id')
-        if (!claimed?.length || !isActionPayload(row.payload)) continue
-        await replayStart(user, row.payload).catch(error => console.error('[ACCESS] повтор действия', row.payload, error?.message ?? error))
-        done++
+    const stored = data?.pending_actions
+    if (!Array.isArray(stored) || !stored.length) return 0
+    // Захват: список очищается, только если он не изменился с чтения — событие подписки и «Проверить
+    // подписку» не выполнят действия дважды.
+    const {data: claimed, error: claimError} = await supabase.from('users').update({pending_actions: []})
+        .eq('telegram_id', user.id).eq('pending_actions', JSON.stringify(stored)).select('id')
+    if (claimError) console.warn('[ACCESS] отложенные действия', claimError.message)
+    if (!claimed?.length) return 0
+
+    const actions = livePending(stored, Date.now())
+    for (const action of actions) {
+        await replayStart(user, action.payload).catch(error => console.error('[ACCESS] повтор действия', action.payload, error?.message ?? error))
     }
-    return done
+    return actions.length
 }

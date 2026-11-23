@@ -18,3 +18,16 @@ export const parseMediaAction = (payload: string) => {
 
 export const botStartLink = (ctx: any, payload: string) =>
     `${ctx?.botInfo?.username ? `https://t.me/${ctx.botInfo.username}` : telegramBotShortLink}?start=${payload}`
+
+/** Запомненные действия в users.pending_actions: [{payload, at}] — старые первыми. */
+export type PendingAction = {payload: string, at: string}
+
+/** Живые (моложе 24 ч, допустимые) — их и выполняем после подписки. */
+export const livePending = (list: unknown, now: number): PendingAction[] =>
+    (Array.isArray(list) ? list : [])
+        .filter((item: any) => isActionPayload(item?.payload) && now - Date.parse(item?.at) < PENDING_TTL_MS)
+        .slice(-MAX_PENDING)
+
+/** Новое нажатие: тот же payload переезжает в конец со свежим временем, не больше MAX_PENDING последних. */
+export const addPending = (list: unknown, payload: string, now: number): PendingAction[] =>
+    [...livePending(list, now).filter(item => item.payload !== payload), {payload, at: new Date(now).toISOString()}].slice(-MAX_PENDING)
