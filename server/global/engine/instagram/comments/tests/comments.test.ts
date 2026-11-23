@@ -147,3 +147,16 @@ test('обязательные каналы: подписка на оба, ка�
     assert.match(lines, /\n• 👨‍💻 Канал разработчика/)
     assert.match(TELEGRAM_SUBSCRIBE_TEXT('Дюна', lines), /фильм сохранится сам/)
 })
+
+test('отложенные действия: какие ссылки /start запоминаются, разбор «Сохранить»/«Удалить», ссылка в бота', async () => {
+    const {isActionPayload, mediaActionPayload, parseMediaAction, botStartLink} = await import('#server/bot/handlers/channel/actionPayload')
+    for (const payload of ['search', 'collection', 'inline_settings', 'media_cast_movies_27205', 'similar_movie_27205_movies', 'save_movie_27205', 'unsave_tv_1399'])
+        assert.equal(isActionPayload(payload), true, payload)
+    for (const payload of ['', 'g_movies', 'ig_' + 'a'.repeat(22), 'save_book_1', 'save_movie_', 'a1b2c3d4e5f6', 'search_x', undefined, 'similar_' + 'x'.repeat(60)])
+        assert.equal(isActionPayload(payload), false, String(payload))
+    assert.equal(mediaActionPayload('save', 'movie', 27205), 'save_movie_27205')
+    assert.deepEqual(parseMediaAction('unsave_tv_1399'), {action: 'unsave', mediaType: 'tv', mediaId: 1399})
+    assert.equal(parseMediaAction('search'), null)
+    assert.equal(botStartLink({botInfo: {username: 'test_bot'}}, 'save_movie_1'), 'https://t.me/test_bot?start=save_movie_1')
+    assert.equal(botStartLink({}, 'search'), 'https://t.me/kinomanovNet_bot?start=search')
+})

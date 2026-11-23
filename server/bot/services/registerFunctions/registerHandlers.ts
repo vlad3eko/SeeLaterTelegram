@@ -8,10 +8,14 @@ import {registerHears} from "#server/bot/handlers/registerHears";
 import {searchMediaInline} from "#server/global/module/telegram/search/process/searchMediaInline";
 import {chosenCard} from "#server/global/module/telegram/search/process/chosenCard";
 import {onChannelMember} from "#server/bot/handlers/channel/onChannelMember";
+import {setStartReplay} from "#server/bot/handlers/channel/pendingActions";
 
 export function registerHandlers(bot: Telegraf) {
 
     registerHears(bot)
+
+    // Отложенные действия выполняются повтором /start <действие> через этот бот.
+    setStartReplay(bot)
 
     bot.on("text", async (ctx) => {
 

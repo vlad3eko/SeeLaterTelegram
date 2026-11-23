@@ -2,7 +2,7 @@
 import {SAVE_MEDIA} from "#server/bot/callbacks/routes";
 import {commandClear} from "#server/bot/commands/commandClear";
 import {removeMessageSession} from "#server/bot/services/session/removeMessageSession";
-import {checkChannelSubscriber} from "#server/bot/handlers/auth/check/checkChannelSubscriber";
+import {gateCallback, mediaActionPayload} from "#server/bot/handlers/channel/pendingActions";
 import {keyboardSendMediaCardInline} from "#server/bot/consts/buttons/keyboardBot";
 import {tmdbFetch} from "#server/utils/api/tmdbFetch";
 import {internalFetch} from "#server/utils/api/internalFetch";
@@ -13,19 +13,13 @@ import {
 
 export const saveMedia = async (ctx: any) => {
 
-    const isUserBot =
-        await checkChannelSubscriber(ctx)
+    const {mediaId, mediaType} = SAVE_MEDIA.parse(ctx)
 
-
-
-    if (!isUserBot)
-        return await ctx.answerCbQuery(NOTIFICATION_MESSAGE.CbQ.ErrorOnlyForSubscriber)
-
-
+    // Нет подписки на оба канала или бот не запущен: бот откроется ссылкой, сохранение выполнится после подписки.
+    if (!(await gateCallback(ctx, mediaActionPayload('save', mediaType, mediaId))))
+        return
 
     const userId = ctx.from.id
-
-    const {mediaId, mediaType} = SAVE_MEDIA.parse(ctx)
 
     const media = await tmdbFetch(
         '/api/tmdb/media',

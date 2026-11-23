@@ -1,18 +1,17 @@
 
 import {DELETE_MEDIA} from "#server/bot/callbacks/routes";
-import {checkChannelSubscriber} from "#server/bot/handlers/auth/check/checkChannelSubscriber";
+import {gateCallback, mediaActionPayload} from "#server/bot/handlers/channel/pendingActions";
 import {NOTIFICATION_MESSAGE} from "#server/global/notifications/sendNotificationMessage";
 import {internalFetch} from "#server/utils/api/internalFetch";
 
 export const deleteMedia = async (ctx: any) => {
 
-    const isUserBot = await checkChannelSubscriber(ctx)
+    const {mediaId, mediaType} = DELETE_MEDIA.parse(ctx)
 
-    if (!isUserBot)
-        await ctx.answerCbQuery(NOTIFICATION_MESSAGE.CbQ.ErrorOnlyForSubscriber)
+    if (!(await gateCallback(ctx, mediaActionPayload('unsave', mediaType, mediaId))))
+        return
 
     const telegramId = ctx.from.id
-    const {mediaId} = DELETE_MEDIA.parse(ctx)
 
     const {success} = await internalFetch<{
         success: boolean

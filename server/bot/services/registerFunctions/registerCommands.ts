@@ -4,13 +4,13 @@ import {mainKeyboard} from "#server/bot/consts/buttons/replyKeyboard";
 import {Telegraf} from "telegraf";
 import {addMessageSession} from "#server/bot/services/session/addMessageSession";
 import {SessionMessageType} from "#server/bot/consts/types/SessionMessageTypes";
-import {isSubscriber} from "#server/bot/handlers/channel/isSubscriber";
 import {getLastSearchQuery} from "#server/global/engine/search/repository/tmdbRepository";
 import {keyboardSearchBot} from "#server/bot/consts/buttons/keyboardBot";
 import {openInlineSearch} from "#server/bot/actions/admin/helpers/openInlineSearch";
 import {ContentType} from "#server/global/engine/search/strategy/enums";
 import {commandStart} from "#server/bot/commands/commandStart";
-import {saveTelegramUser} from "#server/bot/handlers/auth/success/saveTelegramUser";
+import {ensureAccessOnStart, isActionPayload, parseMediaAction} from "#server/bot/handlers/channel/pendingActions";
+import {startMediaAction} from "#server/bot/actions/media/startMediaAction";
 import {commandHelp} from "#server/bot/commands/commandHelp";
 import {commandClear} from "#server/bot/commands/commandClear";
 import {jumpCollections, startCollections} from "#server/bot/actions/collections/collectionsActions";
@@ -23,9 +23,6 @@ import {showSimilarList} from "#server/bot/actions/similar/similarActions";
 import {contentTypeToTag} from "~/utils/convert/contentTypeConvert";
 
 const authRequests = new Map()
-
-/** Ссылки из кнопок поста в канале (server/bot/consts/buttons/buttonsBot.ts, ButtonContext 'channel'). */
-const CHANNEL_LINK = /^(search|collection)$|^(media_cast|similar)_/
 
 export function registerCommands(bot: Telegraf) {
 
@@ -46,6 +43,19 @@ export function registerCommands(bot: Telegraf) {
                     await ctx.reply('Не получилось сохранить фильм. Попробуйте открыть ссылку ещё раз чуть позже.').catch(() => undefined)
                 })
             return
+        }
+
+        // Действия из кнопок (пост в канале, карточки): нужна подписка на оба канала. Без неё действие
+        // запоминается на 24 часа и выполнится само после подписки (server/bot/handlers/channel/pendingActions.ts).
+        if (isActionPayload(ctx.startPayload)) {
+            if (!(await ensureAccessOnStart(ctx, ctx.startPayload))) return
+            if (parseMediaAction(ctx.startPayload)) {
+                await startMediaAction(ctx, ctx.startPayload).catch(async error => {
+                    console.error('[START] действие с тайтлом', error?.message ?? error)
+                    await ctx.reply('Не получилось — попробуйте нажать кнопку ещё раз чуть позже.').catch(() => undefined)
+                })
+                return
+            }
         }
 
         const text =
@@ -69,19 +79,16 @@ export function registerCommands(bot: Telegraf) {
             const messageStart =
                 ctx.message.message_id
 
-            await addMessageSession(
-                ctx.from.id,
-                SessionMessageType.Command,
-                {
-                    messageId: messageStart
-                }
-            )
-
-            const checkSub =
-                await isSubscriber(ctx)
-
-            if (!checkSub)
-                return
+            // Повтор после подписки (pendingActions) приходит с message_id 0 — такого сообщения нет.
+            if (messageStart) {
+                await addMessageSession(
+                    ctx.from.id,
+                    SessionMessageType.Command,
+                    {
+                        messageId: messageStart
+                    }
+                )
+            }
 
             const tagGet =
                 (await getLastSearchQuery(ctx.from.id))
@@ -115,12 +122,8 @@ export function registerCommands(bot: Telegraf) {
             return
         }
 
-        // Кнопки поста в канале («🔍 Поиск», «📦 Коллекция», «🎭 Актёры», «🔗 Похожее») ведут сюда ссылкой.
-        // Пользоваться ими могут только подписчики — та же проверка, что у /start (и пользователь заносится в базу).
-        if (CHANNEL_LINK.test(payload ?? '')) {
-            await saveTelegramUser(ctx).catch(error => console.error('[START] Save user failed', error))
-            if (!(await isSubscriber(ctx).catch(() => false))) return
-        }
+        // Кнопки поста в канале («🔍 Поиск», «📦 Коллекция», «🎭 Актёры», «🔗 Похожее») ведут сюда ссылкой;
+        // подписка уже проверена выше (isActionPayload → ensureAccessOnStart).
 
         if (payload === 'search') {
             await openInlineSearch(ctx, '')

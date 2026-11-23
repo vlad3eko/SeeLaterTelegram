@@ -3,6 +3,7 @@ import {keyboardStartBot} from '#server/bot/consts/buttons/keyboardBot'
 import {subscribeButtons} from '#server/bot/handlers/auth/fail/failedChannelSubscriber'
 import {channelLines, isMemberStatus, missingChannels, requiredChannelByUsername} from '#server/bot/handlers/channel/requiredChannels'
 import {continueInstagramAfterSubscribe} from '#server/bot/actions/instagram/instagramSave'
+import {runPendingActions} from '#server/bot/handlers/channel/pendingActions'
 import {getSupabase} from '#server/global/engine/instagram/reel/jobs/dispatchReelJob'
 import {addMessageSession} from '#server/bot/services/session/addMessageSession'
 import {SessionMessageType} from '#server/bot/consts/types/SessionMessageTypes'
@@ -12,6 +13,7 @@ import {SessionMessageType} from '#server/bot/consts/types/SessionMessageTypes'
  * chat_member, см. scripts/setTelegramWebhook.mjs). Человек подписался — не нужно возвращаться в бота
  * и нажимать «Проверить подписку»:
  *   - переходы из Instagram, ждущие подписки, сохраняются сами (continueInstagramAfterSubscribe);
+ *   - запомненные действия (кнопки, нажатые без подписки) выполняются (runPendingActions);
  *   - остальным, кого бот просил подписаться (users.subscriber = false), — «✅ Подписка подтверждена»;
  *   - если подписан только на один из двух каналов — напоминание о втором.
  * Отписка снимает users.subscriber. Пишем только тем, кто уже есть в users (запускал бота).
@@ -53,7 +55,11 @@ export const onChannelMember = async (ctx: any) => {
     }
 
     await supabase.from('users').update({subscriber: true}).eq('telegram_id', user.id)
-    if (handled || row.subscriber !== false) return
+    const done = await runPendingActions(user).catch(error => {
+        console.error('[CHANNEL MEMBER] отложенные действия', error?.message ?? error)
+        return 0
+    })
+    if (handled || done || row.subscriber !== false) return
     const message = await ctx.telegram.sendMessage(user.id,
         '✅ Подписка подтверждена — бот открыт. Ищите фильмы кнопками ниже или напишите название в чат.',
         {reply_markup: keyboardStartBot()}).catch(() => null)
