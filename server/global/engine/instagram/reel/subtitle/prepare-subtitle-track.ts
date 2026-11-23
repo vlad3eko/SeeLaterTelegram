@@ -10,6 +10,7 @@ import { buildInstagramSubtitleBlocks } from './layout/build-subtitle-blocks.js'
 import { generateInstagramSubtitleAss, getMaximumDialogueEndSeconds } from './render/generate-ass.js';
 import { transcribeInstagramTranscript } from './transcription/whisper.js';
 import { probeInstagramVideo } from './utils/probe-video.js';
+import { detectShotCuts } from './utils/shot-cuts.js';
 import { assertLanguageCode, assertSafeRunId, sanitizeWords } from './utils/safe-input.js';
 import type {
   GenerateInstagramSubtitleTrackOptions,
@@ -80,6 +81,9 @@ export async function prepareInstagramSubtitleTrack(
   }
   const soundCues = transcript.soundCues;
   const blocks = buildInstagramSubtitleBlocks(words, config, options.keyPhrases ?? []);
+  // Hard cuts: a phrase whose speech is over leaves with its shot (reference 23.11).
+  const shotCuts = await detectShotCuts(inputVideoPath, process.env.FFMPEG_PATH ?? options.whisperFfmpegPath ?? 'ffmpeg');
+  console.info('[SUBTITLE] Shot cuts', { count: shotCuts.length });
   const ass = await generateInstagramSubtitleAss(
     blocks,
     videoInfo.width,
@@ -93,6 +97,7 @@ export async function prepareInstagramSubtitleTrack(
       frameRate: videoInfo.frameRate,
       durationSeconds: videoInfo.durationSeconds,
       wordOrderReportPath: paths.wordOrder,
+      shotCuts,
     },
   );
 

@@ -104,10 +104,61 @@ export function getWordBaseEntryMs(word: SubtitleWord): number {
     return (word.displayStart ?? word.start) * 1000;
 }
 
+/** A word longer than this is a stretched timestamp (music, a held note), not speech. */
+const DEFAULT_MAX_WORD_HOLD_MS = 1200;
+
+/** Spoken end of a word, ms, with a stretched timestamp cut to maxWordHoldMs. */
+export function getWordSpokenEndMs(word: SubtitleWord, maxWordHoldMs = DEFAULT_MAX_WORD_HOLD_MS): number {
+    return Math.min(word.end, word.start + maxWordHoldMs / 1000) * 1000;
+}
+
 /**
  * Display-relative end of a word: it stays at least as long as it is spoken,
  * counted from the moment it was shown (so the lead does not shorten it).
  */
-export function getWordDisplayEndMs(word: SubtitleWord): number {
-    return getWordBaseEntryMs(word) + Math.max(0, (word.end - word.start) * 1000);
+export function getWordDisplayEndMs(word: SubtitleWord, maxWordHoldMs = DEFAULT_MAX_WORD_HOLD_MS): number {
+    return getWordBaseEntryMs(word) + Math.max(0, getWordSpokenEndMs(word, maxWordHoldMs) - word.start * 1000);
+}
+
+/**
+ * When each phrase starts to leave (ms), as on the owner's reference (23.11):
+ *  - the next phrase starts within holdUntilNextMaxGapMs after the speech: the
+ *    phrase stays and crossfades into it (exitTriggerLeadMs before it appears);
+ *  - a longer pause: it leaves exitNoNextDelayMs after its last word;
+ *  - a hard cut comes after the speech and before that moment: it is gone by the cut;
+ *  - never before its last word has been readable for phraseMinHoldMs.
+ *
+ * @param blocks words of each phrase, in order (displayStart already assigned)
+ * @param cutsSeconds hard cuts of the clip, seconds
+ */
+export function planPhraseExits(
+    blocks: SubtitleWord[][],
+    cutsSeconds: number[],
+    animation: SubtitleConfig['animation'],
+): number[] {
+    const maxHold = animation.maxWordHoldMs ?? DEFAULT_MAX_WORD_HOLD_MS;
+    const cutsMs = cutsSeconds.map(seconds => seconds * 1000).sort((a, b) => a - b);
+    const exitSpanMs = animation.exitPhaseADurationMs + animation.exitPhaseBDurationMs;
+
+    return blocks.map((words, index) => {
+        if (words.length === 0) return 0;
+
+        const spokenEndMs = Math.max(...words.map(word => getWordSpokenEndMs(word, maxHold)));
+        const holdMs = Math.max(...words.map(word => getWordBaseEntryMs(word))) + animation.phraseMinHoldMs;
+        const next = blocks[index + 1];
+        const nextStartMs = next?.length ? Math.min(...next.map(getWordBaseEntryMs)) : undefined;
+
+        let exitMs = nextStartMs !== undefined && nextStartMs - spokenEndMs <= animation.holdUntilNextMaxGapMs
+            ? nextStartMs - animation.exitTriggerLeadMs
+            : spokenEndMs + animation.exitNoNextDelayMs;
+
+        // A cut after the speech (a frame or two after the last word) ends the phrase with the shot.
+        const cut = cutsMs.find(time => time > spokenEndMs + 40 && time < exitMs + exitSpanMs);
+        if (cut !== undefined) {
+            // …but not before the last word has been said.
+            exitMs = Math.max(spokenEndMs, Math.min(exitMs, cut - exitSpanMs - animation.exitBeforeCutMs));
+        }
+
+        return Math.max(exitMs, holdMs);
+    });
 }

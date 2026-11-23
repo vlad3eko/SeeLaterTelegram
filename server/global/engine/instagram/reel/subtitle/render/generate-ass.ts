@@ -15,6 +15,7 @@ import {
     getEntryLetterStepMs,
     getWordBaseEntryMs,
     getWordDisplayEndMs,
+    planPhraseExits,
 } from './phrase-flow.js';
 
 import type {
@@ -137,6 +138,8 @@ export type SubtitleAssGenerationOptions = {
     frameRate?: number;
     durationSeconds?: number;
     wordOrderReportPath?: string;
+    /** Hard cuts of the clip, seconds: a phrase whose speech is over leaves with its shot. */
+    shotCuts?: number[];
 };
 
 type PreparedBlock = {
@@ -1297,7 +1300,7 @@ function getGlyphExitTiming(
     const minimumExitStartAbsMs = Math.max(
         // A word stays at least as long as it is spoken, counted from when
         // it was shown, so the entry lead never shortens its reading time.
-        getWordDisplayEndMs(glyph.word),
+        getWordDisplayEndMs(glyph.word, config.animation.maxWordHoldMs),
         entryAbsMs + getWordEntryDurationMs(glyph.word, config) + 30,
     );
 
@@ -2546,24 +2549,15 @@ export async function generateInstagramSubtitleAss(
     // so a row cannot start fading while the other row is still being written.
     // (Each glyph additionally finishes its own ignition before Phase A,
     // see getGlyphExitTiming.)
-    preparedBlocks.forEach((preparedBlock, blockIndex) => {
-        const nextBlock = preparedBlocks[blockIndex + 1];
-        const timerMs = Math.max(
-            ...preparedBlock.block.words.map(word => word.end),
-        ) * 1000 + config.animation.exitNoNextDelayMs;
-        const nextStartMs = nextBlock
-            ? Math.min(...nextBlock.block.words.map(getWordBaseEntryMs))
-            : undefined;
-        const triggerMs = nextStartMs !== undefined
-            ? Math.min(timerMs, nextStartMs - config.animation.exitTriggerLeadMs)
-            : timerMs;
-        const holdMs = Math.max(
-            ...preparedBlock.block.words.map(word =>
-                getWordBaseEntryMs(word) + config.animation.phraseMinHoldMs,
-            ),
-        );
+    // Rules: planPhraseExits (phrase-flow.ts), measured on the owner's reference 23.11.
+    const exitStartsMs = planPhraseExits(
+        preparedBlocks.map(preparedBlock => preparedBlock.block.words),
+        generationOptions.shotCuts ?? [],
+        config.animation,
+    );
 
-        preparedBlock.exitWaveStartAbsMs = Math.max(triggerMs, holdMs);
+    preparedBlocks.forEach((preparedBlock, blockIndex) => {
+        preparedBlock.exitWaveStartAbsMs = exitStartsMs[blockIndex]!;
         for (const line of preparedBlock.lines) {
             line.exitWaveStartAbsMs = preparedBlock.exitWaveStartAbsMs;
         }

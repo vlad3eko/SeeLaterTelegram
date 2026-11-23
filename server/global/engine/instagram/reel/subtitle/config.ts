@@ -35,7 +35,8 @@ export const defaultSubtitleConfig: SubtitleConfig = {
         maxWordsPerBlock: 14,
         maxBlockDurationSeconds: 6,
         splitOnPauseSeconds: 1.0,
-        holdAfterLastWordSeconds: 0.65,
+        // Reference (owner's sample, 23.11): a phrase leaves ~0.2–0.3 s after the speech.
+        holdAfterLastWordSeconds: 0.25,
         // Two short neighbouring sentences become one block of two rows
         // ("НО МЫ ЖЕ ВСЕ ДЕТИ" / "ВЫ НЕ ДЕТИ") that leaves together.
         pairPhrases: true,
@@ -43,7 +44,9 @@ export const defaultSubtitleConfig: SubtitleConfig = {
         pairMaxSpanSeconds: 6,
         // Speaker awareness (transcription/speaker-analysis.ts).
         splitOnSpeakerChange: true,
-        sameSpeakerContinueSeconds: 2,
+        // A pause over 1 s always starts a new phrase (was 2 s for the same speaker:
+        // one word then hung on screen across several shots, 23.11 «ЛЮБОВЬ»).
+        sameSpeakerContinueSeconds: 1,
     },
 
     colors: {
@@ -249,10 +252,12 @@ export const defaultSubtitleConfig: SubtitleConfig = {
 
         // Character-by-character exit timing.
         // 33.333 ms averages one 30 fps frame per visible character.
-        exitWaveStepMs: 20,
-        exitPhaseADurationMs: 300,
-        exitPhaseBDurationMs: 260,
-        exitTriggerLeadMs: 600,
+        // Reference: a phrase dissolves left to right in ~0.3 s (was ~0.9 s).
+        exitWaveStepMs: 10,
+        exitPhaseADurationMs: 110,
+        exitPhaseBDurationMs: 110,
+        // Crossfade: the old phrase starts leaving this long before the next one appears.
+        exitTriggerLeadMs: 100,
         // A phrase fades this long after its last word was spoken (timer).
         exitNoNextDelayMs: 100,
         // Extra wait after an old glyph reaches exitCollisionMaxOpacity.
@@ -273,12 +278,17 @@ export const defaultSubtitleConfig: SubtitleConfig = {
         // whole just before it is spoken; the lead grows 0.2 → 0.45 s over a
         // sentence. 'row': whole rows appear entryLeadMs ahead of the voice.
         entryMode: 'words',
-        entryLeadStartMs: 200,
-        entryLeadEndMs: 450,
+        // Reference: a word appears with its sound (frame count 23.11); the former
+        // 0.2 → 0.45 s lead showed words before they were said.
+        entryLeadStartMs: 50,
+        entryLeadEndMs: 50,
         entryWordLetterStepMs: 4,
         entryLeadMs: 600,
         entryLetterStepMs: 33.333,
-        phraseMinHoldMs: 600,
+        phraseMinHoldMs: 300,
+        holdUntilNextMaxGapMs: 1000,
+        maxWordHoldMs: 1200,
+        exitBeforeCutMs: 60,
         exitCollisionMaxOpacity: 1,
     },
 

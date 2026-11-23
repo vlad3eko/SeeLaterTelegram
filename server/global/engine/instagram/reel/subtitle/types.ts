@@ -342,6 +342,16 @@ export type SubtitleConfig = {
         /** The exit wave never starts earlier than this after the phrase's last word appeared. */
         phraseMinHoldMs: number;
         /**
+         * The next phrase starts within this after the last word is spoken: the
+         * phrase stays until it (crossfade exitTriggerLeadMs before it); a longer
+         * pause — it leaves exitNoNextDelayMs after the speech.
+         */
+        holdUntilNextMaxGapMs: number;
+        /** A word counts as spoken for at most this long (a stretched timestamp must not hold the caption). */
+        maxWordHoldMs: number;
+        /** At a hard cut after the speech the phrase finishes fading this long before the cut. */
+        exitBeforeCutMs: number;
+        /**
          * When a new word may overlap an outgoing glyph at the same place.
          * 1 = as soon as the old glyph starts to fade (reference behaviour);
          * below 1 = once the old contour has faded to this opacity
