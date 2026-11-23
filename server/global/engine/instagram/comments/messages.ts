@@ -4,6 +4,8 @@
  * в ней сразу, от кого и про что сообщение. Ссылка в запросе становится нажимаемой после любого
  * ответа человека — об этом последняя строка.
  */
+import {telegramBotShortLink} from '#server/global/oneLinkApp'
+
 export type IgMediaType = 'movie' | 'tv'
 
 const MAX_DIRECT_BYTES = 1000
@@ -36,19 +38,37 @@ export const linkDirectText = ({title, mediaType, link}: {title: string | null, 
     return Buffer.byteLength(text) <= MAX_DIRECT_BYTES ? text : text.replace(`«${shortTitle(title)}»`, `«${shortTitle(title).slice(0, 30)}…»`)
 }
 
-/** Instagram уже привязан к Telegram: сохранили сразу, без ссылки. */
-export const savedDirectText = ({title, mediaType}: {title: string | null, mediaType: IgMediaType}): string =>
-    `✅ «${shortTitle(title)}» добавлен в вашу коллекцию Киноманов. Бот в Telegram ${remind(mediaType)}.`
-
-export const alreadySavedDirectText = ({title, mediaType}: {title: string | null, mediaType: IgMediaType}): string =>
-    `«${shortTitle(title)}» уже есть в вашей коллекции Киноманов. Бот в Telegram ${remind(mediaType)}.`
-
 /** Ответ под комментарием: человек получает уведомление и знает, где искать Direct. */
 export const linkCommentReply = (mediaType: IgMediaType): string =>
     `Готово! Ссылка на ${noun(mediaType)} уже у вас в Direct 🎬 Подпишитесь на нас — тогда сообщения будут приходить сразу во входящие.`
 
-export const savedCommentReply = (): string =>
-    'Сохранили в вашу коллекцию ✅ Напомним о выходе в Telegram.'
+/**
+ * Instagram уже привязан к Telegram: тайтл сохранён сразу. Напоминание обещаем, только если тайтл ещё не вышел
+ * (даты нет — тоже не вышел); вышедший сериал — о новых сериях, вышедший фильм — без обещаний.
+ * today — дата по Москве (YYYY-MM-DD), releaseDate — из TMDB (favorites.release_date).
+ */
+type SavedText = {title: string | null, mediaType: IgMediaType, releaseDate: string | null, already?: boolean, today: string}
+
+const savedRemind = ({mediaType, releaseDate, today}: SavedText): string => {
+    if (!releaseDate || releaseDate.slice(0, 10) > today) return ' Напомним, когда он выйдет.'
+    return mediaType === 'tv' ? ' Напомним о новых сериях.' : ''
+}
+
+const savedHead = ({title, mediaType, already}: SavedText): string => {
+    const what = `${mediaType === 'tv' ? 'Сериал' : 'Фильм'} «${shortTitle(title)}»`
+    return already ? `${what} уже в вашей коллекции в боте ✅` : `${what} добавлен в вашу коллекцию в боте ✅`
+}
+
+/** Ответ под комментарием привязанному. */
+export const savedCommentReply = (text: SavedText): string => savedHead(text) + savedRemind(text)
+
+/** Direct привязанному: то же, что пишет бот, и ссылка на бота — перейти из Instagram в Telegram в одно нажатие. */
+export const savedDirectText = (text: SavedText): string => [
+    `✅ ${text.mediaType === 'tv' ? 'Сериал' : 'Фильм'} «${shortTitle(text.title)}» ${text.already ? 'уже в вашей коллекции' : 'сохранили в вашу коллекцию'}.${savedRemind(text)}`,
+    '',
+    'Коллекция и напоминания — в Telegram-боте Киноманов:',
+    telegramBotShortLink
+].join('\n')
 
 /**
  * Telegram: подтверждение привязки — только при первой привязке (Instagram не был привязан ни к кому).

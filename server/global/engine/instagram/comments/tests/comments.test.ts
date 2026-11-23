@@ -50,7 +50,12 @@ test('Direct: шаги, ссылка, сериал/фильм и лимит 1000
     assert.ok(Buffer.byteLength(long) <= 1000)
     assert.equal(shortTitle(null), 'фильм из ролика')
     assert.ok(shortTitle('x'.repeat(200)).length <= 80)
-    assert.match(savedDirectText({title: 'Шогун', mediaType: 'tv'}), /^✅ «Шогун» добавлен/)
+    assert.equal(savedDirectText({title: 'Новая эра', mediaType: 'movie', releaseDate: '2026-12-03', today: '2026-11-23'}),
+        '✅ Фильм «Новая эра» сохранили в вашу коллекцию. Напомним, когда он выйдет.\n\nКоллекция и напоминания — в Telegram-боте Киноманов:\nhttps://t.me/kinomanovNet_bot')
+    assert.equal(savedDirectText({title: 'Шогун', mediaType: 'tv', releaseDate: '2024-02-27', today: '2026-11-23', already: true}).split('\n')[0],
+        '✅ Сериал «Шогун» уже в вашей коллекции. Напомним о новых сериях.')
+    assert.equal(savedDirectText({title: 'Начало', mediaType: 'movie', releaseDate: '2010-07-15', today: '2026-11-23'}).split('\n')[0],
+        '✅ Фильм «Начало» сохранили в вашу коллекцию.')
     assert.equal(linkCommentReply('movie'), 'Готово! Ссылка на фильм уже у вас в Direct 🎬 Подпишитесь на нас — тогда сообщения будут приходить сразу во входящие.')
 })
 
@@ -294,4 +299,21 @@ test('вебхук: Reels с «СОХРАНИТЬ» — без своих отв
     assert.deepEqual(keywordMediaIds(payload, 'acc'), ['r1', 'r5'])
     assert.deepEqual(keywordMediaIds({}, 'acc'), [])
     assert.deepEqual(keywordMediaIds({entry: [{changes: [{field: 'comments', value: {text: 'сохранить'}}]}]}, 'acc'), [])
+})
+
+test('ответ под комментарием привязанному: напоминание только до выхода, сериал — о новых сериях', async () => {
+    const {savedCommentReply} = await import('../messages')
+    const today = '2026-11-23'
+    assert.equal(savedCommentReply({title: 'Новая эра', mediaType: 'movie', releaseDate: '2026-12-03', today}),
+        'Фильм «Новая эра» добавлен в вашу коллекцию в боте ✅ Напомним, когда он выйдет.')
+    assert.equal(savedCommentReply({title: 'Начало', mediaType: 'movie', releaseDate: '2010-07-15', today}),
+        'Фильм «Начало» добавлен в вашу коллекцию в боте ✅')
+    assert.equal(savedCommentReply({title: 'Начало', mediaType: 'movie', releaseDate: '2026-11-23', today}),
+        'Фильм «Начало» добавлен в вашу коллекцию в боте ✅', 'вышел сегодня — уже вышел')
+    assert.equal(savedCommentReply({title: 'Без даты', mediaType: 'movie', releaseDate: null, today}),
+        'Фильм «Без даты» добавлен в вашу коллекцию в боте ✅ Напомним, когда он выйдет.')
+    assert.equal(savedCommentReply({title: 'Шогун', mediaType: 'tv', releaseDate: '2024-02-27', today, already: true}),
+        'Сериал «Шогун» уже в вашей коллекции в боте ✅ Напомним о новых сериях.')
+    assert.equal(savedCommentReply({title: 'Новый', mediaType: 'tv', releaseDate: '2027-02-18T00:00:00', today}),
+        'Сериал «Новый» добавлен в вашу коллекцию в боте ✅ Напомним, когда он выйдет.')
 })
