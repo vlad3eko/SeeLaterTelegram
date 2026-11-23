@@ -60,17 +60,18 @@ export const POLL_MS = 30 * DAY
  * 2 часа до 30 дней; дальше кампания закрыта (null). Вебхук Meta, когда приходит, опрашивает Reel сразу.
  */
 /**
- * Расписание опроса — в запусках таймера (Scheduler каждые 2 минуты, ровно в чётные минуты). Срок ставится на 30 с
+ * Расписание опроса — в запусках таймера (Scheduler каждую минуту; к Meta запуск идёт, только если у Reel подошёл срок). Срок ставится на 30 с
  * раньше нужного запуска: проход заканчивается через несколько секунд, и с ровным интервалом Reel попадал бы
  * только в следующий запуск. Почти все комментарии — в первые двое суток, поэтому свежие Reels чаще.
  *
  * Бюджет (замер 23.11): лимит Instagram Graph API — «4800 × показы аккаунта» за скользящие 24 ч; 150 запросов
  * опроса заняли ≈1 % процессорного времени, т. е. ≈15 000 запросов в сутки при нынешнем охвате. Худший день
- * (4 свежих Reels + 4 до недели, поиск Reels раз в 10 мин) ≈ 4 300 запросов — до 30 %. Охват падает — лимит
+ * (4 свежих Reels + 4 до недели, поиск Reels раз в 10 мин) ≈ 2 900 запросов — около 20 % (решение владельца 23.11:
+ * свежие — 3 минуты, до недели — 7). Охват падает — лимит
  * тоже; поэтому тормоз по заголовку X-Business-Use-Case-Usage: от USAGE_SLOW % — редкий режим, от USAGE_STOP % опрос
  * ждёт (Direct уходят: у Private Reply свой лимит 750 в час).
  */
-export const TICK_MS = 2 * 60_000
+export const TICK_MS = 60_000
 const EARLY_MS = 30_000
 const FRESH_MS = 2 * DAY
 export const USAGE_SLOW = 50
@@ -78,11 +79,14 @@ export const USAGE_STOP = 85
 
 const ticks = (count: number) => count * TICK_MS - EARLY_MS
 
-/** Когда опрашивать снова: до 2 суток — каждый запуск (2 мин), до 7 дней — через запуск (4 мин), до 30 дней — 2 ч; дальше null. */
+/**
+ * Когда опрашивать снова: до 2 суток — 3 минуты, до 7 дней — 7 минут, до 30 дней — 2 часа (новые комментарии под старым
+ * Reel тоже получают ответ: окно Private Reply — 7 дней от комментария); дальше null. Редкий режим — вдвое реже.
+ */
 export const nextPollAt = (publishedAt: string | null, now: Date, {slow = false}: {slow?: boolean} = {}): Date | null => {
     const age = now.getTime() - (publishedAt ? Date.parse(publishedAt) : now.getTime())
     if (age >= POLL_MS) return null
-    const interval = age < FRESH_MS ? ticks(slow ? 3 : 1) : age < REPLY_WINDOW_MS ? ticks(slow ? 5 : 2) : ticks(60)
+    const interval = age < FRESH_MS ? ticks(slow ? 6 : 3) : age < REPLY_WINDOW_MS ? ticks(slow ? 14 : 7) : ticks(120)
     return new Date(now.getTime() + interval)
 }
 

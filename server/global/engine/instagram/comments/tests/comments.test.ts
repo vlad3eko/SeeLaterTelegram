@@ -104,18 +104,18 @@ test('ответы в ветках разворачиваются в общий 
 
 test('частота опроса и граница чтения', () => {
     const after = (date: Date | null) => date!.getTime() - NOW.getTime()
-    // Свежий Reel (до 2 суток) — каждый запуск таймера (2 мин), срок на 30 с раньше запуска.
-    assert.equal(after(nextPollAt(at(60), NOW)), 2 * 60_000 - 30_000)
-    assert.equal(after(nextPollAt(at(48 * 60 - 1), NOW)), 2 * 60_000 - 30_000)
-    // До 7 дней — через запуск (4 мин).
-    assert.equal(after(nextPollAt(at(48 * 60), NOW)), 4 * 60_000 - 30_000)
-    assert.equal(after(nextPollAt(at(7 * 24 * 60 - 1), NOW)), 4 * 60_000 - 30_000)
-    // Окно ответа — 7 дней от комментария, поэтому Reel опрашивается дольше: до 30 дней раз в 2 часа.
+    // Свежий Reel (до 2 суток) — 3 минуты, срок на 30 с раньше запуска таймера.
+    assert.equal(after(nextPollAt(at(60), NOW)), 3 * 60_000 - 30_000)
+    assert.equal(after(nextPollAt(at(48 * 60 - 1), NOW)), 3 * 60_000 - 30_000)
+    // До 7 дней — 7 минут.
+    assert.equal(after(nextPollAt(at(48 * 60), NOW)), 7 * 60_000 - 30_000)
+    assert.equal(after(nextPollAt(at(7 * 24 * 60 - 1), NOW)), 7 * 60_000 - 30_000)
+    // До 30 дней — 2 часа: новый комментарий под старым Reel тоже получает ответ (7 дней от комментария).
     assert.equal(after(nextPollAt(at(7 * 24 * 60), NOW)), 2 * 3600_000 - 30_000)
     assert.equal(after(nextPollAt(at(29 * 24 * 60), NOW)), 2 * 3600_000 - 30_000)
-    // Лимит Meta больше половины — редкий режим: 6 и 10 минут.
+    // Лимит Meta больше половины — вдвое реже: 6 и 14 минут.
     assert.equal(after(nextPollAt(at(60), NOW, {slow: true})), 6 * 60_000 - 30_000)
-    assert.equal(after(nextPollAt(at(4 * 24 * 60), NOW, {slow: true})), 10 * 60_000 - 30_000)
+    assert.equal(after(nextPollAt(at(4 * 24 * 60), NOW, {slow: true})), 14 * 60_000 - 30_000)
     assert.equal(nextPollAt(at(30 * 24 * 60), NOW), null)
     assert.equal(commentsCutoff(at(10), at(100), NOW), NOW.getTime() - 25 * 60_000)
     assert.equal(commentsCutoff(null, at(100), NOW), NOW.getTime() - 115 * 60_000)

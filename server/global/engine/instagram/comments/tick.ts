@@ -7,7 +7,7 @@ import {forgetOldLeads, sendQueued} from '#server/global/engine/instagram/commen
 import {ADMIN_TELEGRAM_ID} from '#server/global/oneLinkApp'
 
 /**
- * Один проход Instagram «СОХРАНИТЬ» (таймер /api/bot/instagram/tick, Cloud Scheduler каждые 2 минуты; вебхук Meta):
+ * Один проход Instagram «СОХРАНИТЬ» (таймер /api/bot/instagram/tick, Cloud Scheduler каждую минуту; вебхук Meta):
  * новые Reels → вопрос администратору; комментарии активных кампаний → очередь; очередь → Direct.
  * INSTAGRAM_COMMENTS: off — ничего; log — первые два шага без Direct (записи logged); send — всё.
  */
@@ -16,7 +16,7 @@ export const runInstagramTick = async (supabase: any, telegram: any, now: Date, 
     if (mode === 'off') return {skipped: 'INSTAGRAM_COMMENTS=off'}
     const result: Record<string, any> = {mode}
     try {
-        // Новые Reels — раз в 10 минут (каждый пятый запуск): дальше всё равно ждём решения администратора, а запрос
+        // Новые Reels — раз в 10 минут: дальше всё равно ждём решения администратора, а запрос
         // списка медиа тратит тот же лимит, что и опрос.
         if (now.getUTCMinutes() % 10 === 0) result.discover = await discoverReels(supabase, telegram, now)
         if (Date.now() < deadline) result.poll = await pollCampaigns(supabase, now, {deadline, mode})
