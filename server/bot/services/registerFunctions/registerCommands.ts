@@ -15,7 +15,8 @@ import {commandHelp} from "#server/bot/commands/commandHelp";
 import {commandClear} from "#server/bot/commands/commandClear";
 import {jumpCollections, startCollections} from "#server/bot/actions/collections/collectionsActions";
 import {menuBot} from "#server/bot/handlers/commands/start/menuBot";
-import {ADMIN_STATUS, ADMIN_STATUS_QUEUE_CANCEL, ADMIN_STATUS_REEL_CANCEL, LEGACY_MENU_BOT} from "#server/bot/callbacks/routes";
+import {ADMIN_STATUS, ADMIN_STATUS_QUEUE_CANCEL, ADMIN_STATUS_REEL_CANCEL, BUNDLE_LIST, LEGACY_MENU_BOT} from "#server/bot/callbacks/routes";
+import {bundleListAction} from "#server/bot/actions/admin/bundleListAction";
 import {showSimilarList} from "#server/bot/actions/similar/similarActions";
 import {contentTypeToTag} from "~/utils/convert/contentTypeConvert";
 
@@ -165,6 +166,8 @@ export function registerCommands(bot: Telegraf) {
     bot.action(ADMIN_STATUS.pattern, adminStatusRefresh)
     bot.action(ADMIN_STATUS_QUEUE_CANCEL.pattern, adminStatusQueueCancel)
     bot.action(ADMIN_STATUS_REEL_CANCEL.pattern, adminStatusReelCancel)
+    // «📋 Показать список» под итогом судьи связок (judge/notify.ts).
+    bot.action(BUNDLE_LIST.pattern, bundleListAction)
     // Кнопки menu_bot в коде больше нет: обработчик оставлен для старых сообщений.
     bot.action(LEGACY_MENU_BOT.pattern, menuBot)
 }

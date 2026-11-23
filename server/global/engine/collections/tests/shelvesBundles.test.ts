@@ -150,3 +150,12 @@ test('«Похожее»: RRF — выше в обоих списках, у simi
     assert.ok(similarScore(0.5, 1, 1, 4, 0, 2) > similarScore(0.5, 1, 0, 4, 1, 4))
     assert.ok(similarScore(0.5, 1, 0, 4, 0, 2, 1) > similarScore(0.5, 1, 0, 4, 0, 2, 0))
 })
+
+test('порог оценки связок 6.0: в запросе discover и в проверке тайтла; связка может поднять порог', () => {
+    const epidemic = bundleByKey('epidemic')!
+    assert.equal(bundleQuery(epidemic, SHELVES.movie).params['vote_average.gte'], '6')
+    const high = BUNDLES.find(bundle => (bundle.criteria.props?.rating?.min ?? 0) > 6)!
+    assert.equal(bundleQuery(high, SHELVES[high.shelves[0]!]).params['vote_average.gte'], String(high.criteria.props!.rating!.min))
+    assert.equal(bundleMatches(epidemic, SHELVES.movie, {id: 1, genre_ids: [27], vote_average: 5.9, vote_count: 500}, [188973]), false)
+    assert.equal(bundleMatches(epidemic, SHELVES.movie, {id: 1, genre_ids: [27], vote_average: 6, vote_count: 500}, [188973]), true)
+})

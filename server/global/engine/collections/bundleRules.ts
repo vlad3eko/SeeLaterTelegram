@@ -16,6 +16,12 @@ const TV_STATUS: Record<string, string> = {
     'Returning Series': '0', 'Planned': '1', 'In Production': '2', 'Ended': '3', 'Canceled': '4', 'Pilot': '5'
 }
 
+/**
+ * Нижняя граница оценки TMDB для всех связок (решение владельца 23.11): тайтлы ниже 6.0 в связки
+ * не попадают ни кандидатами судьи, ни в подборку. Связка может поднять порог (rating.min), но не опустить.
+ */
+export const BUNDLE_MIN_RATING = 6
+
 const inRange = (value: number, range: Range | undefined) =>
     !range || ((range.min === undefined || value >= range.min) && (range.max === undefined || value <= range.max))
 
@@ -61,7 +67,7 @@ export const bundleQuery = (bundle: Bundle, shelf: Shelf): BundleQuery => {
     if (props?.status?.length && shelf.mediaType === 'tv') {
         params.with_status = props.status.map(status => TV_STATUS[status]).filter(Boolean).join('|')
     }
-    if (props?.rating?.min !== undefined) params['vote_average.gte'] = String(props.rating.min)
+    params['vote_average.gte'] = String(Math.max(BUNDLE_MIN_RATING, props?.rating?.min ?? 0))
     if (props?.rating?.max !== undefined) params['vote_average.lte'] = String(props.rating.max)
     const votes = votesRange(bundle, shelf)
     if (votes?.min !== undefined) params['vote_count.gte'] = String(votes.min)
@@ -101,6 +107,7 @@ export const bundleMatches = (
         if (exclude.some(id => set.has(id))) return false
     }
 
+    if ((Number(item.vote_average) || 0) < BUNDLE_MIN_RATING) return false
     if (!inRange(Number(item.vote_average) || 0, props?.rating)) return false
     if (!inRange(Number(item.vote_count) || 0, votesRange(bundle, shelf))) return false
 

@@ -325,6 +325,17 @@ export const CARD_MORE = defineCallback<SimilarRef & {keyTrailer?: string}>({
 /** «🔄 Обновить» под панелью /status (только администратор). */
 export const ADMIN_STATUS = defineStaticCallback('admin_status', 'adm:status')
 
+/**
+ * «📋 Показать список» под итогом судьи связок (judge/notify.ts): раскрывает в том же сообщении
+ * готовые списки расчётов. runs — первые 8 знаков id расчётов collection_bundle_runs (не больше 6).
+ */
+export const BUNDLE_LIST = defineCallback<{runs: string[], open: boolean}>({
+    id: 'bundle_list',
+    pattern: /^bnd:l:([0-9a-f]{8}(?:,[0-9a-f]{8}){0,5}):([01])$/,
+    encode: ({runs, open}) => `bnd:l:${runs.slice(0, 6).map(id => id.slice(0, 8)).join(',')}:${open ? 1 : 0}`,
+    decode: match => ({runs: match[1]!.split(','), open: match[2] === '1'})
+})
+
 /** «✖️ N» в панели /status: убрать ролик из очереди YouTube (id строки youtube_publish_queue). */
 export const ADMIN_STATUS_QUEUE_CANCEL = defineCallback<{queueId: number}>({
     id: 'admin_status_queue_cancel',

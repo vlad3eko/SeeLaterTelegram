@@ -8,6 +8,7 @@ import {buildCollection, type Candidate, collectCandidates} from '#server/global
 import type {SectionKey} from '#server/global/engine/collections/catalog'
 import {type MediaType, SHELVES, type ShelfKey, shelfOf} from '#server/global/engine/collections/shelves'
 import {mapLimit, tmdbGet} from '#server/global/engine/collections/tmdb'
+import {BUNDLE_MIN_RATING} from '#server/global/engine/collections/bundleRules'
 import {buildDossier, type Dossier} from '#server/global/engine/collections/judge/dossier'
 import {type AskModel, judgeTitle} from '#server/global/engine/collections/judge/judge'
 import type {BundleStore, RunItem, RunRow, TitleSnapshot, VerdictRow} from '#server/global/engine/collections/judge/store'
@@ -112,6 +113,7 @@ export const defaultCandidates = async (bundle: Bundle, perShelf: number): Promi
             for (const item of (body.results ?? []).slice(0, 8)) {
                 const shelf = shelfOf(item, anchor.mediaType)
                 if (!bundle.shelves.includes(shelf) || (Number(item.vote_count) || 0) < SHELVES[shelf].knownVotes) continue
+                if ((Number(item.vote_average) || 0) < BUNDLE_MIN_RATING) continue
                 refs.push({mediaType: anchor.mediaType, id: Number(item.id), snapshot: snapshotOf(item, anchor.mediaType)})
             }
             refs.push({mediaType: anchor.mediaType, id: anchor.id})

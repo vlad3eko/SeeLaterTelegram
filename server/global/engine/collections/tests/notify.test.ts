@@ -22,3 +22,19 @@ test('итог судьи: строка на связку, ошибка запу
     ].join('\n'))
     assert.match(bundleRunSummary([], {error: 'Таблиц нет'}), /остановился с ошибкой\n❌ Таблиц нет/)
 })
+
+test('итог судьи: списки расчётов и кнопка «Показать список»', async () => {
+    const {bundleListText, bundleListKeyboard, LIST_MARKER} = await import('../judge/notify')
+    const {BUNDLE_LIST} = await import('#server/bot/callbacks/routes')
+    const [bundle] = BUNDLES
+    const text = bundleListText([run({id: 'abcdef12-0000', items: [
+        {shelf: 'movie', media_type: 'movie', id: 1, title: 'Первый', score: 1, trailer_key: '', trailer_language: ''},
+        {shelf: 'series', media_type: 'tv', id: 2, title: 'Второй', score: 1, trailer_key: '', trailer_language: ''}
+    ]})])
+    assert.equal(text, `📋 Списки\n\n${bundle!.emoji} «${bundle!.title}» · 2\n— Фильмы\n1. Первый\n— Сериалы\n1. Второй`)
+    assert.ok(`итог${LIST_MARKER}`.endsWith(text.split('\n')[0]!))
+
+    const data = bundleListKeyboard(['abcdef12-3456-7890', '12345678-aaaa'], true).inline_keyboard[0]![0]!.callback_data
+    assert.equal(data, 'bnd:l:abcdef12,12345678:1')
+    assert.deepEqual(BUNDLE_LIST.parse({match: data.match(BUNDLE_LIST.pattern)}), {runs: ['abcdef12', '12345678'], open: true})
+})

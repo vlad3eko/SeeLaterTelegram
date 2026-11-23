@@ -17,7 +17,7 @@ import {mapLimit, tmdbGet} from '#server/global/engine/collections/tmdb'
 import {findTrailers, pickTrailer, rememberTrailers, type Trailer} from '#server/global/engine/collections/trailers'
 import {fitsShelf, type Shelf, shelfByKey, type ShelfKey, shelfQuery, SHELVES} from '#server/global/engine/collections/shelves'
 import {type Bundle, bundleByKey, bundleFits, bundlesFor, rubricOf} from '#server/global/engine/collections/bundles'
-import {bundleMatches, bundleQuery, bundleScore, meanRating} from '#server/global/engine/collections/bundleRules'
+import {BUNDLE_MIN_RATING, bundleMatches, bundleQuery, bundleScore, meanRating} from '#server/global/engine/collections/bundleRules'
 import {getBundleStore, SupabaseBundleStore, type RunRow, type VerdictRow} from '#server/global/engine/collections/judge/store'
 import {createMemo} from '#server/global/engine/collections/memo'
 
@@ -440,6 +440,8 @@ const judgedCandidates = async (bundle: Bundle, shelf: Shelf, section: Section, 
             }
             return {item, judgeScore: Number(row.score) || 0}
         })
+        // Порог оценки — и для уже вынесенных вердиктов: снимок хранит оценку на момент суда.
+        .filter(({item}) => Number(item.vote_average) >= BUNDLE_MIN_RATING)
         .filter(({item}) => hasRussianTitle(String(item.title || item.name || '')) && !isExcludedOrigin(item) && fitsShelf(item, shelf))
 
     if (shelf.mediaType === 'movie') return items.filter(({item}) => inWindow(item.release_date, window))

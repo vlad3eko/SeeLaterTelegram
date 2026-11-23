@@ -58,7 +58,7 @@ const main = async () => {
 
     const failed = runs.filter(run => run.status === 'failed')
     console.log(`[BUNDLES] Готово: ${runs.map(run => `${run.bundle_key} ${run.status}${run.stats?.publishable === false ? ' (контроль провален)' : ''}`).join(', ')}`)
-    await notifyBundleRun(bundleRunSummary(runs, {link: runLink}))
+    await notifyBundleRun(bundleRunSummary(runs, {link: runLink}), process.env, runs)
     if (failed.length) process.exitCode = 1
 }
 
