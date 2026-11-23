@@ -54,6 +54,8 @@ const WEAK_MAX_SECONDS = 0.9;
 const WEAK_BRIDGE_HOPS = 2;
 const WEAK_MIN_SILENCE_SECONDS = 0.8;
 const PUNCTUATION_END = /[.!?…,;:][»”’"')\]]*$/u;
+/** Конец предложения: через него слово в чужой голосовой отрезок не переносится. */
+const SENTENCE_END = /[.!?…][»”’"')\]]*$/u;
 
 type Biquad = { b0: number; b1: number; b2: number; a1: number; a2: number };
 
@@ -468,7 +470,12 @@ export function alignWordsToVoiceSegments(
             target !== homeInfo.index &&
             // The word really sits in a pause, not in a voice segment.
             homeInfo.distance >= STRANDED_MIN_DISTANCE_SECONDS &&
-            segmentDistance(mid[index] ?? 0, segments[target]!) >= STRANDED_MIN_DISTANCE_SECONDS
+            segmentDistance(mid[index] ?? 0, segments[target]!) >= STRANDED_MIN_DISTANCE_SECONDS &&
+            // Первое слово нового предложения не приклеивается к хвосту прошлого
+            // («…зла. Ты» — «Ты» уходил на 1,8 с раньше звука), а последнее слово
+            // предложения — к началу следующего.
+            !(target < homeInfo.index && SENTENCE_END.test(words[index - 1]?.text ?? '') && assigned[index - 1] === target) &&
+            !(target > homeInfo.index && SENTENCE_END.test(words[index]?.text ?? '') && assigned[index + 1] === target)
         ) {
             moved.add(index);
         }

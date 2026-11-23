@@ -36,6 +36,8 @@ import {fastDecoderArgs} from '#server/global/engine/instagram/reel/utils/ffmpeg
  */
 
 export type PictureRect = {x: number, y: number, w: number, h: number}
+/** Центр лица (x, y) и его высота (h), доли картинки. */
+export type FaceBox = {x: number, y: number, h: number}
 
 export type SegmentAnalysis = {
     /** Моменты от начала фрагмента, секунды. */
@@ -54,6 +56,11 @@ export type SegmentAnalysis = {
     softStarts: boolean[]
     /** Центр главного лица по X в долях ширины картинки, или null. */
     faceCenters: Array<number | null>
+    /**
+     * Главное лицо (или группа) кадра: центр по X и Y и высота, доли картинки, или null.
+     * Нужен слежению по обеим осям (planFollowWindow, запрос владельца 23.11).
+     */
+    faceBoxes: Array<FaceBox | null>
     /** Подтверждённый логотип кадра (общая рамка), или null. */
     logos: Array<LogoRect | null>
     stats: {
@@ -253,17 +260,26 @@ const readFrames = async (
  * их общая рамка помещается в квадрат (с запасом), центр — середина группы, иначе —
  * главное лицо. 0 — лиц нет.
  */
-const groupCenter = (faces: Array<{x: number, y: number, w: number, h: number}>, side: number): number => {
+const groupCenter = (faces: Array<{x: number, y: number, w: number, h: number}>, side: number): number =>
+    groupBox(faces, side)?.x ?? 0
+
+/** То же по обеим осям: центр группы (или главного лица) и высота главного лица, пиксели. */
+const groupBox = (
+    faces: Array<{x: number, y: number, w: number, h: number}>,
+    side: number
+): {x: number, y: number, h: number} | null => {
     const main = faces[0]
-    if (!main) return 0
+    if (!main) return null
 
     const group = faces.filter(f => f.w * f.h >= main.w * main.h * GROUP_FACE_SHARE)
     const left = Math.min(...group.map(f => f.x))
     const right = Math.max(...group.map(f => f.x + f.w))
+    const top = Math.min(...group.map(f => f.y))
+    const bottom = Math.max(...group.map(f => f.y + f.h))
 
     return right - left <= side * GROUP_FIT_SHARE
-        ? (left + right) / 2
-        : main.x + main.w / 2
+        ? {x: (left + right) / 2, y: (top + bottom) / 2, h: main.h}
+        : {x: main.x + main.w / 2, y: main.y + main.h / 2, h: main.h}
 }
 
 /** Цветовая гистограмма кадра: 8×8×8 корзин по каждому 4-му пикселю, нормированная. */
@@ -364,15 +380,19 @@ export const analyzeSegment = async (
         .map(unionLogo)
 
     const faceCenters: Array<number | null> = []
+    const faceBoxes: Array<FaceBox | null> = []
     for (const frame of frames) {
         if (!withFaces) {
             faceCenters.push(null)
+            faceBoxes.push(null)
             continue
         }
         const faces = (await detectFaces(frame, width, height))
             .filter(f => f.score >= FACE_MIN_SCORE && f.h >= height * FACE_MIN_HEIGHT_SHARE)
             .sort((a, b) => b.w * b.h - a.w * a.h)
         faceCenters.push(groupCenter(faces, Math.min(width, height)) / width || null)
+        const box = groupBox(faces, Math.min(width, height))
+        faceBoxes.push(box ? {x: box.x / width, y: box.y / height, h: box.h / height} : null)
     }
 
     return {
@@ -381,6 +401,7 @@ export const analyzeSegment = async (
         shotStarts,
         softStarts,
         faceCenters,
+        faceBoxes,
         logos,
         stats: {
             frames: frames.length,
@@ -408,6 +429,8 @@ export const remapAnalysis = (
     return {
         ...analysis,
         faceCenters: analysis.faceCenters.map(c => (c === null ? null : mapX(c))),
+        faceBoxes: (analysis.faceBoxes ?? []).map(box =>
+            box === null ? null : {x: mapX(box.x), y: mapY(box.y), h: box.h * from.h / to.h}),
         logos: analysis.logos.map(logo => {
             if (!logo) return null
             const bottom = mapY(logo.bottom)
@@ -688,6 +711,283 @@ export const writeTrackCommands = async (
 
     await writeFile(filePath, lines.join('\n') + '\n')
     return {firstX: toEven(lefts[0] ?? 0), minX, maxX}
+}
+
+// ================================================
+// СЛЕЖЕНИЕ ПО X И Y С ОТЗЕРКАЛЕННЫМИ КРАЯМИ (запрос владельца 23.11, образец «реф.mp4»)
+// ================================================
+//
+// Окно 5:4 на планах с лицом — меньше картинки в REEL_TRACK_ZOOM раз (лицо крупнее),
+// центр лица держится по X и на FOLLOW_FACE_TOP_SHARE высоты окна по Y. Окну можно выйти
+// за картинку на FOLLOW_MIRROR_MAX_SHARE своей стороны: там отражение картинки с размытием
+// (mirrorExtendFilter), а не чёрное. Планы без лица — окно шире (вся ширина картинки,
+// если отражения сверху и снизу не больше FIT_MAX_MIRROR_SHARE), чтобы титры и название
+// были видны целиком.
+
+/** Приближение на планах с лицом по умолчанию (REEL_TRACK_ZOOM, 1–1.6). */
+const FOLLOW_ZOOM_DEFAULT = 1.2
+/** Центр лица — на этой доле высоты окна сверху (чуть выше середины, как в образце). */
+const FOLLOW_FACE_TOP_SHARE = 0.45
+/** Окно с лицом выходит за картинку не больше чем на эту долю своей стороны. */
+const FOLLOW_MIRROR_MAX_SHARE = 0.2
+/** Окно без лица: отражения сверху и снизу вместе — не больше этой доли его высоты. */
+const FIT_MAX_MIRROR_SHARE = 0.3
+/** Лицо гуляет меньше этой доли окна по обеим осям — камера стоит (без дрожи). */
+const FOLLOW_HOLD_SHARE = 0.05
+/** Сглаживание движения: полуширина окна усреднения, секунды (отклик ~0,3 с, без запаздывания). */
+const FOLLOW_SMOOTH_SECONDS = 0.35
+
+/** Окно кадра в пикселях картинки; x и y — левый верхний угол, могут быть меньше 0. */
+export type FollowBox = {x: number, y: number, w: number, h: number}
+
+export type FollowPlan =
+    | {feasible: true, boxes: FollowBox[], trackedShots: number, fitShots: number}
+    | {feasible: false, reason: string}
+
+/** Pure: приближение на планах с лицом, REEL_TRACK_ZOOM от 1 до 1.6 (по умолчанию 1.2). */
+export const followZoom = (env: NodeJS.ProcessEnv = process.env): number => {
+    const value = Number(env.REEL_TRACK_ZOOM)
+    return Number.isFinite(value) && value >= 1 && value <= 1.6 ? value : FOLLOW_ZOOM_DEFAULT
+}
+
+/** Pure: слежение по X и Y включено (REEL_TRACK_FOLLOW=off — прежнее слежение по X). */
+export const followEnabled = (env: NodeJS.ProcessEnv = process.env): boolean =>
+    !['off', '0', 'false', 'no'].includes((env.REEL_TRACK_FOLLOW ?? 'on').trim().toLowerCase())
+
+const median3 = (values: number[]) => values.map((value, i) => {
+    if (i === 0 || i === values.length - 1) return value
+    return [values[i - 1]!, value, values[i + 1]!].sort((a, b) => a - b)[1]!
+})
+
+const movingAverage = (values: number[], radius: number) => values.map((_, i) => {
+    let sum = 0
+    let count = 0
+    for (let k = Math.max(0, i - radius); k <= Math.min(values.length - 1, i + radius); k++) {
+        sum += values[k]!
+        count++
+    }
+    return sum / count
+})
+
+/** Пропуски (кадры без лица) — ближайшим известным значением, сначала вперёд, потом назад. */
+const fillGaps = (values: Array<number | null>): number[] | null => {
+    const firstKnown = values.find((value): value is number => value !== null)
+    if (firstKnown === undefined) return null
+    let last = firstKnown
+    return values.map(value => (value === null ? last : (last = value)))
+}
+
+/**
+ * Pure: окно кадра в каждый момент анализа.
+ * @param base наибольшее окно 5:4 в картинке (reelWindow)
+ * @param minLeft левый край не левее этого (постоянный логотип), пиксели картинки
+ */
+export const planFollowWindow = (
+    analysis: SegmentAnalysis,
+    picture: PictureRect,
+    base: {w: number, h: number},
+    options: {zoom?: number, minLeft?: number} = {}
+): FollowPlan => {
+    const {shots, times} = analysis
+    const faceBoxes = analysis.faceBoxes ?? []
+    const zoom = options.zoom ?? FOLLOW_ZOOM_DEFAULT
+    const minLeft = options.minLeft ?? 0
+    const ratio = base.w / base.h
+    const radius = Math.max(1, Math.round(FOLLOW_SMOOTH_SECONDS * ANALYSIS_FPS))
+    const boxes: FollowBox[] = new Array(times.length)
+    let trackedShots = 0
+    let fitShots = 0
+
+    if (minLeft > picture.w - base.w) {
+        return {feasible: false, reason: `logo leaves no room (needs left ≥ ${minLeft})`}
+    }
+
+    for (let first = 0; first < times.length;) {
+        let last = first
+        while (last + 1 < times.length && shots[last + 1] === shots[first]) last++
+        const length = last - first + 1
+        const known = faceBoxes.slice(first, last + 1).map(box => box ?? null)
+        const present = known.filter(box => box !== null).length
+
+        if (present > 0 && present >= length * SHOT_FACE_SHARE) {
+            trackedShots++
+            const w = toEven(base.w / zoom)
+            const h = toEven(base.h / zoom)
+            const xs = median3(fillGaps(known.map(box => (box ? box.x * picture.w : null)))!)
+            const ys = median3(fillGaps(known.map(box => (box ? box.y * picture.h : null)))!)
+            const still = quantile(xs, 0.9) - quantile(xs, 0.1) <= w * FOLLOW_HOLD_SHARE
+                && quantile(ys, 0.9) - quantile(ys, 0.1) <= h * FOLLOW_HOLD_SHARE
+            const centersX = still ? xs.map(() => median(xs)) : movingAverage(xs, radius)
+            const centersY = still ? ys.map(() => median(ys)) : movingAverage(ys, radius)
+            const marginX = w * FOLLOW_MIRROR_MAX_SHARE
+            const marginY = h * FOLLOW_MIRROR_MAX_SHARE
+            // Логотип слева: окно правее него; без логотипа можно уйти в отражение.
+            const lowLeft = minLeft > 0 ? minLeft : -marginX
+
+            for (let i = 0; i < length; i++) {
+                const x = Math.max(lowLeft, Math.min(picture.w - w + marginX, centersX[i]! - w / 2))
+                const y = Math.max(-marginY, Math.min(picture.h - h + marginY, centersY[i]! - h * FOLLOW_FACE_TOP_SHARE))
+                boxes[first + i] = {x: toEven(x), y: toEven(y), w, h}
+            }
+        } else if (minLeft <= 0 && picture.w > base.w + 4) {
+            // Без лица и без логотипа: окно шире, отражение сверху и снизу ограничено.
+            fitShots++
+            const h = toEven(Math.min(picture.w / ratio, picture.h / (1 - FIT_MAX_MIRROR_SHARE)))
+            const w = toEven(h * ratio)
+            const box = {x: toEven((picture.w - w) / 2), y: toEven((picture.h - h) / 2), w, h}
+            for (let i = first; i <= last; i++) boxes[i] = box
+        } else {
+            // Прежнее окно по центру (правее логотипа).
+            const x = toEven(Math.max(minLeft, Math.min(picture.w - base.w, (picture.w - base.w) / 2)))
+            const box = {x, y: toEven((picture.h - base.h) / 2), w: base.w, h: base.h}
+            for (let i = first; i <= last; i++) boxes[i] = box
+        }
+
+        first = last + 1
+    }
+
+    return {feasible: true, boxes, trackedShots, fitShots}
+}
+
+/** Pure: поля отражения вокруг картинки, чтобы все окна плана поместились, пиксели (чётные). */
+export const followMargins = (boxes: FollowBox[], picture: {w: number, h: number}): {x: number, y: number} => {
+    let x = 0
+    let y = 0
+    for (const box of boxes) {
+        x = Math.max(x, -box.x, box.x + box.w - picture.w)
+        y = Math.max(y, -box.y, box.y + box.h - picture.h)
+    }
+    return {x: Math.ceil(x / 2) * 2, y: Math.ceil(y / 2) * 2}
+}
+
+/**
+ * Pure: цепочка ffmpeg, которая расширяет картинку w×h на поля margin отражением её краёв;
+ * отражение плавно (от края картинки к краю поля) размывается и чуть темнеет — шва не
+ * видно, дальний край не отвлекает. Маска считается один раз (кадр geq + loop).
+ * Вход — текущая цепочка (без метки), выход — линейная цепочка, к которой можно дописать фильтры.
+ */
+export const mirrorExtendFilter = (
+    picture: {w: number, h: number},
+    margin: {x: number, y: number},
+    fps: string
+): string => {
+    const cw = picture.w + 2 * margin.x
+    const ch = picture.h + 2 * margin.y
+    const ramp = Math.max(8, Math.round(Math.max(margin.x, margin.y) * 0.6))
+    const right = margin.x + picture.w - 1
+    const bottom = margin.y + picture.h - 1
+    const distance = `max(max(${margin.x}-X\\,X-${right})\\,max(${margin.y}-Y\\,Y-${bottom}))`
+
+    return `pad=${cw}:${ch}:${margin.x}:${margin.y},` +
+        `fillborders=left=${margin.x}:right=${margin.x}:top=${margin.y}:bottom=${margin.y}:mode=mirror,` +
+        'split[mirrorSharp][mirrorSoft];' +
+        `[mirrorSoft]scale=${Math.max(2, toEven(cw / 4))}:${Math.max(2, toEven(ch / 4))},boxblur=8:2,eq=brightness=-0.05,scale=${cw}:${ch}[mirrorBlur];` +
+        `color=c=black:s=${cw}x${ch}:r=${fps},format=gray,trim=end_frame=1,` +
+        `geq=lum='clip(${distance}*255/${ramp}\\,0\\,255)',loop=loop=-1:size=1[mirrorMask];` +
+        '[mirrorBlur][mirrorMask]alphamerge=shortest=1[mirrorFaded];' +
+        '[mirrorSharp][mirrorFaded]overlay=shortest=1:format=auto,'
+}
+
+export type FollowCommands = {
+    /** Размеры окна (по одному на ветку графа), индекс — номер crop@track<N>. */
+    sizes: Array<{w: number, h: number}>
+    /** Первое положение окна и его ветка. */
+    first: FollowBox & {size: number}
+    lines: string[]
+}
+
+/**
+ * Команды sendcmd для слежения: окно (x, y) в координатах расширенной картинки по сетке
+ * кадров выхода и отдельной командой ровно перед склейкой (как writeTrackCommands).
+ *
+ * Размер окна на лету не меняется: ffmpeg 6.1 зависает, если crop меняет w/h посреди
+ * потока (проверено на «Новой эре»: стоп на первой смене размера). Поэтому у каждого
+ * размера окна (план с лицом, план без лица, прежнее окно) — своя ветка с постоянным
+ * crop@track<N>, а нужная ветка выбирается streamselect@pick (команда map). На шторке
+ * центр окна переезжает плавно, размер меняется в середине перехода.
+ */
+export const buildFollowCommands = (
+    analysis: SegmentAnalysis,
+    boxes: FollowBox[],
+    margin: {x: number, y: number},
+    canvas: {w: number, h: number},
+    outputFps: number,
+    durationSeconds: number
+): FollowCommands => {
+    const sizes: Array<{w: number, h: number}> = []
+    const sizeOf = boxes.map(box => {
+        const w = Math.min(toEven(box.w), canvas.w - canvas.w % 2)
+        const h = Math.min(toEven(box.h), canvas.h - canvas.h % 2)
+        let index = sizes.findIndex(size => size.w === w && size.h === h)
+        if (index < 0) index = sizes.push({w, h}) - 1
+        return index
+    })
+    const indicators = sizes.map((_, index) => sizeOf.map(value => value === index ? 1 : 0))
+    const centerX = boxes.map(box => box.x + box.w / 2 + margin.x)
+    const centerY = boxes.map(box => box.y + box.h / 2 + margin.y)
+    const at = (time: number): FollowBox & {size: number} => {
+        let size = 0
+        let best = -1
+        indicators.forEach((series, index) => {
+            const weight = interpolate(analysis, series, time)
+            if (weight > best + 1e-9) { best = weight; size = index }
+        })
+        const {w, h} = sizes[size]!
+        const x = toEven(interpolate(analysis, centerX, time) - w / 2)
+        const y = toEven(interpolate(analysis, centerY, time) - h / 2)
+        return {
+            size, w, h,
+            x: Math.max(0, Math.min(canvas.w - w, x)),
+            y: Math.max(0, Math.min(canvas.h - h, y)),
+        }
+    }
+
+    const frameCount = Math.ceil(durationSeconds * outputFps) + 1
+    const eventTimes = [
+        ...Array.from({length: frameCount}, (_, frame) => frame / outputFps),
+        ...analysis.shotStarts
+            .filter((start, shot) => start > 0 && start < durationSeconds && !analysis.softStarts[shot])
+            .map(start => Math.max(0, start - COMMAND_LEAD_SECONDS))
+    ].sort((a, b) => a - b)
+    const lines: string[] = []
+    const first = at(COMMAND_LEAD_SECONDS)
+    const placed = new Map<number, {x: number, y: number}>([[first.size, first]])
+    let active = first.size
+
+    for (const time of eventTimes) {
+        const box = at(time + COMMAND_LEAD_SECONDS)
+        const previous = placed.get(box.size)
+        const changes = (['x', 'y'] as const)
+            .filter(key => !previous || previous[key] !== box[key])
+            .map(key => `crop@track${box.size} ${key} ${box[key]}`)
+        if (box.size !== active) changes.push(`streamselect@pick map ${box.size}`)
+        if (changes.length) lines.push(`${time.toFixed(4)} ${changes.join(', ')};`)
+        placed.set(box.size, box)
+        active = box.size
+    }
+
+    return {sizes, first, lines}
+}
+
+/**
+ * Часть графа ffmpeg после sendcmd: ветка на каждый размер окна (crop + масштаб до кадра
+ * Reel) и выбор ветки streamselect. Один размер — без split и streamselect.
+ */
+export const followSelectFilter = (commands: FollowCommands, scale: string): string => {
+    const {sizes, first} = commands
+    const position = (index: number) => index === first.size ? `${first.x}:${first.y}` : '0:0'
+    if (sizes.length === 1) return `crop@track0=${sizes[0]!.w}:${sizes[0]!.h}:${position(0)},${scale}`
+    const labels = sizes.map((_, index) => index)
+    return (
+        `split=${sizes.length}${labels.map(index => `[followIn${index}]`).join('')};` +
+        sizes.map(({w, h}, index) => `[followIn${index}]crop@track${index}=${w}:${h}:${position(index)},${scale}[followOut${index}];`).join('') +
+        `${labels.map(index => `[followOut${index}]`).join('')}streamselect@pick=inputs=${sizes.length}:map=${first.size}`
+    )
+}
+
+/** Записывает файл sendcmd для слежения (buildFollowCommands). */
+export const writeFollowCommands = async (filePath: string, commands: FollowCommands): Promise<void> => {
+    await writeFile(filePath, commands.lines.join('\n') + '\n')
 }
 
 /** Логотип в готовом clean: подтверждённая общая рамка по кадрам, или null. */

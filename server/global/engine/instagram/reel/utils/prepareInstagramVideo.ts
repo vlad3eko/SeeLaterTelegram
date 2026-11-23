@@ -11,6 +11,15 @@ import {
     analyzeSegment,
     buildZoomFilter,
     findLogoInFrames,
+    buildFollowCommands,
+    followEnabled,
+    followMargins,
+    followSelectFilter,
+    followZoom,
+    type FollowBox,
+    mirrorExtendFilter,
+    planFollowWindow,
+    writeFollowCommands,
     logoMinLeft,
     persistentLogo,
     planLogoZoom,
@@ -1243,6 +1252,7 @@ export const prepareInstagramVideo = async (
             | {mode: 'center', picture: CropRect}
             | {mode: 'track', picture: CropRect, frames: SegmentAnalysis, lefts: number[], intervals: ZoomInterval[]}
             | {mode: 'zoom', picture: CropRect, left: number, intervals: ZoomInterval[]}
+            | {mode: 'follow', picture: CropRect, frames: SegmentAnalysis, boxes: FollowBox[]}
 
         const logZoom = (intervals: ZoomInterval[]) => {
             if (!intervals.length) return
@@ -1273,6 +1283,27 @@ export const prepareInstagramVideo = async (
             }
 
             const maxLeft = Math.max(0, picture.w - window.w)
+
+            // Слежение по X и Y с приближением и отражением краёв (запрос владельца 23.11).
+            // Раскрытие плашки логотипа требует зума zoompan — тогда прежнее слежение по X.
+            if (wantTrack && followEnabled()) {
+                const plan = planFollowWindow(frames, picture, window, {
+                    zoom: followZoom(),
+                    minLeft: logoMinLeft(frames, picture, window.w)
+                })
+                if (plan.feasible) {
+                    const intervals = planLogoZoom(frames, picture, window, plan.boxes.map(box => box.x))
+                    if (!intervals.length) {
+                        console.log('[REEL FRAMING] Following faces (X and Y)', {
+                            trackedShots: plan.trackedShots, fitShots: plan.fitShots, shots: frames.stats.shots, zoom: followZoom()
+                        })
+                        return {mode: 'follow', picture, frames, boxes: plan.boxes}
+                    }
+                    console.warn('[REEL FRAMING] Logo banner expands; X-only tracking with zoom', {intervals: intervals.length})
+                } else {
+                    console.warn('[REEL FRAMING] Following not possible', {reason: plan.reason})
+                }
+            }
 
             if (wantTrack && maxLeft >= 4) {
                 const plan = planTrackedWindow(frames, picture, window.w)
@@ -1309,7 +1340,30 @@ export const prepareInstagramVideo = async (
             usedFraming = framing.mode
 
             let squareAndScale: string
-            if (framing.mode === 'track') {
+            if (framing.mode === 'follow') {
+                // Окно ездит по X и Y (sendcmd → crop@track<N>), у каждого размера окна своя
+                // ветка, выбор — streamselect; где окно выходит за картинку — отражение краёв
+                // с размытием, а не чёрное.
+                const margin = followMargins(framing.boxes, picture)
+                const commands = buildFollowCommands(
+                    framing.frames, framing.boxes, margin,
+                    {w: picture.w + 2 * margin.x, h: picture.h + 2 * margin.y},
+                    outputFrameRate.fps, segment.durationSeconds
+                )
+                await writeFollowCommands(trackCommandsPath, commands)
+                const {first} = commands
+                console.log('[REEL FRAMING] Following window', {
+                    first: `${first.w}x${first.h}+${first.x}+${first.y}`,
+                    sizes: commands.sizes.map(size => `${size.w}x${size.h}`),
+                    mirrorMargin: `${margin.x}x${margin.y}`,
+                    picture: `${picture.w}:${picture.h}:${picture.x}:${picture.y}`
+                })
+                squareAndScale =
+                    pictureCrop +
+                    (margin.x || margin.y ? mirrorExtendFilter(picture, margin, outputFrameRate.rate) : '') +
+                    `sendcmd=f=${path.basename(trackCommandsPath)},` +
+                    followSelectFilter(commands, scaleToReel)
+            } else if (framing.mode === 'track') {
                 // Квадрат двигается по X покадрово (sendcmd → crop@track), по Y по центру картинки.
                 const {firstX, minX, maxX} = await writeTrackCommands(
                     trackCommandsPath, framing.frames, framing.lefts, outputFrameRate.fps, segment.durationSeconds

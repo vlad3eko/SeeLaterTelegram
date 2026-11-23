@@ -11,6 +11,7 @@ import {assignPhraseFlow, planPhraseExits} from '../../engine/instagram/reel/sub
 import {resolveSubtitleConfig} from '../../engine/instagram/reel/subtitle/config'
 import {parseShotCuts} from '../../engine/instagram/reel/subtitle/utils/shot-cuts'
 import {translationFailureReason} from '../../engine/instagram/reel/subtitle/transcription/whisper'
+import {alignWordsToVoiceSegments} from '../../engine/instagram/reel/subtitle/transcription/voice-snap'
 
 const quota = new Error('{"error":{"code":429,"message":"You exceeded your current quota","details":[{"retryDelay":"37s"}]}}')
 const overloaded = new Error('{"error":{"code":503,"message":"This model is currently experiencing high demand.","status":"UNAVAILABLE"}}')
@@ -107,4 +108,19 @@ test('тайминги: растянутое слово (музыка) не де
 
 test('склейки: метки scdet разбираются и сливаются', () => {
     assert.deepEqual(parseShotCuts('x lavfi.scd.time=2.5\nlavfi.scd.time=2.54\nlavfi.scd.time=7.9\n'), [2.54, 7.9])
+})
+
+test('привязка к голосу: первое слово нового предложения не уходит в хвост прошлого', () => {
+    const words = (end: string) => [
+        ['разбудишь', 2.4, 4.0], ['все', 4.0, 4.6], ['силы', 5.2, 7.0], [end, 7.9, 8.1], ['Ты', 8.9, 9.0],
+        ['ещё', 10.0, 10.2], ['можешь', 10.2, 10.5], ['выбрать,', 10.5, 10.8], ['какому', 10.9, 11.5],
+        ['царю', 11.5, 11.9], ['служить.', 11.9, 12.3],
+    ].map(([text, start, end]) => ({text: text as string, start: start as number, end: end as number}))
+    const segments = [{start: 2.3, end: 7.0}, {start: 7.85, end: 8.15}, {start: 9.8, end: 12.4}]
+    const sentence = words('зла.')
+    assert.equal(alignWordsToVoiceSegments(sentence, segments, 13), 0)
+    assert.equal(sentence[4]!.start, 8.9)
+    // Без точки перенос остаётся (слово внутри фразы).
+    const clause = words('зла')
+    assert.equal(alignWordsToVoiceSegments(clause, segments, 13), 1)
 })
