@@ -1,5 +1,5 @@
-import {graphFailureText, instagramAccountId, isMissingObject, listComments} from '#server/global/engine/instagram/comments/graph'
-import {commentsCutoff, draftLeads, newestTimestamp, nextPollAt, REPLIED_STATUSES} from '#server/global/engine/instagram/comments/plan'
+import {graphFailureText, instagramAccountId, instagramUsage, isMissingObject, listComments} from '#server/global/engine/instagram/comments/graph'
+import {commentsCutoff, draftLeads, newestTimestamp, nextPollAt, REPLIED_STATUSES, USAGE_SLOW, USAGE_STOP} from '#server/global/engine/instagram/comments/plan'
 
 /**
  * Опрос комментариев активных кампаний. Аренда кампании (poll_lease_until) — два параллельных тика
@@ -20,9 +20,16 @@ export const pollCampaigns = async (supabase: any, now: Date, {deadline, mode = 
         .limit(MAX_CAMPAIGNS_PER_TICK)
     if (error) throw error
 
-    const result = {campaigns: 0, queued: 0, logged: 0, duplicate: 0, expired: 0, completed: 0, errors: [] as string[]}
+    const result = {campaigns: 0, queued: 0, logged: 0, duplicate: 0, expired: 0, completed: 0, throttled: false, errors: [] as string[]}
     for (const campaign of due ?? []) {
         if (Date.now() >= deadline) break
+        // Лимит Meta почти исчерпан или уже ограничен — опрос ждёт следующего запуска (комментарии не теряются:
+        // отметка «прочитано до» не сдвинута, Private Reply можно отправить в течение 7 дней).
+        const usage = instagramUsage()
+        if (usage && (usage.percent >= USAGE_STOP || usage.regainMinutes > 0)) {
+            result.throttled = true
+            break
+        }
         const {data: leased} = await supabase.from('instagram_campaigns')
             .update({poll_lease_until: new Date(now.getTime() + LEASE_MS).toISOString()})
             .eq('id', campaign.id)
@@ -31,8 +38,8 @@ export const pollCampaigns = async (supabase: any, now: Date, {deadline, mode = 
         if (!leased?.length) continue
         result.campaigns++
 
-        const next = nextPollAt(campaign.published_at, now)
         const comments = await listComments(campaign.instagram_media_id, {stopBefore: commentsCutoff(campaign.last_seen_at, campaign.published_at, now)})
+        const next = nextPollAt(campaign.published_at, now, {slow: (instagramUsage()?.percent ?? 0) >= USAGE_SLOW})
         if (!comments.ok) {
             const text = graphFailureText(comments)
             result.errors.push(text)

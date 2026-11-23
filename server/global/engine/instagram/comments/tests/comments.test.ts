@@ -103,12 +103,19 @@ test('ответы в ветках разворачиваются в общий 
 })
 
 test('частота опроса и граница чтения', () => {
-    assert.equal(nextPollAt(at(60), NOW)!.getTime() - NOW.getTime(), 4 * 60_000)
-    assert.equal(nextPollAt(at(4 * 24 * 60), NOW)!.getTime() - NOW.getTime(), 4 * 60_000)
-    assert.equal(nextPollAt(at(7 * 24 * 60 - 1), NOW)!.getTime() - NOW.getTime(), 4 * 60_000)
+    const after = (date: Date | null) => date!.getTime() - NOW.getTime()
+    // Свежий Reel (до 2 суток) — каждый запуск таймера (2 мин), срок на 30 с раньше запуска.
+    assert.equal(after(nextPollAt(at(60), NOW)), 2 * 60_000 - 30_000)
+    assert.equal(after(nextPollAt(at(48 * 60 - 1), NOW)), 2 * 60_000 - 30_000)
+    // До 7 дней — через запуск (4 мин).
+    assert.equal(after(nextPollAt(at(48 * 60), NOW)), 4 * 60_000 - 30_000)
+    assert.equal(after(nextPollAt(at(7 * 24 * 60 - 1), NOW)), 4 * 60_000 - 30_000)
     // Окно ответа — 7 дней от комментария, поэтому Reel опрашивается дольше: до 30 дней раз в 2 часа.
-    assert.equal(nextPollAt(at(7 * 24 * 60), NOW)!.getTime() - NOW.getTime(), 2 * 3600_000 - 60_000)
-    assert.equal(nextPollAt(at(29 * 24 * 60), NOW)!.getTime() - NOW.getTime(), 2 * 3600_000 - 60_000)
+    assert.equal(after(nextPollAt(at(7 * 24 * 60), NOW)), 2 * 3600_000 - 30_000)
+    assert.equal(after(nextPollAt(at(29 * 24 * 60), NOW)), 2 * 3600_000 - 30_000)
+    // Лимит Meta больше половины — редкий режим: 6 и 10 минут.
+    assert.equal(after(nextPollAt(at(60), NOW, {slow: true})), 6 * 60_000 - 30_000)
+    assert.equal(after(nextPollAt(at(4 * 24 * 60), NOW, {slow: true})), 10 * 60_000 - 30_000)
     assert.equal(nextPollAt(at(30 * 24 * 60), NOW), null)
     assert.equal(commentsCutoff(at(10), at(100), NOW), NOW.getTime() - 25 * 60_000)
     assert.equal(commentsCutoff(null, at(100), NOW), NOW.getTime() - 115 * 60_000)
@@ -319,4 +326,13 @@ test('ответ под комментарием привязанному: на�
         'Сериал «Шогун» уже в вашей коллекции в боте ✅ Напомним о новых сериях.')
     assert.equal(savedCommentReply({title: 'Новый', mediaType: 'tv', releaseDate: '2027-02-18T00:00:00', today}),
         'Сериал «Новый» добавлен в вашу коллекцию в боте ✅ Напомним, когда он выйдет.')
+})
+
+test('расход лимита Instagram из заголовка: наибольший показатель, ожидание; мусор — null', async () => {
+    const {parseBucUsage} = await import('../graph')
+    assert.deepEqual(parseBucUsage('{"17841":[{"type":"instagram","call_count":4,"total_cputime":9,"total_time":4,"estimated_time_to_regain_access":0}]}'), {percent: 9, regainMinutes: 0})
+    assert.deepEqual(parseBucUsage('{"1":[{"type":"pages","call_count":1}],"2":[{"type":"instagram","call_count":90,"total_cputime":3,"total_time":1,"estimated_time_to_regain_access":12}]}'), {percent: 90, regainMinutes: 12})
+    assert.equal(parseBucUsage(null), null)
+    assert.equal(parseBucUsage('не json'), null)
+    assert.equal(parseBucUsage('{}'), null)
 })

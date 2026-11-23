@@ -37,6 +37,29 @@ export const classifyGraphError = ({status, code, subcode}: {status: number, cod
     return 'denied'
 }
 
+/**
+ * Расход лимита Instagram из заголовка X-Business-Use-Case-Usage последнего ответа (в пределах одного запуска функции):
+ * percent — наибольший из call_count / total_cputime / total_time, regainMinutes — сколько ждать, если Meta уже ограничила.
+ */
+export type IgUsage = {percent: number, regainMinutes: number}
+let lastUsage: IgUsage | null = null
+export const instagramUsage = (): IgUsage | null => lastUsage
+
+export const parseBucUsage = (header: string | null | undefined): IgUsage | null => {
+    if (!header) return null
+    try {
+        const rows = Object.values(JSON.parse(header)).flat() as any[]
+        const row = rows.find(item => item?.type === 'instagram') ?? rows[0]
+        if (!row) return null
+        return {
+            percent: Math.max(Number(row.call_count) || 0, Number(row.total_cputime) || 0, Number(row.total_time) || 0),
+            regainMinutes: Number(row.estimated_time_to_regain_access) || 0
+        }
+    } catch {
+        return null
+    }
+}
+
 const credentials = () => {
     const token = process.env.INSTAGRAM_ACCESS_TOKEN?.trim()
     const account = process.env.INSTAGRAM_ACCOUNT_ID?.trim()
@@ -57,6 +80,7 @@ const graphRequest = async <T>(path: string, {query, body}: {query?: Record<stri
             body: body ? JSON.stringify(body) : undefined,
             signal: AbortSignal.timeout(15_000)
         })
+        lastUsage = parseBucUsage(response.headers.get('x-business-use-case-usage')) ?? lastUsage
         const json = await response.json().catch(() => ({})) as any
         if (response.ok && !json?.error) return {ok: true, data: json as T}
         const error = json?.error ?? {}

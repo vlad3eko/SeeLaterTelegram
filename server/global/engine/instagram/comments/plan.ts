@@ -60,16 +60,30 @@ export const POLL_MS = 30 * DAY
  * 2 часа до 30 дней; дальше кампания закрыта (null). Вебхук Meta, когда приходит, опрашивает Reel сразу.
  */
 /**
- * «Каждые 5 минут» = 4 минуты до следующей отметки: таймер Scheduler стартует ровно в :00, :05…, а проход заканчивается
- * через несколько секунд — с полными 5 минутами срок наступал на секунды позже следующего запуска, и Reel
- * фактически опрашивался раз в 10 минут.
+ * Расписание опроса — в запусках таймера (Scheduler каждые 2 минуты, ровно в чётные минуты). Срок ставится на 30 с
+ * раньше нужного запуска: проход заканчивается через несколько секунд, и с ровным интервалом Reel попадал бы
+ * только в следующий запуск. Почти все комментарии — в первые двое суток, поэтому свежие Reels чаще.
+ *
+ * Бюджет (замер 23.11): лимит Instagram Graph API — «4800 × показы аккаунта» за скользящие 24 ч; 150 запросов
+ * опроса заняли ≈1 % процессорного времени, т. е. ≈15 000 запросов в сутки при нынешнем охвате. Худший день
+ * (4 свежих Reels + 4 до недели, поиск Reels раз в 10 мин) ≈ 4 300 запросов — до 30 %. Охват падает — лимит
+ * тоже; поэтому тормоз по заголовку X-Business-Use-Case-Usage: от USAGE_SLOW % — редкий режим, от USAGE_STOP % опрос
+ * ждёт (Direct уходят: у Private Reply свой лимит 750 в час).
  */
-const FAST_POLL_MS = 4 * 60_000
+export const TICK_MS = 2 * 60_000
+const EARLY_MS = 30_000
+const FRESH_MS = 2 * DAY
+export const USAGE_SLOW = 50
+export const USAGE_STOP = 85
 
-export const nextPollAt = (publishedAt: string | null, now: Date): Date | null => {
+const ticks = (count: number) => count * TICK_MS - EARLY_MS
+
+/** Когда опрашивать снова: до 2 суток — каждый запуск (2 мин), до 7 дней — через запуск (4 мин), до 30 дней — 2 ч; дальше null. */
+export const nextPollAt = (publishedAt: string | null, now: Date, {slow = false}: {slow?: boolean} = {}): Date | null => {
     const age = now.getTime() - (publishedAt ? Date.parse(publishedAt) : now.getTime())
     if (age >= POLL_MS) return null
-    return new Date(now.getTime() + (age < REPLY_WINDOW_MS ? FAST_POLL_MS : 2 * HOUR - 60_000))
+    const interval = age < FRESH_MS ? ticks(slow ? 3 : 1) : age < REPLY_WINDOW_MS ? ticks(slow ? 5 : 2) : ticks(60)
+    return new Date(now.getTime() + interval)
 }
 
 /**
