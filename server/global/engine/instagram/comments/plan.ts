@@ -55,11 +55,21 @@ export const rankCandidates = (reel: {caption?: string | null, timestamp: string
  */
 export const POLL_MS = 30 * DAY
 
-/** Когда опрашивать снова: 5 минут первые 3 дня, 30 минут до 7 дней, 2 часа до 30 дней; дальше кампания закрыта (null). */
+/**
+ * Когда опрашивать снова: 5 минут первые 7 дней (ответ любому — не позже чем через 5 минут, решение владельца 23.11),
+ * 2 часа до 30 дней; дальше кампания закрыта (null). Вебхук Meta, когда приходит, опрашивает Reel сразу.
+ */
+/**
+ * «Каждые 5 минут» = 4 минуты до следующей отметки: таймер Scheduler стартует ровно в :00, :05…, а проход заканчивается
+ * через несколько секунд — с полными 5 минутами срок наступал на секунды позже следующего запуска, и Reel
+ * фактически опрашивался раз в 10 минут.
+ */
+const FAST_POLL_MS = 4 * 60_000
+
 export const nextPollAt = (publishedAt: string | null, now: Date): Date | null => {
     const age = now.getTime() - (publishedAt ? Date.parse(publishedAt) : now.getTime())
     if (age >= POLL_MS) return null
-    return new Date(now.getTime() + (age < 3 * DAY ? 5 * 60_000 : age < REPLY_WINDOW_MS ? 30 * 60_000 : 2 * HOUR))
+    return new Date(now.getTime() + (age < REPLY_WINDOW_MS ? FAST_POLL_MS : 2 * HOUR - 60_000))
 }
 
 /**

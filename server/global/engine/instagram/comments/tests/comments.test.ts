@@ -103,11 +103,12 @@ test('ответы в ветках разворачиваются в общий 
 })
 
 test('частота опроса и граница чтения', () => {
-    assert.equal(nextPollAt(at(60), NOW)!.getTime() - NOW.getTime(), 5 * 60_000)
-    assert.equal(nextPollAt(at(4 * 24 * 60), NOW)!.getTime() - NOW.getTime(), 30 * 60_000)
+    assert.equal(nextPollAt(at(60), NOW)!.getTime() - NOW.getTime(), 4 * 60_000)
+    assert.equal(nextPollAt(at(4 * 24 * 60), NOW)!.getTime() - NOW.getTime(), 4 * 60_000)
+    assert.equal(nextPollAt(at(7 * 24 * 60 - 1), NOW)!.getTime() - NOW.getTime(), 4 * 60_000)
     // Окно ответа — 7 дней от комментария, поэтому Reel опрашивается дольше: до 30 дней раз в 2 часа.
-    assert.equal(nextPollAt(at(7 * 24 * 60), NOW)!.getTime() - NOW.getTime(), 2 * 3600_000)
-    assert.equal(nextPollAt(at(29 * 24 * 60), NOW)!.getTime() - NOW.getTime(), 2 * 3600_000)
+    assert.equal(nextPollAt(at(7 * 24 * 60), NOW)!.getTime() - NOW.getTime(), 2 * 3600_000 - 60_000)
+    assert.equal(nextPollAt(at(29 * 24 * 60), NOW)!.getTime() - NOW.getTime(), 2 * 3600_000 - 60_000)
     assert.equal(nextPollAt(at(30 * 24 * 60), NOW), null)
     assert.equal(commentsCutoff(at(10), at(100), NOW), NOW.getTime() - 25 * 60_000)
     assert.equal(commentsCutoff(null, at(100), NOW), NOW.getTime() - 115 * 60_000)
