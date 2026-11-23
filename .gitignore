@@ -54,3 +54,4 @@ server/models/*.bin
 
 # Локальное хранилище судьи связок (до миграции collection_bundle_*)
 .bundles-store.json
+promo-out

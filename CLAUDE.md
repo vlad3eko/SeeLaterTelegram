@@ -24,7 +24,7 @@ npx tsx --tsconfig tsconfig.reel-dryrun.json --test server/global/engine/notific
 
 Разовые скрипты с доступом к базе и Telegram — `npx tsx --env-file=.env --tsconfig tsconfig.reel-dryrun.json <файл>.ts`. Модули, которые ходят через `$fetch` (карточки, TMDB через свои роуты `/api/tmdb/*`), вне Nitro требуют подставить `globalThis.$fetch = ofetch.create({baseURL: 'https://kinomanov.net'})` до импорта.
 
-Другие скрипты: `npm run bundles:run` / `bundles:audit` (связки подборок с судьёй Gemini), `npm run reel:dryrun -- --key <youtube id> ...` (сухой прогон Reel, описание — в `TASKS.md` и в шапке `server/global/engine/instagram/reel/scripts/dryrun-publish.ts`), `node --env-file=.env scripts/covers/buildCovers.mjs --screens <экраны> [--publish]` (обложки экранов /g, нужны Chrome и ffmpeg).
+Другие скрипты: `npm run bundles:run` / `bundles:audit` (связки подборок с судьёй Gemini), `npm run reel:dryrun -- --key <youtube id> ...` (сухой прогон Reel, описание — в `TASKS.md` и в шапке `server/global/engine/instagram/reel/scripts/dryrun-publish.ts`), `node --env-file=.env scripts/covers/buildCovers.mjs --screens <экраны> [--publish]` (обложки экранов /g, нужны Chrome и ffmpeg), `node scripts/promo/buildPromo.mjs --scenario <имя> [--sheet]` (промо-истории Instagram и Reel из `scripts/promo/scenarios/`; идею сначала обсудить с владельцем, затем собрать скиллом `promo-stories` с готовым ТЗ).
 
 ## Архитектура
 

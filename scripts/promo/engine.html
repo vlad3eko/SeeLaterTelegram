@@ -1,0 +1,522 @@
+<!doctype html>
+<!--
+  Движок промо-историй Instagram и Reels. Стиль — как обложки /g (scripts/covers/template.html): студийный
+  свет, зерно, стекло, объёмный заголовок, 3D-постеры. Холст 540×960 (снимается в 2× — 1080×1920), значок — 540×540.
+  Содержание — сценарий scripts/promo/scenarios/<имя>.js (window.PROMO), справка — .claude/skills/promo-stories/SKILL.md.
+  engine.html#scenario=<имя>&slide=<ключ> — один слайд; slide=reel — слайды PROMO.reel подряд со сменой;
+  slide=meta — только описание сценария для сборки. Кадр задаёт window.setTime(секунды). Рисует scripts/promo/buildPromo.mjs.
+  Интерфейсы Instagram и Telegram нарисованы (не скриншоты): чужие аккаунты — размытые заглушки.
+-->
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700&display=block" rel="stylesheet">
+<style>
+  :root {
+    --primary: oklch(0.58 0.20 255);
+    --violet: oklch(0.66 0.19 295);
+    --pink: oklch(0.76 0.16 350);
+    --ink: oklch(0.30 0.10 280);
+    --base: oklch(0.955 0.02 285);
+    --mark: oklch(0.66 0.26 355);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 540px; height: 960px; overflow: hidden; }
+  body.icon { width: 540px; height: 540px; }
+  body { font-family: 'Montserrat', sans-serif; background: var(--base); position: relative; }
+
+  .slide { position: absolute; inset: 0; overflow: hidden; background: var(--base); }
+  .light { position: absolute; border-radius: 50%; filter: blur(70px); }
+  .grain { position: absolute; inset: 0; pointer-events: none; }
+  .grain.dark { opacity: .5; mix-blend-mode: multiply; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='3' seed='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .42  0 0 0 0 .36  0 0 0 0 .55  0 0 0 -1.6 1.15'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"); }
+  .grain.lite { opacity: .45; mix-blend-mode: screen; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' seed='11' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 1.7 -.95'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"); }
+
+  /* ---------- бренд, плашки, заголовок ---------- */
+  .brand { position: absolute; left: 30px; top: 104px; font-weight: 900; font-size: 19px; color: var(--ink); letter-spacing: -.3px;
+    display: flex; gap: 10px; align-items: center; }
+  .brand img { width: 38px; height: 38px; display: block; filter: drop-shadow(0 5px 10px rgba(70,60,200,.35)); }
+  .pill { position: absolute; padding: 9px 18px; border-radius: 999px; font-weight: 800; font-size: 16px; color: var(--ink); white-space: nowrap;
+    background: linear-gradient(180deg, rgba(255,255,255,.88), rgba(255,255,255,.5));
+    box-shadow: 0 10px 22px rgba(70,50,160,.2), inset 0 2px 0 rgba(255,255,255,.9), inset 0 -3px 8px rgba(120,100,220,.22); }
+  .pill b, .grad { background: linear-gradient(90deg, var(--primary), var(--violet) 60%, var(--pink));
+    -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .title { position: absolute; }
+  .lead { position: absolute; font-size: 16px; font-weight: 600; line-height: 1.35; color: var(--ink); opacity: .88; }
+  .lead b { font-weight: 800; }
+
+  .steps { position: absolute; display: flex; flex-direction: column; gap: 9px; }
+  .step { display: flex; align-items: center; gap: 11px; padding: 6px 16px 6px 6px; border-radius: 999px; width: max-content;
+    font-size: 14.5px; font-weight: 600; color: var(--ink);
+    background: linear-gradient(180deg, rgba(255,255,255,.82), rgba(255,255,255,.45));
+    box-shadow: 0 8px 18px rgba(70,50,160,.16), inset 0 2px 0 rgba(255,255,255,.9), inset 0 -3px 8px rgba(120,100,220,.18); }
+  .step i { width: 28px; height: 28px; border-radius: 50%; font-style: normal; font-weight: 800; font-size: 14px; color: #fff;
+    display: grid; place-items: center; flex: none;
+    background: linear-gradient(135deg, var(--primary), var(--violet)); box-shadow: inset 0 2px 0 rgba(255,255,255,.45); }
+  .step.ok i { background: linear-gradient(135deg, oklch(0.68 0.17 150), oklch(0.58 0.16 160)); }
+  .step b { font-weight: 800; }
+  .cta { position: absolute; padding: 12px 22px; border-radius: 999px; font-weight: 800; font-size: 17px; color: #fff; white-space: nowrap;
+    background: linear-gradient(100deg, var(--primary), var(--violet) 55%, oklch(0.7 0.2 350));
+    box-shadow: 0 14px 30px rgba(90,60,220,.38), inset 0 2px 0 rgba(255,255,255,.4), inset 0 -4px 10px rgba(40,10,120,.3); }
+
+  /* ---------- 3D-постеры (как в обложках /g, тоньше) ---------- */
+  .scene { position: absolute; inset: 0; perspective: 1100px; perspective-origin: 70% 40%; pointer-events: none; }
+  .slab { position: absolute; transform-style: preserve-3d; }
+  .slab .layer, .slab .face { position: absolute; inset: 0; border-radius: 14px; }
+  .slab .face { overflow: hidden; transform: translateZ(0); }
+  .slab .face img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .slab .face::after { content: ''; position: absolute; inset: 0; border-radius: inherit;
+    background: linear-gradient(125deg, rgba(255,255,255,.5) 0%, rgba(255,255,255,.1) 22%, rgba(255,255,255,0) 40%),
+      linear-gradient(315deg, rgba(120,140,255,.25) 0%, rgba(255,255,255,0) 30%);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.18), inset 0 2px 6px rgba(255,255,255,.35), inset 0 -5px 12px rgba(40,20,90,.35); }
+  .shadow { position: absolute; border-radius: 50%; filter: blur(14px); }
+
+  /* ---------- телефон ---------- */
+  .phone { position: absolute; left: 105px; top: 250px; width: 330px; height: 600px; border-radius: 46px; padding: 8px;
+    background: linear-gradient(145deg, #3a3550, #121019 40%, #26223a);
+    box-shadow: 0 40px 70px rgba(50,30,130,.38), 0 12px 24px rgba(30,20,80,.3), inset 0 0 0 1.5px rgba(255,255,255,.18), inset 0 2px 3px rgba(255,255,255,.25); }
+  .screen { position: relative; width: 100%; height: 100%; border-radius: 38px; overflow: hidden; background: #000;
+    font-family: 'Inter', sans-serif; color: #f5f5f5; font-size: 12px; }
+  .island { position: absolute; left: 50%; top: 9px; width: 92px; height: 26px; margin-left: -46px; background: #000; border-radius: 20px; z-index: 50; }
+  .status { position: absolute; left: 0; right: 0; top: 0; height: 42px; display: flex; justify-content: space-between; align-items: center;
+    padding: 2px 26px 0 30px; font-weight: 600; font-size: 13px; z-index: 40; color: #fff; }
+  .status .sig { display: flex; gap: 5px; align-items: center; }
+  .status .sig i { display: block; width: 17px; height: 9px; border-radius: 3px; border: 1.5px solid rgba(255,255,255,.9); position: relative; }
+  .status .sig i::after { content: ''; position: absolute; inset: 1px 4px 1px 1px; background: #fff; border-radius: 1px; }
+  .layerScreen { position: absolute; inset: 0; }
+  .blur { filter: blur(3.6px); }
+  .av { border-radius: 50%; flex: none; }
+  .glass-dim { position: absolute; inset: 0; background: rgba(0,0,0,.55); }
+
+  /* Instagram: комментарии */
+  .ig-reel { position: absolute; left: 0; right: 0; top: 0; height: 140px; background-size: cover; background-position: center; }
+  .ig-reel::after { content: ''; position: absolute; inset: 0; background: linear-gradient(rgba(0,0,0,.25), rgba(0,0,0,.55)); }
+  .ig-sheet { position: absolute; left: 0; right: 0; top: 118px; bottom: 0; background: #262626; border-radius: 16px 16px 0 0; }
+  .ig-sheet .handle { width: 36px; height: 4px; border-radius: 3px; background: #6b6b6b; margin: 8px auto 6px; }
+  .ig-sheet h4 { text-align: center; font-size: 13px; font-weight: 700; padding-bottom: 9px; border-bottom: 1px solid #363636; }
+  .cmt { display: flex; gap: 9px; padding: 8px 14px 6px; align-items: flex-start; }
+  .cmt .av { width: 30px; height: 30px; }
+  .cmt .body { flex: 1; min-width: 0; }
+  .cmt .who { font-size: 11.5px; font-weight: 600; color: #f5f5f5; display: flex; gap: 6px; align-items: center; }
+  .cmt .who span { color: #a8a8a8; font-weight: 400; }
+  .cmt .txt { font-size: 12.5px; line-height: 1.32; margin-top: 2px; color: #f5f5f5; }
+  .cmt .meta { font-size: 10.5px; color: #a8a8a8; margin-top: 4px; font-weight: 500; }
+  .cmt .heart { width: 13px; margin-top: 10px; opacity: .7; }
+  .cmt.reply { padding-left: 53px; }
+  .cmt.reply .av { width: 24px; height: 24px; }
+  .badge-author { font-size: 9.5px; color: #a8a8a8; font-weight: 500; }
+  .ig-input { position: absolute; left: 0; right: 0; bottom: 0; height: 74px; background: #262626; border-top: 1px solid #363636;
+    display: flex; align-items: flex-start; gap: 10px; padding: 11px 14px 0; }
+  .ig-input .av { width: 32px; height: 32px; }
+  .ig-input .field { flex: 1; height: 34px; border: 1px solid #4a4a4a; border-radius: 18px; display: flex; align-items: center; padding: 0 12px;
+    font-size: 13px; color: #f5f5f5; justify-content: space-between; }
+  .ig-input .ph { color: #8e8e8e; }
+  .ig-input .post { color: #0095f6; font-weight: 700; font-size: 12.5px; }
+  .caret { display: inline-block; width: 1.5px; height: 15px; background: #0095f6; vertical-align: -3px; margin-left: 1px; }
+
+  /* Instagram: Direct */
+  .ig-head { position: absolute; left: 0; right: 0; top: 44px; height: 44px; display: flex; align-items: center; gap: 10px; padding: 0 14px; }
+  .ig-head .back { font-size: 22px; line-height: 1; margin-top: -3px; }
+  .ig-head .name { font-weight: 700; font-size: 15px; }
+  .ig-tabs { position: absolute; left: 0; right: 0; top: 96px; display: flex; gap: 8px; padding: 0 14px; }
+  .ig-tabs div { padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; background: #262626; color: #f5f5f5; position: relative; }
+  .ig-tabs div.on { background: #f5f5f5; color: #000; }
+  .ig-tabs .cnt { display: inline-grid; place-items: center; min-width: 16px; height: 16px; border-radius: 8px; background: #ff3040; color: #fff;
+    font-size: 10px; font-weight: 700; margin-left: 5px; padding: 0 4px; vertical-align: 1px; }
+  .chat-row { display: flex; gap: 11px; align-items: center; padding: 8px 14px; }
+  .chat-row .av { width: 48px; height: 48px; }
+  .chat-row .n { font-size: 13px; font-weight: 600; }
+  .chat-row .p { font-size: 12px; color: #a8a8a8; margin-top: 3px; }
+  .chat-row .p b { color: #f5f5f5; font-weight: 600; }
+  .dm-list { position: absolute; left: 0; right: 0; top: 134px; }
+  .dm-msg { position: absolute; left: 12px; max-width: 250px; padding: 9px 12px; border-radius: 18px; background: #262626; font-size: 11.6px; line-height: 1.36; white-space: pre-line; }
+  .dm-msg a { color: #c7c7c7; text-decoration: none; }
+  .dm-msg a.live { color: #4cb5f9; text-decoration: underline; }
+  .dm-out { position: absolute; right: 12px; padding: 8px 14px; border-radius: 18px; font-size: 13px; color: #fff;
+    background: linear-gradient(135deg, #7638fa, #a83bf2 60%, #d52fc5); }
+  .dm-input { position: absolute; left: 10px; right: 10px; bottom: 22px; height: 40px; border-radius: 22px; background: #262626;
+    display: flex; align-items: center; gap: 9px; padding: 0 6px; font-size: 13px; color: #8e8e8e; }
+  .dm-input .cam { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #3797f0, #6b5cff); display: grid; place-items: center; color: #fff; font-size: 14px; }
+
+  /* Telegram (тёмная тема) */
+  .tg { position: absolute; inset: 0; background: #0e1621; }
+  .tg-pattern { position: absolute; inset: 0; opacity: .5;
+    background: radial-gradient(circle at 20% 30%, rgba(60,90,140,.35), transparent 40%), radial-gradient(circle at 80% 70%, rgba(80,60,140,.3), transparent 45%), #0e1621; }
+  .tg-head { position: absolute; left: 0; right: 0; top: 0; height: 92px; background: #17212b; display: flex; align-items: flex-end; gap: 10px; padding: 0 12px 9px; }
+  .tg-head .back { color: #5eb5f7; font-size: 22px; margin-bottom: 6px; }
+  .tg-head .av { width: 36px; height: 36px; }
+  .tg-head .n { font-weight: 600; font-size: 14px; }
+  .tg-head .s { font-size: 11.5px; color: #7f91a4; margin-top: 2px; }
+  .tg-intro { position: absolute; left: 34px; right: 34px; top: 160px; background: rgba(23,33,43,.92); border-radius: 14px; padding: 14px; text-align: center; }
+  .tg-intro h5 { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+  .tg-intro p { font-size: 11.5px; color: #c9d4de; line-height: 1.4; }
+  .tg-start { position: absolute; left: 0; right: 0; bottom: 0; height: 74px; background: #17212b; display: grid; place-items: center; padding-bottom: 14px; }
+  .tg-start div { color: #5eb5f7; font-weight: 700; font-size: 14px; letter-spacing: .6px; padding: 8px 40px; }
+  .tg-out { position: absolute; right: 10px; background: #2b5278; padding: 7px 11px; border-radius: 14px 14px 4px 14px; font-size: 12.5px; }
+  .tg-out small, .tg-in small { color: #7da8d3; font-size: 9.5px; margin-left: 8px; }
+  .tg-in { position: absolute; left: 10px; width: 262px; background: #182533; padding: 8px 11px 7px; border-radius: 14px 14px 14px 4px; font-size: 12px; line-height: 1.38; }
+  .tg-in small { color: #6d7f8f; }
+  .tg-btns { position: absolute; left: 10px; width: 262px; display: flex; flex-direction: column; gap: 3px; }
+  .tg-btns div { background: rgba(43,82,120,.55); border-radius: 8px; padding: 8px; text-align: center; font-size: 12px; font-weight: 500; }
+  .tg-inputbar { position: absolute; left: 0; right: 0; bottom: 0; height: 64px; background: #17212b; display: flex; align-items: flex-start; padding: 12px 14px 0; gap: 10px; color: #6d7f8f; font-size: 13px; }
+
+  .flow { position: absolute; left: 10px; right: 10px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+  .flow > * { position: relative !important; left: auto !important; right: auto !important; top: auto !important; }
+  .flow > .tg-out, .flow > .dm-out { align-self: flex-end; }
+  .flow > .tg-btns { margin-top: -3px; }
+
+  /* Пуш-уведомление и смена времени */
+  .push { position: absolute; left: 8px; right: 8px; top: 46px; border-radius: 20px; padding: 10px 12px; display: flex; gap: 10px; z-index: 30;
+    background: rgba(40,44,58,.86); backdrop-filter: blur(16px); box-shadow: 0 10px 30px rgba(0,0,0,.45); }
+  .push .ico { width: 34px; height: 34px; border-radius: 9px; background: linear-gradient(135deg, #37aee2, #1e96c8); display: grid; place-items: center; flex: none; }
+  .push .t { font-size: 12px; font-weight: 700; display: flex; justify-content: space-between; }
+  .push .t span { font-weight: 400; color: #a9b0bd; font-size: 11px; }
+  .push .m { font-size: 12px; line-height: 1.32; margin-top: 2px; color: #eef1f6; }
+  .skip { position: absolute; inset: 0; background: rgba(8,10,20,.72); display: grid; place-items: center; z-index: 20; }
+  .skip div { font-family: 'Montserrat'; font-weight: 800; font-size: 20px; color: #fff; text-align: center; line-height: 1.25; }
+  .skip div span { display: block; font-size: 13px; font-weight: 600; opacity: .75; margin-top: 4px; }
+
+  .tap { position: absolute; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; background: rgba(255,255,255,.55); opacity: 0; z-index: 60; }
+
+  /* ---------- пометки: кружок, стрелка, наклейка ---------- */
+  .marks { position: absolute; inset: 0; overflow: visible; pointer-events: none; z-index: 80; }
+  .note { position: absolute; z-index: 90; display: flex; align-items: center; gap: 8px; padding: 6px 13px 6px 6px; border-radius: 999px;
+    font-weight: 700; font-size: 13px; color: var(--ink); max-width: 270px; line-height: 1.2;
+    background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(255,255,255,.82));
+    box-shadow: 0 10px 24px rgba(40,20,120,.32), inset 0 2px 0 #fff, inset 0 -3px 8px rgba(120,100,220,.2); }
+  .note i { font-style: normal; flex: none; padding: 5px 9px; border-radius: 999px; color: #fff; font-weight: 800; font-size: 12px;
+    background: linear-gradient(120deg, oklch(0.62 0.25 355), var(--violet)); box-shadow: inset 0 2px 0 rgba(255,255,255,.4); }
+  .note.ok i { background: linear-gradient(135deg, oklch(0.68 0.17 150), oklch(0.58 0.16 160)); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const POSTER = id => `https://image.tmdb.org/t/p/w500/${id}.jpg`
+const LOGO = '../covers/logo.png'
+
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v))
+const ease = x => 1 - Math.pow(1 - x, 3)
+const seg = (t, a, d) => ease(clamp((t - a) / d))
+const back = x => { const c = 1.7; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2) }
+
+// Размытые заглушки чужих аккаунтов: цветной кружок и «текст» под размытием.
+const fakeAv = (size, hue) => `<div class="av blur" style="width:${size}px;height:${size}px;background:linear-gradient(135deg,hsl(${hue},55%,62%),hsl(${hue + 40},50%,40%))"></div>`
+const myAv = size => `<div class="av" style="width:${size}px;height:${size}px;background:linear-gradient(135deg,#f9ce34,#ee2a7b,#6228d7);padding:2px"><div style="width:100%;height:100%;border-radius:50%;background:#555 radial-gradient(circle at 50% 38%,#bbb 0 22%,transparent 23%),radial-gradient(circle at 50% 100%,#bbb 0 38%,transparent 39%);border:2px solid #262626"></div></div>`
+const logoAv = size => `<img class="av" src="${LOGO}" style="width:${size}px;height:${size}px;background:#fff">`
+const heart = '<svg class="heart" viewBox="0 0 24 24" fill="none" stroke="#f5f5f5" stroke-width="2"><path d="M12 21s-8-5.2-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.8-8 11-8 11z"/></svg>'
+const status = '<div class="island"></div><div class="status"><span>9:41</span><span class="sig">▂▄▆ <i></i></span></div>'
+const bg = (a, b, c) => `<div class="light" style="width:520px;height:440px;right:-150px;top:-120px;background:var(--primary);opacity:${a}"></div>
+  <div class="light" style="width:380px;height:340px;right:120px;top:420px;background:var(--violet);opacity:${b}"></div>
+  <div class="light" style="width:440px;height:320px;left:-160px;bottom:-140px;background:var(--pink);opacity:${c}"></div>
+  <div class="light" style="width:380px;height:260px;left:40px;top:-150px;background:#fff;opacity:.9"></div>
+  <div class="grain dark"></div><div class="grain lite"></div>`
+const brand = '<div class="brand"><img src="' + LOGO + '"><span>КИНОМАНОВ</span></div>'
+// Шапка слайда-шага: плашка «шаг N из M · где» и объёмный заголовок (строки через |).
+const stepHead = (n, total, where, title, size = 46) => `<div class="pill" style="left:30px;top:100px" data-in=".05">шаг <b>${n}</b> из ${total} · <b>${where}</b></div>
+    <div class="title" data-title="${title}" data-size="${size}" style="left:28px;top:140px" data-in=".15"></div>`
+// Иконка Telegram для пуша.
+const tgIcon = '<div class="ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M2 11.5 21 4l-3 16-6-4.5-3 3 .5-5L18 7l-10 7-6-2.5z"/></svg></div>'
+// Заполняются из сценария до вызова PROMO.slides().
+let FILM = {}, FILMS = {}, COVER_POSTERS = []
+
+// ---------- заголовок с объёмной вытяжкой (как в /g, статичный, проще) ----------
+let titleId = 0
+const buildTitle = (el, lines, FS) => {
+  const id = 't' + (titleId++)
+  const W = 520, LX = FS * 1.9, LY = FS * .62, A = FS * .1, CYC = 1.4, N = 150
+  const ys = [FS * .92, FS * 1.92]
+  const texts = lines.map((t, k) => `<text x="0" y="${ys[k]}">${t}</text>`).join('')
+  let defs = '', depth = ''
+  const tone = new Map()
+  const grad = (gid, stops) => `<linearGradient id="${gid}" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="${W - 60}" y2="0">${stops.map(([o, c]) => `<stop offset="${o}" stop-color="${c}"/>`).join('')}</linearGradient>`
+  const toneId = (l, c) => { const key = `${l}_${c}`; if (!tone.has(key)) { const tid = id + 'w' + tone.size; tone.set(key, tid)
+    defs += grad(tid, [[0, `oklch(${l} ${c} 352)`], [.5, `oklch(${l} ${c} 318)`], [1, `oklch(${l} ${(c * .95).toFixed(3)} 285)`]]) } return tone.get(key) }
+  const pos = s => [s * LX * .35, -s * LY * .45 + A * Math.min(1, s * 2.2) * Math.sin(Math.PI * 2 * CYC * s - .6)]
+  for (let i = N; i >= 1; i--) {
+    const s = i / N, [x, y] = pos(s), [px, py] = pos((i - 1) / N)
+    const up = Math.max(-1, Math.min(1, (py - y) / Math.hypot(x - px, y - py) * 1.4))
+    const q = v => (Math.round(v * 60) / 60).toFixed(3)
+    depth += `<use href="#${id}" x="${x.toFixed(2)}" y="${y.toFixed(2)}" fill="url(#${toneId(q(.87 + up * .04 + s * .03), (.12 - s * .02).toFixed(3))})"/>`
+    depth += `<use href="#${id}" x="${x.toFixed(2)}" y="${(y + 1.2).toFixed(2)}" fill="url(#${toneId(q(.68 + up * .07 + s * .06), (.21 - s * .04).toFixed(3))})"/>`
+  }
+  el.innerHTML = `<svg width="${W}" height="${FS * 2.2}" style="overflow:visible"><defs>
+    <g id="${id}" style="font: 900 ${FS}px Montserrat; letter-spacing: -1.5px">${texts}</g>${defs}
+    ${grad(id + 'face', [[0, 'oklch(0.58 0.22 350)'], [.5, 'oklch(0.5 0.22 320)'], [1, 'oklch(0.48 0.21 290)']])}
+    <linearGradient id="${id}sh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".18"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#2a0a50" stop-opacity=".12"/></linearGradient>
+    <filter id="${id}soft" x="-20%" y="-40%" width="160%" height="200%"><feGaussianBlur stdDeviation="12"/></filter>
+    <filter id="${id}sm"><feGaussianBlur stdDeviation=".6"/></filter></defs>
+    <use href="#${id}" x="${LX * .12}" y="${-LY * .05 + 18}" fill="oklch(0.45 0.15 310)" opacity=".2" filter="url(#${id}soft)"/>
+    <g filter="url(#${id}sm)">${depth}</g>
+    <use href="#${id}" fill="url(#${id}face)"/><use href="#${id}" fill="url(#${id}sh)"/></svg>`
+}
+const fitTitle = (lines, size, maxW) => {
+  const ctx = document.createElement('canvas').getContext('2d')
+  ctx.font = `900 ${size}px Montserrat`
+  const w = Math.max(...lines.map(t => ctx.measureText(t).width))
+  return Math.floor(Math.min(size, size * maxW / w))
+}
+
+// ---------- постеры ----------
+const posterSlots = [
+  {x: 360, y: 470, w: 112, rx: 10, ry: -30, rz: -8, d: 18},
+  {x: 430, y: 380, w: 96, rx: 8, ry: -26, rz: 7, d: 16},
+  {x: 400, y: 590, w: 120, rx: -6, ry: -34, rz: 8, d: 20},
+  {x: 300, y: 650, w: 96, rx: -10, ry: -26, rz: -5, d: 16},
+  {x: 438, y: 720, w: 100, rx: -12, ry: -32, rz: -7, d: 16}
+]
+const floating = []
+const buildPosters = scene => {
+  posterSlots.forEach((p, i) => {
+    const h = p.w * 1.5, src = COVER_POSTERS[i % COVER_POSTERS.length]
+    const shadow = document.createElement('div')
+    shadow.className = 'shadow'
+    Object.assign(shadow.style, {left: p.x + p.w * .15 + 'px', top: p.y + h * .86 + 'px', width: p.w * .95 + 'px', height: h * .2 + 'px', background: 'rgba(70,40,150,.35)'})
+    const slab = document.createElement('div')
+    slab.className = 'slab'
+    Object.assign(slab.style, {left: p.x + 'px', top: p.y + 'px', width: p.w + 'px', height: h + 'px'})
+    for (let k = p.d; k >= 1; k--) {
+      const layer = document.createElement('div')
+      layer.className = 'layer'
+      layer.style.transform = `translateZ(${-k}px)`
+      layer.style.opacity = '.32'
+      layer.style.background = `linear-gradient(115deg, transparent 0 28%, rgba(255,255,255,.7) 31%, transparent 35%), linear-gradient(rgba(10,6,30,${(k / p.d * .35).toFixed(3)}),rgba(10,6,30,${(k / p.d * .35).toFixed(3)})), url(${src}) center / cover`
+      slab.appendChild(layer)
+    }
+    const face = document.createElement('div')
+    face.className = 'face'
+    face.innerHTML = `<img src="${src}">`
+    slab.appendChild(face)
+    scene.append(shadow, slab)
+    floating.push({p, slab, shadow, phase: i / posterSlots.length, scene})
+  })
+}
+
+// ---------- пометки ----------
+// Кружок «от руки»: неровный эллипс с заходом за начало; стрелка — дуга от наклейки к кружку.
+const roughEllipse = (cx, cy, rx, ry, seed) => {
+  let d = ''
+  const steps = 64
+  for (let i = 0; i <= steps; i++) {
+    const a = -Math.PI * .62 + (i / steps) * Math.PI * 2.18
+    const wob = 1 + .045 * Math.sin(a * 3 + seed) + .03 * Math.sin(a * 5 + seed * 2)
+    const grow = 1 + .07 * (i / steps)
+    const x = cx + Math.cos(a) * rx * wob * grow, y = cy + Math.sin(a) * ry * wob * grow
+    d += (i ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1)
+  }
+  return d
+}
+let marksId = 0
+const buildMarks = (slideEl, marks) => {
+  const uid = "m" + (marksId++)
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+  svg.setAttribute('class', 'marks'); svg.setAttribute('width', 540); svg.setAttribute('height', 960)
+  svg.innerHTML = `<defs><linearGradient id="${uid}mk" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="540" y2="960"><stop offset="0" stop-color="oklch(0.7 0.25 355)"/><stop offset="1" stop-color="oklch(0.66 0.23 320)"/></linearGradient>
+    <filter id="${uid}glow" x="-20%" y="-20%" width="140%" height="140%"><feMorphology in="SourceAlpha" operator="dilate" radius="1.6" result="d"/><feFlood flood-color="#fff"/><feComposite in2="d" operator="in" result="w"/>
+    <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="b"/><feFlood flood-color="#2a0d6a" flood-opacity=".45"/><feComposite in2="b" operator="in" result="s"/>
+    <feMerge><feMergeNode in="s"/><feMergeNode in="w"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`
+  slideEl.appendChild(svg)
+  const base = slideEl.getBoundingClientRect()
+  return marks.map((m, k) => {
+    const target = slideEl.querySelector(m.target)
+    const r = target.getBoundingClientRect()
+    const [px, py] = m.pad
+    const cx = r.left - base.left + r.width / 2, cy = r.top - base.top + r.height / 2
+    const rx = r.width / 2 + px, ry = r.height / 2 + py
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g')
+    g.setAttribute('filter', `url(#${uid}glow)`)
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+    circle.setAttribute('d', roughEllipse(cx, cy, rx, ry, k * 1.7 + 1))
+    // наклейка
+    const note = document.createElement('div')
+    note.className = 'note' + (m.ok ? ' ok' : '')
+    note.innerHTML = m.note
+    note.style.left = m.nx + 'px'; note.style.top = m.ny + 'px'
+    if (m.small) note.style.fontSize = '12px'
+    slideEl.appendChild(note)
+    const nr = note.getBoundingClientRect()
+    // начало стрелки — середина края наклейки, обращённого к кружку
+    const sx = clamp(cx, nr.left - base.left + 24, nr.right - base.left - 24)
+    const sy = m.side === 'up' ? nr.top - base.top - 4 : nr.bottom - base.top + 4
+    // конец — точка на кружке в сторону наклейки
+    const ang = Math.atan2(sy - cy, sx - cx)
+    const ex = cx + Math.cos(ang) * (rx + 7), ey = cy + Math.sin(ang) * (ry + 7)
+    const bend = (ex - sx) * .35
+    const c1x = sx + bend * .2, c1y = sy + (ey - sy) * .55, c2x = ex - bend, c2y = ey + (sy - ey) * .25
+    const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+    arrow.setAttribute('d', `M${sx.toFixed(1)} ${sy.toFixed(1)} C${c1x.toFixed(1)} ${c1y.toFixed(1)} ${c2x.toFixed(1)} ${c2y.toFixed(1)} ${ex.toFixed(1)} ${ey.toFixed(1)}`)
+    const ta = Math.atan2(ey - c2y, ex - c2x)
+    const head = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+    const hl = 11
+    head.setAttribute('d', `M${(ex - Math.cos(ta - .5) * hl).toFixed(1)} ${(ey - Math.sin(ta - .5) * hl).toFixed(1)} L${ex.toFixed(1)} ${ey.toFixed(1)} L${(ex - Math.cos(ta + .5) * hl).toFixed(1)} ${(ey - Math.sin(ta + .5) * hl).toFixed(1)}`)
+    for (const p of [circle, arrow, head]) {
+      p.setAttribute('fill', 'none'); p.setAttribute('stroke', `url(#${uid}mk)`); p.setAttribute('stroke-linecap', 'round'); p.setAttribute('stroke-linejoin', 'round')
+      p.setAttribute('stroke-width', p === circle ? 4.2 : 3.6)
+      g.appendChild(p)
+    }
+    svg.appendChild(g)
+    const lens = [circle.getTotalLength(), arrow.getTotalLength(), 40]
+    ;[circle, arrow, head].forEach((p, i) => { p.style.strokeDasharray = lens[i]; p.style.strokeDashoffset = lens[i] })
+    return {m, g, note, circle, arrow, head, lens}
+  })
+}
+
+// ---------- сборка ----------
+const root = document.getElementById('root')
+const hashParam = (name, fallback) => (location.hash.match(new RegExp(name + '=([\\w-]+)')) || [])[1] || fallback
+const SCENARIO = hashParam('scenario', 'save')
+const mode = hashParam('slide', 'cover')
+let SLIDES = {}, REEL = [], XFADE = .45
+const built = {}
+const buildSlide = key => {
+  const s = SLIDES[key]
+  const el = document.createElement('div')
+  el.className = 'slide'
+  el.innerHTML = s.html
+  root.appendChild(el)
+  el.querySelectorAll('[data-posters]').forEach(buildPosters)
+  el.querySelectorAll('[data-title]').forEach(t => {
+    const lines = t.dataset.title.split('|')
+    buildTitle(t, lines, fitTitle(lines, Number(t.dataset.size), 480))
+  })
+  built[key] = {el, marks: [], s}
+}
+
+// Кружки и касания меряются в самом конце: эмодзи и картинки догружаются позже и сдвигают переносы строк.
+const placeMarks = key => {
+  const {el, s} = built[key]
+  el.querySelectorAll('[data-tap]').forEach(tap => {
+    const target = el.querySelector(tap.dataset.at)
+    const holder = tap.offsetParent.getBoundingClientRect()
+    const r = target.getBoundingClientRect()
+    tap.style.left = (r.left - holder.left + r.width / 2) + 'px'
+    tap.style.top = (r.top - holder.top + r.height / 2) + 'px'
+  })
+  built[key].marks = buildMarks(el, s.marks || [])
+}
+
+const renderSlide = (key, t) => {
+  const {el, marks} = built[key]
+  el.querySelectorAll('[data-in], [data-out]').forEach(node => {
+    const tin = node.dataset.in !== undefined ? Number(node.dataset.in) : -1
+    const tout = node.dataset.out !== undefined ? Number(node.dataset.out) : Infinity
+    const anim = node.dataset.anim
+    let p = tin < 0 ? 1 : seg(t, tin, anim === 'slide' ? .45 : .4)
+    const q = tout === Infinity ? 0 : seg(t, tout, .3)
+    let transform = ''
+    if (anim === 'drop') transform = `translateY(${(-110 * (1 - p)).toFixed(1)}px)`
+    else if (anim === 'pop') { const b = tin < 0 ? 1 : back(clamp((t - tin) / .45)); transform = `scale(${(.6 + .4 * b).toFixed(3)})`; p = clamp((t - tin) / .2) }
+    else if (anim === 'slide') transform = `translateX(${(60 * (1 - p)).toFixed(1)}px)`
+    else transform = `translateY(${(14 * (1 - p)).toFixed(1)}px)`
+    node.style.opacity = (p * (1 - q)).toFixed(3)
+    node.style.transform = transform
+    if (node.dataset.pulse) node.style.transform += ` scale(${(1 + .03 * Math.sin(Math.max(0, t - tin) * 4.2)).toFixed(4)})`
+  })
+  // Набор текста: data-type="текст" data-from/data-to (сек); data-clear="сек" — поле снова пустое (отправлено);
+  // data-post="селектор" — кнопка отправки, яркая, пока в поле есть текст; .ph рядом — подсказка пустого поля.
+  el.querySelectorAll('[data-type]').forEach(node => {
+    const text = node.dataset.type, a = Number(node.dataset.from), b = Number(node.dataset.to)
+    const cleared = node.dataset.clear !== undefined && t > Number(node.dataset.clear)
+    const n = cleared ? 0 : Math.round(clamp((t - a) / (b - a)) * text.length)
+    node.textContent = text.slice(0, n)
+    const ph = node.parentElement.querySelector('.ph')
+    if (ph) ph.style.display = n ? 'none' : ''
+    const post = node.dataset.post ? el.querySelector(node.dataset.post) : null
+    if (post) post.style.opacity = n ? 1 : .45
+  })
+  // Мигающий курсор: data-blink="с-по" (сек).
+  el.querySelectorAll('[data-blink]').forEach(node => {
+    const [a, b] = node.dataset.blink.split('-').map(Number)
+    node.style.opacity = (t > a && t < b && Math.floor(t * 2.4) % 2 === 0) ? 1 : 0
+  })
+  el.querySelectorAll('[data-tap]').forEach(node => {
+    const k = (t - Number(node.dataset.tap)) / .5
+    node.style.opacity = k < 0 || k > 1 ? 0 : (.75 * (1 - k)).toFixed(3)
+    node.style.transform = `scale(${(.4 + 1.4 * clamp(k)).toFixed(3)})`
+  })
+  el.querySelectorAll('[data-live]').forEach(node => node.classList.toggle('live', t >= Number(node.dataset.live)))
+  for (const mk of marks) {
+    const {m, g, note, circle, arrow, head, lens} = mk
+    const fade = m.out ? 1 - seg(t, m.out, .3) : 1
+    const pc = seg(t, m.at, .55), pa = seg(t, m.at + .45, .4), ph = seg(t, m.at + .8, .15)
+    circle.style.strokeDashoffset = (lens[0] * (1 - pc)).toFixed(1)
+    arrow.style.strokeDashoffset = (lens[1] * (1 - pa)).toFixed(1)
+    head.style.strokeDashoffset = (lens[2] * (1 - ph)).toFixed(1)
+    g.style.opacity = t < m.at ? 0 : fade
+    const pn = seg(t, m.at + .3, .35)
+    note.style.opacity = (pn * fade).toFixed(3)
+    note.style.transform = `translateY(${(10 * (1 - pn)).toFixed(1)}px) scale(${(.92 + .08 * pn).toFixed(3)})`
+  }
+  for (const f of floating) {
+    if (!el.contains(f.scene)) continue
+    const angle = 2 * Math.PI * (t / 4 + f.phase), lift = Math.sin(angle) * 7
+    f.slab.style.transform = `translateY(${(-lift).toFixed(2)}px) rotateX(${(f.p.rx + Math.cos(angle) * 4).toFixed(2)}deg) rotateY(${(f.p.ry + Math.sin(angle) * 7).toFixed(2)}deg) rotateZ(${(f.p.rz + Math.cos(angle) * 2.5).toFixed(2)}deg)`
+    f.shadow.style.transform = `scale(${(1 - lift / 50).toFixed(3)})`
+  }
+}
+
+// ---------- запуск: сценарий → фильмы → слайды ----------
+// Фильмы сценария: PROMO.films = {main: {media: 'movie', id: 693134, title?, poster?, backdrop?}}. Сборка
+// (buildPromo.mjs) дописывает недостающее из TMDB в window.PROMO_RESOLVED до загрузки страницы; явные поля
+// сценария важнее. poster/backdrop — путь TMDB без «/» или полный URL.
+const tmdbUrl = (path, size) => !path ? '' : /^https?:|^data:|^\.\.?\//.test(path) ? path : `https://image.tmdb.org/t/p/${size}/${String(path).replace(/^\//, '')}${/\.\w{3,4}$/.test(path) ? '' : '.jpg'}`
+const loadScenario = () => new Promise((resolve, reject) => {
+  const script = document.createElement('script')
+  script.src = `scenarios/${SCENARIO}.js`
+  script.onload = resolve
+  script.onerror = () => reject(new Error('нет сценария ' + SCENARIO))
+  document.head.appendChild(script)
+})
+
+loadScenario().then(() => Promise.all(['500 16px Montserrat', '600 16px Montserrat', '700 16px Montserrat', '800 16px Montserrat', '900 60px Montserrat', '400 12px Inter', '500 12px Inter', '600 12px Inter', '700 12px Inter'].map(f => document.fonts.load(f)))).then(() => document.fonts.ready).then(() => {
+  const P = window.PROMO
+  const resolved = window.PROMO_RESOLVED || {films: {}, posters: []}
+  FILMS = Object.fromEntries(Object.entries(P.films || {}).map(([key, spec]) => {
+    const f = {...(resolved.films[key] || {}), ...spec}
+    return [key, {...f, title: f.title || '', poster: tmdbUrl(f.poster, 'w500'), backdrop: tmdbUrl(f.backdrop || f.poster, 'w780')}]
+  }))
+  FILM = FILMS.main || Object.values(FILMS)[0] || {title: ''}
+  COVER_POSTERS = (P.coverPosters || []).map((item, i) => typeof item === 'string' ? tmdbUrl(item, 'w500') : tmdbUrl(resolved.posters[i], 'w500')).filter(Boolean)
+  if (!COVER_POSTERS.length) COVER_POSTERS = Object.values(FILMS).map(f => f.poster).filter(Boolean)
+  SLIDES = P.slides()
+  REEL = P.reel || []
+  if (P.xfade !== undefined) XFADE = P.xfade
+  window.DURATIONS = Object.fromEntries(Object.entries(SLIDES).map(([k, s]) => [k, s.dur]))
+
+  if (mode === 'meta') {
+    // Для сборки: что рисовать и где кадры для листа проверки (пометки нарисованы, конец слайда).
+    window.promoMeta = {films: P.films || {}, coverPosters: P.coverPosters || [], stories: P.stories || [], reel: REEL, xfade: XFADE,
+      icon: Boolean(SLIDES.icon), durations: window.DURATIONS,
+      checks: Object.fromEntries(Object.entries(SLIDES).map(([k, s]) => [k, [...(s.marks || []).map(m => Math.min(s.dur - .05, m.at + 1.3)), s.dur - .05]]))}
+    window.promoReady = true
+    return
+  }
+  if (mode === 'icon') document.body.classList.add('icon')
+  const keys = mode === 'reel' ? REEL : [mode]
+  keys.forEach(buildSlide)
+  if (mode === 'reel') {
+    const starts = []
+    let acc = 0
+    for (const k of REEL) { starts.push(acc); acc += SLIDES[k].dur - XFADE }
+    window.REEL_DURATION = acc + XFADE
+    window.setTime = T => REEL.forEach((k, i) => {
+      const local = T - starts[i], dur = SLIDES[k].dur
+      const vis = local >= -XFADE && local <= dur
+      const el = built[k].el
+      el.style.display = vis ? '' : 'none'
+      if (!vis) return
+      // новый слайд проявляется поверх предыдущего
+      el.style.opacity = i === 0 ? 1 : clamp((local + XFADE) / XFADE).toFixed(3)
+      el.style.zIndex = i
+      renderSlide(k, Math.max(0, local))
+    })
+  } else {
+    window.setTime = t => renderSlide(mode, t)
+  }
+  const imgs = [...document.images]
+  Promise.all(imgs.map(img => img.complete ? 0 : new Promise(r => { img.onload = img.onerror = r })))
+    .then(() => document.fonts.ready).then(() => new Promise(r => setTimeout(r, 400)))
+    .then(() => { keys.forEach(placeMarks); window.setTime(0); window.promoReady = true })
+}).catch(error => { window.promoError = String(error?.message || error) })
+</script>
+</body>
+</html>
