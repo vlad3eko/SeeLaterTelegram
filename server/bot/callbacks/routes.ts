@@ -373,3 +373,35 @@ export const LEGACY_DELETE_ALL = defineCallback<{count: number}>({
     encode: ({count}) => `delete_all_${count}`,
     decode: match => ({count: Number(match[1] ?? 0)})
 })
+
+// ---------------------------------------------------------------------------
+// Instagram «СОХРАНИТЬ» (server/global/engine/instagram/comments/)
+// ---------------------------------------------------------------------------
+
+const UUID_HEX = /^[0-9a-f]{32}$/
+const toHex = (uuid: string) => uuid.replace(/-/g, '').toLowerCase()
+const fromHex = (hex: string) => `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+
+/** Администратор: какой фильм в новом Reel (вариант 0–2) или «Не кампания» (n). */
+export const IG_CAMPAIGN = defineCallback<{campaignId: string, choice: number | 'n'}>({
+    id: 'ig_campaign',
+    pattern: /^igc:([0-9a-f]{32}):([0-2n])$/,
+    encode: ({campaignId, choice}) => {
+        const hex = toHex(campaignId)
+        if (!UUID_HEX.test(hex)) throw new Error('[CALLBACK ig_campaign] campaignId must be uuid')
+        return `igc:${hex}:${choice}`
+    },
+    decode: match => ({campaignId: fromHex(match[1]!), choice: match[2] === 'n' ? 'n' : Number(match[2])})
+})
+
+/** Пользователь подписался на канал после перехода из Instagram: проверить и сохранить. */
+export const IG_SAVE = defineCallback<{leadId: string}>({
+    id: 'ig_save',
+    pattern: /^igs:([0-9a-f]{32})$/,
+    encode: ({leadId}) => {
+        const hex = toHex(leadId)
+        if (!UUID_HEX.test(hex)) throw new Error('[CALLBACK ig_save] leadId must be uuid')
+        return `igs:${hex}`
+    },
+    decode: match => ({leadId: fromHex(match[1]!)})
+})

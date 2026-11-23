@@ -12,7 +12,7 @@ description: Проверка «Киноманов» перед выкаткой
 ## 1. Тесты
 
 ```
-npx tsx --tsconfig tsconfig.reel-dryrun.json --test server/global/engine/notifications/tests/*.test.ts server/global/engine/collections/tests/*.test.ts server/global/publishers/tests/*.test.ts
+npx tsx --tsconfig tsconfig.reel-dryrun.json --test server/global/engine/notifications/tests/*.test.ts server/global/engine/collections/tests/*.test.ts server/global/publishers/tests/*.test.ts server/global/engine/instagram/comments/tests/*.test.ts
 ```
 
 Один тест — добавить `--test-name-pattern "<часть названия>"`. В отчёт — число пройденных и упавших;

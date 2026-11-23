@@ -15,7 +15,9 @@ import {commandHelp} from "#server/bot/commands/commandHelp";
 import {commandClear} from "#server/bot/commands/commandClear";
 import {jumpCollections, startCollections} from "#server/bot/actions/collections/collectionsActions";
 import {menuBot} from "#server/bot/handlers/commands/start/menuBot";
-import {ADMIN_STATUS, ADMIN_STATUS_QUEUE_CANCEL, ADMIN_STATUS_REEL_CANCEL, BUNDLE_LIST, LEGACY_MENU_BOT} from "#server/bot/callbacks/routes";
+import {ADMIN_STATUS, ADMIN_STATUS_QUEUE_CANCEL, ADMIN_STATUS_REEL_CANCEL, BUNDLE_LIST, IG_CAMPAIGN, IG_SAVE, LEGACY_MENU_BOT} from "#server/bot/callbacks/routes";
+import {instagramCampaignAction, instagramSaveAction, startFromInstagram} from "#server/bot/actions/instagram/instagramSave";
+import {isIgPayload} from "#server/global/engine/instagram/comments/token";
 import {bundleListAction} from "#server/bot/actions/admin/bundleListAction";
 import {showSimilarList} from "#server/bot/actions/similar/similarActions";
 import {contentTypeToTag} from "~/utils/convert/contentTypeConvert";
@@ -33,6 +35,16 @@ export function registerCommands(bot: Telegraf) {
         // Ссылка пути мастера /g («Меню › Фильмы › …»): без главного меню.
         if (typeof ctx.startPayload === 'string' && ctx.startPayload.startsWith('g_')) {
             await jumpCollections(ctx, ctx.startPayload.slice(2))
+            return
+        }
+
+        // Переход из Instagram (Direct после комментария «СОХРАНИТЬ»): сохранение фильма, без главного меню сверху.
+        if (isIgPayload(ctx.startPayload)) {
+            await startFromInstagram(ctx, ctx.startPayload)
+                .catch(async error => {
+                    console.error('[IG START]', error?.message ?? error)
+                    await ctx.reply('Не получилось сохранить фильм. Попробуйте открыть ссылку ещё раз чуть позже.').catch(() => undefined)
+                })
             return
         }
 
@@ -168,6 +180,9 @@ export function registerCommands(bot: Telegraf) {
     bot.action(ADMIN_STATUS_REEL_CANCEL.pattern, adminStatusReelCancel)
     // «📋 Показать список» под итогом судьи связок (judge/notify.ts).
     bot.action(BUNDLE_LIST.pattern, bundleListAction)
+    // Instagram «СОХРАНИТЬ»: фильм для нового Reel (администратор) и «Проверить и сохранить» (после подписки).
+    bot.action(IG_CAMPAIGN.pattern, instagramCampaignAction)
+    bot.action(IG_SAVE.pattern, instagramSaveAction)
     // Кнопки menu_bot в коде больше нет: обработчик оставлен для старых сообщений.
     bot.action(LEGACY_MENU_BOT.pattern, menuBot)
 }

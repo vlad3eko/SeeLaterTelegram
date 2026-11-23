@@ -17,7 +17,7 @@ npm run test:collections    # тесты подборок /g
 Тестов-раннера нет: тесты — `node:test`, запускаются через `tsx` с `tsconfig.reel-dryrun.json` (он задаёт алиасы `#server/*` и `~/*`). Весь набор:
 
 ```
-npx tsx --tsconfig tsconfig.reel-dryrun.json --test server/global/engine/notifications/tests/*.test.ts server/global/engine/collections/tests/*.test.ts server/global/publishers/tests/*.test.ts
+npx tsx --tsconfig tsconfig.reel-dryrun.json --test server/global/engine/notifications/tests/*.test.ts server/global/engine/collections/tests/*.test.ts server/global/publishers/tests/*.test.ts server/global/engine/instagram/comments/tests/*.test.ts
 ```
 
 Один файл — тот же вызов с одним путём; один тест — добавить `--test-name-pattern "<часть названия>"`. Линтера нет. Типы отдельных файлов проверяются `node_modules/.bin/tsc -p <tsconfig, расширяющий tsconfig.reel-dryrun.json, с include нужных файлов>` (Nitro-авто-импорты вроде `defineEventHandler` так не видны).
@@ -42,6 +42,7 @@ npx tsx --tsconfig tsconfig.reel-dryrun.json --test server/global/engine/notific
 - **Подборки `/g`** — `server/global/engine/collections/` (TMDB с кэшем, связки, люди, именинники) и экраны мастера `server/bot/actions/collections/`. Связки считает GitHub Actions `collection-bundles.yml` (пн и чт 05:00 UTC), обложки экранов — `collection-covers.yml` (`scripts/covers/`, шаблон `template.html`, MP4 → `collection_covers`).
 - **Уведомления по сохранённым** — `server/global/engine/notifications/`. `detect.ts`: каждый тайтл из `favorites` проверяется один раз на всех (`media_watch`), события в `media_events` с уникальным `event_key`; первая проверка — снимок без событий, переносы и постеры подтверждаются второй проверкой. `snapshot.ts` — чистые функции сравнения и частоты проверок. `digest.ts` — чистая сборка сводки. `digestJob.ts` — очередь `digest_deliveries`: подготовка с 09:00 МСК частями, рассылка с 10:00, статус `sending` до отправки (без дублей). Таймер — `server/api/bot/notifications/tick.ts` (Cloud Scheduler каждые 30 мин, общий лимит запуска, при нехватке времени сам перезапускается). `NOTIFICATIONS_DIGEST=all|admin|off`.
 - **Reels** — Vercel ставит задачу в `reel_processing_jobs` (одна запись на фильм) и запускает Cloud Run Job `kinomanov-reel-worker` (`workers/reel-worker`, импортирует код из `server/` через алиас `#server`); воркер собирает ролик и отчитывается на `/api/bot/reelJobs/*`, финализатор на Vercel публикует в канал и Instagram. Подробности и выкатка образа — `TASKS.md`.
+- **Instagram «СОХРАНИТЬ»** — `server/global/engine/instagram/comments/`: таймер `/api/bot/instagram/tick` (Scheduler, 5 мин) опрашивает комментарии Reels (webhook на Reels Meta не шлёт), отвечает в Direct ссылкой `?start=ig_<токен>`; ветка `ig_` в `bot.start` привязывает `users.instagram_id` и сохраняет фильм через `createFavorite`. Режим — `INSTAGRAM_COMMENTS=off|log|send`, подробности в `TASKS.md`.
 - **Очередь YouTube** — `server/global/engine/youtube/` (`youtube_publish_queue`, слоты публикации), запускается своим таймером Scheduler.
 - **`/status`** — панель администратора `server/bot/actions/admin/status/adminStatus.ts`.
 

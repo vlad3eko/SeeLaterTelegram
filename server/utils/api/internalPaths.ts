@@ -8,7 +8,9 @@
 //  - youtubeQueue/tick: `Authorization: Bearer CRON_SECRET` (таймер очереди YouTube)
 //  - notifications/tick: `Authorization: Bearer CRON_SECRET` (таймер сводки по сохранённым)
 //  - trailerDelivery: подпись HMAC от токена бота, которую воркер Cloud Run получил при запуске
+//  - instagram/tick: `Authorization: Bearer CRON_SECRET` (таймер Instagram «СОХРАНИТЬ»)
 const PUBLIC_BOT_PATHS = new Set([
+    '/api/bot/instagram/tick',
     '/api/bot/webhook',
     '/api/bot/reeljobs/finalize',
     '/api/bot/reeljobs/progress',
