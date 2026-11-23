@@ -1,5 +1,5 @@
 import {isMissingTable} from '#server/global/engine/collections/trailers'
-import {discoverReels} from '#server/global/engine/instagram/comments/campaigns'
+import {autoApproveCampaigns, discoverReels} from '#server/global/engine/instagram/comments/campaigns'
 import {accountFailure, instagramUsage} from '#server/global/engine/instagram/comments/graph'
 import {igCommentsMode} from '#server/global/engine/instagram/comments/plan'
 import {pollCampaigns} from '#server/global/engine/instagram/comments/poll'
@@ -19,6 +19,8 @@ export const runInstagramTick = async (supabase: any, telegram: any, now: Date, 
         // Новые Reels — раз в 10 минут: дальше всё равно ждём решения администратора, а запрос
         // списка медиа тратит тот же лимит, что и опрос.
         if (now.getUTCMinutes() % 10 === 0) result.discover = await discoverReels(supabase, telegram, now)
+        // Без ответа администратора 5 минут — кампания включается сама (только база, к Meta не ходит).
+        result.autoApproved = await autoApproveCampaigns(supabase, telegram, now, mode)
         if (Date.now() < deadline) result.poll = await pollCampaigns(supabase, now, {deadline, mode})
         if (mode === 'send' && Date.now() < deadline) result.send = await sendQueued(supabase, telegram, now, {deadline})
         if (now.getUTCMinutes() < 5 && now.getUTCHours() === 1) await forgetOldLeads(supabase, now)

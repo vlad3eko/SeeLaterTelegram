@@ -7,7 +7,8 @@ import {igCommentsMode, rankCandidates, REPLY_WINDOW_MS, type Candidate, type Jo
 /**
  * Кампании «СОХРАНИТЬ»: Reel ↔ фильм. Reels выкладываются вручную (reelTarget = telegram_manual),
  * id Reel в задаче нет — таймер находит новые Reels аккаунта сам и спрашивает администратора,
- * какой это фильм (варианты — по подписи из reel_processing_jobs). Без подтверждения Direct не уходит.
+ * тот ли это фильм (лучший вариант по подписи из reel_processing_jobs): «Да» / «Нет». Нет ответа 5 минут —
+ * включается само с этим фильмом (решение владельца 23.11: «СОХРАНИТЬ» работает под каждым Reel).
  */
 export type CampaignRow = {
     id: string
@@ -37,26 +38,27 @@ const loadRecentJobs = async (supabase: any): Promise<Array<JobForMatch & {title
     return (data ?? []).map((job: any) => ({...job, title: jobTitle(job)}))
 }
 
+/** Через сколько без ответа администратора кампания включается сама. */
+export const AUTO_APPROVE_MS = 5 * 60_000
+
 export const campaignAdminText = (campaign: Pick<CampaignRow, 'permalink' | 'published_at' | 'candidates'>, mode = igCommentsMode()): string => {
     const when = campaign.published_at ? new Date(campaign.published_at).toLocaleString('ru-RU', {timeZone: 'Europe/Moscow', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit'}) : ''
+    const candidate = campaign.candidates[0]
     return [
         `📸 Новый Reel в Instagram${when ? ` (${when})` : ''}`,
         ...(campaign.permalink ? [campaign.permalink] : []),
         '',
-        campaign.candidates.length
-            ? (mode === 'send'
-                ? 'Какой это фильм? После подтверждения на комментарии «СОХРАНИТЬ» под ним будет уходить ссылка в Direct.'
-                : 'Какой это фильм? Сейчас режим log: комментарии «СОХРАНИТЬ» только записываются, Direct не уходит.')
-            : 'Фильм по подписи не нашёлся. Если это не кампания «СОХРАНИТЬ» — нажмите кнопку.'
+        candidate
+            ? `Это «${candidate.title}»? Без ответа через 5 минут «СОХРАНИТЬ» включится само.${mode === 'log' ? ' (Режим log: комментарии только записываются.)' : ''}`
+            : 'Фильм по подписи не нашёлся — «СОХРАНИТЬ» под этим Reel не включится.'
     ].join('\n')
 }
 
-export const campaignAdminKeyboard = (campaign: Pick<CampaignRow, 'id' | 'candidates'>) => Markup.inlineKeyboard([
-    ...campaign.candidates.map((candidate, index) => [Markup.button.callback(
-        `✅ ${candidate.title}`.slice(0, 60), IG_CAMPAIGN.encode({campaignId: campaign.id, choice: index})
-    )]),
-    [Markup.button.callback('🚫 Не кампания', IG_CAMPAIGN.encode({campaignId: campaign.id, choice: 'n'}))]
-])
+/** «Да» — лучший вариант фильма (choice 0), «Нет» — Reel без «СОХРАНИТЬ». */
+export const campaignAdminKeyboard = (campaign: Pick<CampaignRow, 'id' | 'candidates'>) => Markup.inlineKeyboard([[
+    ...(campaign.candidates.length ? [Markup.button.callback('✅ Да', IG_CAMPAIGN.encode({campaignId: campaign.id, choice: 0}))] : []),
+    Markup.button.callback('🚫 Нет', IG_CAMPAIGN.encode({campaignId: campaign.id, choice: 'n'}))
+]])
 
 /** Новые Reels за последние 7 дней → pending-кампании; администратору — вопрос с кнопками. */
 export const discoverReels = async (supabase: any, telegram: any, now: Date): Promise<{found: number, error?: string}> => {
@@ -147,13 +149,41 @@ export const decideCampaign = async (supabase: any, campaignId: string, choice: 
     return {text: decidedText(fresh ?? campaign, mode)}
 }
 
-/** Текст сообщения администратору по состоянию кампании. */
-export const decidedText = (campaign: {status: string, title?: string | null, permalink?: string | null}, mode = igCommentsMode()): string => {
+/**
+ * Нет ответа администратора AUTO_APPROVE_MS после вопроса — кампания включается с лучшим вариантом фильма.
+ * Время вопроса — updated_at (askAdmin ставит его вместе с admin_message_id). Без вариантов фильма не включаем.
+ * Условное обновление из pending: параллельное нажатие «Нет» или второй тик не включат дважды.
+ */
+export const autoApproveCampaigns = async (supabase: any, telegram: any, now: Date, mode = igCommentsMode()): Promise<number> => {
+    const {data, error} = await supabase.from('instagram_campaigns')
+        .select('id,permalink,candidates,admin_message_id')
+        .eq('status', 'pending').gt('admin_message_id', 0)
+        .lt('updated_at', new Date(now.getTime() - AUTO_APPROVE_MS).toISOString())
+        .limit(50)
+    if (error) throw error
+    let approved = 0
+    for (const campaign of data ?? []) {
+        const candidate = (campaign.candidates as Candidate[] | null)?.[0]
+        if (!candidate) continue
+        const nowIso = now.toISOString()
+        const {data: updated, error: updateError} = await supabase.from('instagram_campaigns')
+            .update({status: 'active', media_id: candidate.mediaId, media_type: candidate.mediaType, title: candidate.title, next_poll_at: nowIso, updated_at: nowIso})
+            .eq('id', campaign.id).eq('status', 'pending').select('id,status,title,permalink')
+        if (updateError) throw updateError
+        if (!updated?.length) continue
+        approved++
+        await telegram.editMessageText(ADMIN_TELEGRAM_ID, campaign.admin_message_id, undefined, decidedText(updated[0], mode, {auto: true}), {
+            link_preview_options: {is_disabled: true}
+        }).catch((error: any) => console.warn('[IG CAMPAIGN] сообщение администратору не обновлено', error?.response?.description ?? error?.message ?? error))
+    }
+    return approved
+}
+
+/** Итог вместо вопроса — одной строкой и ссылкой. */
+export const decidedText = (campaign: {status: string, title?: string | null, permalink?: string | null}, mode = igCommentsMode(), {auto = false}: {auto?: boolean} = {}): string => {
     const link = campaign.permalink ?? ''
-    if (campaign.status === 'ignored') return `🚫 Reel не участвует в «СОХРАНИТЬ»\n${link}`
+    if (campaign.status === 'ignored') return `🚫 Без «СОХРАНИТЬ»\n${link}`
     if (campaign.status === 'completed') return `🏁 «СОХРАНИТЬ» по «${campaign.title ?? 'Reel'}» завершено\n${link}`
-    if (campaign.status === 'active') return `✅ «СОХРАНИТЬ» включено: «${campaign.title}»\n${link}\n` + (mode === 'send'
-        ? 'Комментарии, оставленные раньше, тоже получат ответ (если им меньше 7 дней).'
-        : 'Режим log: комментарии записываются без Direct. После включения send ответ получат только новые комментарии.')
+    if (campaign.status === 'active') return `✅ «${campaign.title}» — «СОХРАНИТЬ» включено${auto ? ' (без ответа за 5 минут)' : ''}${mode === 'log' ? ', режим log' : ''}\n${link}`
     return `📸 Reel ждёт решения\n${link}`
 }

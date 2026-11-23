@@ -245,11 +245,13 @@ test('тексты: новую ссылку не обещаем, «уже в к�
 test('кампания: текст администратору по режиму и состоянию', async () => {
     const {campaignAdminText, decidedText} = await import('../campaigns')
     const campaign = {permalink: 'https://instagram.com/reel/x', published_at: null, candidates: [{mediaId: 1, mediaType: 'movie' as const, title: 'Дюна'}]}
-    assert.match(campaignAdminText(campaign, 'send'), /будет уходить ссылка в Direct/)
-    assert.match(campaignAdminText(campaign, 'log'), /режим log/)
-    assert.match(decidedText({status: 'active', title: 'Дюна'}, 'log'), /только новые комментарии/)
-    assert.match(decidedText({status: 'active', title: 'Дюна'}, 'send'), /тоже получат ответ/)
-    assert.match(decidedText({status: 'ignored'}), /не участвует/)
+    assert.match(campaignAdminText(campaign, 'send'), /Это «Дюна»\? Без ответа через 5 минут «СОХРАНИТЬ» включится само\.$/)
+    assert.match(campaignAdminText(campaign, 'log'), /Режим log/)
+    assert.match(campaignAdminText({...campaign, candidates: []}, 'send'), /не нашёлся/)
+    assert.equal(decidedText({status: 'active', title: 'Дюна', permalink: 'L'}, 'send'), '✅ «Дюна» — «СОХРАНИТЬ» включено\nL')
+    assert.equal(decidedText({status: 'active', title: 'Дюна', permalink: 'L'}, 'send', {auto: true}), '✅ «Дюна» — «СОХРАНИТЬ» включено (без ответа за 5 минут)\nL')
+    assert.match(decidedText({status: 'active', title: 'Дюна'}, 'log'), /режим log/)
+    assert.match(decidedText({status: 'ignored'}), /Без «СОХРАНИТЬ»/)
     assert.match(decidedText({status: 'completed', title: 'Дюна'}), /завершено/)
 })
 
@@ -335,4 +337,40 @@ test('расход лимита Instagram из заголовка: наибол�
     assert.equal(parseBucUsage(null), null)
     assert.equal(parseBucUsage('не json'), null)
     assert.equal(parseBucUsage('{}'), null)
+})
+
+test('кампания без ответа 5 минут включается сама с лучшим вариантом; без вариантов и уже решённая — нет', async () => {
+    const {autoApproveCampaigns} = await import('../campaigns')
+    const rows = [
+        {id: 'a', permalink: 'LA', admin_message_id: 11, candidates: [{mediaId: 1, mediaType: 'movie', title: 'Дюна'}, {mediaId: 2, mediaType: 'tv', title: 'Шогун'}]},
+        {id: 'b', permalink: 'LB', admin_message_id: 12, candidates: []},
+        {id: 'c', permalink: 'LC', admin_message_id: 13, candidates: [{mediaId: 3, mediaType: 'movie', title: 'Чужой'}]}
+    ]
+    const filters: Array<[string, unknown]> = []
+    const updates: Array<{id: unknown, fields: any}> = []
+    let pendingId: unknown
+    const chain: any = {
+        select: () => chain, limit: async () => ({data: rows, error: null}),
+        eq: (column: string, value: unknown) => { filters.push([column, value]); if (column === 'id') pendingId = value; return chain },
+        gt: (column: string, value: unknown) => { filters.push([column, value]); return chain },
+        lt: (column: string, value: unknown) => { filters.push([column, value]); return chain },
+        update: (fields: any) => ({
+            eq: (_c: string, id: unknown) => ({eq: () => ({select: async () => {
+                updates.push({id, fields})
+                // «c» уже решили нажатием — условное обновление ничего не меняет.
+                return {data: id === 'c' ? [] : [{id, status: 'active', title: fields.title, permalink: 'LA'}], error: null}
+            }})})
+        })
+    }
+    const edited: Array<[unknown, string]> = []
+    const telegram = {editMessageText: async (_chat: unknown, messageId: unknown, _i: unknown, text: string) => { edited.push([messageId, text]) }}
+    const now = new Date('2026-11-23T12:00:00Z')
+    const approved = await autoApproveCampaigns({from: () => chain}, telegram, now, 'send')
+    assert.equal(approved, 1)
+    assert.deepEqual(updates.map(u => u.id), ['a', 'c'])
+    assert.equal(updates[0]!.fields.title, 'Дюна')
+    assert.equal(updates[0]!.fields.media_type, 'movie')
+    assert.deepEqual(edited, [[11, '✅ «Дюна» — «СОХРАНИТЬ» включено (без ответа за 5 минут)\nLA']])
+    assert.deepEqual(filters.find(([column]) => column === 'updated_at'), ['updated_at', '2026-11-23T11:55:00.000Z'])
+    void pendingId
 })
