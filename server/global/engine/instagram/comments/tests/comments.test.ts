@@ -262,3 +262,36 @@ test('ошибка токена или прав из любого шага — �
     assert.equal(accountFailure({discover: {error: 'token HTTP 0: нет INSTAGRAM_ACCESS_TOKEN'}}), 'token HTTP 0: нет INSTAGRAM_ACCESS_TOKEN')
     assert.equal(accountFailure({send: {accountError: 'token HTTP 401 code=190: x'}}), 'token HTTP 401 code=190: x')
 })
+
+test('вебхук: проверка подписки — только наш токен и mode=subscribe', async () => {
+    const {verifySubscription} = await import('../webhook')
+    assert.equal(verifySubscription({'hub.mode': 'subscribe', 'hub.verify_token': 'abc', 'hub.challenge': '42'}, 'abc'), '42')
+    assert.equal(verifySubscription({'hub.mode': 'subscribe', 'hub.verify_token': 'abd', 'hub.challenge': '42'}, 'abc'), null)
+    assert.equal(verifySubscription({'hub.mode': 'unsubscribe', 'hub.verify_token': 'abc', 'hub.challenge': '42'}, 'abc'), null)
+    assert.equal(verifySubscription({'hub.mode': 'subscribe', 'hub.verify_token': '', 'hub.challenge': '42'}, undefined), null)
+})
+
+test('вебхук: подпись sha256 — подходит любой из двух секретов, чужая и пустая отклоняются', async () => {
+    const {createHmac} = await import('node:crypto')
+    const {signatureValid} = await import('../webhook')
+    const body = '{"object":"instagram"}'
+    const sign = (secret: string) => 'sha256=' + createHmac('sha256', secret).update(body).digest('hex')
+    assert.equal(signatureValid(body, sign('ig'), ['ig', 'meta']), true)
+    assert.equal(signatureValid(body, sign('meta'), [undefined, 'meta']), true)
+    assert.equal(signatureValid(body, sign('other'), ['ig', 'meta']), false)
+    assert.equal(signatureValid(body, undefined, ['ig']), false)
+    assert.equal(signatureValid(body, sign('ig'), [undefined, undefined]), false)
+    assert.equal(signatureValid(body + ' ', sign('ig'), ['ig']), false)
+})
+
+test('вебхук: Reels с «СОХРАНИТЬ» — без своих ответов, других полей и дублей', async () => {
+    const {keywordMediaIds} = await import('../webhook')
+    const change = (media: string, text: string, from = 'u1', field = 'comments') => ({field, value: {id: 'c' + Math.random(), text, from: {id: from}, media: {id: media}}})
+    const payload = {object: 'instagram', entry: [{id: 'acc', changes: [
+        change('r1', 'Сохранить!'), change('r1', 'хочу сохранить'), change('r2', 'сохранила'),
+        change('r3', 'Сохранить', 'acc'), change('r4', 'Сохранить', 'u2', 'mentions')
+    ]}, {changes: [change('r5', 'сохранить 🔥')]}]}
+    assert.deepEqual(keywordMediaIds(payload, 'acc'), ['r1', 'r5'])
+    assert.deepEqual(keywordMediaIds({}, 'acc'), [])
+    assert.deepEqual(keywordMediaIds({entry: [{changes: [{field: 'comments', value: {text: 'сохранить'}}]}]}, 'acc'), [])
+})
