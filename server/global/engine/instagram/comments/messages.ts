@@ -53,8 +53,13 @@ export const savedCommentReply = (): string =>
 export const TELEGRAM_LINKED_TEXT =
     '📸 Instagram-аккаунт привязан к этому Telegram. Теперь фильмы из наших Reels будут сохраняться сразу — достаточно написать «СОХРАНИТЬ» в комментариях.'
 
-export const TELEGRAM_SUBSCRIBE_TEXT = (title: string | null) =>
-    `Почти готово! Чтобы сохранить «${shortTitle(title)}», подпишитесь на канал Киноманов, затем нажмите «Проверить и сохранить».`
+/** `channels` — готовые строки списка каналов (channelLines в server/bot/handlers/channel/requiredChannels.ts). */
+export const TELEGRAM_SUBSCRIBE_TEXT = (title: string | null, channels: string) =>
+    `Почти готово! Чтобы сохранить «${shortTitle(title)}», подпишитесь на наши каналы:\n\n${channels}\n\n` +
+    'Как только подпишетесь, фильм сохранится сам — возвращаться и нажимать ничего не нужно.'
+
+export const TELEGRAM_ONE_MORE_TEXT = (channels: string) =>
+    `Спасибо за подписку! Остался ещё один канал:\n\n${channels}`
 
 export const TELEGRAM_EXPIRED_TEXT =
     'Ссылка устарела или уже использована. Напишите «СОХРАНИТЬ» под нашим Reel ещё раз — пришлём новую.'

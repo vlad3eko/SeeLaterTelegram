@@ -24,6 +24,12 @@ export const URL_ACTIVE =
         ? 'http://127.0.0.1:3000'
         : 'https://kinomanov.net'
 
+/** Update, которые бот получает; тот же список — в scripts/setTelegramWebhook.mjs. */
+export const BOT_ALLOWED_UPDATES = [
+    'message', 'edited_message', 'channel_post', 'edited_channel_post', 'inline_query', 'chosen_inline_result',
+    'callback_query', 'my_chat_member', 'chat_member', 'chat_join_request'
+]
+
 export const bot = new Telegraf(BOT_LINK!, {
     handlerTimeout: 5 * 60 * 1000
 })
@@ -34,6 +40,7 @@ registerHandlers(bot)
 
 if (isDevelopment) {
 
-    bot.launch().catch(console.error)
+    // chat_member Telegram шлёт только если он назван явно (как allowed_updates вебхука).
+    bot.launch({allowedUpdates: BOT_ALLOWED_UPDATES as any}).catch(console.error)
     console.log('[BOT START DEVELOPMENT]')
 }

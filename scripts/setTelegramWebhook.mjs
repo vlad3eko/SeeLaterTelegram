@@ -7,6 +7,7 @@
 // server/api/bot/webhook.post.ts. Токен и секрет в вывод не попадают.
 //
 // Старый код на Vercel заголовок игнорирует, поэтому скрипт безопасно запускать до пуша.
+// Передаёт allowed_updates с chat_member (подписка на каналы); старый код такие update просто не обрабатывает.
 // Повторный запуск безопасен.
 
 import {createHmac} from 'node:crypto'
@@ -54,9 +55,16 @@ if (before.result.last_error_message) {
     console.log('Последняя ошибка Telegram:', before.result.last_error_message)
 }
 
-const payload = {url, secret_token: secret}
+// Тот же список — BOT_ALLOWED_UPDATES в server/bot/bot.ts. chat_member Telegram шлёт, только если он
+// назван явно: по нему бот видит подписку на обязательные каналы (server/bot/handlers/channel/onChannelMember.ts).
+const ALLOWED_UPDATES = [
+    'message', 'edited_message', 'channel_post', 'edited_channel_post', 'inline_query', 'chosen_inline_result',
+    'callback_query', 'my_chat_member', 'chat_member', 'chat_join_request',
+]
 
-// Сохраняем прежние настройки подключения; allowed_updates не передаём: Telegram оставит прежние.
+const payload = {url, secret_token: secret, allowed_updates: ALLOWED_UPDATES}
+
+// Сохраняем прежние настройки подключения.
 if (before.result.max_connections) payload.max_connections = before.result.max_connections
 if (before.result.ip_address) payload.ip_address = before.result.ip_address
 

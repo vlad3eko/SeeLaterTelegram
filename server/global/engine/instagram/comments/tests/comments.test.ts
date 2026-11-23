@@ -120,3 +120,30 @@ test('кнопки: uuid туда и обратно, до 64 байт', () => {
     const save = IG_SAVE.encode({leadId: id})
     assert.deepEqual(IG_SAVE.decode(save.match(IG_SAVE.pattern)!), {leadId: id})
 })
+
+test('обязательные каналы: подписка на оба, канал из апдейта, строки списка', async () => {
+    const {missingChannels, requiredChannelByUsername, channelLines, isMemberStatus} = await import('#server/bot/handlers/channel/requiredChannels')
+    const {REQUIRED_CHANNELS} = await import('#server/global/oneLinkApp')
+    const {TELEGRAM_SUBSCRIBE_TEXT} = await import('../messages')
+    const fake = (statuses: Record<string, string | Error>) => ({
+        getChatMember: async (chat: string) => {
+            const status = statuses[chat]
+            if (status instanceof Error) throw status
+            return {status}
+        }
+    })
+    assert.equal(REQUIRED_CHANNELS.length, 2)
+    assert.deepEqual(await missingChannels(fake({'@kinomanovnet': 'member', '@Zerno_Kopeica': 'administrator'}), 1), [])
+    assert.deepEqual((await missingChannels(fake({'@kinomanovnet': 'member', '@Zerno_Kopeica': 'left'}), 1)).map(c => c.chat), ['@Zerno_Kopeica'])
+    assert.deepEqual((await missingChannels(fake({'@kinomanovnet': new Error('400'), '@Zerno_Kopeica': 'kicked'}), 1)).length, 2)
+    assert.equal(requiredChannelByUsername('zerno_kopeica')?.chat, '@Zerno_Kopeica')
+    assert.equal(requiredChannelByUsername('kinomanovnet')?.chat, '@kinomanovnet')
+    assert.equal(requiredChannelByUsername('other'), undefined)
+    assert.equal(isMemberStatus('restricted', true), true)
+    assert.equal(isMemberStatus('restricted', false), false)
+    assert.equal(isMemberStatus('left'), false)
+    const lines = channelLines([REQUIRED_CHANNELS[1]])
+    assert.match(lines, /^✅ 🎬 Киноманов — новые фильмы/)
+    assert.match(lines, /\n• 👨‍💻 Канал разработчика/)
+    assert.match(TELEGRAM_SUBSCRIBE_TEXT('Дюна', lines), /фильм сохранится сам/)
+})

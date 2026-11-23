@@ -1,6 +1,6 @@
 import {createFavorite} from '#server/bot/services/supabase/addFavorite'
 import {tmdbFetch} from '#server/utils/api/tmdbFetch'
-import {TELEGRAM_CHANEL_LINK} from '#server/global/oneLinkApp'
+import {isSubscribedToAll} from '#server/bot/handlers/channel/requiredChannels'
 import type {IgMediaType} from '#server/global/engine/instagram/comments/messages'
 
 /**
@@ -33,15 +33,8 @@ export const saveTitleForUser = async (supabase: any, {userId, mediaId, mediaTyp
     return 'saved'
 }
 
-/** Подписка на канал по Telegram id — как checkChannelSubscriber, но без контекста апдейта. */
-export const isChannelMember = async (telegram: any, telegramId: number): Promise<boolean> => {
-    try {
-        const member = await telegram.getChatMember(TELEGRAM_CHANEL_LINK, telegramId)
-        return ['member', 'administrator', 'creator'].includes(member.status)
-    } catch {
-        return false
-    }
-}
+/** Подписка на все обязательные каналы по Telegram id — как checkChannelSubscriber, но без контекста апдейта. */
+export const isChannelMember = (telegram: any, telegramId: number): Promise<boolean> => isSubscribedToAll(telegram, telegramId)
 
 /** Пользователь бота по Telegram id (строку создаёт saveTelegramUser при /start). */
 export const userByTelegramId = async (supabase: any, telegramId: number): Promise<{id: number} | null> => {

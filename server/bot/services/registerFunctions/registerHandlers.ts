@@ -7,6 +7,7 @@ import {getAdminEditSession} from "#server/bot/actions/admin/adminEditSession";
 import {registerHears} from "#server/bot/handlers/registerHears";
 import {searchMediaInline} from "#server/global/module/telegram/search/process/searchMediaInline";
 import {chosenCard} from "#server/global/module/telegram/search/process/chosenCard";
+import {onChannelMember} from "#server/bot/handlers/channel/onChannelMember";
 
 export function registerHandlers(bot: Telegraf) {
 
@@ -38,5 +39,7 @@ export function registerHandlers(bot: Telegraf) {
 
     bot.on('inline_query', searchMediaInline)
     bot.on('chosen_inline_result', chosenCard)
+    // Подписка/отписка в обязательных каналах: автопродолжение без «Проверить подписку».
+    bot.on('chat_member', (ctx) => onChannelMember(ctx).catch(error => console.error('[CHANNEL MEMBER]', error?.message ?? error)))
 
 }
