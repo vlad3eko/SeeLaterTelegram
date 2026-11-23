@@ -21,7 +21,8 @@ export async function probeInstagramVideo(inputPath: string, ffprobePath = proce
   const durationSeconds = Number(parsed.format?.duration);
   const parseRate = (value?: string): number => {
     if (!value) return Number.NaN;
-    const [numerator, denominator] = value.split('/').map(Number);
+    // «30000/1001» или просто «30».
+    const [numerator = Number.NaN, denominator = 1] = value.split('/').map(Number);
     if (!Number.isFinite(numerator) || !Number.isFinite(denominator) || denominator <= 0) return Number.NaN;
     return numerator / denominator;
   };
