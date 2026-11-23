@@ -131,7 +131,10 @@ test('варианты фильма для Reel: похожая подпись �
         {media_id: 3, media_type: 'tv' as const, instagram_caption: 'Дюна пророчество', published_at: at(5 * 24 * 60)}
     ]
     const ranked = rankCandidates({caption: 'Дюна: Пророчество — трейлер сериала', timestamp: NOW.toISOString()}, jobs, job => `t${job.media_id}`)
-    assert.deepEqual(ranked.map(candidate => candidate.mediaId), [1, 2])
+    // «Новый Бэтмен…» совпадает одним словом из четырёх — меньше половины, это не тот ролик.
+    assert.deepEqual(ranked.map(candidate => candidate.mediaId), [1])
+    assert.equal(ranked[0]!.source, 'caption')
+    assert.deepEqual(rankCandidates({caption: 'Совсем другой текст про кино', timestamp: NOW.toISOString()}, jobs, job => `t${job.media_id}`), [])
     assert.ok(captionSimilarity('a b c', '') === 0)
 })
 
@@ -244,12 +247,16 @@ test('тексты: новую ссылку не обещаем, «уже в к�
 
 test('кампания: текст администратору по режиму и состоянию', async () => {
     const {campaignAdminText, decidedText} = await import('../campaigns')
-    const campaign = {permalink: 'https://instagram.com/reel/x', published_at: null, candidates: [{mediaId: 1, mediaType: 'movie' as const, title: 'Дюна'}]}
-    assert.match(campaignAdminText(campaign, 'send'), /Это «Дюна»\? Без ответа через 5 минут «СОХРАНИТЬ» включится само\.$/)
+    const campaign = {permalink: 'https://instagram.com/reel/x', published_at: null, candidates: [{mediaId: 1, mediaType: 'movie' as const, title: 'Дюна', source: 'caption' as const}]}
+    const hint = 'Не тот фильм — ответьте на это сообщение названием или ссылкой TMDB.'
+    assert.ok(campaignAdminText(campaign, 'send').endsWith(`Это «Дюна»? Без ответа через 5 минут «СОХРАНИТЬ» включится само.\n${hint}`))
+    // Вариант из TMDB — с типом и годом; старый вариант без source — без обещания включиться само.
+    assert.match(campaignAdminText({...campaign, candidates: [{mediaId: 1, mediaType: 'tv', title: 'Шогун', year: '2024', source: 'search'}]}, 'send'), /Это «Шогун» \(сериал, 2024, по TMDB\)\? Без ответа/)
+    assert.doesNotMatch(campaignAdminText({...campaign, candidates: [{mediaId: 1, mediaType: 'movie', title: 'Дюна'}]}, 'send'), /включится само/)
     assert.match(campaignAdminText(campaign, 'log'), /Режим log/)
-    assert.match(campaignAdminText({...campaign, candidates: []}, 'send'), /не нашёлся/)
-    assert.equal(decidedText({status: 'active', title: 'Дюна', permalink: 'L'}, 'send'), '✅ «Дюна» — «СОХРАНИТЬ» включено\nL')
-    assert.equal(decidedText({status: 'active', title: 'Дюна', permalink: 'L'}, 'send', {auto: true}), '✅ «Дюна» — «СОХРАНИТЬ» включено (без ответа за 5 минут)\nL')
+    assert.match(campaignAdminText({...campaign, candidates: []}, 'send'), /не нашёлся\.\nОтветьте на это сообщение названием фильма или ссылкой TMDB/)
+    assert.equal(decidedText({status: 'active', title: 'Дюна', permalink: 'L'}, 'send'), `✅ «Дюна» — «СОХРАНИТЬ» включено\nL\n${hint}`)
+    assert.equal(decidedText({status: 'active', title: 'Дюна', permalink: 'L'}, 'send', {auto: true}), `✅ «Дюна» — «СОХРАНИТЬ» включено (без ответа за 5 минут)\nL\n${hint}`)
     assert.match(decidedText({status: 'active', title: 'Дюна'}, 'log'), /режим log/)
     assert.match(decidedText({status: 'ignored'}), /Без «СОХРАНИТЬ»/)
     assert.match(decidedText({status: 'completed', title: 'Дюна'}), /завершено/)
@@ -342,9 +349,11 @@ test('расход лимита Instagram из заголовка: наибол�
 test('кампания без ответа 5 минут включается сама с лучшим вариантом; без вариантов и уже решённая — нет', async () => {
     const {autoApproveCampaigns} = await import('../campaigns')
     const rows = [
-        {id: 'a', permalink: 'LA', admin_message_id: 11, candidates: [{mediaId: 1, mediaType: 'movie', title: 'Дюна'}, {mediaId: 2, mediaType: 'tv', title: 'Шогун'}]},
+        {id: 'a', permalink: 'LA', admin_message_id: 11, candidates: [{mediaId: 1, mediaType: 'movie', title: 'Дюна', source: 'caption'}, {mediaId: 2, mediaType: 'tv', title: 'Шогун', source: 'caption'}]},
         {id: 'b', permalink: 'LB', admin_message_id: 12, candidates: []},
-        {id: 'c', permalink: 'LC', admin_message_id: 13, candidates: [{mediaId: 3, mediaType: 'movie', title: 'Чужой'}]}
+        {id: 'c', permalink: 'LC', admin_message_id: 13, candidates: [{mediaId: 3, mediaType: 'movie', title: 'Чужой', source: 'search'}]},
+        // Старый вариант без source (подпись могла не совпадать вовсе) — сам не включается, ждёт ответа.
+        {id: 'd', permalink: 'LD', admin_message_id: 14, candidates: [{mediaId: 4, mediaType: 'tv', title: 'Презумпция невиновности'}]}
     ]
     const filters: Array<[string, unknown]> = []
     const updates: Array<{id: unknown, fields: any}> = []
@@ -370,7 +379,37 @@ test('кампания без ответа 5 минут включается с�
     assert.deepEqual(updates.map(u => u.id), ['a', 'c'])
     assert.equal(updates[0]!.fields.title, 'Дюна')
     assert.equal(updates[0]!.fields.media_type, 'movie')
-    assert.deepEqual(edited, [[11, '✅ «Дюна» — «СОХРАНИТЬ» включено (без ответа за 5 минут)\nLA']])
+    assert.deepEqual(edited, [[11, '✅ «Дюна» — «СОХРАНИТЬ» включено (без ответа за 5 минут)\nLA\nНе тот фильм — ответьте на это сообщение названием или ссылкой TMDB.']])
     assert.deepEqual(filters.find(([column]) => column === 'updated_at'), ['updated_at', '2026-11-23T11:55:00.000Z'])
     void pendingId
+})
+
+test('Reel мимо бота: название из кавычек, тип по слову, ссылка TMDB, выдача поиска', async () => {
+    const {captionTitles, captionMediaType, parseTmdbReference, pickSearchResults} = await import('../plan')
+    assert.deepEqual(captionTitles('📅 Ждёте фильм «Новая эра»? Премьера — 3 декабря. Режиссёр «Дюны» снова…'), ['Новая эра', 'Дюны'])
+    assert.deepEqual(captionTitles('без кавычек'), [])
+    assert.deepEqual(captionTitles(null), [])
+    assert.equal(captionMediaType('👀 «Презумпция невиновности»: второй сезон выйдет'), 'tv')
+    assert.equal(captionMediaType('📅 Ждёте фильм «Новая эра»?'), 'movie')
+    assert.equal(captionMediaType('«Что-то»'), null)
+
+    assert.deepEqual(parseTmdbReference('https://www.themoviedb.org/movie/1408207-new-era?language=ru'), {mediaType: 'movie', mediaId: 1408207})
+    assert.deepEqual(parseTmdbReference('вот themoviedb.org/tv/1399-game-of-thrones'), {mediaType: 'tv', mediaId: 1399})
+    assert.deepEqual(parseTmdbReference('сериал 1399'), {mediaType: 'tv', mediaId: 1399})
+    assert.deepEqual(parseTmdbReference('movie 27205'), {mediaType: 'movie', mediaId: 27205})
+    assert.equal(parseTmdbReference('Новая эра'), null)
+    assert.equal(parseTmdbReference('1399'), null)
+
+    const results = [
+        {id: 1, media_type: 'person', name: 'Актёр'},
+        {id: 2, media_type: 'movie', title: 'Новая эра', release_date: '2026-12-03'},
+        {id: 3, media_type: 'tv', name: 'Новая эра', first_air_date: '2019-05-01'},
+        {id: 4, media_type: 'movie', title: 'Новая эра 2', release_date: ''},
+        {id: 5, media_type: 'movie', title: 'Ещё', release_date: '2000-01-01'}
+    ]
+    assert.deepEqual(pickSearchResults(results, null).map(item => item.mediaId), [2, 3, 4])
+    assert.deepEqual(pickSearchResults(results, 'tv').map(item => item.mediaId), [3, 2, 4])
+    assert.deepEqual(pickSearchResults(results, 'movie')[0], {mediaId: 2, mediaType: 'movie', title: 'Новая эра', year: '2026', source: 'search'})
+    assert.equal(pickSearchResults(results, null)[2]!.year, null)
+    assert.deepEqual(pickSearchResults(undefined as any, null), [])
 })

@@ -2,13 +2,20 @@ import {Markup} from 'telegraf'
 import {IG_CAMPAIGN} from '#server/bot/callbacks/routes'
 import {ADMIN_TELEGRAM_ID} from '#server/global/oneLinkApp'
 import {listRecentMedia, graphFailureText} from '#server/global/engine/instagram/comments/graph'
-import {igCommentsMode, rankCandidates, REPLY_WINDOW_MS, type Candidate, type JobForMatch} from '#server/global/engine/instagram/comments/plan'
+import {
+    captionMediaType, captionTitles, igCommentsMode, parseTmdbReference, pickSearchResults, rankCandidates, REPLY_WINDOW_MS,
+    type Candidate, type JobForMatch
+} from '#server/global/engine/instagram/comments/plan'
+import {tmdbGet} from '#server/global/engine/collections/tmdb'
+import type {IgMediaType} from '#server/global/engine/instagram/comments/messages'
 
 /**
  * Кампании «СОХРАНИТЬ»: Reel ↔ фильм. Reels выкладываются вручную (reelTarget = telegram_manual),
  * id Reel в задаче нет — таймер находит новые Reels аккаунта сам и спрашивает администратора,
- * тот ли это фильм (лучший вариант по подписи из reel_processing_jobs): «Да» / «Нет». Нет ответа 5 минут —
- * включается само с этим фильмом (решение владельца 23.11: «СОХРАНИТЬ» работает под каждым Reel).
+ * тот ли это фильм: «Да» / «Нет». Вариант — ролик бота с похожей подписью (reel_processing_jobs), а если Reel
+ * собран мимо бота — название в кавычках из подписи, найденное в TMDB. Нет ответа 5 минут — включается само
+ * (решение владельца 23.11: «СОХРАНИТЬ» работает под каждым Reel). Ответ на вопрос названием или ссылкой TMDB
+ * привязывает Reel к этому фильму (и исправляет неверный).
  */
 export type CampaignRow = {
     id: string
@@ -38,6 +45,33 @@ const loadRecentJobs = async (supabase: any): Promise<Array<JobForMatch & {title
     return (data ?? []).map((job: any) => ({...job, title: jobTitle(job)}))
 }
 
+const REPLY_HINT = 'Не тот фильм — ответьте на это сообщение названием или ссылкой TMDB.'
+
+const candidateNote = (candidate: Candidate) => {
+    const parts = [candidate.mediaType === 'tv' ? 'сериал' : 'фильм', candidate.year].filter(Boolean)
+    return candidate.source === 'search' || candidate.source === 'manual' ? ` (${parts.join(', ')}, по TMDB)` : ''
+}
+
+/** TMDB search/multi по названию (ru-RU) → до трёх вариантов; сбой TMDB — пусто (спросим администратора). */
+export const searchCandidates = async (query: string, preferType: IgMediaType | null = null): Promise<Candidate[]> => {
+    try {
+        const data = await tmdbGet<{results?: any[]}>(`search/multi?query=${encodeURIComponent(query)}&language=ru-RU&include_adult=false&page=1`)
+        return pickSearchResults(data.results ?? [], preferType)
+    } catch (error: any) {
+        console.warn('[IG CAMPAIGN] поиск в TMDB не удался', error?.message ?? error)
+        return []
+    }
+}
+
+/** Reel собран мимо бота: ищем в TMDB названия в кавычках из подписи. */
+const candidatesFromCaption = async (caption: string | null | undefined): Promise<Candidate[]> => {
+    for (const title of captionTitles(caption)) {
+        const found = await searchCandidates(title, captionMediaType(caption))
+        if (found.length) return found
+    }
+    return []
+}
+
 /** Через сколько без ответа администратора кампания включается сама. */
 export const AUTO_APPROVE_MS = 5 * 60_000
 
@@ -49,8 +83,9 @@ export const campaignAdminText = (campaign: Pick<CampaignRow, 'permalink' | 'pub
         ...(campaign.permalink ? [campaign.permalink] : []),
         '',
         candidate
-            ? `Это «${candidate.title}»? Без ответа через 5 минут «СОХРАНИТЬ» включится само.${mode === 'log' ? ' (Режим log: комментарии только записываются.)' : ''}`
-            : 'Фильм по подписи не нашёлся — «СОХРАНИТЬ» под этим Reel не включится.'
+            ? `Это «${candidate.title}»${candidateNote(candidate)}? ${candidate.source ? 'Без ответа через 5 минут «СОХРАНИТЬ» включится само.' : ''}${mode === 'log' ? ' (Режим log: комментарии только записываются.)' : ''}`.trimEnd()
+            : 'Фильм по подписи не нашёлся.',
+        candidate ? REPLY_HINT : 'Ответьте на это сообщение названием фильма или ссылкой TMDB — «СОХРАНИТЬ» включится с ним.'
     ].join('\n')
 }
 
@@ -76,7 +111,8 @@ export const discoverReels = async (supabase: any, telegram: any, now: Date): Pr
     if (fresh.length) {
         const jobs = await loadRecentJobs(supabase)
         for (const reel of fresh) {
-            const candidates = rankCandidates(reel, jobs, job => (job as any).title)
+            const matched = rankCandidates(reel, jobs, job => (job as any).title)
+            const candidates = matched.length ? matched : await candidatesFromCaption(reel.caption)
             const {error: insertError} = await supabase.from('instagram_campaigns').upsert({
                 instagram_media_id: reel.id,
                 permalink: reel.permalink ?? null,
@@ -164,7 +200,7 @@ export const autoApproveCampaigns = async (supabase: any, telegram: any, now: Da
     let approved = 0
     for (const campaign of data ?? []) {
         const candidate = (campaign.candidates as Candidate[] | null)?.[0]
-        if (!candidate) continue
+        if (!candidate?.source) continue
         const nowIso = now.toISOString()
         const {data: updated, error: updateError} = await supabase.from('instagram_campaigns')
             .update({status: 'active', media_id: candidate.mediaId, media_type: candidate.mediaType, title: candidate.title, next_poll_at: nowIso, updated_at: nowIso})
@@ -184,6 +220,52 @@ export const decidedText = (campaign: {status: string, title?: string | null, pe
     const link = campaign.permalink ?? ''
     if (campaign.status === 'ignored') return `🚫 Без «СОХРАНИТЬ»\n${link}`
     if (campaign.status === 'completed') return `🏁 «СОХРАНИТЬ» по «${campaign.title ?? 'Reel'}» завершено\n${link}`
-    if (campaign.status === 'active') return `✅ «${campaign.title}» — «СОХРАНИТЬ» включено${auto ? ' (без ответа за 5 минут)' : ''}${mode === 'log' ? ', режим log' : ''}\n${link}`
+    if (campaign.status === 'active') return `✅ «${campaign.title}» — «СОХРАНИТЬ» включено${auto ? ' (без ответа за 5 минут)' : ''}${mode === 'log' ? ', режим log' : ''}\n${link}\n${REPLY_HINT}`
     return `📸 Reel ждёт решения\n${link}`
+}
+
+export type LinkByReplyResult = {reply: string, questionText?: string}
+
+/**
+ * Ответ администратора на вопрос о Reel (reply на сообщение бота): ссылка/номер TMDB или название.
+ * Привязывает Reel к фильму и включает «СОХРАНИТЬ» — из «ждёт», «без СОХРАНИТЬ» и включённой (исправить фильм).
+ * null — сообщение не про кампанию (ответ на другое сообщение бота).
+ */
+export const linkCampaignByReply = async (supabase: any, adminMessageId: number, text: string, mode = igCommentsMode()): Promise<LinkByReplyResult | null> => {
+    const {data: campaign, error} = await supabase.from('instagram_campaigns').select('id,status,permalink,next_poll_at')
+        .eq('admin_message_id', adminMessageId).maybeSingle()
+    if (error) throw error
+    if (!campaign) return null
+    if (campaign.status === 'completed') return {reply: '🏁 Кампания по этому Reel уже завершена (прошло 30 дней) — привязывать поздно.'}
+
+    let candidate: Candidate | null = null
+    const reference = parseTmdbReference(text)
+    if (reference) {
+        try {
+            const media = await tmdbGet<any>(`${reference.mediaType}/${reference.mediaId}?language=ru-RU`)
+            candidate = {
+                ...reference, title: String(media.title || media.name || `${reference.mediaType} ${reference.mediaId}`),
+                year: String(media.release_date || media.first_air_date || '').slice(0, 4) || null, source: 'manual'
+            }
+        } catch {
+            return {reply: `Не нашёл в TMDB ${reference.mediaType === 'tv' ? 'сериал' : 'фильм'} с номером ${reference.mediaId}. Проверьте ссылку.`}
+        }
+    } else {
+        const found = await searchCandidates(text.trim())
+        if (found[0]) candidate = {...found[0], source: 'manual'}
+    }
+    if (!candidate) return {reply: `Не нашёл «${text.trim().slice(0, 60)}» в TMDB. Пришлите ссылку вида themoviedb.org/movie/12345.`}
+
+    const nowIso = new Date().toISOString()
+    const {data: updated, error: updateError} = await supabase.from('instagram_campaigns').update({
+        status: 'active', media_id: candidate.mediaId, media_type: candidate.mediaType, title: candidate.title,
+        candidates: [candidate], next_poll_at: campaign.status === 'active' ? campaign.next_poll_at : nowIso, updated_at: nowIso
+    }).eq('id', campaign.id).neq('status', 'completed').select('id,status,title,permalink')
+    if (updateError) throw updateError
+    if (!updated?.length) return {reply: '🏁 Кампания по этому Reel уже завершена — привязывать поздно.'}
+    const note = candidateNote(candidate)
+    return {
+        reply: `✅ Reel привязан к «${candidate.title}»${note} — «СОХРАНИТЬ» включено.${reference ? '' : ' Если не тот — пришлите ссылку TMDB.'}`,
+        questionText: decidedText(updated[0], mode)
+    }
 }

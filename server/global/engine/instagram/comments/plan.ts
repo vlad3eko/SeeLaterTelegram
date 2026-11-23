@@ -12,7 +12,12 @@ export const REPLY_WINDOW_MS = 7 * DAY
 /** Повторное чтение последних 15 минут: комментарий мог появиться между страницами. */
 export const OVERLAP_MS = 15 * 60_000
 
-export type Candidate = {mediaId: number, mediaType: IgMediaType, title: string}
+/**
+ * Вариант фильма для Reel. source — откуда: caption (похожая подпись ролика бота), search (название из подписи
+ * найдено в TMDB), manual (администратор ответил на вопрос). Сама кампания включается только с вариантом,
+ * у которого есть source: у старых записей без него подпись могла не совпадать вовсе.
+ */
+export type Candidate = {mediaId: number, mediaType: IgMediaType, title: string, year?: string | null, source?: 'caption' | 'search' | 'manual'}
 export type JobForMatch = {media_id: number, media_type: IgMediaType, instagram_caption: string | null, published_at: string | null, title?: string | null}
 
 const words = (text: string | null | undefined) =>
@@ -27,15 +32,54 @@ export const captionSimilarity = (reelCaption: string | null | undefined, jobCap
     return common / Math.min(reel.size, job.size)
 }
 
+/** Названия в кавычках «…» из подписи Reel (так пишутся все подписи: «Ждёте фильм «Новая эра»?»), до двух. */
+export const captionTitles = (caption: string | null | undefined): string[] =>
+    [...String(caption ?? '').matchAll(/«([^«»\n]{1,100})»/g)].map(match => match[1]!.trim()).filter(Boolean).slice(0, 2)
+
+/** Тип по слову в подписи: «сериал» → tv, «фильм» → movie, иначе неизвестно. */
+export const captionMediaType = (caption: string | null | undefined): IgMediaType | null => {
+    const text = String(caption ?? '').toLowerCase()
+    if (/сериал|сезон|серии/.test(text)) return 'tv'
+    if (/фильм|кино|премьер/.test(text)) return 'movie'
+    return null
+}
+
+/** Ссылка или номер TMDB из ответа администратора: themoviedb.org/movie/123-…, «tv 1399», «фильм 27205». */
+export const parseTmdbReference = (text: string): {mediaType: IgMediaType, mediaId: number} | null => {
+    const link = text.match(/themoviedb\.org\/(movie|tv)\/(\d+)/i)
+    if (link) return {mediaType: link[1]!.toLowerCase() as IgMediaType, mediaId: Number(link[2])}
+    const plain = text.trim().match(/^(movie|tv|фильм|сериал)\s+(\d+)$/i)
+    if (!plain) return null
+    return {mediaType: /^(tv|сериал)$/i.test(plain[1]!) ? 'tv' : 'movie', mediaId: Number(plain[2])}
+}
+
+/** Выдача TMDB search/multi → варианты: только фильмы и сериалы, сначала нужного типа, порядок TMDB, до трёх. */
+export const pickSearchResults = (results: any[], preferType: IgMediaType | null): Candidate[] => {
+    const items = (Array.isArray(results) ? results : [])
+        .filter(item => (item?.media_type === 'movie' || item?.media_type === 'tv') && item.id && (item.title || item.name))
+    const ordered = preferType ? [...items.filter(item => item.media_type === preferType), ...items.filter(item => item.media_type !== preferType)] : items
+    return ordered.slice(0, 3).map(item => ({
+        mediaId: Number(item.id),
+        mediaType: item.media_type as IgMediaType,
+        title: String(item.title || item.name),
+        year: String(item.release_date || item.first_air_date || '').slice(0, 4) || null,
+        source: 'search' as const
+    }))
+}
+
+/** Подпись Reel должна совпасть с подписью ролика бота хотя бы наполовину — иначе это не он. */
+export const MIN_CAPTION_SIMILARITY = 0.5
+
 /**
- * Варианты фильма для нового Reel: задачи, опубликованные за 3 дня до Reel, по похожести подписи,
- * при равенстве — ближе по времени. До трёх, без повторов фильма.
+ * Варианты фильма для нового Reel: задачи, опубликованные за 3 дня до Reel, с похожей подписью (не меньше
+ * MIN_CAPTION_SIMILARITY), по похожести, при равенстве — ближе по времени. До трёх, без повторов фильма.
  */
 export const rankCandidates = (reel: {caption?: string | null, timestamp: string}, jobs: JobForMatch[], titleOf: (job: JobForMatch) => string): Candidate[] => {
     const reelAt = Date.parse(reel.timestamp)
     const scored = jobs
         .filter(job => job.published_at && Math.abs(reelAt - Date.parse(job.published_at)) <= 3 * DAY)
         .map(job => ({job, score: captionSimilarity(reel.caption, job.instagram_caption), distance: Math.abs(reelAt - Date.parse(job.published_at!))}))
+        .filter(item => item.score >= MIN_CAPTION_SIMILARITY)
         .sort((a, b) => b.score - a.score || a.distance - b.distance)
     const seen = new Set<string>()
     const result: Candidate[] = []
@@ -43,7 +87,7 @@ export const rankCandidates = (reel: {caption?: string | null, timestamp: string
         const key = `${job.media_type}:${job.media_id}`
         if (seen.has(key)) continue
         seen.add(key)
-        result.push({mediaId: Number(job.media_id), mediaType: job.media_type, title: titleOf(job)})
+        result.push({mediaId: Number(job.media_id), mediaType: job.media_type, title: titleOf(job), source: 'caption'})
         if (result.length === 3) break
     }
     return result

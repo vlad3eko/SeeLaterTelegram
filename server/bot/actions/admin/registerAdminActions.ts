@@ -11,6 +11,7 @@ import {adminEditTypeCard} from "#server/bot/actions/admin/card/adminEditTypeCar
 import {adminDownloadTrailer} from "#server/bot/actions/admin/session/mods/adminDownloadTrailer";
 import {adminAddTrailerKey} from "#server/bot/actions/admin/session/adminAddTrailerKey";
 import {isAdmin} from "#server/bot/consts/admins";
+import {handleCampaignReply} from "#server/bot/actions/admin/instagramCampaignReply";
 import {adminChooseVideoType} from "#server/bot/actions/admin/session/adminChooseVideoType";
 import {
     ADMIN_CHANGE_TRAILER_KEY,
@@ -103,6 +104,11 @@ export const registerAdminActions = (bot: Telegraf) => {
 
         // «✍️ Свой вариант» хука: если задача ждёт текст, сообщение становится хуком.
         if (await handleCustomHookText(ctx)) {
+            return
+        }
+
+        // Ответ на вопрос о новом Reel названием или ссылкой TMDB — привязка фильма к «СОХРАНИТЬ».
+        if (await handleCampaignReply(ctx)) {
             return
         }
 
