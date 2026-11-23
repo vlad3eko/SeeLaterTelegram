@@ -55,7 +55,7 @@ test('Direct: шаги, ссылка, сериал/фильм и лимит 1000
     assert.equal(savedDirectText({title: 'Шогун', mediaType: 'tv', releaseDate: '2024-02-27', today: '2026-11-23', already: true}).split('\n')[0],
         '✅ Сериал «Шогун» уже в вашей коллекции. Напомним о новых сериях.')
     assert.equal(savedDirectText({title: 'Начало', mediaType: 'movie', releaseDate: '2010-07-15', today: '2026-11-23'}).split('\n')[0],
-        '✅ Фильм «Начало» сохранили в вашу коллекцию.')
+        '✅ Фильм «Начало» добавили в вашу коллекцию. Смотрите обновления в боте.')
     assert.equal(linkCommentReply('movie'), 'Готово! Ссылка на фильм уже у вас в Direct 🎬 Подпишитесь на нас — тогда сообщения будут приходить сразу во входящие.')
 })
 
@@ -307,9 +307,11 @@ test('ответ под комментарием привязанному: на�
     assert.equal(savedCommentReply({title: 'Новая эра', mediaType: 'movie', releaseDate: '2026-12-03', today}),
         'Фильм «Новая эра» добавлен в вашу коллекцию в боте ✅ Напомним, когда он выйдет.')
     assert.equal(savedCommentReply({title: 'Начало', mediaType: 'movie', releaseDate: '2010-07-15', today}),
-        'Фильм «Начало» добавлен в вашу коллекцию в боте ✅')
+        'Фильм «Начало» добавили в вашу коллекцию ✅ Смотрите обновления в боте.')
     assert.equal(savedCommentReply({title: 'Начало', mediaType: 'movie', releaseDate: '2026-11-23', today}),
-        'Фильм «Начало» добавлен в вашу коллекцию в боте ✅', 'вышел сегодня — уже вышел')
+        'Фильм «Начало» добавили в вашу коллекцию ✅ Смотрите обновления в боте.', 'вышел сегодня — уже вышел')
+    assert.equal(savedCommentReply({title: 'Начало', mediaType: 'movie', releaseDate: '2010-07-15', today, already: true}),
+        'Фильм «Начало» уже в вашей коллекции ✅ Смотрите обновления в боте.')
     assert.equal(savedCommentReply({title: 'Без даты', mediaType: 'movie', releaseDate: null, today}),
         'Фильм «Без даты» добавлен в вашу коллекцию в боте ✅ Напомним, когда он выйдет.')
     assert.equal(savedCommentReply({title: 'Шогун', mediaType: 'tv', releaseDate: '2024-02-27', today, already: true}),

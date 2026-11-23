@@ -44,19 +44,24 @@ export const linkCommentReply = (mediaType: IgMediaType): string =>
 
 /**
  * Instagram уже привязан к Telegram: тайтл сохранён сразу. Напоминание обещаем, только если тайтл ещё не вышел
- * (даты нет — тоже не вышел); вышедший сериал — о новых сериях, вышедший фильм — без обещаний.
+ * (даты нет — тоже не вышел); вышедший сериал — о новых сериях; вышедший фильм — «добавили в вашу коллекцию,
+ * смотрите обновления в боте» (решение владельца 23.11).
  * today — дата по Москве (YYYY-MM-DD), releaseDate — из TMDB (favorites.release_date).
  */
 type SavedText = {title: string | null, mediaType: IgMediaType, releaseDate: string | null, already?: boolean, today: string}
 
-const savedRemind = ({mediaType, releaseDate, today}: SavedText): string => {
-    if (!releaseDate || releaseDate.slice(0, 10) > today) return ' Напомним, когда он выйдет.'
-    return mediaType === 'tv' ? ' Напомним о новых сериях.' : ''
+const isReleased = ({releaseDate, today}: SavedText): boolean => Boolean(releaseDate) && releaseDate!.slice(0, 10) <= today
+const isReleasedMovie = (text: SavedText): boolean => text.mediaType === 'movie' && isReleased(text)
+
+const savedRemind = (text: SavedText): string => {
+    if (!isReleased(text)) return ' Напомним, когда он выйдет.'
+    return text.mediaType === 'tv' ? ' Напомним о новых сериях.' : ' Смотрите обновления в боте.'
 }
 
-const savedHead = ({title, mediaType, already}: SavedText): string => {
-    const what = `${mediaType === 'tv' ? 'Сериал' : 'Фильм'} «${shortTitle(title)}»`
-    return already ? `${what} уже в вашей коллекции в боте ✅` : `${what} добавлен в вашу коллекцию в боте ✅`
+const savedHead = (text: SavedText): string => {
+    const what = `${text.mediaType === 'tv' ? 'Сериал' : 'Фильм'} «${shortTitle(text.title)}»`
+    if (text.already) return `${what} уже в вашей коллекции${isReleasedMovie(text) ? '' : ' в боте'} ✅`
+    return isReleasedMovie(text) ? `${what} добавили в вашу коллекцию ✅` : `${what} добавлен в вашу коллекцию в боте ✅`
 }
 
 /** Ответ под комментарием привязанному. */
@@ -64,7 +69,7 @@ export const savedCommentReply = (text: SavedText): string => savedHead(text) + 
 
 /** Direct привязанному: то же, что пишет бот, и ссылка на бота — перейти из Instagram в Telegram в одно нажатие. */
 export const savedDirectText = (text: SavedText): string => [
-    `✅ ${text.mediaType === 'tv' ? 'Сериал' : 'Фильм'} «${shortTitle(text.title)}» ${text.already ? 'уже в вашей коллекции' : 'сохранили в вашу коллекцию'}.${savedRemind(text)}`,
+    `✅ ${text.mediaType === 'tv' ? 'Сериал' : 'Фильм'} «${shortTitle(text.title)}» ${text.already ? 'уже в вашей коллекции' : isReleasedMovie(text) ? 'добавили в вашу коллекцию' : 'сохранили в вашу коллекцию'}.${savedRemind(text)}`,
     '',
     'Коллекция и напоминания — в Telegram-боте Киноманов:',
     telegramBotShortLink
