@@ -99,6 +99,9 @@ const seoImage = computed(() => {
   return path ? `https://image.tmdb.org/t/p/w1280${path}` : undefined
 })
 
+// Крошка — название тайтла без года и типа
+useCrumbLabel(() => (data.value as any)?.title || (data.value as any)?.name)
+
 useSeoMeta({
   title: seoTitle,
   ogTitle: seoTitle,

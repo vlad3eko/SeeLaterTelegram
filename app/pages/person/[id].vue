@@ -7,7 +7,7 @@
     <div class="grid grid-cols-1 md:grid-cols-[300px_minmax(0,1fr)] gap-6 md:gap-10">
 
       <!-- SIDEBAR -->
-      <div class="md:sticky top-5 h-max">
+      <div class="md:sticky top-[calc(var(--site-chrome-h,0px)+1.25rem)] h-max">
 
         <div class="bg-shell rounded-3xl overflow-hidden shadow-2xl mx-auto max-w-[300px] ">
 
@@ -126,6 +126,8 @@ const seoDescription = computed(() => {
 })
 const seoImage = computed(() =>
     data.value?.profile_path ? `https://image.tmdb.org/t/p/w780${data.value.profile_path}` : undefined)
+
+useCrumbLabel(() => seoTitle.value)
 
 useSeoMeta({
   title: seoTitle,

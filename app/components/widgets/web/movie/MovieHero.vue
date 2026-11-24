@@ -2,7 +2,7 @@
 <template>
   <!-- На телефоне постер не шире экрана (было w-100 = 400px — страница уезжала вбок) -->
   <div class="w-full max-w-sm mx-auto lg:max-w-none lg:mx-0">
-    <div class="lg:sticky lg:top-5">
+    <div class="lg:sticky lg:top-[calc(var(--site-chrome-h,0px)+1.25rem)]">
 
       <!-- POSTER -->
       <div class="overflow-hidden rounded-2xl shadow-2xl relative">

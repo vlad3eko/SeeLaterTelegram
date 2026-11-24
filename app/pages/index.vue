@@ -148,6 +148,9 @@ const startGenre = () => {
 watch(browseKey, startGenre)
 onMounted(startGenre)
 
+// Крошка: «Главная» или выбранный жанр
+useCrumbLabel(() => mode.value === 'genre' && genreTitle.value ? genreTitle.value : 'Главная')
+
 useSeoMeta({
   title: computed(() => mode.value === 'genre' ? genreTitle.value : ''),
 })
