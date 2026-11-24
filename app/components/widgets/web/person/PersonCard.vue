@@ -27,6 +27,7 @@
                text-center text-sm text-white font-medium
                line-clamp-2">
       {{ item.name }}
+      <span v-if="role" class="block text-xs text-white/70 font-normal line-clamp-1">{{ role }}</span>
     </p>
   </NuxtLink>
 </template>
@@ -36,7 +37,8 @@ import type {TmdbPerson} from "~/types/tmdb.person.types";
 import {createSlug} from "~/utils/createSlug";
 
 interface Props {
-  item: TmdbPerson
+  item: TmdbPerson & { character?: string }
+  mode?: string
 }
 
 const formatRating = computed(() => {
@@ -44,6 +46,9 @@ const formatRating = computed(() => {
 })
 
 const props = defineProps<Props>()
+
+// Роль в фильме: у актёра — персонаж (в mode='search' — секции съёмочной группы, там роль уже в заголовке).
+const role = computed(() => props.mode === 'search' ? '' : (props.item.character || '').trim())
 
 const formatLink = computed<string>(() => {
   return `/person/${createSlug(props.item.id, props.item.name)}`

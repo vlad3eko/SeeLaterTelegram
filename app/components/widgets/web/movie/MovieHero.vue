@@ -1,7 +1,8 @@
 
 <template>
-  <div class="w-full mx-auto lg:mx-0 max-md:w-100 max-lg:w-100">
-    <div class="sticky top-5">
+  <!-- На телефоне постер не шире экрана (было w-100 = 400px — страница уезжала вбок) -->
+  <div class="w-full max-w-sm mx-auto lg:max-w-none lg:mx-0">
+    <div class="lg:sticky lg:top-5">
 
       <!-- POSTER -->
       <div class="overflow-hidden rounded-2xl shadow-2xl relative">
@@ -32,20 +33,21 @@
 
         <div class="absolute bottom-3 right-3 flex gap-3">
 
-           <span @click="handleAddMovie"
-                 class="material-symbols-outlined
-            cursor-pointer hover:scale-125
-            transition text-primary">
+          <button type="button"
+                  @click="handleAddMovie"
+                  :disabled="favoriteBusy"
+                  :title="isSaved ? 'Убрать из сохранённых' : 'Сохранить'"
+                  :aria-pressed="isSaved"
+                  class="material-symbols-outlined cursor-pointer hover:scale-125 transition text-primary disabled:opacity-50"
+                  :style="{fontVariationSettings: isSaved ? `'FILL' 1` : `'FILL' 0`}">
             favorite
-          </span>
-          <span @click="handleAddMovie"
-                class="material-symbols-outlined
-             cursor-pointer hover:scale-125
-             transition text-white">
-              playlist_add
-          </span>
+          </button>
         </div>
       </div>
+      <p v-if="favoriteMessage"
+         class="text-center text-sm mt-2 text-accent-foreground bg-shell/80 rounded-xl px-3 py-1">
+        {{ favoriteMessage }}
+      </p>
       <div class="flex justify-center">
         <p class="text-accent-foreground w-max bg-shell px-5 py-1 pb-1 rounded-b-2xl text-center ">
           <span>Дата выхода: </span>
@@ -70,6 +72,9 @@ import {mediaReleaseConvert} from "~/utils/convert/mediaConvert";
 const {
   data,
   handleAddMovie,
+  isSaved,
+  favoriteBusy,
+  favoriteMessage,
 } = useMovieDetails()
 
 </script>

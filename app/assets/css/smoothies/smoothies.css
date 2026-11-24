@@ -25,13 +25,14 @@ nav h1 {
     padding: 20px;
 }
 
-/* media grid */
+/* media grid: адаптивная сетка — 2 колонки на телефоне, до 6 на широком экране; карточки тянутся по ширине колонки */
 .media-grid {
-     @apply flex flex-wrap gap-3 relative w-full max-md:justify-center
+    @apply grid grid-cols-2 gap-3 relative w-full px-3
+    sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 2xl:grid-cols-6 md:gap-4
 }
 
 .media-card {
-    @apply w-65
+    @apply w-full min-w-0
 }
 
 .card {
@@ -39,10 +40,6 @@ nav h1 {
     box-sizing: border-box;
     border-radius: 6px;
     @apply max-w-[160px]
-}
-
-.media-card .rating {
-    @apply absolute top-3 bg-accent/80 text-accent-foreground px-3 py-1 rounded-full text-sm font-bold
 }
 
 /* forms */

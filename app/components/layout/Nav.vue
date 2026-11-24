@@ -1,15 +1,19 @@
 
 <template>
-  <div class="text-accent-foreground bg-accent py-3 text-center">
-    <ul class="flex gap-6 justify-center items-center">
+  <!-- Шапка: на телефоне переносится в две строки, ничего не обрезается -->
+  <!-- div, не nav: в smoothies.css глобальный стиль nav (фон, отступы) перебивает утилиты -->
+  <div role="navigation" class="text-accent-foreground bg-accent py-2 md:py-3 px-3">
+    <ul class="flex flex-wrap gap-x-4 gap-y-2 md:gap-6 justify-center items-center">
       <li>
-        <NuxtLink to="/" class="text-xl uppercase font-bold text-primary hover:text-focus">Главная</NuxtLink>
+        <NuxtLink to="/" class="text-base md:text-xl uppercase font-bold text-primary hover:text-focus">Главная</NuxtLink>
       </li>
       <li>
-        <NuxtLink to="/bookmarks" class="text-xl uppercase font-bold text-primary hover:text-focus">Сохранённые
+        <NuxtLink to="/bookmarks" class="text-base md:text-xl uppercase font-bold text-primary hover:text-focus">Сохранённые
         </NuxtLink>
       </li>
-      <ThemeSelect/>
+      <li>
+        <ThemeSelect/>
+      </li>
       <Auth/>
     </ul>
   </div>

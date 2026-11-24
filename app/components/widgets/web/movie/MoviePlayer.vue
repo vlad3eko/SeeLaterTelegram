@@ -2,9 +2,12 @@
 <template>
   <div v-if="trailer" class="overflow-hidden rounded-2xl bg-shell shadow-2xl ">
     <div class="relative md:h-[450px]">
-      <Loader v-if="!trailerL" class="absolute left-1/2 top-1/2 w-10 -translate-x-1/2 -translate-y-1/2"/>
+      <Loader v-if="!iframeLoaded" class="absolute left-1/2 top-1/2 w-10 -translate-x-1/2 -translate-y-1/2"/>
       <iframe class="w-full h-full aspect-video"
               :src="selectTrailer"
+              :key="selectTrailer"
+              @load="iframeLoaded = true"
+              allow="autoplay; encrypted-media; picture-in-picture"
               allowfullscreen/>
     </div>
 
@@ -37,9 +40,9 @@ const groupedTrailers = computed(() => {
   const trailersSort: TmdbTrailer[] = []
   const mediaAbout: TmdbTrailer[] = []
 
-  data.value?.trailers.filter(
+  data.value?.trailers?.forEach(
       item => {
-        const name = item.name.toLowerCase()
+        const name = (item.name || '').toLowerCase()
 
         if (
             name.includes('трейлер') ||
@@ -80,7 +83,12 @@ const selectTrailer = computed(
         }?rel=0&modestbranding=1`
 )
 
+// Индикатор загрузки: сбрасывается при смене ролика, снимается по load у iframe.
+const iframeLoaded = ref(false)
+watch(selectTrailer, () => iframeLoaded.value = false)
+
 const trailerL = (key: string) => {
+  if (key === (selectedKey.value || defaultTrailerKey.value)) return
   selectedKey.value = key
 }
 

@@ -45,7 +45,9 @@ export default defineEventHandler(async (event) => {
         buildCacheKey(
             endpoint,
             {
-                id: personId
+                id: personId,
+                // v2: в ответ вернулись images и external_ids (страница персоны)
+                v: 2
             }
         )
 
@@ -91,7 +93,7 @@ export default defineEventHandler(async (event) => {
     ] = await Promise.all([
 
         fetch(
-            `https://api.themoviedb.org/3/person/${personId}?${params}`,
+            `https://api.themoviedb.org/3/person/${personId}?append_to_response=images,external_ids&${params}`,
             {
                 headers
             }

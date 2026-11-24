@@ -1,5 +1,7 @@
-
+// userId = 0: у сайта нет telegram id — история поиска бота не пишется.
 import {engineSearch} from "#server/global/engine/search/engineSearch";
+
+const itemKey = (item: any) => `${item.media_type}-${item.id}`
 
 export const useTmdbSearch = () => {
 
@@ -9,68 +11,72 @@ export const useTmdbSearch = () => {
     const totalPages = ref(1)
     const pending = ref(false)
 
+    // Номер текущего поиска: ответ устаревшего запроса (пользователь уже ищет другое) отбрасывается.
+    let searchId = 0
+    let lastQuery = ''
+
+    const appendUnique = (items: any[]) => {
+        const seen = new Set(movies.value.map(itemKey))
+        for (const item of items || []) {
+            const key = itemKey(item)
+            if (seen.has(key)) continue
+            seen.add(key)
+            movies.value.push(item)
+        }
+    }
+
     const searchMovies = async () => {
-        if (!searchInput.value.trim()) {
-            movies.value = []
+        const query = searchInput.value.trim()
+
+        const id = ++searchId
+
+        // Новый поиск всегда заменяет прежнюю выдачу.
+        movies.value = []
+        page.value = 1
+        totalPages.value = 1
+        lastQuery = query
+
+        if (!query) {
+            pending.value = false
             return
         }
 
         pending.value = true
 
         try {
+            const result: any = await engineSearch(query, 1, 0)
 
-            page.value = 1
+            if (id !== searchId) return
 
-            const result:any = await engineSearch(
-                searchInput.value,
-                page.value
-            )
-
-            const newResults =
-                result.results.filter(
-                    (item:any)=>
-                        !movies.value.some(
-                            old =>
-                                old.id === item.id &&
-                                old.media_type === item.media_type
-                        )
-                )
-
-
-            movies.value.push(...newResults)
-            totalPages.value =
-                result.total_pages || 1
-
+            appendUnique(result?.results || [])
+            totalPages.value = result?.total_pages || 1
+        } catch (error) {
+            console.error('[WEB SEARCH ERROR]', error)
         } finally {
-            pending.value = false
+            if (id === searchId) pending.value = false
         }
     }
 
     const loadMore = async () => {
 
-        if (pending.value)
-            return
+        if (pending.value || !lastQuery) return
+        if (page.value >= totalPages.value) return
 
-        if (page.value >= totalPages.value)
-            return
-
+        const id = searchId
         pending.value = true
 
         try {
+            const nextPage = page.value + 1
+            const result: any = await engineSearch(lastQuery, nextPage, 0)
 
-            page.value++
+            if (id !== searchId) return
 
-            const result:any = await engineSearch(
-                searchInput.value,
-                page.value
-            )
-
-            movies.value.push(
-                ...(result.results || [])
-            )
-
+            page.value = nextPage
+            appendUnique(result?.results || [])
+        } catch (error) {
+            console.error('[WEB SEARCH MORE ERROR]', error)
         } finally {
-            pending.value = false
+            if (id === searchId) pending.value = false
         }
     }
 

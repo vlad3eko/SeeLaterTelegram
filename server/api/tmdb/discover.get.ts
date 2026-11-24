@@ -31,6 +31,12 @@ export default defineEventHandler(async (event) => {
         )
     }
 
+    // Страна производства (ISO 3166-1, две буквы) — каталог сайта «фильмы и сериалы страны».
+    const originCountry = /^[A-Za-z]{2}$/.test(String(query.with_origin_country || ''))
+        ? String(query.with_origin_country).toUpperCase()
+        : undefined
+    if (originCountry) params.append('with_origin_country', originCountry)
+
     if (query.primary_release_year) {
         if (media === 'movie') {
             params.append('primary_release_year', String(query.primary_release_year))
@@ -50,6 +56,7 @@ export default defineEventHandler(async (event) => {
         with_genres: query.with_genres,
         primary_release_year: query.primary_release_year,
         sort_by: query.sort_by,
+        with_origin_country: originCountry,
     })
 
     const cache = await getCache(event, cacheKey)

@@ -1,9 +1,10 @@
 
 <template>
   <Loader v-if="pending"/>
-  <div v-if="!pending && data" class=" px-4 py-16 mx-10">
+  <div v-if="!pending && data" class="px-3 md:px-8 lg:px-14 py-6 md:py-16">
 
-    <div class="grid md:grid-cols-[300px_1fr] gap-10">
+    <!-- minmax(0,1fr): колонка не растягивается под ширину слайдеров (на телефоне страница уезжала вбок) -->
+    <div class="grid grid-cols-1 md:grid-cols-[300px_minmax(0,1fr)] gap-6 md:gap-10">
 
       <!-- SIDEBAR -->
       <div class="md:sticky top-5 h-max">
@@ -15,7 +16,7 @@
               class="w-full object-cover max-md:max-h-[300px]"
           />
 
-          <div class="p-6 flex flex-col gap-5">
+          <div class="p-4 md:p-6 flex flex-col gap-5">
 
             <div>
               <h2 class="text-3xl font-bold">
@@ -35,11 +36,19 @@
               </div>
 
               <div class="bg-panel rounded-xl p-4">
-                Рейтинг популярости: {{ data?.popularity }}
+                Популярность на TMDB: {{ FormatRating(data?.popularity) }}
               </div>
 
               <div class="bg-panel rounded-xl p-4">
                 Место рождения: {{ data?.place_of_birth }}
+              </div>
+
+              <div v-if="socialLinks.length" class="bg-panel rounded-xl p-4 flex flex-wrap gap-2">
+                <a v-for="link in socialLinks" :key="link.label"
+                   :href="link.url" target="_blank" rel="noopener noreferrer"
+                   class="px-3 py-1 rounded-lg bg-shell hover:bg-primary hover:text-primary-foreground transition text-sm font-bold">
+                  {{ link.label }}
+                </a>
               </div>
 
               <div v-if="convertPersonLinkWebsite" class="bg-panel rounded-xl p-4">
@@ -57,15 +66,15 @@
 
       <!-- CONTENT -->
       <Transition v-if="!pending && data" name="fade" mode="out-in">
-        <div class="flex flex-wrap gap-6 overflow-hidden">
+        <div class="flex flex-wrap gap-6 overflow-hidden min-w-0">
 
-          <div v-if="data?.biography" class="bg-shell rounded-3xl p-8 md:col-span-2 w-full">
+          <div v-if="data?.biography" class="bg-shell rounded-3xl p-5 md:p-8 md:col-span-2 w-full">
 
-            <h2 class="text-4xl font-bold mb-6">
+            <h2 class="text-[18px] md:text-[22px] font-semibold mb-3 md:mb-4">
               Биография
             </h2>
 
-            <p class="leading-8  whitespace-pre-line">
+            <p class="leading-7 md:leading-8 whitespace-pre-line break-words">
               {{ data?.biography }}
             </p>
           </div>
@@ -92,6 +101,40 @@ const {
   pending,
   convertPersonLinkWebsite,
 } = useTmdbPerson()
+
+// Внешние профили из TMDB external_ids (приходят вместе с персоной).
+const socialLinks = computed(() => {
+  const ids: Record<string, string | null | undefined> = (data.value as any)?.external_ids || {}
+  const links = [
+    {label: 'IMDb', id: ids.imdb_id, url: (v: string) => `https://www.imdb.com/name/${v}/`},
+    {label: 'Instagram', id: ids.instagram_id, url: (v: string) => `https://www.instagram.com/${v}/`},
+    {label: 'X (Twitter)', id: ids.twitter_id, url: (v: string) => `https://x.com/${v}`},
+    {label: 'TikTok', id: ids.tiktok_id, url: (v: string) => `https://www.tiktok.com/@${v}`},
+    {label: 'YouTube', id: ids.youtube_id, url: (v: string) => `https://www.youtube.com/@${v}`},
+    {label: 'Facebook', id: ids.facebook_id, url: (v: string) => `https://www.facebook.com/${v}`},
+    {label: 'Wikidata', id: ids.wikidata_id, url: (v: string) => `https://www.wikidata.org/wiki/${v}`},
+  ]
+  return links
+      .filter(link => typeof link.id === 'string' && /^[\w.@-]+$/.test(link.id))
+      .map(link => ({label: link.label, url: link.url(link.id as string)}))
+})
+
+const seoTitle = computed(() => data.value?.name || '')
+const seoDescription = computed(() => {
+  const text = String(data.value?.biography || '').replace(/\s+/g, ' ').trim()
+  return text.length > 200 ? `${text.slice(0, 197)}…` : text
+})
+const seoImage = computed(() =>
+    data.value?.profile_path ? `https://image.tmdb.org/t/p/w780${data.value.profile_path}` : undefined)
+
+useSeoMeta({
+  title: seoTitle,
+  ogTitle: seoTitle,
+  description: seoDescription,
+  ogDescription: seoDescription,
+  ogImage: seoImage,
+  ogType: 'profile',
+})
 
 
 </script>

@@ -1,43 +1,57 @@
 
 <template>
+  <!--
+    Карточка тайтла: самодостаточна — одинаково выглядит в сетке, на полках и на странице персоны.
+    Слои: постер (2:3) → градиент снизу → бейджи и подпись (z-10, над градиентом).
+  -->
   <NuxtLink
       v-if="props.media"
       :to="formatLink"
-      class="relative rounded-xl">
+      class="group relative block w-full rounded-xl">
 
-    <div class="relative w-full flex flex-col">
-      <NuxtImg :src="computedImagesSrc" class="h-full object-cover w-full"/>
-      <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent pointer-events-none"/>
+    <!-- Постер обрезается по скруглению; карточка — нет (подсказка info выходит вправо) -->
+    <div class="relative overflow-hidden rounded-xl bg-shell">
+      <NuxtImg :src="computedImagesSrc"
+               :alt="formatTitle"
+               loading="lazy"
+               class="block w-full aspect-[2/3] object-cover transition duration-500 group-hover:scale-105"/>
 
+      <!-- Градиент: сверху лёгкий (под бейджи), снизу плотный (под название) -->
+      <div class="pointer-events-none absolute inset-0
+                  bg-gradient-to-t from-black/90 via-black/25 via-45% to-black/30"/>
+    </div>
 
-      <!--  Info    -->
-      <CatalogCardInfo :media="props.media" :show-info="props.showInfo"/>
-      <!--  Info    -->
+    <!--  Info    -->
+    <CatalogCardInfo :media="props.media" :show-info="props.showInfo"/>
+    <!--  Info    -->
 
-      <div>
-        <div v-if="media.vote_count"
-             class="ml-1 absolute top-3 left-0 bg-accent/80 text-accent-foreground px-3 py-1 rounded-full text-sm font-bold"
-             :class="statusClass">
-          {{ media.vote_count }}
-        </div>
-        <div
-            v-if="rating"
-            class="rating mr-1 right-0">
-          💎 {{ formatRating }}
-        </div>
-      </div>
+    <!-- Бейджи -->
+    <div class="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-2 p-2">
+      <!-- «Скоро»: невышедший тайтл (франшиза). Приглушённо, без ярких эффектов. -->
+      <span v-if="isUpcoming"
+            class="rounded-full bg-black/55 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-white/85 backdrop-blur-sm">
+        Скоро
+      </span>
+      <span v-else-if="media.vote_count"
+            class="rounded-full px-2.5 py-0.5 text-xs font-bold backdrop-blur-sm"
+            :class="statusClass">
+        {{ media.vote_count }}
+      </span>
+      <span v-else/>
+      <span v-if="formatRating"
+            class="rounded-full bg-black/60 px-2.5 py-0.5 text-xs font-bold text-white backdrop-blur-sm">
+        💎 {{ formatRating }}
+      </span>
+    </div>
 
-      <div
-          class="ml-1 absolute bottom-3 text-accent-foreground px-3 py-1 w-full font-bold text-center">
-        <p class="font-bold">
-          {{ formatTitle }}
-        </p>
-        <span v-if="date"
-              class=" text-info mt-1">
-            {{ formatDate }}
-          </span>
-      </div>
-
+    <!-- Подпись -->
+    <div class="pointer-events-none absolute inset-x-0 bottom-0 z-10 px-3 pb-3 text-center text-white">
+      <p class="font-bold leading-tight line-clamp-2 drop-shadow">
+        {{ formatTitle }}
+      </p>
+      <span v-if="formatDate" class="mt-0.5 block text-sm font-bold text-white/80">
+        {{ formatDate }}
+      </span>
     </div>
 
   </NuxtLink>
@@ -50,11 +64,14 @@ import type {TmdbMovieProps} from "~/types/tmdb.types";
 import {createSlug} from "~/utils/createSlug";
 import CatalogCardInfo from "~/components/widgets/web/catalog/CatalogCardInfo.vue";
 
-const props = defineProps<{
+// showInfo по умолчанию включён: «i» с краткой информацией есть на всех постерах (полки, персона, каталог).
+const props = withDefaults(defineProps<{
   media:any,
   showInfo?:boolean,
-  mode?:string
-}>()
+  mode?:string,
+  // Пометить невышедший тайтл бейджем «Скоро» (блок «Франшиза»).
+  markUpcoming?:boolean
+}>(), {showInfo: true})
 
 const title = computed(() => {
   return 'title' in props.media
@@ -66,6 +83,12 @@ const date = computed(() => {
   return 'release_date' in props.media
       ? props.media.release_date
       : props.media.first_air_date
+})
+
+const isUpcoming = computed(() => {
+  if (!props.markUpcoming) return false
+  const value = String(date.value || '')
+  return !value || value > new Date().toISOString().slice(0, 10)
 })
 
 const computedImagesSrc = computed(() => {
@@ -82,7 +105,7 @@ const computedImagesSrc = computed(() => {
 const statusClass = computed<string>(() => {
 
   if (props.mode === 'tmdb') {
-    return ''
+    return 'bg-black/60 text-white'
   }
 
   switch (props.media.status) {
@@ -97,7 +120,7 @@ const statusClass = computed<string>(() => {
       return 'bg-focus text-white'
 
     default:
-      return 'bg-panel text-info'
+      return 'bg-black/60 text-white'
   }
 })
 

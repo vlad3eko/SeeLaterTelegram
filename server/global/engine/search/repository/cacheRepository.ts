@@ -223,3 +223,62 @@ export const getPopular = async (
 
     return data ?? []
 }
+
+/**
+ * Пакетное чтение кэша одним запросом (живые записи по списку ключей): ключ → ответ.
+ * Для мелких записей, которых нужно много сразу (ключевые слова кандидатов «Похожих»).
+ */
+export const getCacheMany = async (
+    event: any,
+    cacheKeys: string[]
+): Promise<Map<string, any>> => {
+    const found = new Map<string, any>()
+    if (!cacheKeys.length) return found
+
+    const supabase = serverSupabaseServiceRole(event)
+    const {data, error} = await supabase
+        .from('tmdb_cache')
+        .select('cache_key, response_data')
+        .in('cache_key', cacheKeys)
+        .gt('expires_at', new Date().toISOString())
+
+    if (error) {
+        console.error('[CACHE] MANY ERROR', error.message)
+        return found
+    }
+
+    for (const row of data ?? []) found.set(row.cache_key, row.response_data)
+    console.log(`[CACHE] MANY ${found.size}/${cacheKeys.length}`)
+    return found
+}
+
+/** Пакетная запись в кэш одним upsert. */
+export const saveCacheMany = async (
+    event: any,
+    endpoint: string,
+    entries: Array<{cacheKey: string, response: any}>,
+    ttl: number
+) => {
+    if (!entries.length) return true
+
+    const supabase = serverSupabaseServiceRole(event)
+    const now = new Date()
+    const expires = new Date(now.getTime() + ttl * 24 * 60 * 60 * 1000).toISOString()
+
+    const {error} = await supabase
+        .from('tmdb_cache')
+        .upsert(entries.map(entry => ({
+            cache_key: entry.cacheKey,
+            endpoint,
+            response_data: entry.response,
+            expires_at: expires,
+            hits: 1,
+            last_hit_at: now.toISOString()
+        })), {onConflict: 'cache_key'})
+
+    if (error) {
+        console.error('[CACHE] SAVE MANY ERROR', error.message)
+        return false
+    }
+    return true
+}
